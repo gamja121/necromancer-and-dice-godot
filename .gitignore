@@ -1,0 +1,10 @@
+.godot/
+builds/
+*.log
+*.translation
+source_assets/
+.env
+.env.*
+!.env.example
+
+tests/

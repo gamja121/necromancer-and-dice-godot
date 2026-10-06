@@ -1,0 +1,1061 @@
+{
+  "units": {
+    "death-knight": {
+      "slug": "death-knight",
+      "name": "데스 나이트",
+      "hp": 14,
+      "attack": 3,
+      "speed": 3,
+      "grade": "hero",
+      "legions": [
+        "demon"
+      ],
+      "brands": [
+        "critical",
+        "healing"
+      ],
+      "passives": [
+        "undying",
+        "cold",
+        "weak"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "skeleton-spear": {
+      "slug": "skeleton-spear",
+      "name": "해골 병사",
+      "hp": 10,
+      "attack": 2,
+      "speed": 2,
+      "grade": "normal",
+      "legions": [
+        "skeleton"
+      ],
+      "brands": [
+        "vampire",
+        "counter"
+      ],
+      "passives": [
+        "initiative",
+        "feast"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "skeleton-archer": {
+      "slug": "skeleton-archer",
+      "name": "해골 궁수",
+      "hp": 8,
+      "attack": 3,
+      "speed": 2,
+      "grade": "normal",
+      "legions": [
+        "skeleton"
+      ],
+      "brands": [
+        "combo",
+        "lightspeed"
+      ],
+      "passives": [
+        "initiative",
+        "undying"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "skeleton-cavalry": {
+      "slug": "skeleton-cavalry",
+      "name": "해골 기사",
+      "hp": 12,
+      "attack": 3,
+      "speed": 2,
+      "grade": "advanced",
+      "legions": [
+        "skeleton"
+      ],
+      "brands": [
+        "critical",
+        "guard"
+      ],
+      "passives": [
+        "undying",
+        "bone"
+      ],
+      "chance": 0.5,
+      "bonus": "speed",
+      "amount": 3
+    },
+    "grave-worm": {
+      "slug": "grave-worm",
+      "name": "역병 벌레",
+      "hp": 10,
+      "attack": 2,
+      "speed": 3,
+      "grade": "normal",
+      "legions": [
+        "plague",
+        "insect"
+      ],
+      "brands": [
+        "poison",
+        "critical"
+      ],
+      "passives": [
+        "weak",
+        "initiative"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "flesh-golem": {
+      "slug": "flesh-golem",
+      "name": "살점 골렘",
+      "hp": 16,
+      "attack": 2,
+      "speed": 1,
+      "grade": "advanced",
+      "legions": [
+        "corpse",
+        "plague"
+      ],
+      "brands": [
+        "poison",
+        "healing"
+      ],
+      "passives": [
+        "grudge",
+        "late",
+        "feast"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "ghoul": {
+      "slug": "ghoul",
+      "name": "구울",
+      "hp": 10,
+      "attack": 2,
+      "speed": 2,
+      "grade": "normal",
+      "legions": [
+        "corpse"
+      ],
+      "brands": [
+        "guard",
+        "counter"
+      ],
+      "passives": [
+        "bone",
+        "cold"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "boulder-ogre": {
+      "slug": "boulder-ogre",
+      "name": "오우거",
+      "hp": 14,
+      "attack": 3,
+      "speed": 2,
+      "grade": "advanced",
+      "legions": [
+        "beast"
+      ],
+      "brands": [
+        "guard",
+        "counter"
+      ],
+      "passives": [
+        "feast",
+        "weak"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "plague-doctor": {
+      "slug": "plague-doctor",
+      "name": "역병술사",
+      "hp": 10,
+      "attack": 2,
+      "speed": 4,
+      "grade": "advanced",
+      "legions": [
+        "plague"
+      ],
+      "brands": [
+        "poison",
+        "combo"
+      ],
+      "passives": [
+        "weak",
+        "initiative",
+        "cold"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "plague-frog": {
+      "slug": "plague-frog",
+      "name": "역병 개구리",
+      "hp": 9,
+      "attack": 2,
+      "speed": 4,
+      "grade": "normal",
+      "legions": [
+        "plague"
+      ],
+      "brands": [
+        "poison",
+        "vampire"
+      ],
+      "passives": [
+        "bone",
+        "weak"
+      ],
+      "chance": 0.5,
+      "bonus": "attack",
+      "amount": 1
+    },
+    "hydra": {
+      "slug": "hydra",
+      "name": "히드라",
+      "hp": 20,
+      "attack": 3,
+      "speed": 3,
+      "grade": "hero",
+      "legions": [
+        "plague",
+        "demon"
+      ],
+      "brands": [
+        "critical",
+        "vampire"
+      ],
+      "passives": [
+        "grudge",
+        "pack"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "minotaur": {
+      "slug": "minotaur",
+      "name": "미노타우루스",
+      "hp": 14,
+      "attack": 3,
+      "speed": 1,
+      "grade": "advanced",
+      "legions": [
+        "beast"
+      ],
+      "brands": [
+        "vampire",
+        "lightspeed"
+      ],
+      "passives": [
+        "late",
+        "initiative"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "yeti": {
+      "slug": "yeti",
+      "name": "설인",
+      "hp": 11,
+      "attack": 2,
+      "speed": 3,
+      "grade": "normal",
+      "legions": [
+        "beast",
+        "ice"
+      ],
+      "brands": [
+        "freeze",
+        "lightspeed"
+      ],
+      "passives": [
+        "cold",
+        "bone"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "ice-lord": {
+      "slug": "ice-lord",
+      "name": "얼음 군주",
+      "hp": 12,
+      "attack": 3,
+      "speed": 5,
+      "grade": "advanced",
+      "legions": [
+        "ice"
+      ],
+      "brands": [
+        "freeze",
+        "combo"
+      ],
+      "passives": [
+        "weak",
+        "feast"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "sea-wolf": {
+      "slug": "sea-wolf",
+      "name": "바다늑대",
+      "hp": 9,
+      "attack": 2,
+      "speed": 4,
+      "grade": "normal",
+      "legions": [
+        "ice"
+      ],
+      "brands": [
+        "freeze",
+        "healing"
+      ],
+      "passives": [
+        "cold",
+        "weak"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "spider-knight": {
+      "slug": "spider-knight",
+      "name": "거미 여왕",
+      "hp": 16,
+      "attack": 3,
+      "speed": 1,
+      "grade": "hero",
+      "legions": [
+        "summon",
+        "insect"
+      ],
+      "brands": [
+        "summon",
+        "healing"
+      ],
+      "passives": [
+        "soul"
+      ],
+      "chance": 1,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "spiderling": {
+      "slug": "spiderling",
+      "name": "새끼거미",
+      "hp": 6,
+      "attack": 1,
+      "speed": 5,
+      "grade": "special",
+      "legions": [
+        "summon"
+      ],
+      "brands": [],
+      "passives": [],
+      "chance": 0,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "goblin-chief": {
+      "slug": "goblin-chief",
+      "name": "고블린 족장",
+      "hp": 16,
+      "attack": 2,
+      "speed": 5,
+      "grade": "hero",
+      "legions": [
+        "beast",
+        "summon"
+      ],
+      "brands": [
+        "summon",
+        "critical"
+      ],
+      "passives": [
+        "soul",
+        "pack"
+      ],
+      "chance": 1,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "goblin-commoner": {
+      "slug": "goblin-commoner",
+      "name": "평민 고블린",
+      "hp": 10,
+      "attack": 1,
+      "speed": 1,
+      "grade": "special",
+      "legions": [
+        "summon",
+        "beast"
+      ],
+      "brands": [],
+      "passives": [],
+      "chance": 0,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "goblin-soldier": {
+      "slug": "goblin-soldier",
+      "name": "고블린 병사",
+      "hp": 9,
+      "attack": 2,
+      "speed": 4,
+      "grade": "normal",
+      "legions": [
+        "beast"
+      ],
+      "brands": [
+        "lightspeed",
+        "critical"
+      ],
+      "passives": [
+        "feast",
+        "cold"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "grave-priest": {
+      "slug": "grave-priest",
+      "name": "해골 소환사",
+      "hp": 13,
+      "attack": 3,
+      "speed": 4,
+      "grade": "hero",
+      "legions": [
+        "skeleton",
+        "summon"
+      ],
+      "brands": [
+        "summon",
+        "vampire"
+      ],
+      "passives": [
+        "soul"
+      ],
+      "chance": 1,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "doom-executor": {
+      "slug": "doom-executor",
+      "name": "흑각 악마",
+      "hp": 14,
+      "attack": 3,
+      "speed": 2,
+      "grade": "advanced",
+      "legions": [
+        "demon"
+      ],
+      "brands": [
+        "lightspeed",
+        "guard"
+      ],
+      "passives": [
+        "late",
+        "grudge"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "abyss-eye": {
+      "slug": "abyss-eye",
+      "name": "외눈 괴수",
+      "hp": 8,
+      "attack": 2,
+      "speed": 3,
+      "grade": "normal",
+      "legions": [
+        "ice",
+        "demon"
+      ],
+      "brands": [
+        "freeze",
+        "summon"
+      ],
+      "passives": [
+        "undying",
+        "feast"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "hell-mantis": {
+      "slug": "hell-mantis",
+      "name": "지옥 사마귀",
+      "hp": 8,
+      "attack": 2,
+      "speed": 5,
+      "grade": "normal",
+      "legions": [
+        "insect"
+      ],
+      "brands": [
+        "healing",
+        "counter"
+      ],
+      "passives": [
+        "feast",
+        "weak"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "abyss-claw-hunter": {
+      "slug": "abyss-claw-hunter",
+      "name": "심연 집게사냥꾼",
+      "hp": 13,
+      "attack": 2,
+      "speed": 5,
+      "grade": "advanced",
+      "legions": [
+        "insect",
+        "plague"
+      ],
+      "brands": [
+        "healing",
+        "poison"
+      ],
+      "passives": [
+        "bone",
+        "undying"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "corpse-slime": {
+      "slug": "corpse-slime",
+      "name": "시체 슬라임",
+      "hp": 12,
+      "attack": 2,
+      "speed": 1,
+      "grade": "normal",
+      "legions": [
+        "corpse"
+      ],
+      "brands": [
+        "lightspeed",
+        "combo"
+      ],
+      "passives": [
+        "late",
+        "bone"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "scorpion-knight": {
+      "slug": "scorpion-knight",
+      "name": "전갈 기사",
+      "hp": 8,
+      "attack": 3,
+      "speed": 1,
+      "grade": "normal",
+      "legions": [
+        "insect"
+      ],
+      "brands": [
+        "combo",
+        "counter"
+      ],
+      "passives": [
+        "feast",
+        "initiative"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "ancient-treant": {
+      "slug": "ancient-treant",
+      "name": "숲의 장로",
+      "hp": 14,
+      "attack": 3,
+      "speed": 1,
+      "grade": "advanced",
+      "legions": [
+        "plant",
+        "element"
+      ],
+      "brands": [
+        "guard",
+        "healing"
+      ],
+      "passives": [
+        "grudge",
+        "late"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "stone-golem": {
+      "slug": "stone-golem",
+      "name": "암석 골렘",
+      "hp": 16,
+      "attack": 3,
+      "speed": 2,
+      "grade": "advanced",
+      "legions": [
+        "element"
+      ],
+      "brands": [
+        "guard",
+        "summon"
+      ],
+      "passives": [
+        "bone",
+        "feast"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "kraken": {
+      "slug": "kraken",
+      "name": "크라켄",
+      "hp": 16,
+      "attack": 3,
+      "speed": 1,
+      "grade": "hero",
+      "legions": [
+        "ice"
+      ],
+      "brands": [
+        "freeze",
+        "combo"
+      ],
+      "passives": [
+        "weak",
+        "grudge"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "crystal-devourer": {
+      "slug": "crystal-devourer",
+      "name": "식인식물",
+      "hp": 16,
+      "attack": 2,
+      "speed": 2,
+      "grade": "hero",
+      "legions": [
+        "plant",
+        "summon"
+      ],
+      "brands": [
+        "counter",
+        "vampire"
+      ],
+      "passives": [
+        "soul",
+        "undying"
+      ],
+      "chance": 1,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "guardian-seed": {
+      "slug": "guardian-seed",
+      "name": "씨앗",
+      "hp": 6,
+      "attack": 0,
+      "speed": 1,
+      "grade": "special",
+      "legions": [
+        "plant",
+        "summon"
+      ],
+      "brands": [],
+      "passives": [],
+      "chance": 0,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "raging-treant": {
+      "slug": "raging-treant",
+      "name": "광폭 고목",
+      "hp": 14,
+      "attack": 2,
+      "speed": 1,
+      "grade": "advanced",
+      "legions": [
+        "plant"
+      ],
+      "brands": [
+        "guard",
+        "healing"
+      ],
+      "passives": [
+        "late",
+        "undying"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "cerberus": {
+      "slug": "cerberus",
+      "name": "케르베로스",
+      "hp": 12,
+      "attack": 3,
+      "speed": 4,
+      "grade": "advanced",
+      "legions": [
+        "beast",
+        "demon"
+      ],
+      "brands": [
+        "counter",
+        "summon"
+      ],
+      "passives": [
+        "grudge",
+        "cold"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "mushroom-soldier": {
+      "slug": "mushroom-soldier",
+      "name": "버섯 병사",
+      "hp": 8,
+      "attack": 2,
+      "speed": 4,
+      "grade": "normal",
+      "legions": [
+        "plant",
+        "plague"
+      ],
+      "brands": [
+        "poison",
+        "lightspeed"
+      ],
+      "passives": [
+        "initiative",
+        "cold"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "goblin-rider": {
+      "slug": "goblin-rider",
+      "name": "고블린 라이더",
+      "hp": 9,
+      "attack": 2,
+      "speed": 5,
+      "grade": "normal",
+      "legions": [
+        "beast"
+      ],
+      "brands": [
+        "combo",
+        "vampire"
+      ],
+      "passives": [
+        "bone",
+        "cold"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "abyss-harpy": {
+      "slug": "abyss-harpy",
+      "name": "심연 하피",
+      "hp": 12,
+      "attack": 3,
+      "speed": 5,
+      "grade": "advanced",
+      "legions": [
+        "demon"
+      ],
+      "brands": [
+        "critical",
+        "counter"
+      ],
+      "passives": [
+        "feast",
+        "cold"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "orc-warrior": {
+      "slug": "orc-warrior",
+      "name": "오크 전사",
+      "hp": 14,
+      "attack": 3,
+      "speed": 3,
+      "grade": "advanced",
+      "legions": [
+        "beast"
+      ],
+      "brands": [
+        "lightspeed",
+        "guard"
+      ],
+      "passives": [
+        "initiative",
+        "grudge"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "bone-golem": {
+      "slug": "bone-golem",
+      "name": "뼈 골렘",
+      "hp": 15,
+      "attack": 3,
+      "speed": 2,
+      "grade": "advanced",
+      "legions": [
+        "skeleton",
+        "element"
+      ],
+      "brands": [
+        "lightspeed",
+        "vampire"
+      ],
+      "passives": [
+        "late",
+        "undying"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "forest-fairy": {
+      "slug": "forest-fairy",
+      "name": "픽시",
+      "hp": 10,
+      "attack": 3,
+      "speed": 4,
+      "grade": "advanced",
+      "legions": [
+        "plant",
+        "element"
+      ],
+      "brands": [
+        "healing",
+        "lightspeed"
+      ],
+      "passives": [
+        "bone",
+        "pack"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "mummy-guardian": {
+      "slug": "mummy-guardian",
+      "name": "미이라",
+      "hp": 12,
+      "attack": 2,
+      "speed": 2,
+      "grade": "normal",
+      "legions": [
+        "corpse"
+      ],
+      "brands": [
+        "summon",
+        "vampire"
+      ],
+      "passives": [
+        "undying",
+        "late"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "soul-reaper": {
+      "slug": "soul-reaper",
+      "name": "리치",
+      "hp": 13,
+      "attack": 3,
+      "speed": 5,
+      "grade": "hero",
+      "legions": [
+        "skeleton",
+        "corpse"
+      ],
+      "brands": [
+        "combo",
+        "critical"
+      ],
+      "passives": [
+        "initiative",
+        "grudge"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "bone-hound": {
+      "slug": "bone-hound",
+      "name": "시체 사냥개",
+      "hp": 8,
+      "attack": 2,
+      "speed": 4,
+      "grade": "normal",
+      "legions": [
+        "corpse"
+      ],
+      "brands": [
+        "summon",
+        "combo"
+      ],
+      "passives": [
+        "undying",
+        "bone"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "mimic": {
+      "slug": "mimic",
+      "name": "미믹",
+      "hp": 13,
+      "attack": 3,
+      "speed": 2,
+      "grade": "advanced",
+      "legions": [
+        "demon"
+      ],
+      "brands": [
+        "summon",
+        "guard"
+      ],
+      "passives": [
+        "late",
+        "initiative"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "ice-princess": {
+      "slug": "ice-princess",
+      "name": "얼음 여왕",
+      "hp": 13,
+      "attack": 3,
+      "speed": 3,
+      "grade": "advanced",
+      "legions": [
+        "ice",
+        "element"
+      ],
+      "brands": [
+        "freeze",
+        "summon"
+      ],
+      "passives": [
+        "weak",
+        "pack"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    },
+    "siren": {
+      "slug": "siren",
+      "name": "세이렌",
+      "hp": 14,
+      "attack": 3,
+      "speed": 1,
+      "grade": "advanced",
+      "legions": [
+        "ice",
+        "demon"
+      ],
+      "brands": [
+        "freeze",
+        "counter"
+      ],
+      "passives": [
+        "grudge",
+        "late"
+      ],
+      "chance": 0.5,
+      "bonus": "hp",
+      "amount": 2
+    }
+  },
+  "passives": {
+    "initiative": [
+      "선제권",
+      "첫 라운드 최우선 선공"
+    ],
+    "undying": [
+      "불사귀",
+      "전투당 1회 치명상을 체력 1로 버팀"
+    ],
+    "bone": [
+      "뼈 덧대기",
+      "공격·반격 피해 -1, 최소 1"
+    ],
+    "weak": [
+      "약점 찌르기",
+      "디버프 대상 공격 피해 +1"
+    ],
+    "pack": [
+      "무리 우두머리",
+      "자신 포함 공유 군단의 생존 마물 3마리 이상이면 공격력 +1 (1~4번 슬롯, 중복 제외)"
+    ],
+    "soul": [
+      "영혼 소환",
+      "군단 처리 후 5번 슬롯이 비면 체력 1을 소모해 고유 소환물 생성"
+    ],
+    "grudge": [
+      "피의 원한",
+      "적에게 체력 피해를 받을 때마다 전투 중 공격력 +1 누적"
+    ],
+    "feast": [
+      "시체 포식",
+      "자신의 공격·중독 처치 시 전투 중 최대·현재 체력 +2"
+    ],
+    "cold": [
+      "냉혈한",
+      "자신보다 유효 속도가 낮은 적에게 피해 +1"
+    ],
+    "late": [
+      "후발주자",
+      "라운드 시작에 정해진 마지막 행동자의 공격력 +1"
+    ]
+  }
+}

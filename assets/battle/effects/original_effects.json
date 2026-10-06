@@ -1,0 +1,502 @@
+{
+  "effects": {
+    "physical": {
+      "name": "기본 물리 타격",
+      "sheet": "art/v2-style/ui/basic-physical-hit-sheet.jpg",
+      "centers": [
+        66,
+        226,
+        395,
+        561,
+        718,
+        879,
+        1047,
+        1211
+      ],
+      "width": 128,
+      "height": 128,
+      "top": 1,
+      "size": 128
+    },
+    "claw": {
+      "name": "손톱공격",
+      "sheet": "art/v2-style/ui/claw-hit-sheet.jpg",
+      "centers": [
+        80,
+        240,
+        400,
+        560,
+        720,
+        880,
+        1040,
+        1200
+      ],
+      "width": 160,
+      "height": 256,
+      "top": 0,
+      "size": 256
+    },
+    "slash": {
+      "name": "베기",
+      "sheet": "art/v2-style/ui/slash-hit-sheet.jpg",
+      "centers": [
+        80,
+        240,
+        400,
+        560,
+        720,
+        880,
+        1040,
+        1200
+      ],
+      "width": 160,
+      "height": 287,
+      "size": 288,
+      "tops": [
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        0
+      ],
+      "background": [
+        43,
+        213,
+        8
+      ]
+    },
+    "magic": {
+      "name": "마법 공격",
+      "sheet": "art/v2-style/ui/magic-hit-sheet.jpg",
+      "centers": [
+        80,
+        240,
+        400,
+        560,
+        720,
+        880,
+        1040,
+        1200
+      ],
+      "width": 160,
+      "height": 160,
+      "top": 0,
+      "size": 160
+    },
+    "poison": {
+      "name": "독가스 공격",
+      "sheet": "art/v2-style/ui/poison-gas-hit-sheet.jpg",
+      "centers": [
+        80,
+        240,
+        400,
+        560,
+        720,
+        880,
+        1040,
+        1200
+      ],
+      "width": 160,
+      "height": 180,
+      "top": 200,
+      "size": 180
+    },
+    "wind": {
+      "name": "바람공격",
+      "sheet": "art/v2-style/ui/wind-hit-sheet.jpg",
+      "centers": [
+        80,
+        240,
+        400,
+        560,
+        720,
+        880,
+        1040,
+        1200
+      ],
+      "width": 160,
+      "height": 180,
+      "top": 0,
+      "size": 180,
+      "background": [
+        43,
+        210,
+        6
+      ]
+    },
+    "music": {
+      "name": "음표공격",
+      "sheet": "art/v2-style/ui/music-hit-sheet.jpg",
+      "centers": [
+        80,
+        240,
+        400,
+        560,
+        720,
+        880,
+        1040,
+        1200
+      ],
+      "width": 160,
+      "height": 200,
+      "top": 150,
+      "size": 200,
+      "starts": [
+        0,
+        160,
+        320,
+        480,
+        656,
+        800,
+        960,
+        1120
+      ],
+      "widths": [
+        160,
+        160,
+        160,
+        176,
+        144,
+        160,
+        160,
+        160
+      ],
+      "background": [
+        24,
+        203,
+        13
+      ]
+    },
+    "bite": {
+      "name": "깨무는 공격",
+      "sheet": "art/v2-style/ui/bite-hit-sheet.jpg",
+      "centers": [
+        110,
+        290,
+        490,
+        690,
+        870,
+        1050
+      ],
+      "width": 200,
+      "height": 200,
+      "top": 0,
+      "size": 220,
+      "starts": [
+        10,
+        190,
+        390,
+        590,
+        790,
+        970
+      ],
+      "widths": [
+        180,
+        200,
+        200,
+        200,
+        180,
+        160
+      ]
+    },
+    "toxicLiquid": {
+      "name": "독극물 용액 공격",
+      "sheet": "art/v2-style/ui/toxic-liquid-hit-sheet.jpg",
+      "centers": [
+        80,
+        240,
+        400,
+        570,
+        740,
+        1080,
+        1220
+      ],
+      "width": 160,
+      "height": 380,
+      "top": 0,
+      "size": 380,
+      "starts": [
+        0,
+        160,
+        320,
+        480,
+        650,
+        1000,
+        1160
+      ],
+      "widths": [
+        160,
+        160,
+        160,
+        170,
+        180,
+        160,
+        120
+      ]
+    }
+  },
+  "attacks": {
+    "forestFairy": "wind",
+    "forest-fairy": "wind",
+    "siren": "music",
+    "ghoul": "claw",
+    "ragingTreant": "claw",
+    "raging-treant": "claw",
+    "abyssHarpy": "claw",
+    "abyss-harpy": "claw",
+    "boneGolem": "claw",
+    "bone-golem": "claw",
+    "seaWolf": "claw",
+    "sea-wolf": "claw",
+    "plagueFrog": "poison",
+    "plague-frog": "poison",
+    "poison-toad": "poison",
+    "poisonMushroom": "poison",
+    "mushroom-soldier": "poison",
+    "mushroom-monster": "poison",
+    "plague": "poison",
+    "plague-doctor": "poison",
+    "worm": "toxicLiquid",
+    "grave-worm": "toxicLiquid",
+    "abyssClawHunter": "toxicLiquid",
+    "abyss-claw-hunter": "toxicLiquid",
+    "corpseSlime": "toxicLiquid",
+    "corpse-slime": "toxicLiquid",
+    "boneHound": "bite",
+    "bone-hound": "bite",
+    "undead-hound": "bite",
+    "hydra": "bite",
+    "spiderling": "bite",
+    "giant-spider": "bite",
+    "golem": "bite",
+    "flesh-golem": "bite",
+    "obese-zombie": "bite",
+    "cerberus": "bite",
+    "crystalDevourer": "bite",
+    "crystal-devourer": "bite",
+    "carnivorous-flower": "bite",
+    "demonDeathKnight": "slash",
+    "death-knight": "slash",
+    "demon-death-knight": "slash",
+    "spear": "slash",
+    "skeleton-spear": "slash",
+    "goblinRider": "slash",
+    "goblin-rider": "slash",
+    "iceLord": "slash",
+    "ice-lord": "slash",
+    "minotaur": "slash",
+    "knight": "slash",
+    "skeleton-cavalry": "slash",
+    "soulReaper": "slash",
+    "soul-reaper": "slash",
+    "reaper": "slash",
+    "doomExecutor": "slash",
+    "doom-executor": "slash",
+    "gargoyle": "slash",
+    "mimic": "slash",
+    "hellMantis": "slash",
+    "hell-mantis": "slash",
+    "mantis-monster": "slash",
+    "scorpionKnight": "slash",
+    "scorpion-knight": "slash",
+    "scorpion-warrior": "slash",
+    "goblinSoldier": "slash",
+    "goblin-soldier": "slash",
+    "goblinChief": "magic",
+    "goblin-chief": "magic",
+    "goblin-shaman": "magic",
+    "skeletonSummoner": "magic",
+    "grave-priest": "magic",
+    "hooded-necromancer": "magic",
+    "spiderQueen": "magic",
+    "spider-knight": "magic",
+    "spider-queen": "magic",
+    "icePrincess": "magic",
+    "ice-princess": "magic",
+    "archer": "physical",
+    "skeleton-archer": "physical",
+    "ogre": "physical",
+    "boulder-ogre": "physical",
+    "yeti": "physical",
+    "goblinCommoner": "physical",
+    "goblin-commoner": "physical",
+    "abyssEye": "physical",
+    "abyss-eye": "physical",
+    "ancientTreant": "physical",
+    "ancient-treant": "physical",
+    "stoneGolem": "physical",
+    "stone-golem": "physical",
+    "kraken": "physical",
+    "troll": "physical",
+    "orc-warrior": "physical",
+    "mummyGuardian": "physical",
+    "mummy-guardian": "physical"
+  },
+  "damage": [
+    [
+      0,
+      0,
+      140,
+      190
+    ],
+    [
+      140,
+      0,
+      110,
+      190
+    ],
+    [
+      250,
+      0,
+      135,
+      190
+    ],
+    [
+      385,
+      0,
+      130,
+      190
+    ],
+    [
+      515,
+      0,
+      130,
+      190
+    ],
+    [
+      645,
+      0,
+      132,
+      190
+    ],
+    [
+      777,
+      0,
+      127,
+      190
+    ],
+    [
+      904,
+      0,
+      122,
+      190
+    ],
+    [
+      1026,
+      0,
+      130,
+      190
+    ],
+    [
+      1156,
+      0,
+      124,
+      190
+    ],
+    [
+      28,
+      267,
+      100,
+      48
+    ]
+  ],
+  "healing": [
+    [
+      15,
+      240,
+      120,
+      175
+    ],
+    [
+      137,
+      240,
+      120,
+      175
+    ],
+    [
+      260,
+      240,
+      105,
+      175
+    ],
+    [
+      360,
+      240,
+      115,
+      175
+    ],
+    [
+      468,
+      240,
+      115,
+      175
+    ],
+    [
+      585,
+      240,
+      120,
+      175
+    ],
+    [
+      698,
+      240,
+      110,
+      175
+    ],
+    [
+      803,
+      240,
+      115,
+      175
+    ],
+    [
+      918,
+      240,
+      118,
+      175
+    ],
+    [
+      1033,
+      240,
+      120,
+      175
+    ],
+    [
+      1150,
+      240,
+      130,
+      175
+    ]
+  ],
+  "labels": {
+    "miss": [
+      290,
+      0,
+      740,
+      290
+    ],
+    "critical": [
+      300,
+      300,
+      730,
+      265
+    ]
+  },
+  "status": {
+    "poison": [
+      405,
+      10,
+      495,
+      275
+    ],
+    "immune": [
+      405,
+      292,
+      485,
+      270
+    ]
+  }
+}
