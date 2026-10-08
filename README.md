@@ -4,12 +4,13 @@ Godot 4.7.2 Standard / GDScript / Compatibility renderer.
 
 ## 실행
 
-Godot에서 project.godot을 열고 F5로 실행한다. 기본 시작 장면은 map.tscn이다.
-독립 전장을 확인하려면 battlefield.tscn을 열고 F6로 실행한다.
+Godot에서 project.godot을 열고 F5로 실행한다. 기본 시작 장면은 title.tscn이며, 새 원정/이어하기 후 map.tscn으로 이동한다.
+독립 맵을 확인하려면 map.tscn, 독립 전장을 확인하려면 battlefield.tscn을 열고 F6로 실행한다.
 Windows의 launch_game.cmd는 로컬 엔진 설치 경로에 맞춰 수정해서 사용한다.
 
-## 2026-10-06 구현 상태
+## 2026-10-09 구현 상태
 
+- 손그림 원화 3장 기반 타이틀 패럴랙스. PC 마우스와 모바일 터치/드래그에 서로 다른 깊이로 반응하며 입력이 없을 때는 약한 자동 호흡 이동.
 - 원본 아트 기반 전장, 마물 카드와 정보창, 공격/피격/사망 모션.
 - 24타일 보드 맵, 주사위 이동, 워프/숙영, 전투 진입과 원정 저장.
 - 보유 개체 1~4장을 선택하는 전장 덱 선택창과 선택 순서별 피격 확률.
@@ -24,6 +25,7 @@ Windows의 launch_game.cmd는 로컬 엔진 설치 경로에 맞춰 수정해서
 
 ## 문서
 
+- docs/title_parallax.md: 타이틀 3레이어 패럴랙스/모바일 입력
 - docs/map_port.md, docs/battlefield_port.md: 맵/전장 이식
 - docs/rule_parity.md: 전투 규칙 대응
 - docs/original_effects.md: 원본 효과 이식
