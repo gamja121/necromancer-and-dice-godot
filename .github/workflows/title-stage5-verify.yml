@@ -32,10 +32,24 @@ jobs:
         run: godot --version
 
       - name: Import project and parse resources
-        run: godot --headless --path . --editor --quit
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'Failed loading resource: res://assets/title/parallax|res://title\.tscn:.*Parse Error|SCRIPT ERROR' import.log; then
+            echo "Title import verification found an error."
+            exit 1
+          fi
 
       - name: Boot title scene headless
-        run: godot --headless --path . --quit-after 3
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path . --quit-after 3 2>&1 | tee boot.log
+          if grep -E 'Failed loading resource: res://assets/title/parallax|res://title\.tscn:.*Parse Error|SCRIPT ERROR' boot.log; then
+            echo "Title boot verification found an error."
+            exit 1
+          fi
 
       - name: Verify title wiring
         shell: bash
@@ -54,6 +68,7 @@ jobs:
       - name: Exercise touch and save flow
         shell: bash
         run: |
+          set -euo pipefail
           cat > stage5_title_smoke.gd <<'GDSCRIPT'
           extends SceneTree
 
@@ -67,11 +82,17 @@ jobs:
               push_error(message)
 
           func _run() -> void:
-              var save_path := ProjectSettings.globalize_path(RunSession.SAVE)
-              var temp_path := ProjectSettings.globalize_path(RunSession.SAVE + ".tmp")
-              if FileAccess.file_exists(RunSession.SAVE):
+              var run_session = root.get_node_or_null("/root/RunSession")
+              if run_session == null:
+                  _fail("RunSession autoload missing")
+                  quit(1)
+                  return
+
+              var save_path := ProjectSettings.globalize_path(run_session.SAVE)
+              var temp_path := ProjectSettings.globalize_path(run_session.SAVE + ".tmp")
+              if FileAccess.file_exists(run_session.SAVE):
                   DirAccess.remove_absolute(save_path)
-              if FileAccess.file_exists(RunSession.SAVE + ".tmp"):
+              if FileAccess.file_exists(run_session.SAVE + ".tmp"):
                   DirAccess.remove_absolute(temp_path)
 
               var packed := load("res://title.tscn") as PackedScene
@@ -116,22 +137,22 @@ jobs:
               if foreground.position.y < -42.0 or foreground.position.y > -14.0:
                   _fail("Foreground parallax exceeded vertical overscan")
 
-              if RunSession.has_save():
+              if run_session.has_save():
                   _fail("Fresh runner unexpectedly had a save")
-              RunSession.start_new_world()
-              if not RunSession.has_save():
+              run_session.start_new_world()
+              if not run_session.has_save():
                   _fail("New run did not create a save")
-              RunSession.world.contamination = 42
-              if not RunSession.save_world():
+              run_session.world.contamination = 42
+              if not run_session.save_world():
                   _fail("Existing save could not be overwritten")
-              RunSession.world = null
-              RunSession.reload_world()
-              if RunSession.world == null or RunSession.world.contamination != 42:
+              run_session.world = null
+              run_session.reload_world()
+              if run_session.world == null or run_session.world.contamination != 42:
                   _fail("Continue/reload did not restore saved state")
 
-              if FileAccess.file_exists(RunSession.SAVE):
+              if FileAccess.file_exists(run_session.SAVE):
                   DirAccess.remove_absolute(save_path)
-              if FileAccess.file_exists(RunSession.SAVE + ".tmp"):
+              if FileAccess.file_exists(run_session.SAVE + ".tmp"):
                   DirAccess.remove_absolute(temp_path)
 
               title.queue_free()
