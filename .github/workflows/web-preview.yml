@@ -1,0 +1,108 @@
+name: Build and Deploy Web Preview
+
+on:
+  push:
+    branches:
+      - main
+      - chatgpt/web-preview-deploy-20261009
+    paths:
+      - "**.gd"
+      - "**.tscn"
+      - "**.tres"
+      - "project.godot"
+      - "export_presets.cfg"
+      - "assets/**"
+      - "data/**"
+      - ".github/workflows/web-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: web-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.7.2 with export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+
+      - name: Import project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource: res://assets/title/parallax' import.log; then
+            echo "Godot import found an error."
+            exit 1
+          fi
+
+      - name: Export Web build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html 2>&1 | tee export.log
+          test -s build/web/index.html
+          test -n "$(find build/web -maxdepth 1 -type f -name '*.wasm' -print -quit)"
+          test -n "$(find build/web -maxdepth 1 -type f -name '*.pck' -print -quit)"
+
+      - name: Upload phone-test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: necromancer-and-dice-web-preview
+          path: build/web
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        id: pages
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: steps.pages.outcome == 'success'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Report Pages status
+        shell: bash
+        run: |
+          if [ "${{ steps.pages.outcome }}" != "success" ]; then
+            echo "::warning::GitHub Pages is not enabled/configurable with this repository token. The Web build artifact is still available for phone testing."
+          elif [ "${{ steps.deployment.outcome }}" != "success" ]; then
+            echo "::warning::Web build succeeded but Pages deployment did not complete. The Web build artifact is still available."
+          else
+            echo "Pages deployment completed: ${{ steps.deployment.outputs.page_url }}"
+          fi
