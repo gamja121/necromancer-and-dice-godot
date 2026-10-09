@@ -2,7 +2,7 @@ extends RefCounted
 
 const ROOT = "res://assets/battle/effects/"
 var metadata: Dictionary
-var images: Dictionary = {}
+static var textures: Dictionary = {}
 var cache: Dictionary = {}
 var materials: Dictionary = {}
 var shader: Shader
@@ -53,13 +53,10 @@ void fragment() {
 }
 """
 
-func image(name: String) -> Image:
-	if not images.has(name):
-		var texture: Texture2D = load(ROOT+name)
-		var value = texture.get_image()
-		value.convert(Image.FORMAT_RGBA8)
-		images[name] = value
-	return images[name]
+func sheet_texture(name: String) -> Texture2D:
+	# Bounded to the original effect sheets; keep GPU resources across battles.
+	if not textures.has(name): textures[name] = load(ROOT+name)
+	return textures[name]
 
 func material(kind: String) -> ShaderMaterial:
 	if materials.has(kind): return materials[kind]
@@ -85,23 +82,31 @@ func hit_kind(slug: String) -> String:
 func hit_frames(kind: String) -> Array:
 	if cache.has(kind): return cache[kind]
 	var config: Dictionary = metadata.effects[kind]
-	var sheet = image(String(config.sheet).get_file())
+	var sheet = sheet_texture(String(config.sheet).get_file())
 	var frames: Array = []
 	for i in range(config.centers.size()):
 		var start: int = int(config.starts[i]) if config.has("starts") else int(config.centers[i]-config.width/2)
 		var width: int = int(config.widths[i]) if config.has("widths") else int(config.width)
 		var top: int = int(config.tops[i]) if config.has("tops") else int(config.get("top",0))
 		var size: int = int(config.size)
-		var frame = Image.create(size,size,false,Image.FORMAT_RGBA8)
-		frame.blit_rect(sheet,Rect2i(start,top,width,int(config.height)),Vector2i(int(size/2+start-config.centers[i]),0))
-		frames.append(ImageTexture.create_from_image(frame))
+		var frame = AtlasTexture.new()
+		frame.atlas = sheet
+		frame.region = Rect2(start,top,width,int(config.height))
+		# Match the original padded frame without CPU copies or GPU readback.
+		frame.margin = Rect2(int(size/2+start-config.centers[i]),0,size-width,size-int(config.height))
+		frame.filter_clip = true
+		frames.append(frame)
 	cache[kind] = frames
 	return frames
 
 func crop(sheet: String, cell: Array) -> Texture2D:
 	var key = sheet+str(cell)
 	if not cache.has(key):
-		cache[key] = ImageTexture.create_from_image(image(sheet).get_region(Rect2i(int(cell[0]),int(cell[1]),int(cell[2]),int(cell[3]))))
+		var frame = AtlasTexture.new()
+		frame.atlas = sheet_texture(sheet)
+		frame.region = Rect2(int(cell[0]),int(cell[1]),int(cell[2]),int(cell[3]))
+		frame.filter_clip = true
+		cache[key] = frame
 	return cache[key]
 
 func sprite(parent: Control, texture: Texture2D, kind: String, dimensions: Vector2) -> TextureRect:

@@ -1,5 +1,10 @@
 {
   "units": {
+    "dracula": {
+      "slug": "dracula", "name": "드라큘라", "hp": 11, "attack": 3, "speed": 4,
+      "grade": "hero", "legions": ["demon"], "brands": ["vampire", "critical"],
+      "passives": ["undying", "cold"], "chance": 0.5, "bonus": "hp", "amount": 2
+    },
     "death-knight": {
       "slug": "death-knight",
       "name": "데스 나이트",

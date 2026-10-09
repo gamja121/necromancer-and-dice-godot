@@ -2,7 +2,7 @@ config_version=5
 
 [application]
 config/name="Necromancer and Dice"
-run/main_scene="res://map.tscn"
+run/main_scene="res://intro.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
@@ -11,6 +11,8 @@ RunSession="*res://systems/run_session.gd"
 [display]
 window/size/viewport_width=1280
 window/size/viewport_height=720
+window/size/window_width_override=1600
+window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 
 [rendering]

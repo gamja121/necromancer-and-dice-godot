@@ -51,7 +51,15 @@ func section(value: String) -> void:
 	rule.add_theme_stylebox_override("separator",style)
 	effects.add_child(rule)
 
-func setup(u: Dictionary, battle) -> void:
+func setup(u: Dictionary, battle, prophecy: Dictionary = {}) -> void:
+	u = u.duplicate(true)
+	var hp_bonus = int(prophecy.get("ally_hp",0))
+	var attack_bonus = int(prophecy.get("ally_attack",0))
+	var speed_bonus = int(prophecy.get("ally_speed",0))
+	u.hp += hp_bonus
+	u.max_hp += hp_bonus
+	u.attack += attack_bonus
+	u.speed += speed_bonus
 	unit_id = u.id
 	interface_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json"))
 	size = Vector2(1280,720)
@@ -148,6 +156,10 @@ func setup(u: Dictionary, battle) -> void:
 	var opposite = "enemy" if u.team == "ally" else "ally"
 	if "element" in battle.legions[opposite].active: effect_line("상대 원소: 군단 효과 억제")
 	effect_line("군단 활성은 전투 시작 시 고정")
+	if hp_bonus>0 or attack_bonus>0 or speed_bonus>0:
+		section("점술 · 다음 전투에 적용")
+		effect_line("체력 +%d · 공격력 +%d · 속도 +%d" % [hp_bonus,attack_bonus,speed_bonus],Color("244e2c"))
+		effect_line("위 능력치에 포함 · 전투 진입 시 적용 후 소모")
 	section("패시브 효과")
 	effect_line(passive[0]+(" · "+passive[1] if not passive[1].is_empty() else ""))
 	section("낙인 눈금과 효과")

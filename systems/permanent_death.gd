@@ -26,9 +26,9 @@ func _draw() -> void:
 
 func play(battle_scene, fallen: Array) -> void:
 	scene = battle_scene
-	size = Vector2(1280,720)
+	size = scene.surface_size
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	z_index = 40
+	z_index = 80
 	var permanent = fallen.filter(func(u): return u.team=="ally" and not u.is_summon)
 	var ordinary = fallen.filter(func(u): return u.team!="ally" or u.is_summon)
 	for u in ordinary: scene.sound("death")
@@ -60,7 +60,7 @@ func play(battle_scene, fallen: Array) -> void:
 			card.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			card.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			card.size = scene.cards[u.id].size
-			card.position = Vector2(scene.cards[u.id].position.x,594)
+			card.position = Vector2(scene.cards[u.id].position.x,scene.card_rest_y()-18.8)
 			card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(card)
 			source.visible = false
@@ -75,14 +75,21 @@ func play(battle_scene, fallen: Array) -> void:
 			title.add_theme_font_size_override("font_size",16)
 			add_child(title)
 			souls.append({"unit":u,"focus":focus,"card":card,"title":title,"center":focus.position+focus.size*Vector2(0.5,0.55)})
-	for frame in range(1,11):
+	var frame_count = 1
+	for u in fallen: frame_count = maxi(frame_count,scene.motion_frames(u,"death").size())
+	for index in range(frame_count):
 		for u in ordinary:
-			var tex = scene.texture(scene.frame_path(u,"death",frame))
+			var tex = scene.texture(scene.frame_path(u,"death",int(scene.motion_frames(u,"death")[mini(index,scene.motion_frames(u,"death").size()-1)])))
 			if tex!=null: scene.sprites[u.id].texture = tex
 		for soul in souls:
-			var tex = scene.texture(scene.frame_path(soul.unit,"death",frame))
+			var tex = scene.texture(scene.frame_path(soul.unit,"death",int(scene.motion_frames(soul.unit,"death")[mini(index,scene.motion_frames(soul.unit,"death").size()-1)])))
 			if tex!=null: soul.focus.texture = tex
-		await scene.wait_time(0.065 if permanent.is_empty() else 0.08)
+		var frame_delay = 0.065 if permanent.is_empty() else 0.08
+		for u in fallen:
+			var profile: Dictionary = scene.presentation_layout.metrics.get(u.slug,{})
+			var delays: Array = profile.get("death_delays",[])
+			if index<delays.size(): frame_delay = maxf(frame_delay,float(delays[index]))
+		await scene.wait_time(frame_delay)
 	if not souls.is_empty():
 		var shader = Shader.new()
 		shader.code = """
@@ -116,7 +123,7 @@ void fragment() {
 			for soul in souls:
 				soul.focus.material.set_shader_parameter("dissolve",t)
 				soul.card.material.set_shader_parameter("dissolve",t)
-				soul.card.position.y = 594+t*24
+				soul.card.position.y = scene.card_rest_y()-18.8+t*24
 				soul.title.modulate.a = 1-t*0.5
 		for soul in souls:
 			scene.visuals.removed[soul.unit.id] = true

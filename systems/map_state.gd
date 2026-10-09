@@ -1,5 +1,6 @@
 extends RefCounted
 
+const RoutePlan = preload("res://systems/route_plan.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
 const COUNTS = {"basic":2,"graveyard":1,"altar":1,"unknown":1,"forest":1,"rest":2,"monster":5,"rare-monster":1,"gem":1,"event":2,"swamp":2,"warp":2}
@@ -15,9 +16,33 @@ var laps = 0
 var lap_ready = false
 var last_face = 1
 var region = "default"
+var dice_cards: Array = []
+var brand_cards: Array = []
+var graveyard_corpses: Array = []
+var reward_receipts: Array = []
+var pending_reward: Dictionary = {}
+var next_serial = 2
+var move_serial = 0
+var map_serial = 0
+var previous_map_roll = 0
+var previous_map_card = ""
+var pending_move: Dictionary = {}
+var active_encounter: Dictionary = {}
+var prophecy: Dictionary = {"rolls":[]}
+var last_prophecy: Dictionary = {}
+var shop_trade: Dictionary = {}
+var patrol_plan: Dictionary = RoutePlan.default_plan()
+var scout: Dictionary = {"scouted":false,"intel":[]}
+var prayer_result: Dictionary = {}
 
-func _init(data: Dictionary = {}, seed_value: int = 1) -> void:
+func next_id(prefix: String) -> String:
+	var value = "%s-%d" % [prefix,next_serial]
+	next_serial += 1
+	return value
+
+func _init(data: Dictionary = {}, seed_value: int = 1, initial_plan: Dictionary = {}) -> void:
 	definitions = data
+	if RoutePlan.valid(initial_plan): patrol_plan=initial_plan.duplicate(true)
 	rng.seed = seed_value
 	var rules = Rules.new(data,rng.randi())
 	for slug in ["skeleton-spear","skeleton-archer"]:
@@ -35,8 +60,12 @@ static func centers() -> Array:
 	return result
 
 func generate() -> void:
+	map_serial += 1
 	var counts = COUNTS.duplicate()
-	var conversion = 2 if contamination>=80 else (1 if contamination>=40 else 0)
+	var deltas = RoutePlan.deltas(patrol_plan)
+	for type in deltas: counts[type] += int(deltas[type])
+	var requested_conversion = 2 if contamination>=80 else (1 if contamination>=40 else 0)
+	var conversion = mini(requested_conversion,counts.basic)
 	counts.basic -= conversion
 	counts.monster += conversion
 	if contamination>=80: counts.monster -= 1
@@ -56,9 +85,11 @@ func generate() -> void:
 		elif i==23 and contamination>=80: tiles.append("boss")
 		else: tiles.append(pool.pop_back())
 	cleared = []
+	scout = {"scouted":false,"intel":[]}
 	lap_ready = false
 
 func move_path(face: int) -> Array:
+	move_serial += 1
 	last_face = face
 	var path: Array = []
 	for i in range(face):
@@ -81,7 +112,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -96,6 +127,64 @@ func restore(saved: Dictionary) -> bool:
 	for key in ["contamination","laps","lap_ready","last_face","rng_seed","rng_state"]:
 		if not saved.has(key): return false
 	if saved.contamination<0 or saved.contamination>100: return false
+	for field in ["dice_cards","brand_cards","graveyard_corpses","reward_receipts"]:
+		if saved.has(field) and not saved[field] is Array: return false
+	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result"]:
+		if saved.has(field) and not saved[field] is Dictionary: return false
+	var plan: Dictionary = saved.get("patrol_plan",RoutePlan.default_plan())
+	if not RoutePlan.valid(plan): return false
+	var intel_state: Dictionary = saved.get("scout",{"scouted":false,"intel":[]})
+	if not intel_state.get("scouted") is bool or not intel_state.get("intel") is Array: return false
+	for entry in intel_state.intel:
+		if not entry is Dictionary: return false
+		var index = int(entry.get("index",-1))
+		if index<0 or index>=24 or not entry.get("type","") in ["monster","rare-monster","boss"]: return false
+		if saved.tiles[index]!=entry.type or int(entry.get("count",0))<1 or int(entry.count)>4: return false
+		if not entry.get("grade","") in ["normal","advanced","hero"] or not entry.get("legion","") in Rules.NEED: return false
+	var prediction: Dictionary = saved.get("prophecy",{"rolls":[]})
+	if not prediction.get("rolls",[]) is Array: return false
+	for key in ["ally_hp","ally_attack","ally_speed","enemy_attack"]:
+		if not prediction.get(key,0) is float and not prediction.get(key,0) is int: return false
+		if prediction.get(key,0)<0: return false
+	var shop: Dictionary = saved.get("shop_trade",{})
+	if not shop.is_empty():
+		if not shop.get("visit") is String or not shop.get("offers") is Dictionary: return false
+		for id in shop.offers:
+			if not shop.offers[id] is Array: return false
+			for offer in shop.offers[id]:
+				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand"] or not offer.get("item") is Dictionary: return false
+	var reward: Dictionary = saved.get("pending_reward",{})
+	if reward.get("kind","")=="mimic":
+		var tile_index = int(reward.get("index",-1))
+		var count = int(reward.get("count",0))
+		if tile_index<0 or tile_index>=24 or saved.tiles[tile_index]!="gem": return false
+		if count<1 or count>4 or str(reward.get("id","")).is_empty(): return false
+	var active: Dictionary = saved.get("active_encounter",{})
+	if not active.is_empty():
+		if not active.has("checkpoint") or not active.has("allies") or not active.has("enemies") or not active.get("phase","") in ["ready","rolled","actions"]: return false
+		var checker = Rules.new(definitions)
+		if not checker.restore(active.checkpoint): return false
+	dice_cards = saved.get("dice_cards",[]).duplicate(true)
+	brand_cards = saved.get("brand_cards",[]).duplicate(true)
+	graveyard_corpses = saved.get("graveyard_corpses",[]).duplicate(true)
+	reward_receipts = saved.get("reward_receipts",[]).duplicate()
+	pending_reward = saved.get("pending_reward",{}).duplicate(true)
+	next_serial = maxi(2,int(saved.get("next_serial",2)))
+	move_serial = maxi(0,int(saved.get("move_serial",0)))
+	map_serial = maxi(0,int(saved.get("map_serial",0)))
+	previous_map_roll = int(saved.get("previous_map_roll",saved.get("last_face",0) if move_serial>0 else 0))
+	previous_map_card = str(saved.get("previous_map_card",""))
+	pending_move = saved.get("pending_move",{}).duplicate(true)
+	active_encounter = saved.get("active_encounter",{}).duplicate(true)
+	prophecy = prediction.duplicate(true)
+	last_prophecy = saved.get("last_prophecy",{}).duplicate(true)
+	shop_trade = shop.duplicate(true)
+	patrol_plan = plan.duplicate(true)
+	scout = intel_state.duplicate(true)
+	prayer_result = saved.get("prayer_result",{}).duplicate(true)
+	for card in brand_cards:
+		card.brand.bless = card.brand.bless.map(func(n): return int(n))
+		card.brand.curse = []
 	tiles = saved.tiles.duplicate()
 	roster = saved.roster.duplicate(true)
 	for u in roster:

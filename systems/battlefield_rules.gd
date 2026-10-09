@@ -85,3 +85,25 @@ func damage(target: Dictionary, amount: int, source: Dictionary = {}, kind: Stri
 	var dealt = super.damage(target,amount,source,kind)
 	presentation_events[index] = {"type":"damage","target":target.id,"source":source.get("id",""),"amount":dealt,"kind":kind,"blocked":target.shields<shields_before,"critical":kind=="attack" and not source.is_empty() and source.bless.get("critical",0)>0,"hp":target.hp}
 	return dealt
+
+# Queue IDs must resolve to the restored unit dictionaries, not detached copies.
+func snapshot() -> Dictionary:
+	var saved = super.snapshot()
+	saved.face = face
+	saved.queue = queue.map(func(unit): return str(unit.id))
+	saved.events = events.duplicate()
+	saved.presentation_events = presentation_events.duplicate(true)
+	return saved
+
+func restore(saved: Dictionary) -> bool:
+	if not saved.get("queue",[]) is Array: return false
+	if not super.restore(saved): return false
+	queue = []
+	for id in saved.get("queue",[]):
+		var unit = find_id(str(id))
+		if unit.is_empty(): return false
+		queue.append(unit)
+	face = int(saved.get("face",1))
+	events = saved.get("events",[]).duplicate()
+	presentation_events = saved.get("presentation_events",[]).duplicate(true)
+	return true

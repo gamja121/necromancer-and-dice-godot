@@ -17,6 +17,7 @@ var confirm_button: Button
 func setup(roster: Array) -> void:
 	owned = roster.duplicate(true)
 	click_audio = AudioStreamPlayer.new()
+	click_audio.bus = "SFX"
 	click_audio.stream = load("res://assets/battle/sfx/ui.ogg")
 	click_audio.volume_db = -16
 	add_child(click_audio)
