@@ -147,3 +147,45 @@ PC:
 
 다음 5단계에서는 기능을 더 추가하지 않고 **검증만** 수행한다.
 검증 대상은 타이틀 시작, 3레이어 이동, 새 원정, 이어하기, 종료, 1280×720 구도와 모바일 터치 동작이다.
+
+
+## 5단계 검증 결과 — 2026-10-09
+
+자동 검증 완료:
+- Godot **4.7.2**에서 프로젝트 전체 import 성공
+- `title.tscn`을 실제 시작 장면으로 headless boot 성공
+- 타이틀 씬 핵심 노드 6개 존재 확인
+  - Background / Board / Foreground
+  - 새 원정 / 이어하기 / 종료
+- 모바일 입력을 코드로 모사해 `InputEventScreenTouch`와 `InputEventScreenDrag`의 좌표 정규화 확인
+- 전경 패럴랙스가 설정한 오버스캔 범위를 벗어나지 않는지 확인
+- 새 원정 생성 → 저장 파일 생성 확인
+- 저장값 변경 → 재저장 → `reload_world()`로 이어하기 복원 확인
+- `project.godot`이 `title.tscn`을 시작 장면으로 지정했는지 확인
+
+검증 중 발견 및 수정:
+- 초기 Stage 2에 올린 경량 `background.webp`, `board_layer.webp`가 GitHub 업로드 과정에서 손상되어 Godot에서 로드 실패하는 것을 발견했다.
+- 두 파일을 정상 WebP blob으로 교체했고 재검증에서 resource load / scene parse 오류가 사라졌다.
+- 독립 smoke test에서 autoload 전역 심볼을 직접 참조하던 테스트 코드도 `/root/RunSession` 노드 조회 방식으로 수정했다. 게임 코드 문제는 아니고 테스트 실행 방식 문제였다.
+
+최종 자동 검증:
+- GitHub Actions `Title Stage 5 Verification`
+- Run ID: `37873972836`
+- 결과: **SUCCESS**
+- Import / Boot / Wiring / Touch+Save Flow 전 단계 통과
+
+### 아직 자동검증으로 확정할 수 없는 부분
+
+- 실제 휴대폰 화면에서의 최종 시각적 품질
+- 손가락으로 드래그했을 때 체감 움직임 강도
+- 기기별 화면비/노치에서의 체감 여백
+- 현재 연결된 경량 프리뷰 이미지의 최종 펜선 화질
+
+따라서 기능 구조 검증은 완료됐지만, 원화는 아직 **프리뷰 해상도**다. 최종 타이틀 확정 전에 원본 고해상도 WebP로 교체하고 실제 폰에서 시각 검수한다.
+
+### 5단계 안전선
+
+- `main` 미병합
+- map / battlefield 파일 미변경
+- 기존 전투 규칙 미변경
+- 검증용 GitHub Actions workflow는 결과 확인 후 제거하여 저장소에 일회성 도구를 남기지 않는다.
