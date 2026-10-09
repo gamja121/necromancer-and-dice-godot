@@ -57,9 +57,9 @@ func _process(delta: float) -> void:
 	_move_layer(ground_hand_layer, pointer, idle, Vector2(56.0, 28.0), 6.0, smooth)
 	_move_layer(graves_crows_layer, pointer, idle, Vector2(72.0, 36.0), 7.5, smooth)
 
-	# 공중 까마귀는 가장 크게 반응하면서 별도의 느린 부유 움직임도 더한다.
+	# 공중 까마귀는 두 마리만 작게 유지하고, 배경보다 조금 크게 반응시킨다.
 	var crow_idle := idle + Vector2(sin(idle_time * 0.41), cos(idle_time * 0.31)) * 0.8
-	_move_layer(flying_crows_layer, pointer, crow_idle, Vector2(92.0, 44.0), 10.0, smooth)
+	_move_layer(flying_crows_layer, pointer, crow_idle, Vector2(76.0, 36.0), 7.0, smooth)
 
 func _set_pointer(position: Vector2) -> void:
 	var viewport_size := get_viewport_rect().size
