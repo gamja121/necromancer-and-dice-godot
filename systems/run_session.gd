@@ -6,6 +6,22 @@ var world
 var encounter: Dictionary = {}
 var notice = ""
 
+func has_save() -> bool:
+	return FileAccess.file_exists(SAVE)
+
+func start_new_world() -> void:
+	var definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
+	world = MapState.new(definitions,Time.get_ticks_usec())
+	encounter = {}
+	notice = ""
+	save_world()
+
+func reload_world() -> void:
+	world = null
+	encounter = {}
+	notice = ""
+	ensure_world()
+
 func ensure_world() -> void:
 	if world != null: return
 	var definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
