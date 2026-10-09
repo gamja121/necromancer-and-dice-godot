@@ -1,10 +1,23 @@
 # Necromancer and Dice — Godot
 
+## 현재 개발 방식 — 2026-10-10
+
+- 공개 Godot 원본: https://github.com/gamja121/necromancer-and-dice-godot
+- PC 활성 프로젝트: C:/Dev/necromancer_and_dice
+- PC에서 구현·검증한 작업을 commit/push하여 공개 main과 동기화한다. 연결된 GPT/Codex는 이 저장소의 원본을 확인하고 권한이 있으면 수정한다.
+- 기존 HTML/JS 게임은 완성 기준으로 보존한다. 앞으로 개발은 Godot 이식에 집중하고 Godot Web 내보내기·자동 배포는 중단한다.
+- HTML/JS 기준: https://github.com/gamja121/necromancer-dice-board/tree/reference/html-final
+- 상세 운영 규칙: [docs/development_policy.md](docs/development_policy.md)
+- 이식 상태 및 남은 범위: [docs/godot_port_status.md](docs/godot_port_status.md)
+
+2026-10-10에 PC 게임 코드·실행 에셋 533개 파일을 공개 원본과 병합했다. 시작 흐름은 타이틀 → 새 원정 → 인트로 → 맵이며 이어하기는 저장된 맵을 복원한다. 동시 제작 중인 아트 후보·도구는 별도 작업이다. [동기화와 실행 검증 기록](docs/native_source_sync_2026_10_10.md)을 참고한다.
+
+
 Godot 4.7.2 Standard / GDScript / Compatibility renderer.
 
 ## 실행
 
-Godot에서 project.godot을 열고 F5로 실행한다. 기본 시작 장면은 map.tscn이다.
+Godot에서 project.godot을 열고 F5로 실행한다. 기본 시작 장면은 project.godot의 application/run/main_scene 설정을 따른다.
 독립 전장을 확인하려면 battlefield.tscn을 열고 F6로 실행한다.
 Windows의 launch_game.cmd는 로컬 엔진 설치 경로에 맞춰 수정해서 사용한다.
 

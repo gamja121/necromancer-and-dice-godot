@@ -52,6 +52,7 @@ func _ready() -> void:
 	session.ensure_world()
 	world = session.world
 	var font = SystemFont.new()
+	font.fallbacks = [preload("res://assets/fonts/nanum_gothic_regular.ttf")]
 	font.font_names = PackedStringArray(["Malgun Gothic","맑은 고딕"])
 	theme = Theme.new()
 	theme.default_font = font

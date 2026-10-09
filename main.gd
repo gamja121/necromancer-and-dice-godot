@@ -21,6 +21,7 @@ func _ready() -> void:
 	passive_data = parsed.passives
 	var game_theme = Theme.new()
 	var korean_font = SystemFont.new()
+	korean_font.fallbacks = [preload("res://assets/fonts/nanum_gothic_regular.ttf")]
 	korean_font.font_names = PackedStringArray(["Malgun Gothic","맑은 고딕","sans-serif"])
 	game_theme.default_font = korean_font
 	game_theme.default_font_size = 17

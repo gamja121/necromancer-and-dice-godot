@@ -82,6 +82,7 @@ func _ready() -> void:
 	# Embedded battles inherit the map font/theme instead of loading it again.
 	if not embedded:
 		var font = SystemFont.new()
+		font.fallbacks = [preload("res://assets/fonts/nanum_gothic_regular.ttf")]
 		font.font_names = PackedStringArray(["Malgun Gothic","맑은 고딕"])
 		theme = Theme.new()
 		theme.default_font = font
