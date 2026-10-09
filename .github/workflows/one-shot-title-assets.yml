@@ -1,0 +1,52 @@
+name: One-shot cemetery title assets
+
+on:
+  push:
+    branches:
+      - chatgpt/title-cemetery-master-20261009
+    paths:
+      - ".github/workflows/one-shot-title-assets.yml"
+      - ".tmp_title_pack/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt/title-cemetery-master-20261009
+
+      - name: Install six cemetery title layers
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf assets/title/cemetery
+          mkdir -p assets/title/cemetery
+          unzip -q .tmp_title_pack/title_asset_pack85.zip -d assets/title/cemetery
+
+          for f in             01_sky.webp             02_mountains.webp             03_fence_tree.webp             04_ground_hand.webp             05_graves_crows.webp             06_flying_crows.webp
+          do
+            test -s "assets/title/cemetery/$f"
+          done
+
+          # User explicitly replaced the old title artwork.
+          rm -rf assets/title/parallax
+          rm -rf .tmp_title_pack
+          rm -f .github/workflows/one-shot-title-assets.yml
+
+      - name: Commit installed title assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status --short
+          git commit -m "feat: replace title art with cemetery master layers"
+          git push origin HEAD:chatgpt/title-cemetery-master-20261009
