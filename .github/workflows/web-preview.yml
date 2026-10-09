@@ -1,13 +1,13 @@
-name: Build Godot Web Artifact
+name: Build and Publish Godot Web
 
 on:
   push:
     branches:
       - main
     paths:
-      - "**.gd"
-      - "**.tscn"
-      - "**.tres"
+      - "**/*.gd"
+      - "**/*.tscn"
+      - "**/*.tres"
       - "project.godot"
       - "export_presets.cfg"
       - "assets/**"
@@ -18,8 +18,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: godot-web-build-${{ github.ref }}
@@ -47,6 +45,16 @@ jobs:
           godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             echo "Godot import found an error."
+            exit 1
+          fi
+
+      - name: Check game startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --quit-after 120 2>&1 | tee runtime.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' runtime.log; then
+            echo "Godot startup found an error."
             exit 1
           fi
 
@@ -83,6 +91,8 @@ jobs:
         shell: bash
         run: |
           printf '%s\n' "${GITHUB_SHA}" > build/web/SOURCE_SHA.txt
+          cp build/web/SOURCE_SHA.txt build/web/DEPLOYED_SOURCE_SHA.txt
+          touch build/web/.nojekyll
 
       - name: Upload canonical web artifact
         uses: actions/upload-artifact@v4
@@ -92,19 +102,44 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Checkout public deployment repository
+        if: github.ref == 'refs/heads/main'
+        uses: actions/checkout@v4
         with:
-          path: build/web
+          repository: gamja121/necromancer-dice-board
+          ref: main
+          path: public_deploy
+          ssh-key: ${{ secrets.GODOT_WEB_DEPLOY_KEY }}
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy latest Godot build
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish successful build to canonical public repository
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$latest" != "$SOURCE_SHA" ]; then
+            echo "A newer source revision exists; skipping stale publication."
+            exit 0
+          fi
+          for file in index.html index.pck index.wasm; do
+            test -s "build/web/$file"
+          done
+          test "$(cat build/web/SOURCE_SHA.txt)" = "$SOURCE_SHA"
+          test "$(cat build/web/DEPLOYED_SOURCE_SHA.txt)" = "$SOURCE_SHA"
+          if find build/web -type f -size +100M | grep -q .; then
+            echo "An export file exceeds GitHub's per-file limit."
+            exit 1
+          fi
+          rsync -a --delete --exclude='.git/' --exclude='.github/' --exclude='README.md' build/web/ public_deploy/
+          cd public_deploy
+          git config user.name "godot-web-deploy"
+          git config user.email "godot-web-deploy@users.noreply.github.com"
+          git add --all
+          if git diff --cached --quiet; then
+            echo "This source build is already published."
+            exit 0
+          fi
+          git commit -m "Deploy Godot Web from ${SOURCE_SHA}"
+          git push origin HEAD:main
