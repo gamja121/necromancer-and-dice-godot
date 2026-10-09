@@ -108,24 +108,14 @@ jobs:
     steps:
       - name: Configure Pages
         id: pages
-        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
       - name: Deploy to GitHub Pages
         id: deployment
-        if: steps.pages.outcome == 'success'
-        continue-on-error: true
         uses: actions/deploy-pages@v4
 
-      - name: Report Pages status
+      - name: Report Pages URL
         shell: bash
-        run: |
-          if [ "${{ steps.pages.outcome }}" != "success" ]; then
-            echo "::warning::GitHub Pages is not enabled/configurable with this repository token. The Web build artifact is still available for phone testing."
-          elif [ "${{ steps.deployment.outcome }}" != "success" ]; then
-            echo "::warning::Web build succeeded but Pages deployment did not complete. The Web build artifact is still available."
-          else
-            echo "Pages deployment completed: ${{ steps.deployment.outputs.page_url }}"
-          fi
+        run: echo "Pages deployment completed: ${{ steps.deployment.outputs.page_url }}"
