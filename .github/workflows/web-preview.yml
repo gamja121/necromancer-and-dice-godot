@@ -72,6 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cp assets/fonts/OFL.txt build/web/FONT_LICENSE.txt
           cp web/landscape-lock.css build/web/landscape-lock.css
           cp web/landscape-lock.js build/web/landscape-lock.js
           python3 - <<'PY'

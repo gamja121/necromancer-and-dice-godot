@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://title.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/title/cemetery/01_sky.webp" id="2"]
@@ -8,7 +8,10 @@
 [ext_resource type="Texture2D" path="res://assets/title/cemetery/05_graves_crows.webp" id="6"]
 [ext_resource type="Texture2D" path="res://assets/title/cemetery/06_flying_crows.webp" id="7"]
 
+[ext_resource type="FontFile" path="res://assets/fonts/nanum_gothic_bold.ttf" id="8_font"]
+
 [sub_resource type="SystemFont" id="Font_title"]
+fallbacks = Array[Font]([ExtResource("8_font")])
 font_names = PackedStringArray("Georgia", "Times New Roman", "Noto Serif KR", "Malgun Gothic")
 font_weight = 700
 

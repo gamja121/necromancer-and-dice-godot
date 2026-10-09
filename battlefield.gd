@@ -53,6 +53,7 @@ func _ready() -> void:
 	map_mode = session != null and not session.encounter.is_empty()
 	definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
 	var font = SystemFont.new()
+	font.fallbacks = [preload("res://assets/fonts/nanum_gothic_regular.ttf")]
 	font.font_names = PackedStringArray(["Malgun Gothic","맑은 고딕"])
 	theme = Theme.new()
 	theme.default_font = font
