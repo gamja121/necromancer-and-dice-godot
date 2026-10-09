@@ -1,11 +1,15 @@
 extends Control
 
+const MAP_SCENE := "res://map.tscn"
 const BASE_SIZE := Vector2(1280.0, 720.0)
 const OVERSCAN := Vector2(48.0, 28.0)
 
 @onready var background_layer: TextureRect = $ParallaxArt/Background
 @onready var board_layer: TextureRect = $ParallaxArt/Board
 @onready var foreground_layer: TextureRect = $ParallaxArt/Foreground
+@onready var new_run_button: Button = $TitleUI/MenuPanel/Menu/NewRun
+@onready var continue_button: Button = $TitleUI/MenuPanel/Menu/Continue
+@onready var exit_button: Button = $TitleUI/MenuPanel/Menu/Exit
 
 var pointer_normalized := Vector2.ZERO
 var touch_active := false
@@ -15,6 +19,10 @@ var base_positions: Dictionary = {}
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(_layout_layers)
+	new_run_button.pressed.connect(_start_new_run)
+	continue_button.pressed.connect(_continue_run)
+	exit_button.pressed.connect(_exit_game)
+	continue_button.disabled = not RunSession.has_save()
 	_layout_layers()
 
 func _input(event: InputEvent) -> void:
@@ -72,3 +80,17 @@ func _layout_layers() -> void:
 		layer.position = base
 		layer.size = layer_size
 		base_positions[layer] = base
+
+func _start_new_run() -> void:
+	RunSession.start_new_world()
+	get_tree().change_scene_to_file(MAP_SCENE)
+
+func _continue_run() -> void:
+	if not RunSession.has_save():
+		continue_button.disabled = true
+		return
+	RunSession.reload_world()
+	get_tree().change_scene_to_file(MAP_SCENE)
+
+func _exit_game() -> void:
+	get_tree().quit()
