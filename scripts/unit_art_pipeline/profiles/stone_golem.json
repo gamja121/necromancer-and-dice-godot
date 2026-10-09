@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "slug": "stone-golem",
+  "input": {
+    "mode": "sheet",
+    "path": "../../../source_assets/unit_art_pipeline/stone_golem_input/stone_source.png",
+    "grid": [
+      6,
+      4
+    ],
+    "segmentation": "alpha_components",
+    "prepared_canvas": [
+      400,
+      340
+    ],
+    "prepared_floor": 320,
+    "counts": {
+      "attack": 10,
+      "hit": 6,
+      "death": 8
+    }
+  },
+  "output": {
+    "canvas": [
+      1280,
+      1024
+    ],
+    "body_height": 640,
+    "floor": 1000,
+    "preserve": false,
+    "sheet_columns": 6,
+    "decay_monotonic": true
+  },
+  "timing": {
+    "impact_frame": 6,
+    "hit_interval": 0.1,
+    "death_delays": [
+      0.14,
+      0.14,
+      0.16,
+      0.18,
+      0.22,
+      0.26,
+      0.3,
+      0.4
+    ]
+  },
+  "enhance": {
+    "enabled": true,
+    "model": "realesrgan-x4plus",
+    "blend": 0.7
+  }
+}
