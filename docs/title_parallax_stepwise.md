@@ -99,3 +99,25 @@ PC:
 - `RunSession` 미변경
 - map / battlefield 미변경
 - 현재 작업은 `chatgpt/title-parallax-stepwise-20261009` 브랜치 안에서만 수행
+
+
+## 3단계 진행 결과 — 2026-10-09
+
+완료:
+- 패럴랙스와 분리된 고정 `TitleUI` 위에 타이틀 로고 추가
+- `NECROMANCER` + `& DICE` 2단 로고 구성
+- 반투명 어두운 메뉴 패널 추가
+- `새 원정 / 이어하기 / 종료` 버튼 3개 추가
+- 버튼에 normal / hover / pressed / focus 상태를 각각 적용
+- PC 마우스와 모바일 터치에서 누르기 쉬운 264×48 기준 버튼 크기 사용
+- 로고와 메뉴는 `ParallaxArt` 바깥에 있어 배경과 함께 움직이지 않음
+
+현재 안전선:
+- 버튼은 **시각 UI만 구현**했으며 아직 게임 시작 함수에 연결하지 않음
+- `RunSession` 미변경
+- `project.godot` 미변경
+- 저장 데이터 미변경
+- map / battlefield 미변경
+- `main` 미변경
+
+다음 4단계에서만 새 원정 / 이어하기 / 종료 기능을 연결하고, 타이틀을 실제 시작 장면으로 전환한다.
