@@ -1,11 +1,9 @@
-name: Build and Deploy Web Preview
+name: Build Godot Web Artifact
 
 on:
   push:
     branches:
       - main
-      - chatgpt/web-preview-deploy-20261009
-      - chatgpt/mobile-landscape-20261009
     paths:
       - "**.gd"
       - "**.tscn"
@@ -20,11 +18,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: web-preview-${{ github.ref }}
+  group: godot-web-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -47,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           godot --headless --path . --editor --quit 2>&1 | tee import.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource: res://assets/title/parallax' import.log; then
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             echo "Godot import found an error."
             exit 1
           fi
@@ -80,43 +76,16 @@ jobs:
               text = text.replace("</body>", f"  {js}\n</body>")
           path.write_text(text, encoding="utf-8")
           PY
-          grep -q 'landscape-lock.css' build/web/index.html
-          grep -q 'landscape-lock.js' build/web/index.html
 
-      - name: Upload phone-test build
+      - name: Record source revision
+        shell: bash
+        run: |
+          printf '%s\n' "${GITHUB_SHA}" > build/web/SOURCE_SHA.txt
+
+      - name: Upload canonical web artifact
         uses: actions/upload-artifact@v4
         with:
-          name: necromancer-and-dice-web-preview
+          name: necromancer-and-dice-web
           path: build/web
           if-no-files-found: error
           retention-days: 14
-
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Configure Pages
-        id: pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-      - name: Report Pages URL
-        shell: bash
-        run: |
-          echo "Pages deployment completed: ${{ steps.deployment.outputs.page_url }}"
