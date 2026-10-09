@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://title.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/title/parallax/background.webp" id="2"]
+[ext_resource type="Texture2D" path="res://assets/title/parallax/board_layer.webp" id="3"]
+[ext_resource type="Texture2D" path="res://assets/title/parallax/foreground_layer.webp" id="4"]
 
 [node name="Title" type="Control"]
 layout_mode = 3
@@ -29,6 +32,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+clip_contents = true
 
 [node name="Background" type="TextureRect" parent="ParallaxArt"]
 offset_left = -48.0
@@ -36,6 +40,7 @@ offset_top = -28.0
 offset_right = 1328.0
 offset_bottom = 748.0
 mouse_filter = 2
+texture = ExtResource("2")
 expand_mode = 1
 stretch_mode = 6
 
@@ -45,6 +50,7 @@ offset_top = -28.0
 offset_right = 1328.0
 offset_bottom = 748.0
 mouse_filter = 2
+texture = ExtResource("3")
 expand_mode = 1
 stretch_mode = 6
 
@@ -54,6 +60,7 @@ offset_top = -28.0
 offset_right = 1328.0
 offset_bottom = 748.0
 mouse_filter = 2
+texture = ExtResource("4")
 expand_mode = 1
 stretch_mode = 6
 
@@ -71,6 +78,6 @@ offset_left = 24.0
 offset_top = 18.0
 offset_right = 420.0
 offset_bottom = 48.0
-text = "TITLE PARALLAX · STAGE 1"
+text = "TITLE PARALLAX · STAGE 2"
 theme_override_colors/font_color = Color(0.72, 0.66, 0.55, 0.8)
 theme_override_font_sizes/font_size = 14
