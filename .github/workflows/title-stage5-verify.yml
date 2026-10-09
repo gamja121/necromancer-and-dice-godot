@@ -1,0 +1,52 @@
+name: Title Stage 5 Verification
+
+on:
+  push:
+    branches:
+      - chatgpt/title-parallax-stepwise-20261009
+    paths:
+      - "title.gd"
+      - "title.tscn"
+      - "project.godot"
+      - "systems/run_session.gd"
+      - "assets/title/parallax/**"
+      - ".github/workflows/title-stage5-verify.yml"
+  workflow_dispatch:
+
+jobs:
+  verify-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify Godot version
+        run: godot --version
+
+      - name: Import project and parse resources
+        run: godot --headless --path . --editor --quit
+
+      - name: Boot title scene headless
+        run: godot --headless --path . --quit-after 3
+
+      - name: Verify title wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'run/main_scene="res://title.tscn"' project.godot
+          grep -q 'const MAP_SCENE := "res://map.tscn"' title.gd
+          grep -q 'func has_save()' systems/run_session.gd
+          grep -q 'func start_new_world()' systems/run_session.gd
+          grep -q 'func reload_world()' systems/run_session.gd
+          test -f assets/title/parallax/background.webp
+          test -f assets/title/parallax/board_layer.webp
+          test -f assets/title/parallax/foreground_layer.webp
+          test -f map.tscn
