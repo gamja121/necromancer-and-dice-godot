@@ -118,4 +118,5 @@ jobs:
 
       - name: Report Pages URL
         shell: bash
-        run: echo "Pages deployment completed: ${{ steps.deployment.outputs.page_url }}"
+        run: |
+          echo "Pages deployment completed: ${{ steps.deployment.outputs.page_url }}"
