@@ -50,3 +50,93 @@ jobs:
           test -f assets/title/parallax/board_layer.webp
           test -f assets/title/parallax/foreground_layer.webp
           test -f map.tscn
+
+      - name: Exercise touch and save flow
+        shell: bash
+        run: |
+          cat > stage5_title_smoke.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          var failed := false
+
+          func _initialize() -> void:
+              call_deferred("_run")
+
+          func _fail(message: String) -> void:
+              failed = true
+              push_error(message)
+
+          func _run() -> void:
+              var save_path := ProjectSettings.globalize_path(RunSession.SAVE)
+              var temp_path := ProjectSettings.globalize_path(RunSession.SAVE + ".tmp")
+              if FileAccess.file_exists(RunSession.SAVE):
+                  DirAccess.remove_absolute(save_path)
+              if FileAccess.file_exists(RunSession.SAVE + ".tmp"):
+                  DirAccess.remove_absolute(temp_path)
+
+              var packed := load("res://title.tscn") as PackedScene
+              if packed == null:
+                  _fail("title.tscn did not load")
+                  quit(1)
+                  return
+
+              var title = packed.instantiate()
+              root.add_child(title)
+              await process_frame
+
+              for node_path in [
+                  "ParallaxArt/Background",
+                  "ParallaxArt/Board",
+                  "ParallaxArt/Foreground",
+                  "TitleUI/MenuPanel/Menu/NewRun",
+                  "TitleUI/MenuPanel/Menu/Continue",
+                  "TitleUI/MenuPanel/Menu/Exit"
+              ]:
+                  if title.get_node_or_null(node_path) == null:
+                      _fail("Missing title node: " + node_path)
+
+              var touch := InputEventScreenTouch.new()
+              touch.pressed = true
+              touch.position = Vector2(100.0, 100.0)
+              title._input(touch)
+              await process_frame
+              if title.pointer_normalized.x >= -0.7 or title.pointer_normalized.y >= -0.6:
+                  _fail("Touch position was not normalized toward upper-left")
+
+              var drag := InputEventScreenDrag.new()
+              drag.position = Vector2(1180.0, 620.0)
+              title._input(drag)
+              await process_frame
+              if title.pointer_normalized.x <= 0.7 or title.pointer_normalized.y <= 0.6:
+                  _fail("Drag position was not normalized toward lower-right")
+
+              var foreground = title.get_node("ParallaxArt/Foreground")
+              if foreground.position.x < -70.0 or foreground.position.x > -25.0:
+                  _fail("Foreground parallax exceeded horizontal overscan")
+              if foreground.position.y < -42.0 or foreground.position.y > -14.0:
+                  _fail("Foreground parallax exceeded vertical overscan")
+
+              if RunSession.has_save():
+                  _fail("Fresh runner unexpectedly had a save")
+              RunSession.start_new_world()
+              if not RunSession.has_save():
+                  _fail("New run did not create a save")
+              RunSession.world.contamination = 42
+              if not RunSession.save_world():
+                  _fail("Existing save could not be overwritten")
+              RunSession.world = null
+              RunSession.reload_world()
+              if RunSession.world == null or RunSession.world.contamination != 42:
+                  _fail("Continue/reload did not restore saved state")
+
+              if FileAccess.file_exists(RunSession.SAVE):
+                  DirAccess.remove_absolute(save_path)
+              if FileAccess.file_exists(RunSession.SAVE + ".tmp"):
+                  DirAccess.remove_absolute(temp_path)
+
+              title.queue_free()
+              await process_frame
+              quit(1 if failed else 0)
+          GDSCRIPT
+          godot --headless --path . --script stage5_title_smoke.gd
+          rm -f stage5_title_smoke.gd
