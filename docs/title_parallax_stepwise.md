@@ -71,3 +71,31 @@ PC:
 3. Interaction: 1~2단계에서는 외부 시스템과 통신하지 않는다. 4단계에서만 RunSession과 연결한다.
 4. Visual change: 세 레이어만 서로 다른 강도로 이동하고 로고/버튼은 고정한다.
 5. Persistent state: 1~3단계에서는 저장 데이터를 변경하지 않는다. 4단계의 새 원정 선택 때만 기존 저장 흐름을 사용한다.
+
+
+## 2단계 진행 결과 — 2026-10-09
+
+완료:
+- Background에 확정 배경 원화 연결
+- Board에 투명 보드/마물 원화 연결
+- Foreground에 투명 전경 프레임 원화 연결
+- 세 레이어의 원본 종횡비가 모두 1672×941 계열(약 16:9)임을 확인
+- Board / Foreground의 알파 투명 배경 유지 확인
+- `ParallaxArt.clip_contents = true`로 오버스캔 이동 시 화면 밖 영역을 잘라내도록 설정
+- 메뉴, RunSession, `project.godot` 시작 장면은 변경하지 않음
+
+현재 GitHub에 연결한 파일은 **레이어 결합과 움직임 확인용 경량 프리뷰**다.
+- Background: 320×180
+- Board: 320×180
+- Foreground: 160×90
+
+이 해상도는 최종 화질용이 아니다. 실제 타이틀을 확정하기 전 원본 1672×941에서 최종 게임용 WebP를 다시 만들어 교체한다. 원화의 펜선이 중요한 만큼 최종본은 최소 실제 표시 크기 이상을 유지하고 게임에서는 가능한 한 축소 표시한다.
+
+### 2단계 안전선
+
+- `main` 미변경
+- `project.godot` 미변경
+- 저장 데이터 미변경
+- `RunSession` 미변경
+- map / battlefield 미변경
+- 현재 작업은 `chatgpt/title-parallax-stepwise-20261009` 브랜치 안에서만 수행
