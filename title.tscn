@@ -265,4 +265,4 @@ offset_bottom = 706.0
 theme_override_colors/font_color = Color(0.66, 0.6, 0.5, 0.68)
 theme_override_fonts/font = SubResource("Font_title")
 theme_override_font_sizes/font_size = 12
-text = "TITLE PARALLAX · STAGE 3"
+text = "TITLE PARALLAX · STAGE 4"
