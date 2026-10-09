@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - chatgpt/web-preview-deploy-20261009
+      - chatgpt/mobile-landscape-20261009
     paths:
       - "**.gd"
       - "**.tscn"
