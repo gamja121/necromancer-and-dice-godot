@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "slug": "abyss-claw-hunter",
+  "input": {
+    "mode": "sheet",
+    "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/hunter_complete_sheet.png",
+    "grid": [
+      6,
+      4
+    ],
+    "segmentation": "alpha_components",
+    "prepared_canvas": [
+      600,
+      380
+    ],
+    "prepared_floor": 356,
+    "counts": {
+      "attack": 10,
+      "hit": 6,
+      "death": 8
+    },
+    "row_grouping": "grounded_bottom",
+    "order": [
+      1,
+      2,
+      3,
+      5,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      17,
+      19,
+      18,
+      20,
+      21,
+      16,
+      22,
+      23,
+      24
+    ]
+  },
+  "output": {
+    "canvas": [
+      1408,
+      960
+    ],
+    "body_height": 480,
+    "floor": 936,
+    "preserve": false,
+    "sheet_columns": 6,
+    "decay_monotonic": true
+  },
+  "timing": {
+    "impact_frame": 7,
+    "hit_interval": 0.1,
+    "death_delays": [
+      0.14,
+      0.14,
+      0.16,
+      0.18,
+      0.22,
+      0.26,
+      0.3,
+      0.4
+    ]
+  },
+  "enhance": {
+    "enabled": true,
+    "model": "realesrgan-x4plus",
+    "blend": 0.7
+  },
+  "overrides": {
+    "death-05": {
+      "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/death_05_override.png"
+    }
+  }
+}

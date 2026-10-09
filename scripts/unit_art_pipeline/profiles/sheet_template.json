@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "slug": "your-unit-slug",
+  "input": {
+    "mode": "sheet",
+    "path": "your_source_sheet.png",
+    "grid": [5, 5],
+    "counts": {"attack": 10, "hit": 7, "death": 8}
+  },
+  "output": {
+    "canvas": [576, 384],
+    "body_height": 320,
+    "floor": 372,
+    "preserve": false,
+    "sheet_columns": 5
+  },
+  "timing": {"impact_frame": 7},
+  "enhance": {"enabled": false, "model": "realesrgan-x4plus", "blend": 0.7}
+}

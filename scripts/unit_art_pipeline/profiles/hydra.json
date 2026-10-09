@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "slug": "hydra",
+  "input": {
+    "mode": "frames",
+    "path": "../../../assets/battle/frames/hydra",
+    "counts": {"attack": 10, "hit": 7, "death": 8}
+  },
+  "output": {
+    "canvas": [1152, 768],
+    "body_height": 640,
+    "floor": 744,
+    "preserve": true,
+    "sheet_columns": 5,
+    "decay_monotonic": true
+  },
+  "timing": {"impact_frame": 7},
+  "enhance": {"enabled": false}
+}

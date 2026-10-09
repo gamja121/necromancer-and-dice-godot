@@ -8,3 +8,6 @@ source_assets/
 !.env.example
 
 tests/
+
+__pycache__/
+*.pyc
