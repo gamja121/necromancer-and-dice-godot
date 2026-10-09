@@ -2,11 +2,16 @@ extends Control
 
 const MAP_SCENE := "res://map.tscn"
 const BASE_SIZE := Vector2(1280.0, 720.0)
-const OVERSCAN := Vector2(48.0, 28.0)
+# 큰 패럴랙스 이동에도 빈 가장자리가 보이지 않도록 넉넉하게 확보.
+# 1672x941 원화를 1520x860 정도로 축소 표시하므로 업스케일 없이 선명도를 유지한다.
+const OVERSCAN := Vector2(120.0, 70.0)
 
-@onready var background_layer: TextureRect = $ParallaxArt/Background
-@onready var board_layer: TextureRect = $ParallaxArt/Board
-@onready var foreground_layer: TextureRect = $ParallaxArt/Foreground
+@onready var sky_layer: TextureRect = $ParallaxArt/Sky
+@onready var mountains_layer: TextureRect = $ParallaxArt/Mountains
+@onready var fence_tree_layer: TextureRect = $ParallaxArt/FenceTree
+@onready var ground_hand_layer: TextureRect = $ParallaxArt/GroundHand
+@onready var graves_crows_layer: TextureRect = $ParallaxArt/GravesCrows
+@onready var flying_crows_layer: TextureRect = $ParallaxArt/FlyingCrows
 @onready var new_run_button: Button = $TitleUI/MenuPanel/Menu/NewRun
 @onready var continue_button: Button = $TitleUI/MenuPanel/Menu/Continue
 @onready var exit_button: Button = $TitleUI/MenuPanel/Menu/Exit
@@ -41,13 +46,20 @@ func _input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	idle_time += delta
-	var idle := Vector2(sin(idle_time * 0.23), cos(idle_time * 0.19)) * 0.55
+	var idle := Vector2(sin(idle_time * 0.24), cos(idle_time * 0.19))
 	var pointer := pointer_normalized if pointer_seen or touch_active else Vector2.ZERO
-	var smooth := 1.0 - exp(-delta * 5.2)
+	var smooth := 1.0 - exp(-delta * 5.5)
 
-	_move_layer(background_layer, pointer, idle, Vector2(4.0, 2.5), 0.30, smooth)
-	_move_layer(board_layer, pointer, idle, Vector2(11.0, 6.0), 0.62, smooth)
-	_move_layer(foreground_layer, pointer, idle, Vector2(20.0, 11.0), 1.00, smooth)
+	# 사용자가 체감상 레이어가 확실히 떠 보이길 원해서 이전보다 깊이차를 크게 잡는다.
+	_move_layer(sky_layer, pointer, idle, Vector2(8.0, 4.0), 1.5, smooth)
+	_move_layer(mountains_layer, pointer, idle, Vector2(22.0, 11.0), 3.0, smooth)
+	_move_layer(fence_tree_layer, pointer, idle, Vector2(40.0, 20.0), 4.5, smooth)
+	_move_layer(ground_hand_layer, pointer, idle, Vector2(56.0, 28.0), 6.0, smooth)
+	_move_layer(graves_crows_layer, pointer, idle, Vector2(72.0, 36.0), 7.5, smooth)
+
+	# 공중 까마귀는 가장 크게 반응하면서 별도의 느린 부유 움직임도 더한다.
+	var crow_idle := idle + Vector2(sin(idle_time * 0.41), cos(idle_time * 0.31)) * 0.8
+	_move_layer(flying_crows_layer, pointer, crow_idle, Vector2(92.0, 44.0), 10.0, smooth)
 
 func _set_pointer(position: Vector2) -> void:
 	var viewport_size := get_viewport_rect().size
@@ -74,7 +86,14 @@ func _move_layer(
 func _layout_layers() -> void:
 	var layer_size := BASE_SIZE + OVERSCAN * 2.0
 	var base := -OVERSCAN
-	for layer in [background_layer, board_layer, foreground_layer]:
+	for layer in [
+		sky_layer,
+		mountains_layer,
+		fence_tree_layer,
+		ground_hand_layer,
+		graves_crows_layer,
+		flying_crows_layer
+	]:
 		if not is_instance_valid(layer):
 			continue
 		layer.position = base
