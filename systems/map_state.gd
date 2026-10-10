@@ -34,6 +34,7 @@ var shop_trade: Dictionary = {}
 var patrol_plan: Dictionary = RoutePlan.default_plan()
 var scout: Dictionary = {"scouted":false,"intel":[]}
 var prayer_result: Dictionary = {}
+var event_flags: Dictionary = {}
 
 func next_id(prefix: String) -> String:
 	var value = "%s-%d" % [prefix,next_serial]
@@ -112,7 +113,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -129,8 +130,11 @@ func restore(saved: Dictionary) -> bool:
 	if saved.contamination<0 or saved.contamination>100: return false
 	for field in ["dice_cards","brand_cards","graveyard_corpses","reward_receipts"]:
 		if saved.has(field) and not saved[field] is Array: return false
-	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result"]:
+	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result","event_flags"]:
 		if saved.has(field) and not saved[field] is Dictionary: return false
+	var stored_flags: Dictionary = saved.get("event_flags",{})
+	for flag in stored_flags:
+		if not flag is String or str(flag).is_empty() or not stored_flags[flag] is bool: return false
 	var plan: Dictionary = saved.get("patrol_plan",RoutePlan.default_plan())
 	if not RoutePlan.valid(plan): return false
 	var intel_state: Dictionary = saved.get("scout",{"scouted":false,"intel":[]})
@@ -182,6 +186,7 @@ func restore(saved: Dictionary) -> bool:
 	patrol_plan = plan.duplicate(true)
 	scout = intel_state.duplicate(true)
 	prayer_result = saved.get("prayer_result",{}).duplicate(true)
+	event_flags = stored_flags.duplicate(true)
 	for card in brand_cards:
 		card.brand.bless = card.brand.bless.map(func(n): return int(n))
 		card.brand.curse = []
