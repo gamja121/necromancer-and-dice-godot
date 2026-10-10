@@ -45,6 +45,7 @@ var embedded_battle: Control
 var book_button: TextureButton
 var book_lock: Control
 var battle_returning = false
+var returning_story_event_id: String = ""
 var deck_button: TextureButton
 var dice_count_label: Label
 
@@ -82,6 +83,7 @@ func _ready() -> void:
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
+	elif session.graveyard_battle_result_pending(): call_deferred("show_graveyard_battle_result")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -465,6 +467,7 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 
 func open_embedded_battle(animate_lock: bool = true) -> void:
 	battle_returning = false
+	returning_story_event_id = str(session.encounter.get("event_id",""))
 	map_music.stream_paused = true
 	close_overlay()
 	if is_instance_valid(book_lock): book_lock.set_locked(true,animate_lock)
@@ -519,6 +522,8 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 func finish_embedded_battle() -> void:
 	if battle_returning: return
 	battle_returning = true
+	var completed_story_event_id: String = returning_story_event_id
+	returning_story_event_id = ""
 	if is_instance_valid(overlay): overlay.hide()
 	if is_instance_valid(book_lock):
 		book_lock.set_locked(false)
@@ -532,6 +537,8 @@ func finish_embedded_battle() -> void:
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
+	if completed_story_event_id == StoryEventEntry.EVENT_ID and session.graveyard_battle_result_pending():
+		show_graveyard_battle_result()
 
 
 func sound(kind: String) -> void:
@@ -700,6 +707,47 @@ func show_graveyard_story_deck(index: int) -> void:
 	if not session.encounter.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	show_battle_deck(index,StoryEventEntry.EVENT_ID)
+
+## Show only committed battle results. Nothing is acknowledged until a
+## close/retry button is pressed; reopening the save restores this modal.
+func show_graveyard_battle_result() -> void:
+	if not session.graveyard_battle_result_pending() or is_instance_valid(overlay): return
+	world = session.world
+	var event: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
+	var rescued: bool = event.battle_result == "won"
+	var panel = modal()
+	var art = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(art)
+	if not rescued:
+		image(panel,GraveyardStoryBeats.GHOUL_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var heading = label_at(panel,"아이 구조 성공" if rescued else "아이 구조 실패",Vector2(360,84),Vector2(568,42),24)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var description: String = "구울이 쓰러지자 아이는 당신을 바라본다. 그러나 안도하기보다 겁에 질린 표정으로 뒷걸음치더니, 묘비 사이로 달아나 버린다." if rescued else "구울을 막지 못했습니다. 아이를 구하지 못했으며, 아직 구조를 완료한 것은 아닙니다."
+	var narrative = label_at(panel,description,Vector2(285,558),Vector2(710,62),18)
+	narrative.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	narrative.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if rescued:
+		var dialogue = label_at(panel,"아이: ……!",Vector2(478,619),Vector2(325,26),17)
+		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	else:
+		var extra = label_at(panel,"남은 마물로 다시 도전할 수 있습니다.",Vector2(396,619),Vector2(492,26),16)
+		extra.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if not rescued and not world.roster.is_empty():
+		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_graveyard_result(true),1)
+	location_button(panel,"맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_graveyard_result(false),4)
+
+func acknowledge_graveyard_result(retry: bool) -> void:
+	if not session.acknowledge_graveyard_battle_result():
+		status.text = "사건 결과 저장 실패 · 다시 시도하세요."
+		return
+	var index: int = world.position
+	close_overlay()
+	if retry and not world.roster.is_empty():
+		show_graveyard_story_deck(index)
+	else:
+		render()
+		status.text = session.notice
+		session.notice = ""
 
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
