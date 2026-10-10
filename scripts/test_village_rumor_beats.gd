@@ -191,6 +191,9 @@ func invalid_progress() -> void:
 func verify_ui() -> void:
 	var text: String=FileAccess.get_file_as_string("res://map.gd")
 	check(text.contains('func show_village_rumor_beat(index: int, event_id: String) -> void:'),"village event renders each beat")
+	check(text.contains('call_deferred("resume_village_rumor_if_unfinished")'),"save startup resumes discovered village rumor")
+	check(text.contains('func resume_village_rumor_if_unfinished() -> void:'),"resume callback available")
+	check(text.contains('session.get_story_event(event_id).status!="seen"'),"startup avoids triggering a first visit")
 	check(text.contains('VillageRumorEntry.current_beat(session,event_id)'),"UI resolves durable scene index")
 	check(text.contains('for layer in beat.layers:'),"scene overlays use authored layer stack")
 	check(text.contains('str(beat.dialogue)'),"UI shows original speaker dialogue")
