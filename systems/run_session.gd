@@ -127,10 +127,12 @@ func monster_king_revival_state() -> String:
 func monster_king_hunt_eligible() -> bool:
 	if world == null or monster_king_revival_state().is_empty(): return false
 	var flags: Dictionary = world.event_flags
-	return flags.get("event:ritual_portal_trace_01:complete",false) == true \
-		and flags.get("story:monster_king:revived",false) == true \
-		and flags.get("quest:monster_king_hunt:active",false) == true \
+	return (
+		flags.get("event:ritual_portal_trace_01:complete",false) == true
+		and flags.get("story:monster_king:revived",false) == true
+		and flags.get("quest:monster_king_hunt:active",false) == true
 		and flags.get("event:monster_king_hunt_trace_01:complete",false) != true
+	)
 
 ## Called ONLY after the actual ritual battle result has been durably recorded.
 ## Finishing the ritual sets all matching web flags in one save transaction.
@@ -140,9 +142,11 @@ func finalize_ritual_portal_outcome() -> bool:
 	if current.battle_result not in ["won","lost"]: return false
 	var won: bool = current.battle_result == "won"
 	if current.status == "complete":
-		return world.event_flags.get("event:ritual_portal_trace_01:complete",false) == true \
-			and world.event_flags.get("story:monster_king:revived",false) == true \
+		return (
+			world.event_flags.get("event:ritual_portal_trace_01:complete",false) == true
+			and world.event_flags.get("story:monster_king:revived",false) == true
 			and monster_king_revival_state() == ("weakened" if won else "full")
+		)
 	if current.status != "active": return false
 	if world.event_flags.get("event:ritual_portal_trace_01:complete",false) == true: return false
 	if world.event_flags.get("story:monster_king:revived",false) == true: return false
@@ -173,9 +177,11 @@ func complete_monster_king_hunt() -> bool:
 	var current: Dictionary = get_story_event(HUNT_EVENT_ID)
 	var flags: Dictionary = world.event_flags
 	if current.status == "complete":
-		return flags.get("event:monster_king_hunt_trace_01:complete",false) == true \
-			and flags.get("quest:monster_king_hunt:complete",false) == true \
+		return (
+			flags.get("event:monster_king_hunt_trace_01:complete",false) == true
+			and flags.get("quest:monster_king_hunt:complete",false) == true
 			and flags.get("quest:monster_king_hunt:active",false) == false
+		)
 	if current.status != "active" or not monster_king_hunt_eligible(): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.story_events[HUNT_EVENT_ID] = {"status":"complete","choice":current.choice,"battle_result":current.battle_result}
