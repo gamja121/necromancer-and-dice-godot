@@ -206,7 +206,7 @@ func inspect_art_and_map() -> void:
 	check(map.contains("CultistRumorEntry.can_enter(session,index)"),"map checks eligible cultist story")
 	check(map.contains("CultistRumorEntry.begin(session,index)"),"map saves before opening first scene")
 	check(map.contains('func show_cultist_rumor_intro(index: int) -> void:'),"actual first rumor modal created")
-	check(map.contains('str(CultistRumorEntry.FIRST_BEAT.effect)'),"source arrival text displayed")
+	check(map.contains('str(beat.effect)'),"source arrival text displayed")
 	check(map.contains("CultistRumorEntry.BASE_ART"),"original background displayed")
 	check(map.contains('session.get_story_event(CultistRumorEntry.EVENT_ID).status=="seen"'),"restart only reopens already discovered cultists")
 	check(map.contains('"마을 기능"'),"original village actions remain")
@@ -217,7 +217,7 @@ func inspect_art_and_map() -> void:
 	var d: int=map.find("MonsterHunterEntry.can_enter(session,index)")
 	var e: int=map.find("CultistRumorEntry.can_enter(session,index)")
 	check(a>=0 and a<b and b<c and c<d and d<e,"original story priority not skipped")
-	check(not map.contains("func advance_cultist_rumor("),"no future tracking quest UI activated")
+	check(map.contains("func advance_cultist_rumor("),"tracking quest UI only available through saved final beat")
 
 func _run() -> void:
 	scenario(false)
