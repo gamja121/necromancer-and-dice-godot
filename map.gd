@@ -51,9 +51,7 @@ func _ready() -> void:
 	session = get_node("/root/RunSession")
 	session.ensure_world()
 	world = session.world
-	var font = SystemFont.new()
-	font.fallbacks = [preload("res://assets/fonts/nanum_gothic_regular.ttf")]
-	font.font_names = PackedStringArray(["Malgun Gothic","맑은 고딕"])
+	var font = preload("res://assets/fonts/nanum_gothic_regular.ttf")
 	theme = Theme.new()
 	theme.default_font = font
 	theme.default_font_size = 15
