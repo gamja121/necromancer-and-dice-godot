@@ -24,9 +24,7 @@ func _ready() -> void:
 	AudioSettings.apply_saved()
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://data/intro_dialogue.json"))
 	if parsed is Array: lines = parsed
-	var font = SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic","맑은 고딕"])
-	font.font_weight = 700
+	var font = preload("res://assets/fonts/nanum_gothic_bold.ttf")
 	theme = Theme.new()
 	theme.default_font = font
 	theme.default_font_size = 24
