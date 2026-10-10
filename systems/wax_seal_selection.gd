@@ -50,10 +50,34 @@ func _draw() -> void:
         draw_style_box(_glow_style, Rect2(Vector2(3.0, 3.0), size - Vector2(6.0, 6.0)))
 
 
+# Selection is exclusive to the current parchment-button panel.
+# This deliberately has no global state or save-game effect.
+static func clear_panel_selections(panel: Node, except_marker: Node = null) -> void:
+    if panel == null:
+        return
+    for child in panel.get_children():
+        if child is Button:
+            var marker = child.get_node_or_null("WaxSealSelection")
+            if marker != null and marker != except_marker:
+                marker.call("clear_selection")
+
+
+func clear_selection() -> void:
+    if not _selected:
+        return
+    _selected = false
+    if is_instance_valid(_seal):
+        _seal.hide()
+    queue_redraw()
+
+
 func confirm_selection() -> bool:
-    # False = selection click consumed; True = caller may execute the action.
+    # False = select this button; True = execute its unchanged action.
     if _selected:
         return true
+    var button := get_parent() as Button
+    if button != null:
+        clear_panel_selections(button.get_parent(), self)
     _selected = true
     if is_instance_valid(_seal):
         _seal.show()
