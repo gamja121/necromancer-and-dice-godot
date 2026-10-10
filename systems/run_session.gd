@@ -49,6 +49,21 @@ func save_world() -> bool:
 	if error!=OK: return false
 	return DirAccess.rename_absolute(ProjectSettings.globalize_path(SAVE+".tmp"),ProjectSettings.globalize_path(SAVE))==OK
 
+## Story/event flags are transiently edited in world, then saved atomically.
+## The caller supplies canonical flag names from the reference story runtime.
+func event_flag_is_set(flag: String) -> bool:
+	if world == null or flag.is_empty(): return false
+	return world.event_flags.get(flag,false) == true
+
+func set_event_flag(flag: String, enabled: bool = true) -> bool:
+	if world == null or flag.is_empty(): return false
+	# Repeated notifications must not create duplicate writes or state changes.
+	if world.event_flags.has(flag) and world.event_flags[flag] == enabled: return true
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.event_flags[flag] = enabled
+	# persist_change restores the original snapshot on save failure.
+	return persist_change(before)
+
 func start_encounter(index: int, selected_ids: Array) -> bool:
 	var mimic = world.pending_reward.get("kind","")=="mimic" and int(world.pending_reward.get("index",-1))==index
 	if (not world.pending_reward.is_empty() and not mimic) or not encounter.is_empty() or not world.pending_move.is_empty(): return false
