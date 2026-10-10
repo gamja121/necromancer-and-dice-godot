@@ -12,6 +12,7 @@ const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
+const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -732,26 +733,49 @@ func advance_village_rumor(index: int, event_id: String, shown_beat: int) -> voi
 	else:
 		show_village_rumor_beat(index,event_id)
 
-## 2-5C: arrival beat only. Recognition and investigation quest
-## activation are separate stages and remain untouched in this step.
+## Preserve the P1-05C entry point while rendering the persisted
+## seven-beat story. Dismissing does not mark the event complete.
 func show_knight_commander_intro(index: int) -> void:
+	show_knight_commander_beat(index)
+
+func show_knight_commander_beat(index: int) -> void:
 	if not KnightCommanderEntry.can_enter(session,index): return
-	if session.get_story_event(KnightCommanderEntry.EVENT_ID).status!="seen": return
+	var beat_index: int=KnightCommanderEntry.current_beat(session)
+	var beat: Dictionary=KnightCommanderBeats.beat(beat_index)
+	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var artwork=image(panel,KnightCommanderEntry.ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	InkSceneReveal.play(artwork)
-	image(panel,KnightCommanderEntry.PORTRAIT,Vector2(692,179),Vector2(265,338))
+	if beat_index==0: InkSceneReveal.play(artwork)
+	# Commander speaks in six beats; the silent player reply swaps portraits.
+	image(panel,str(beat.portrait),Vector2(692,179),Vector2(265,338))
 	var heading=label_at(panel,"사건 · 기사단장",Vector2(348,84),Vector2(584,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var narrative=label_at(panel,str(KnightCommanderEntry.FIRST_BEAT.effect),Vector2(293,557),Vector2(694,38),18)
+	var narrative=label_at(panel,str(beat.effect),Vector2(285,530),Vector2(710,63),17)
 	narrative.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	narrative.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var speech=label_at(panel,"%s: %s" % [str(KnightCommanderEntry.FIRST_BEAT.speaker),str(KnightCommanderEntry.FIRST_BEAT.dialogue)],Vector2(315,605),Vector2(657,36),18)
+	var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(288,598),Vector2(704,49),16)
 	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var finishing: bool=KnightCommanderBeats.is_final(beat_index)
 	if world.tiles[index]=="village":
+		location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_knight_commander(index,beat_index),1)
 		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	else:
+		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_knight_commander(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func advance_knight_commander(index: int, shown_beat: int) -> void:
+	var finishing: bool=KnightCommanderBeats.is_final(shown_beat)
+	if not KnightCommanderEntry.advance(session,index,shown_beat):
+		status.text="기사단장 사건 진행 저장 실패 · 다시 시도하세요."
+		return
+	if finishing:
+		close_overlay()
+		render()
+		status.text="[오염에 대한 의뢰를 받았습니다.]"
+	else:
+		show_knight_commander_beat(index)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
