@@ -8,6 +8,8 @@ const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
 const SAVE = "user://map_run_v1.json"
+const RITUAL_EVENT_ID = "ritual_portal_trace_01"
+const HUNT_EVENT_ID = "monster_king_hunt_trace_01"
 var world
 var encounter: Dictionary = {}
 var notice = ""
@@ -66,9 +68,12 @@ func set_event_flag(flag: String, enabled: bool = true) -> bool:
 
 ## A missing event has the implicit "unseen" state.
 func get_story_event(event_id: String) -> Dictionary:
-	var initial: Dictionary = {"status":"unseen","choice":""}
+	var initial: Dictionary = {"status":"unseen","choice":"","battle_result":""}
 	if world == null or event_id.is_empty(): return initial
-	return world.story_events.get(event_id,initial).duplicate(true)
+	var entry: Dictionary = world.story_events.get(event_id,initial).duplicate(true)
+	# Entries saved before P1-02C did not contain battle_result.
+	if not entry.has("battle_result"): entry["battle_result"] = ""
+	return entry
 
 ## Forward-only transition: unseen -> seen -> active -> complete.
 ## Repeated requests for the same status are safe and do not rewrite the save.
@@ -76,12 +81,14 @@ func advance_story_event(event_id: String, next_status: String) -> bool:
 	if world == null or event_id.is_empty(): return false
 	const ORDER = {"unseen":0,"seen":1,"active":2,"complete":3}
 	if not ORDER.has(next_status) or next_status == "unseen": return false
+	# Ritual/hunt completion must persist their linked quest flags atomically.
+	if next_status == "complete" and event_id in [RITUAL_EVENT_ID,HUNT_EVENT_ID]: return false
 	var current: Dictionary = get_story_event(event_id)
 	var step: int = ORDER[next_status] - ORDER[current.status]
 	if step == 0: return true
 	if step != 1: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
-	world.story_events[event_id] = {"status":next_status,"choice":current.choice}
+	world.story_events[event_id] = {"status":next_status,"choice":current.choice,"battle_result":current.battle_result}
 	return persist_change(before)
 
 ## Choice can be committed once while active. It cannot be silently overwritten.
@@ -92,7 +99,95 @@ func choose_story_event(event_id: String, choice_id: String) -> bool:
 	if current.choice == choice_id: return true
 	if not current.choice.is_empty(): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
-	world.story_events[event_id] = {"status":"active","choice":choice_id}
+	world.story_events[event_id] = {"status":"active","choice":choice_id,"battle_result":current.battle_result}
+	return persist_change(before)
+
+## Only active story battles may commit an outcome; a completed result is immutable.
+## Battle runtime must pass the actual win/loss when post-battle persistence is ready.
+func record_story_battle_result(event_id: String, won: bool) -> bool:
+	if world == null or event_id.is_empty(): return false
+	var current: Dictionary = get_story_event(event_id)
+	if current.status != "active": return false
+	var result: String = "won" if won else "lost"
+	if current.battle_result == result: return true
+	if not current.battle_result.is_empty(): return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.story_events[event_id] = {"status":"active","choice":current.choice,"battle_result":result}
+	return persist_change(before)
+
+## Exactly one of the two canonical revival flags may be true.
+func monster_king_revival_state() -> String:
+	if world == null: return ""
+	var weak: bool = world.event_flags.get("story:monster_king:revival_weakened",false) == true
+	var full: bool = world.event_flags.get("story:monster_king:revival_complete",false) == true
+	if weak == full: return ""
+	return "weakened" if weak else "full"
+
+## Mirrors web hunt preconditions without opening any tile/event by itself.
+func monster_king_hunt_eligible() -> bool:
+	if world == null or monster_king_revival_state().is_empty(): return false
+	var flags: Dictionary = world.event_flags
+	return flags.get("event:ritual_portal_trace_01:complete",false) == true \
+		and flags.get("story:monster_king:revived",false) == true \
+		and flags.get("quest:monster_king_hunt:active",false) == true \
+		and flags.get("event:monster_king_hunt_trace_01:complete",false) != true
+
+## Called ONLY after the actual ritual battle result has been durably recorded.
+## Finishing the ritual sets all matching web flags in one save transaction.
+func finalize_ritual_portal_outcome() -> bool:
+	if world == null: return false
+	var current: Dictionary = get_story_event(RITUAL_EVENT_ID)
+	if current.battle_result not in ["won","lost"]: return false
+	var won: bool = current.battle_result == "won"
+	if current.status == "complete":
+		return world.event_flags.get("event:ritual_portal_trace_01:complete",false) == true \
+			and world.event_flags.get("story:monster_king:revived",false) == true \
+			and monster_king_revival_state() == ("weakened" if won else "full")
+	if current.status != "active": return false
+	if world.event_flags.get("event:ritual_portal_trace_01:complete",false) == true: return false
+	if world.event_flags.get("story:monster_king:revived",false) == true: return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.story_events[RITUAL_EVENT_ID] = {"status":"complete","choice":current.choice,"battle_result":current.battle_result}
+	var changes: Dictionary = {
+		"event:ritual_portal_trace_01:seen": true,
+		"event:ritual_portal_trace_01:complete": true,
+		"story:ritual_portal:found": true,
+		"story:monster_king:ritual_site_location_known": true,
+		"quest:ritual_site_tracking:active": false,
+		"quest:ritual_site_tracking:complete": true,
+		"quest:ritual_intervention:active": false,
+		"battle:ritual_portal_trace_01:won": won,
+		"battle:ritual_portal_trace_01:lost": not won,
+		"story:monster_king:revived": true,
+		"story:monster_king:revival_weakened": won,
+		"story:monster_king:revival_complete": not won,
+		"quest:monster_king_hunt:active": true
+	}
+	for flag in changes: world.event_flags[flag] = changes[flag]
+	return persist_change(before)
+
+## Later story presentation can use this after the hunt scene is genuinely over.
+## It does not start the final battle or alter the pre-existing boss tile.
+func complete_monster_king_hunt() -> bool:
+	if world == null: return false
+	var current: Dictionary = get_story_event(HUNT_EVENT_ID)
+	var flags: Dictionary = world.event_flags
+	if current.status == "complete":
+		return flags.get("event:monster_king_hunt_trace_01:complete",false) == true \
+			and flags.get("quest:monster_king_hunt:complete",false) == true \
+			and flags.get("quest:monster_king_hunt:active",false) == false
+	if current.status != "active" or not monster_king_hunt_eligible(): return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.story_events[HUNT_EVENT_ID] = {"status":"complete","choice":current.choice,"battle_result":current.battle_result}
+	var changes: Dictionary = {
+		"event:monster_king_hunt_trace_01:seen": true,
+		"event:monster_king_hunt_trace_01:complete": true,
+		"quest:monster_king_hunt:active": false,
+		"quest:monster_king_hunt:complete": true,
+		"story:monster_king:sealed_ruins_location_known": true,
+		"quest:monster_king_final_battle:active": true
+	}
+	for flag in changes: world.event_flags[flag] = changes[flag]
 	return persist_change(before)
 
 func start_encounter(index: int, selected_ids: Array) -> bool:
