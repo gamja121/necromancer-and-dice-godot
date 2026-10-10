@@ -124,13 +124,15 @@ jobs:
           command -v xvfb-run
           xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/render_card_decoration_preview.gd 2>&1 | tee card-preview.log
           grep -F 'CARD_PREVIEW_SAVED:' card-preview.log
-          test -s card_preview.webp
+          grep -F 'CARD_PREVIEW_ALL_SCREENS: 4 rendered' card-preview.log
           python3 - <<'PY'
           import base64
           from pathlib import Path
-          payload = Path("card_preview.webp").read_bytes()
-          print("CARD_PREVIEW_BASE64:", base64.b64encode(payload).decode("ascii"))
-          print("CARD_PREVIEW_BYTES:", len(payload))
+          for name in ("inventory","deck","altar","inheritance"):
+              payload = Path(f"card_preview_{name}.webp").read_bytes()
+              if not payload: raise SystemExit(f"empty preview: {name}")
+              print(f"CARD_PREVIEW_{name.upper()}_BASE64:", base64.b64encode(payload).decode("ascii"))
+              print(f"CARD_PREVIEW_{name.upper()}_BYTES:",len(payload))
           PY
 
       - name: Story-state save and reload regression
