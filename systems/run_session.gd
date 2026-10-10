@@ -7,6 +7,7 @@ const DiceControl = preload("res://systems/dice_control.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
+const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 const SAVE = "user://map_run_v1.json"
 # Tests use a separate user:// path; production keeps the canonical path by default.
 var save_file_path: String = SAVE
@@ -203,35 +204,43 @@ func complete_monster_king_hunt() -> bool:
 ## Persisted, single-use story presentation receipt. A crash after combat
 ## resolution must not skip the result scene when the map is reopened.
 func graveyard_battle_result_pending() -> bool:
-	if world == null or not encounter.is_empty() or not world.active_encounter.is_empty(): return false
+	return story_battle_result_pending(GRAVEYARD_EVENT_ID)
+
+## Generic result receipt gate; only supported result handlers may show a scene.
+func story_battle_result_pending(event_id: String) -> bool:
+	var spec: Dictionary = StoryBattleRegistry.definition(event_id)
+	if world == null or spec.is_empty(): return false
+	if not encounter.is_empty() or not world.active_encounter.is_empty(): return false
 	if not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return false
-	if world.event_flags.get(GRAVEYARD_RESULT_PENDING_FLAG,false) != true: return false
-	var event: Dictionary = get_story_event(GRAVEYARD_EVENT_ID)
-	if event.choice != "protect_child": return false
-	if event.status == "complete" and event.battle_result == "won":
-		return world.event_flags.get("event:graveyard_child_ambush_01:rescued",false) == true
-	if event.status == "active" and event.battle_result == "lost":
-		return world.event_flags.get("event:graveyard_child_ambush_01:complete",false) != true
+	if world.event_flags.get(spec.pending_flag,false) != true: return false
+	var event: Dictionary = get_story_event(event_id)
+	if event.choice != spec.choice: return false
+	match str(spec.result_handler):
+		"graveyard_child":
+			if event.status == "complete" and event.battle_result == "won":
+				return world.event_flags.get("event:graveyard_child_ambush_01:rescued",false) == true
+			if event.status == "active" and event.battle_result == "lost":
+				return world.event_flags.get(spec.complete_flag,false) != true
 	return false
 
 ## Acknowledge the visual result only after the player presses a close/retry
 ## button; do not consume it on display or on map startup.
 func acknowledge_graveyard_battle_result() -> bool:
-	if not graveyard_battle_result_pending(): return false
+	return acknowledge_story_battle_result(GRAVEYARD_EVENT_ID)
+
+func acknowledge_story_battle_result(event_id: String) -> bool:
+	if not story_battle_result_pending(event_id): return false
+	var spec: Dictionary = StoryBattleRegistry.definition(event_id)
 	var before: Dictionary = world.snapshot().duplicate(true)
-	world.event_flags[GRAVEYARD_RESULT_PENDING_FLAG] = false
+	world.event_flags[spec.pending_flag] = false
 	return persist_change(before)
 
 ## Story fights must pass through the existing 1-4 owned-monster deck picker.
 ## A lost rescue attempt may be retried; the previous loss stays in its flag.
 func start_story_encounter(event_id: String, index: int, selected_ids: Array) -> bool:
-	if event_id != GRAVEYARD_EVENT_ID or world == null: return false
-	if index<0 or index>=world.tiles.size() or index!=world.position: return false
-	if not world.tiles[index] in ["graveyard","event"]: return false
-	var event: Dictionary = get_story_event(event_id)
-	if event.status != "active" or event.choice != "protect_child": return false
-	if event.battle_result not in ["","lost"]: return false
-	if world.event_flags.get("event:graveyard_child_ambush_01:complete",false) == true: return false
+	if world == null: return false
+	var spec: Dictionary = StoryBattleRegistry.definition(event_id)
+	if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,spec): return false
 	return _start_encounter(index,selected_ids,event_id)
 
 func start_encounter(index: int, selected_ids: Array) -> bool:
@@ -239,15 +248,14 @@ func start_encounter(index: int, selected_ids: Array) -> bool:
 
 func _start_encounter(index: int, selected_ids: Array, event_id: String = "") -> bool:
 	if world == null: return false
-	var story: bool = event_id == GRAVEYARD_EVENT_ID
+	var story_spec: Dictionary = StoryBattleRegistry.definition(event_id)
+	var story: bool = not story_spec.is_empty()
+	if not event_id.is_empty() and not story: return false
 	var mimic: bool = not story and world.pending_reward.get("kind","")=="mimic" and int(world.pending_reward.get("index",-1))==index
 	if (not world.pending_reward.is_empty() and not mimic) or not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
 	if index<0 or index>=world.tiles.size() or (not mimic and not story and index in world.cleared): return false
 	if story:
-		if index!=world.position or not world.tiles[index] in ["graveyard","event"]: return false
-		var stage: Dictionary = get_story_event(event_id)
-		if stage.status!="active" or stage.choice!="protect_child" or stage.battle_result not in ["","lost"]: return false
-		if world.event_flags.get("event:graveyard_child_ambush_01:complete",false) == true: return false
+		if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,story_spec): return false
 	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
@@ -262,10 +270,10 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		used.append(id)
 		allies.append(unit.duplicate(true))
 	var rules = load("res://systems/battlefield_rules.gd").new(world.definitions,world.rng.randi())
-	var type: String = "event-graveyard-child" if story else ("mimic" if mimic else world.tiles[index])
+	var type: String = str(story_spec.encounter_type) if story else ("mimic" if mimic else world.tiles[index])
 	var slugs: Array = []
 	if story:
-		slugs = ["ghoul"]
+		slugs = story_spec.enemies.duplicate()
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
 	else:
@@ -296,7 +304,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	world.prophecy = {"rolls":[]}
 	# A retry is a new combat attempt; the prior loss is still journaled.
 	if story and get_story_event(event_id).battle_result == "lost":
-		world.story_events[event_id] = {"status":"active","choice":"protect_child","battle_result":""}
+		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
 	if story: encounter["event_id"] = event_id
 	if mimic:
@@ -311,6 +319,15 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 func finish_encounter(battle) -> bool:
 	if encounter.is_empty(): return true
 	if battle.winner().is_empty(): return false
+	var event_id: String = str(encounter.get("event_id",""))
+	var story_spec: Dictionary = StoryBattleRegistry.definition(event_id)
+	# Unknown event IDs or mismatched encounter types must not fall into the
+	# ordinary tile reward branch or consume owned monsters.
+	if not event_id.is_empty() and story_spec.is_empty(): return false
+	if not story_spec.is_empty():
+		if str(encounter.get("type","")) != str(story_spec.encounter_type): return false
+		if str(story_spec.result_handler) != "graveyard_child": return false
+	elif str(encounter.get("type","")).begins_with("event-"): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var survivors: Array = []
 	for owned in world.roster:
@@ -323,12 +340,12 @@ func finish_encounter(battle) -> bool:
 			owned.current_hp = clampi(fought.hp-temporary_bonus,1,owned.max_hp)
 		survivors.append(owned)
 	world.roster = survivors
-	var story: bool = encounter.get("event_id","") == GRAVEYARD_EVENT_ID
+	var story: bool = not story_spec.is_empty()
 	if story:
 		var won: bool = battle.winner() == "ally"
 		# Outcome and its unacknowledged scene are one atomic save operation.
-		world.event_flags[GRAVEYARD_RESULT_PENDING_FLAG] = true
-		world.story_events[GRAVEYARD_EVENT_ID] = {"status":"complete" if won else "active","choice":"protect_child","battle_result":"won" if won else "lost"}
+		world.event_flags[story_spec.pending_flag] = true
+		world.story_events[event_id] = {"status":"complete" if won else "active","choice":str(story_spec.choice),"battle_result":"won" if won else "lost"}
 		world.event_flags["battle:graveyard_child_ambush_01:won"] = won
 		world.event_flags["battle:graveyard_child_ambush_01:lost"] = not won
 		if won:
