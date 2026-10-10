@@ -56,4 +56,5 @@ static func sync(card: Control, unit: Dictionary) -> void:
 	var width := art.size.x*0.54
 	var height := width*float(icon.get_height())/float(icon.get_width())
 	badge.size = Vector2(width,height)
-	badge.position = Vector2(art.position.x+(art.size.x-width)*0.5,art.position.y-height*0.08)
+	# Seat the plaque inside the parchment, rather than letting it stick above the card.
+	badge.position = Vector2(art.position.x+(art.size.x-width)*0.5,art.position.y+art.size.y*0.04)
