@@ -152,7 +152,7 @@ func _run() -> void:
 	_test_loss_and_retry()
 	_test_finish_failure()
 	var m: String = FileAccess.get_file_as_string("res://map.gd")
-	_check(m.contains("show_battle_deck(index,StoryEventEntry.EVENT_ID)"),"UI dispatch uses normal deck picker with story ID")
+	_check(m.contains("show_story_battle_deck(StoryEventEntry.EVENT_ID,index)"),"UI dispatch uses shared 1-4 card deck with story ID")
 	_check(m.contains("session.start_story_encounter(story_event_id,index,ids)"),"deck confirmation uses dedicated story entry")
 	_check(m.contains("open_embedded_battle()"),"confirmed encounter opens embedded battlefield")
 	for path in paths: _clear(path)
