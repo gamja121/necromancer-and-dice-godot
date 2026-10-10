@@ -557,7 +557,10 @@ func show_dice_hand() -> void:
 
 func show_home(interior: bool = false) -> void:
 	var panel = modal()
-	image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",Vector2(256,120),Vector2(768,432))
+	var home_art = image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",Vector2(256,120),Vector2(768,432))
+	# The home exterior opens with ink; entering the house shows interior art instantly.
+	if not interior:
+		InkSceneReveal.play(home_art)
 	var title = label_at(panel,"우리집 · 실내" if interior else "우리집",Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	location_button(panel,"나가기",Vector2(865,492),Vector2(150,50),exit_home,4)
@@ -633,9 +636,8 @@ func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
 	var panel = modal()
 	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],Vector2(243.2,136.8),Vector2(793.6,446.4))
-	# Pilot only: reveal fortune-teller camp artwork, not controls or other tiles.
-	if type == "fortune-teller-camp":
-		InkSceneReveal.play(scene_art)
+	# Reveal artwork only for all seven location tile types; keep UI unaffected.
+	InkSceneReveal.play(scene_art)
 	var exit = location_button(panel,"나가기",Vector2(886,504),Vector2(143,48),func(): dismiss_overlay(render),4)
 	if type=="rest":
 		var allowed = session.rest_allowed(index)
