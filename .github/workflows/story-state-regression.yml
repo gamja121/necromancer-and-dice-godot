@@ -6,6 +6,9 @@ on:
       - "systems/run_session.gd"
       - "systems/map_state.gd"
       - "scripts/test_story_state_regression.gd"
+      - "scripts/test_graveyard_event_entry.gd"
+      - "systems/story_event_entry.gd"
+      - "map.gd"
       - ".github/workflows/story-state-regression.yml"
   push:
     branches: [main]
@@ -13,6 +16,9 @@ on:
       - "systems/run_session.gd"
       - "systems/map_state.gd"
       - "scripts/test_story_state_regression.gd"
+      - "scripts/test_graveyard_event_entry.gd"
+      - "systems/story_event_entry.gd"
+      - "map.gd"
       - ".github/workflows/story-state-regression.yml"
   workflow_dispatch:
 
@@ -46,5 +52,14 @@ jobs:
           godot --headless --path . --script res://scripts/test_story_state_regression.gd 2>&1 | tee story-state.log
           grep -E 'STORY_STATE_REGRESSION: [0-9]+ passed, 0 failed' story-state.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' story-state.log; then
+            exit 1
+          fi
+      - name: Graveyard first encounter and save regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_graveyard_event_entry.gd 2>&1 | tee graveyard-entry.log
+          grep -E 'GRAVEYARD_ENTRY_REGRESSION: [0-9]+ passed, 0 failed' graveyard-entry.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' graveyard-entry.log; then
             exit 1
           fi
