@@ -7,9 +7,12 @@ const IRON_FRAME = preload("res://assets/cards/brand_frame_3.webp")
 const NODE_NAME = "BrandFrameOverlay"
 
 # The source card art has transparent padding around its painted parchment.
-# Fit the frame to the artwork, not the full button's hit rectangle.
+# The two-brand wood frame must wrap the parchment, not sit inside it.
+# The three-brand iron frame retains its current placement for the next stage.
 const ART_WIDTH_FACTOR = 0.80
 const ART_HEIGHT_FACTOR = 0.90
+const WOOD_WIDTH_FACTOR = 0.96
+const WOOD_HEIGHT_FACTOR = 0.99
 
 static func _card_art_rect(card: Control) -> Rect2:
 	var region = Rect2(Vector2.ZERO,card.size)
@@ -32,7 +35,9 @@ static func _card_art_rect(card: Control) -> Rect2:
 
 static func _align(card: Control, frame: TextureRect) -> void:
 	var art_rect: Rect2 = _card_art_rect(card)
-	var drawn_size = Vector2(art_rect.size.x*ART_WIDTH_FACTOR,art_rect.size.y*ART_HEIGHT_FACTOR)
+	var width_factor: float = WOOD_WIDTH_FACTOR if frame.texture == WOOD_FRAME else ART_WIDTH_FACTOR
+	var height_factor: float = WOOD_HEIGHT_FACTOR if frame.texture == WOOD_FRAME else ART_HEIGHT_FACTOR
+	var drawn_size = Vector2(art_rect.size.x*width_factor,art_rect.size.y*height_factor)
 	frame.position = art_rect.position+(art_rect.size-drawn_size)*0.5
 	frame.size = drawn_size
 
