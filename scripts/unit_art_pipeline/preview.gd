@@ -50,8 +50,7 @@ func start() -> void:
 	for edge in ["left","right","top","bottom"]:
 		margin.add_theme_constant_override("margin_"+edge,20)
 	var theme := Theme.new()
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic","Segoe UI"])
+	var font := preload("res://assets/fonts/nanum_gothic_regular.ttf")
 	theme.default_font = font
 	theme.default_font_size = 18
 	margin.theme = theme
