@@ -64,6 +64,37 @@ func set_event_flag(flag: String, enabled: bool = true) -> bool:
 	# persist_change restores the original snapshot on save failure.
 	return persist_change(before)
 
+## A missing event has the implicit "unseen" state.
+func get_story_event(event_id: String) -> Dictionary:
+	var initial: Dictionary = {"status":"unseen","choice":""}
+	if world == null or event_id.is_empty(): return initial
+	return world.story_events.get(event_id,initial).duplicate(true)
+
+## Forward-only transition: unseen -> seen -> active -> complete.
+## Repeated requests for the same status are safe and do not rewrite the save.
+func advance_story_event(event_id: String, next_status: String) -> bool:
+	if world == null or event_id.is_empty(): return false
+	const ORDER = {"unseen":0,"seen":1,"active":2,"complete":3}
+	if not ORDER.has(next_status) or next_status == "unseen": return false
+	var current: Dictionary = get_story_event(event_id)
+	var step: int = ORDER[next_status] - ORDER[current.status]
+	if step == 0: return true
+	if step != 1: return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.story_events[event_id] = {"status":next_status,"choice":current.choice}
+	return persist_change(before)
+
+## Choice can be committed once while active. It cannot be silently overwritten.
+func choose_story_event(event_id: String, choice_id: String) -> bool:
+	if world == null or event_id.is_empty() or choice_id.is_empty(): return false
+	var current: Dictionary = get_story_event(event_id)
+	if current.status != "active": return false
+	if current.choice == choice_id: return true
+	if not current.choice.is_empty(): return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.story_events[event_id] = {"status":"active","choice":choice_id}
+	return persist_change(before)
+
 func start_encounter(index: int, selected_ids: Array) -> bool:
 	var mimic = world.pending_reward.get("kind","")=="mimic" and int(world.pending_reward.get("index",-1))==index
 	if (not world.pending_reward.is_empty() and not mimic) or not encounter.is_empty() or not world.pending_move.is_empty(): return false
