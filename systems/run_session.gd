@@ -546,7 +546,16 @@ func prepare_battle_roll(battle, instance_id: String = "") -> Dictionary:
 	return result
 
 func checkpoint_battle(battle, phase: String) -> bool:
-	if encounter.is_empty(): return false
+	if encounter.is_empty() or world == null: return false
+	# Only the two actual combat checkpoints are accepted. Failed or out-of-order
+	# writes must not strand a resumed story encounter in an impossible phase.
+	var current_phase: String = str(encounter.get("phase",""))
+	if phase == "actions":
+		if current_phase not in ["rolled","actions"]: return false
+	elif phase == "ready":
+		if current_phase != "actions": return false
+	else:
+		return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	encounter.phase = phase
 	encounter.checkpoint = battle.snapshot()
