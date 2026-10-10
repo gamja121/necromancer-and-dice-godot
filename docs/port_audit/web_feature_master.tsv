@@ -1,0 +1,182 @@
+id	category	feature	web_source	classification	note
+W001	진입/타이틀	타이틀 화면	index.html, launch.js	REQUIRED	실제 게임 진입 UI
+W002	진입/타이틀	새 원정 시작	launch.js	REQUIRED	기존 활성 원정 확인 후 초기화하고 인트로 진입
+W003	진입/타이틀	이어하기 노출/진입	launch.js	REQUIRED	활성 RunState 존재 여부에 따라 Continue 표시
+W004	진입/타이틀	새 원정 시 기존 저장 초기화	launch.js, v2-run-state.js	REQUIRED_RULE	새 게임과 이어하기의 저장 경계
+W005	진입/타이틀	타이틀 BGM/영상 및 사운드 토글	index.html, launch.js	REQUIRED	브라우저 API 구현 자체는 교체 가능
+W006	진입/타이틀	옵션 패널	index.html, launch.js	REQUIRED	테스트 메뉴와 분리
+W007	진입/타이틀	브라우저 전체화면 요청	launch.js	WEB_ONLY_DISCARD	Godot/Steam에서는 엔진 창·디스플레이 설정으로 대체
+W008	진입/타이틀	PWA 설치 버튼	launch.js	WEB_ONLY_DISCARD	Steam 제품에는 불필요
+W009	인트로	새 원정 인트로 장면	v2-intro.html, v2-intro.js	REQUIRED	새 원정 후 맵 진입 전 스토리
+W010	인트로	대사 순차 진행	v2-intro.js	REQUIRED	화자/대사/이미지 전환
+W011	인트로	인트로 이미지 청크 로딩	v2-intro.js	REQUIRED	Godot에서는 에셋 로딩 방식으로 교체
+W012	인트로	인트로 종료 후 맵 연결	v2-intro.js	REQUIRED_RULE	게임 진입 흐름
+W020	맵/원정	24칸 보드 맵	v2-map-practice.js	REQUIRED	둘레형 24칸
+W021	맵/원정	고정 타일 배치	v2-map-practice.js	REQUIRED_RULE	점술가 1번, 마을 9번, 집 16번, 조건부 보스 24번
+W022	맵/원정	타일 카탈로그/기본 분포	v2-map-practice.js	REQUIRED_RULE	기본·공동묘지·제단·세계수·언덕·숙영·일반/희귀마물·보물·사건·늪·워프 + 고정 타일
+W023	맵/원정	맵 무작위 재배치	v2-map-practice.js	REQUIRED_RULE	고정칸 제외 셔플
+W024	맵/원정	한 바퀴/랩 진행	v2-map-practice.js	REQUIRED_RULE	집 도착과 다음 바퀴 전환
+W025	맵/원정	집에서 나갈 때 오염도 +4	v2-map-practice.js	REQUIRED_RULE	실제 한 바퀴 완료 뒤 적용
+W026	맵/원정	다음 바퀴 맵 재생성	v2-map-practice.js	REQUIRED	구름 전환 포함
+W027	맵/원정	맵 주사위 굴림과 이동	v2-map-practice.js	REQUIRED	판정 + 보드 이동
+W028	맵/원정	맵 주사위 물리감/벽 충돌 연출	v2-map-practice.js	REQUIRED	판정과 분리된 시각 연출
+W029	맵/원정	워프 타일 이동	v2-map-practice.js	REQUIRED_RULE	다른 워프로 이동
+W030	맵/원정	처치한 마물 타일 상태/이미지	v2-map-practice.js	REQUIRED	일반·희귀·보스 처치 상태 저장
+W031	맵/원정	오염도 0~100	v2-map-practice.js	REQUIRED_RULE	원정 난이도 축
+W032	맵/원정	오염 단계 5단계	v2-map-practice.js	REQUIRED_RULE	안정/확산/침식/재앙/임계
+W033	맵/원정	오염도에 따른 마물 타일 증가	v2-map-practice.js	REQUIRED_RULE	중립/기본 칸을 마물 칸으로 전환
+W034	맵/원정	오염도 80 이상 보스 타일 활성	v2-map-practice.js	REQUIRED_RULE	24번 보스
+W035	맵/원정	오염 HUD	v2-map-practice.js	REQUIRED	수치와 단계 시각화
+W036	맵/원정	타일 도착당 기능 1회 사용	v2-map-practice.js	REQUIRED_RULE	같은 방문에서 기능 반복 사용 방지
+W037	맵/원정	순찰경로 타일 교체	v2-map-practice.js	REQUIRED	집에서 다음 배치에 사용할 경로 조정
+W038	맵/원정	순찰경로 지속 저장	v2-map-practice.js	REQUIRED_RULE	현재/교체판 구성 저장
+W039	맵/원정	마물 정보 책/카드 목록	v2-map-practice.js	REQUIRED	보유 마물 확인
+W040	맵/원정	마물 상세 정보창	v2-map-practice.js	REQUIRED	등급·군단·패시브·낙인·현재 능력치
+W041	맵/원정	예언 보정 포함 유효 능력치 표시	v2-map-practice.js	REQUIRED_RULE	다음 전투에 실제 적용될 수치 미리보기
+W042	맵/원정	전투 전 덱 선택 1~4마리	v2-map-practice.js	REQUIRED	선택 순서가 피격 확률과 연결
+W043	맵/원정	편성 인원별 피격 확률 표시	v2-map-practice.js, v2-rules.js	REQUIRED_RULE	1:100 / 2:35·65 / 3:20·33·47 / 4:15·20·27·38
+W050	장소/타일	숙영 전체 회복	v2-map-practice.js	REQUIRED_RULE	보유 생존 마물 완전 회복
+W051	장소/타일	오염된 늪지대 전체 HP -1	v2-map-practice.js	REQUIRED_RULE	HP 1은 보호되어 늪으로 사망하지 않음
+W052	장소/타일	늪 피해 시각 연출	v2-map-practice.js	REQUIRED	주인공 점멸/큰 -1 등
+W053	장소/타일	세계수 기도	v2-map-practice.js	REQUIRED	주사위로 정화 결과 판정
+W054	장소/타일	세계수 기도 오염도 증감	v2-map-practice.js	REQUIRED_RULE	결과별 오염 변화
+W055	장소/타일	세계수 기도 결과 숫자 연출	v2-world-tree-prayer-digits.js, v2-map-practice.js	REQUIRED	결과 숫자 시트
+W056	장소/타일	점술가 예언	v2-map-practice.js	REQUIRED	주사위 1~6 예언
+W057	장소/타일	예언 누적/다음 전투 적용	v2-map-practice.js	REQUIRED_RULE	적 공격/아군 속도·체력·공격 등
+W058	장소/타일	점술 2번 즉시 전체 회복	v2-map-practice.js	REQUIRED_RULE	누적 예언은 유지
+W059	장소/타일	집 입장 시 전체 회복	v2-map-practice.js	REQUIRED_RULE	귀환 회복
+W060	장소/타일	집 낙인 계승	v2-home-inheritance.js, v2-rules.js	REQUIRED	재료 마물 소모 후 축복 계승
+W061	장소/타일	독립 낙인 카드 적용	v2-home-inheritance.js, v2-brand-cards.js	REQUIRED	축복만 적용·카드 1장 소비
+W062	장소/타일	계승 최대 3슬롯/태생 저주 충돌 규칙	v2-rules.js, v2-home-inheritance.js	REQUIRED_RULE	전달 불가 시 소모 없음
+W063	장소/타일	제단 재물·강화 의식	v2-altar-ritual.js	REQUIRED	마물 소모와 대상 강화
+W064	장소/타일	공동묘지 사망 마물 시체 보관	v2-map-practice.js, v2-run-state-runtime.js	REQUIRED_RULE	전투 영구사망 시체
+W065	장소/타일	공동묘지 낙인 추출	v2-map-practice.js	REQUIRED	시체 낙인을 카드화/추출
+W066	장소/타일	언덕 전역 정찰	v2-map-practice.js	REQUIRED	남은 마물 칸 위험 정보
+W067	장소/타일	오염 단계별 정찰 적 숫자/등급 예측	v2-map-practice.js	REQUIRED_RULE	정확한 종은 전투 진입 시 결정
+W068	장소/타일	마을 마물 상점	v2-map-practice.js	REQUIRED	골드 없는 마물 1장 물물교환
+W069	장소/타일	등급별 상점 제안 수 3/4/5	v2-map-practice.js	REQUIRED_RULE	일반/고급/영웅
+W070	장소/타일	상점 제안: 주사위 카드/낙인 카드	v2-map-practice.js	REQUIRED_RULE	마물 등급에 따른 후보 제한
+W071	장소/타일	마지막 보유 마물 거래 방지	v2-map-practice.js	REQUIRED_RULE	보유 1장은 유지
+W072	장소/타일	보물상자 개방	v2-map-practice.js	REQUIRED	개방 프레임 후 3개 보상
+W073	장소/타일	보물상자 3개 중 1개 선택	v2-map-practice.js	REQUIRED_RULE	재클릭 확정
+W074	장소/타일	보물상자 미믹 분기	v2-map-practice.js, v2-auto-battle-practice.js	REQUIRED_RULE	보물 진입이 전투로 전환될 수 있음
+W075	장소/타일	일반 이벤트 타일 기본 표시	v2-map-practice.js	REQUIRED	별도 메인 사건과 구분
+W080	전투	마물 데이터 46종	v2-design-data.js	REQUIRED_RULE	43 독립 등장 + 3 special 소환 계열
+W081	전투	일반/고급/영웅/특수 등급	v2-design-data.js	REQUIRED_RULE	등장·보상·상점 등에 사용
+W082	전투	전투 편성 최대 4마리	v2-auto-battle-practice.js	REQUIRED_RULE	아군/적 기본 1~4 슬롯
+W083	전투	공용 5번 소환 슬롯	v2-rules.js	REQUIRED_RULE	군단/패시브 소환용
+W084	전투	라운드 공용 주사위 눈금	v2-rules.js, v2-auto-battle-practice.js	REQUIRED_RULE	모든 마물 낙인 판정에 같은 눈금 사용
+W085	전투	속도 기반 행동 순서	v2-rules.js	REQUIRED_RULE	선제권/광속/후발주자 포함
+W086	전투	동률 행동 순서 RNG	v2-rules.js, v2-battle-rng.js	REQUIRED_RULE	저장 가능한 판정 RNG
+W087	전투	대상 선택 가중치	v2-rules.js	REQUIRED_RULE	편성 슬롯별 피격 확률
+W088	전투	군단 10종	v2-rules.js, v2-legions.js	REQUIRED_RULE	언데드·야수·시체·역병·얼음·소환·악마·식물·벌레·원소
+W089	전투	군단 활성 인원 조건	v2-rules.js	REQUIRED_RULE	군단별 2~3명
+W090	전투	원소 군단의 상대 군단 억제	v2-rules.js	REQUIRED_RULE	원소 자체 제외 억제
+W091	전투	낙인 10종	v2-rules.js	REQUIRED_RULE	치명타·흡혈·연격·빙결·독·수호·소환·반격·회복·광속
+W092	전투	낙인 축복/저주 눈금	v2-rules.js	REQUIRED_RULE	1~6 눈금
+W093	전투	태생 저주만 유지 정책	v2-rules.js, v2-run-state-runtime.js	REQUIRED_RULE	후속 계승/카드는 축복 전용
+W094	전투	같은 눈금 저주 전역 우선	v2-rules.js	REQUIRED_RULE	동일 숫자의 축복 발동 차단
+W095	전투	태생 고유 패시브 10종	v2-design-data.js, v2-rules.js	REQUIRED_RULE	선제권·불사귀·뼈 덧대기·약점·무리·영혼 소환·원한·포식·냉혈·후발
+W096	전투	개체 생성 시 패시브/보너스 랜덤	v2-design-data.js, v2-rules.js	REQUIRED_RULE	개체 차이
+W097	전투	중독 스택/2회 지속/최대 3	v2-rules.js	REQUIRED_RULE	역병 군단 면역 포함
+W098	전투	빙결 행동 봉쇄	v2-rules.js	REQUIRED_RULE	축복/저주 양쪽
+W099	전투	수호 방어/저주 추가 피해	v2-rules.js	REQUIRED_RULE	라운드 단위
+W100	전투	반격	v2-rules.js	REQUIRED_RULE	피격 시 공격력 기반 반격
+W101	전투	흡혈	v2-rules.js	REQUIRED_RULE	입힌 피해만큼 회복/저주 자해
+W102	전투	연격	v2-rules.js	REQUIRED_RULE	추가 타격/저주 공격 취소
+W103	전투	치명타	v2-rules.js	REQUIRED_RULE	피해 배율/저주 빗나감
+W104	전투	회복 낙인	v2-rules.js	REQUIRED_RULE	최저 체력비 아군 회복/저주 피해
+W105	전투	소환 낙인 강화	v2-rules.js	REQUIRED_RULE	소환물 회복·공격 누적/저주 자해
+W106	전투	소환 군단 자동 소환	v2-rules.js, v2-summon-rules.js	REQUIRED_RULE	5번 슬롯
+W107	전투	영혼 소환 패시브	v2-rules.js	REQUIRED_RULE	HP 1 소비 조건 포함
+W108	전투	씨앗 2라운드 후 식인식물 개화	v2-rules.js, v2-summon-rules.js	REQUIRED_RULE	guardian-seed → crystal-devourer
+W109	전투	15라운드 이후 광폭화형 공격 증가	v2-rules.js	REQUIRED_RULE	round-14 공격 보정
+W110	전투	마물 영구사망	v2-auto-battle-practice.js, v2-run-state-runtime.js	REQUIRED_RULE	아군 사망을 원정 로스터에서 제거
+W111	전투	공동묘지 시체 등록	v2-auto-battle-practice.js	REQUIRED_RULE	전투 외 사망과 구분
+W112	전투	전투 속도/일시정지	v2-auto-battle-practice.html, v2-auto-battle-practice.js	REQUIRED	실제 전투 조작
+W113	전투	전투 마물 상세 정보창	v2-auto-battle-practice.js	REQUIRED	현재 전투 수치/효과
+W114	전투	낙인 눈금 참조표	v2-auto-battle-practice.js	REQUIRED	아군·적 현재 낙인 1~6 확인
+W115	전투	활성 군단 표시	v2-auto-battle-practice.js	REQUIRED	현재 활성 군단 UI
+W116	전투	오염/바퀴 기반 적 숫자	v2-auto-battle-practice.js	REQUIRED_RULE	초반 1~2바퀴 1마리, 이후 오염 단계 규칙
+W117	전투	오염 기반 적 등급/편성	v2-auto-battle-practice.js	REQUIRED_RULE	일반 조우 생성
+W118	전투	전투 승리 시 오염도 변화	v2-auto-battle-practice.js	REQUIRED_RULE	맵 결과 반영
+W119	전투	예언 효과 전투 적용	v2-auto-battle-practice.js	REQUIRED_RULE	맵에서 누적한 예언 소비/적용
+W120	전투	사건 전투 후 사건으로 복귀	v2-map-practice.js, v2-auto-battle-practice.js	REQUIRED_RULE	일반 맵 복귀와 별도 경로
+W130	보상/인벤토리	전투 승리 후 영혼 수확	v2-auto-battle-practice.js	REQUIRED	처치 적 포획 단계
+W131	보상/인벤토리	영혼 수확 대상 선택	v2-auto-battle-practice.js	REQUIRED	소환체 제외
+W132	보상/인벤토리	필요 눈금 2~6	v2-auto-battle-practice.js	REQUIRED_RULE	이상 굴리면 성공
+W133	보상/인벤토리	시체 군단 활성 시 수확 재도전 1회	v2-rules.js, v2-auto-battle-practice.js	REQUIRED_RULE	기본 1회 → 2회
+W134	보상/인벤토리	획득 마물 새 개체 생성	v2-auto-battle-practice.js	REQUIRED_RULE	개체 ID/낙인/패시브 생성
+W135	보상/인벤토리	보유 마물 중복 허용	v2-map-practice.js	REQUIRED_RULE	instanceId로 구분
+W136	보상/인벤토리	마물 보유 한도 10	v2-map-practice.js	REQUIRED_RULE	초과 시 교체/버리기
+W137	보상/인벤토리	주사위 제어 카드 18종	v2-dice-control.js	REQUIRED_RULE	고정6·low/high·odd/even·exclude6·repeat·echo
+W138	보상/인벤토리	주사위 카드 보유 한도 5	v2-map-practice.js	REQUIRED_RULE	초과 처리
+W139	보상/인벤토리	맵 주사위 제어 카드 사용	v2-map-practice.js, v2-dice-control.js	REQUIRED	카드 소비 후 자동 이동
+W140	보상/인벤토리	전투 주사위 제어 카드 사용	v2-auto-battle-practice.js, v2-dice-control.js	REQUIRED	ready 단계에서 사용
+W141	보상/인벤토리	repeat 카드 직전 눈금 반복	v2-dice-control.js	REQUIRED_RULE	선행 눈금 없으면 비활성
+W142	보상/인벤토리	echo 카드 직전 카드 효과 재발동	v2-dice-control.js	REQUIRED_RULE	실제 효과 ID 기억
+W143	보상/인벤토리	독립 낙인 카드 인벤토리	v2-brand-cards.js	REQUIRED	축복 전용 정책
+W144	보상/인벤토리	보상 초과 시 기존/신규 중 버리기	v2-map-practice.js, v2-auto-battle-practice.js	REQUIRED	마물/주사위 용량 초과 처리
+W150	저장/복원	통합 RunState	v2-run-state.js, v2-run-state-runtime.js	REQUIRED_RULE	원정의 단일 상태 원천
+W151	저장/복원	IndexedDB 활성 원정 저장	v2-run-state.js	WEB_IMPL_REPLACE	Godot 저장 파일로 대체하되 의미는 보존
+W152	저장/복원	legacy 저장 이행/백업	v2-run-state.js	WEB_ONLY_DISCARD	웹 저장 마이그레이션은 최종 Godot에 불필요, 삭제 전 필요 데이터 확인
+W153	저장/복원	revision 기반 커밋 충돌 방지	v2-run-state.js	REQUIRED_RULE	원자 저장 의미 보존
+W154	저장/복원	operationId 멱등성	v2-run-state.js, v2-run-state-runtime.js	REQUIRED_RULE	보상·결과 중복 적용 방지
+W155	저장/복원	전투 결과 원자 반영	v2-run-state-runtime.js	REQUIRED_RULE	HP/사망/오염/처치 타일
+W156	저장/복원	상점 거래 원자 반영	v2-run-state-runtime.js	REQUIRED_RULE	마물 소모와 보상 동시 저장
+W157	저장/복원	공동묘지 추출 원자 반영	v2-run-state-runtime.js	REQUIRED_RULE	시체/낙인 카드 동시 저장
+W158	저장/복원	계승 원자 반영	v2-run-state-runtime.js, v2-home-inheritance.js	REQUIRED_RULE	재료 소모와 결과 저장
+W159	저장/복원	전투 중 체크포인트	v2-auto-battle-practice.js	REQUIRED_RULE	ready/acting 등
+W160	저장/복원	판정 RNG 직렬화/복원	v2-battle-rng.js, v2-auto-battle-practice.js	REQUIRED_RULE	재실행으로 결과 바꾸기 방지
+W161	저장/복원	영혼 수확 중단 복원	v2-auto-battle-practice.js	REQUIRED_RULE	대상/필요 눈금/남은 시도/결과
+W162	저장/복원	주사위 카드 소비/이동 중단 복원	v2-map-practice.js, v2-run-state-runtime.js	REQUIRED_RULE	중복 이동/중복 타일효과 방지
+W163	저장/복원	사건 전투 덱 선택 중단 안전 복원	v2-map-practice.js	REQUIRED_RULE	runId/event flag 검증
+W164	저장/복원	보상 receipt 중복 지급 방지	v2-run-state-runtime.js	REQUIRED_RULE	상자/포획 등
+W165	저장/복원	오디오 설정 저장	v2-music.js, v2-sfx.js	REQUIRED	Godot 설정 저장 방식으로 대체
+W170	사건/퀘스트	공동묘지 습격받는 아이 사건	v2-map-practice.js	REQUIRED	graveyard_child_ambush_01
+W171	사건/퀘스트	아이 구한다/지나친다 선택	v2-map-practice.js	REQUIRED_RULE	rescued/abandoned 플래그
+W172	사건/퀘스트	아이 구조 선택의 사건 전투	v2-map-practice.js, v2-auto-battle-practice.js	REQUIRED	사건 전용 덱 선택 후 전투
+W173	사건/퀘스트	아이 구조 후 마을 소문	v2-map-practice.js	REQUIRED	rumor_saved_child_01
+W174	사건/퀘스트	아이 방치 후 마을 소문	v2-map-practice.js	REQUIRED	rumor_abandoned_child_01
+W175	사건/퀘스트	기사단장 오염 조사 사건	v2-map-practice.js	REQUIRED	knight_commander_contamination_01
+W176	사건/퀘스트	마물사냥꾼 조우	v2-map-practice.js	REQUIRED	monster_hunter_encounter_01
+W177	사건/퀘스트	광신도 소문	v2-map-practice.js	REQUIRED	cultist_rumor_01
+W178	사건/퀘스트	광신도 제단 조우	v2-map-practice.js	REQUIRED	cultist_altar_encounter_01
+W179	사건/퀘스트	광신도 제단 싸운다/지나간다	v2-map-practice.js	REQUIRED_RULE	싸움은 사건 전투, 지나가도 추적 단서 유지
+W180	사건/퀘스트	마물의 왕 부활 의식 장소/전이문 사건	v2-map-practice.js	REQUIRED	ritual_portal_trace_01
+W181	사건/퀘스트	의식 저지 전투 승패에 따른 불완전/완전 부활	v2-map-practice.js	REQUIRED_RULE	revival_weakened / revival_complete
+W182	사건/퀘스트	마물의 왕 추적 사건	v2-map-practice.js	REQUIRED	monster_king_hunt_trace_01
+W183	사건/퀘스트	사건/퀘스트/스토리 플래그 상태기계	v2-map-practice.js, v2-run-state-runtime.js	REQUIRED_RULE	seen/complete/active/choice/battle result 등
+W184	사건/퀘스트	사건별 원화 레이어/대사 비트	v2-map-practice.js	REQUIRED	보드 드롭, 레이어 표시, 탭 진행
+W185	사건/퀘스트	마물의 왕 최종전 활성 플래그	v2-map-practice.js	INCOMPLETE_WEB_REFERENCE	웹 런타임은 최종전 본체까지 완성하지 않음
+W190	연출/오디오	맵 BGM	v2-music.js, v2-map-practice.html	REQUIRED	장면 전환 handoff 포함
+W191	연출/오디오	전투 BGM	v2-music.js, v2-auto-battle-practice.html	REQUIRED	장면별 음악
+W192	연출/오디오	효과음 시스템	v2-sfx.js	REQUIRED	전투/맵/상자/회복 등
+W193	연출/오디오	BGM/SFX 개별 ON/OFF	v2-map-practice.js, v2-music.js, v2-sfx.js	REQUIRED	사용자 옵션
+W194	연출/오디오	주사위 애니메이션	v2-map-practice.js, v2-auto-battle-practice.js	REQUIRED	판정 RNG와 시각 RNG 분리
+W195	연출/오디오	공격/피격/사망 모션	v2-motion.js, frame modules, v2-auto-battle-practice.js	REQUIRED	마물별 프레임
+W196	연출/오디오	대기 호흡 모션	v2-auto-battle-practice.css	REQUIRED	공격/피격 등에는 중지
+W197	연출/오디오	타격 플래시/히트스톱/화면 피드백	v2-hit-effects.js, v2-combat-effects.js	REQUIRED	타격감
+W198	연출/오디오	피해/회복 숫자	v2-damage-digits.js, v2-heal-effect.js	REQUIRED	전투 정보 전달
+W199	연출/오디오	소환 마법진/소환 연출	v2-summon-effect.js	REQUIRED	5번 슬롯 등장
+W200	연출/오디오	카드 손패 펼침/회수/드래그	v2-map-practice.js, v2-auto-battle-practice.js	REQUIRED	책/주사위 카드 UI
+W201	연출/오디오	전투 Presentation 큐/시각 레일	v2-presentation.js, v2-presentation-rail.js	REQUIRED	행동 인과관계 표시
+W202	연출/오디오	가로 화면 강제 안내/브라우저 회전 처리	v2-landscape.js	WEB_IMPL_REPLACE	필요 시 Godot 해상도/방향 정책으로 구현
+W210	개발/폐기	타이틀 TEST MENU	index.html, launch.js	DEV_ONLY_DISCARD	제품 플레이에 포함하지 않음
+W211	개발/폐기	Event Lab	v2-event-lab.html/js/data/css	DEV_ONLY_DISCARD	실제 사건 런타임은 v2-map-practice.js
+W212	개발/폐기	애니메이션·이펙트 연습실	v2-animation-practice.html/js/css	DEV_ONLY_DISCARD	참고 자료만
+W213	개발/폐기	타일 기능 테스트 페이지	v2-tile-practice.html/js/css	DEV_ONLY_DISCARD	실제 맵 런타임과 구분
+W214	개발/폐기	이미지 테스트 페이지	v2-image-test.html	DEV_ONLY_DISCARD	제품 기능 아님
+W215	개발/폐기	SFX 샘플러	v2-sfx-sampler.html	DEV_ONLY_DISCARD	제품 기능 아님
+W216	개발/폐기	구형 v2.html 전투 화면	v2.html, v2-battle.js/css	DEV_ONLY_DISCARD	현재 자동전투 기준이 아님
+W217	개발/폐기	마을/공동묘지/언덕 디오라마 편집·레이어 디버그	v2-map-practice.js/html	DEV_ONLY_DISCARD	배치 저장/복사/드래그 편집 도구
+W218	개발/폐기	개발용 사건 딥링크/직접 진입	v2-map-practice.js	DEV_ONLY_DISCARD	정상 플레이 트리거가 기준
+W219	개발/폐기	서비스워커/오프라인 캐시	service-worker.js	WEB_ONLY_DISCARD	Godot/Steam 런타임 불필요
+W220	개발/폐기	GitHub Pages 빌드/배포	scripts/build-pages.js, .github/workflows	WEB_ONLY_DISCARD	Godot 원본/Steam과 무관
+W221	개발/폐기	브라우저 smoke/JS 테스트 러너	test_*.js, scripts/test-v2-all.js	REFERENCE_ONLY	규칙 검증 케이스는 1-4에서 참고하되 그대로 이식하지 않음
+W222	개발/폐기	브라우저 dev server/cache 검사	scripts/v2-dev-server.js, scripts/assert-linked-cache.js	WEB_ONLY_DISCARD	웹 전용
+W223	개발/폐기	PWA manifest/앱 설치 셸	manifest.webmanifest, launch.js	WEB_ONLY_DISCARD	Steam 제품 불필요
+W230	설계문서 전용	아이 누나→구울화 아이→예언자→정화의 나무→기사단장으로 이어지는 확장 사건안	EVENT_FLOW.md	DESIGN_ONLY_NOT_RUNTIME	웹 실제 런타임 코드에는 이 전체 체인이 구현되어 있지 않음. Godot 신규 콘텐츠로 별도 판단
+W231	설계문서 전용	메인 시나리오 A/B 초안	STORY_SCENARIOS.md	DESIGN_ONLY_NOT_RUNTIME	구현된 웹 기능으로 세지 않음
+W232	설계문서 전용	플레이어 학습/해금 설계	PLAYER_LEARNING_UNLOCK_RULES.md	DESIGN_ONLY_NOT_RUNTIME	정책 문서이며 웹 런타임 기능과 분리
+W233	설계문서 전용	마물의 왕 최종전 본체	EVENT_FLOW.md, v2-map-practice.js	DESIGN_ONLY_NOT_RUNTIME	웹에는 최종전 활성 상태까지만 있고 실제 최종전 콘텐츠는 미완성
