@@ -633,9 +633,8 @@ func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
 	var panel = modal()
 	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],Vector2(243.2,136.8),Vector2(793.6,446.4))
-	# Pilot only: reveal fortune-teller camp artwork, not controls or other tiles.
-	if type == "fortune-teller-camp":
-		InkSceneReveal.play(scene_art)
+	# Reveal artwork only for all seven location tile types; keep UI unaffected.
+	InkSceneReveal.play(scene_art)
 	var exit = location_button(panel,"나가기",Vector2(886,504),Vector2(143,48),func(): dismiss_overlay(render),4)
 	if type=="rest":
 		var allowed = session.rest_allowed(index)
