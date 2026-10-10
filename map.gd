@@ -304,6 +304,12 @@ func modal() -> Control:
 	backdrop.color = Color("030201c4")
 	backdrop.size = node.size
 	backdrop.set_meta("ui_backdrop",true)
+	# A tap on blank modal space clears the seal/glow without closing the modal.
+	backdrop.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			WaxSealSelection.clear_panel_selections(node)
+		elif event is InputEventScreenTouch and event.pressed:
+			WaxSealSelection.clear_panel_selections(node))
 	node.add_child(backdrop)
 	overlay = node
 	PanelEffects.attach(node)
@@ -630,6 +636,16 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 	node.add_theme_color_override("font_pressed_color",Color("3f2818"))
 	node.add_theme_color_override("font_disabled_color",Color("6c594680"))
 	node.add_theme_font_size_override("font_size",18)
+	# All map parchment actions share first-click selection / second-click
+	# execution; '나가기' stays immediate so escape is never blocked.
+	if title != "나가기":
+		var wax_marker = WaxSealSelection.new()
+		wax_marker.name = "WaxSealSelection"
+		node.add_child(wax_marker)
+		node.pressed.disconnect(callback)
+		node.pressed.connect(func():
+			if wax_marker.confirm_selection():
+				callback.call())
 	return node
 
 func show_location(index: int) -> void:
