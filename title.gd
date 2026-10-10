@@ -13,9 +13,13 @@ const OVERSCAN := Vector2(120.0, 70.0)
 @onready var ground_hand_layer: TextureRect = $ParallaxArt/GroundHand
 @onready var graves_crows_layer: TextureRect = $ParallaxArt/GravesCrows
 @onready var flying_crows_layer: Control = $ParallaxArt/FlyingCrows
+@onready var logo_art: TextureRect = $TitleUI/LogoArt
 @onready var new_run_button: Button = $TitleUI/MenuPanel/Menu/NewRun
 @onready var continue_button: Button = $TitleUI/MenuPanel/Menu/Continue
 @onready var exit_button: Button = $TitleUI/MenuPanel/Menu/Exit
+@onready var options_button: Button = $TitleUI/MenuPanel/Menu/Options
+@onready var options_dialog: AcceptDialog = $TitleUI/OptionsDialog
+@onready var volume_slider: HSlider = $TitleUI/OptionsDialog/OptionsContent/Volume
 
 var pointer_normalized := Vector2.ZERO
 var touch_active := false
@@ -28,7 +32,11 @@ func _ready() -> void:
 	new_run_button.pressed.connect(_start_new_run)
 	continue_button.pressed.connect(_continue_run)
 	exit_button.pressed.connect(_exit_game)
+	options_button.pressed.connect(_show_options)
+	volume_slider.value_changed.connect(_update_volume)
+	volume_slider.value = db_to_linear(AudioServer.get_bus_volume_db(0))
 	continue_button.disabled = not RunSession.has_save()
+	_load_menu_art()
 	_layout_layers()
 
 func _input(event: InputEvent) -> void:
@@ -100,6 +108,48 @@ func _layout_layers() -> void:
 		layer.position = base
 		layer.size = layer_size
 		base_positions[layer] = base
+
+
+func _load_menu_art() -> void:
+	var logo_path := "res://assets/title/menu/title_logo.webp"
+	if ResourceLoader.exists(logo_path):
+		logo_art.texture = load(logo_path)
+		logo_art.show()
+		$TitleUI/Logo.hide()
+		$TitleUI/LogoShadow.hide()
+		$TitleUI/Subtitle.hide()
+		$TitleUI/MenuPanel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var buttons := [
+		[new_run_button, "button_new_game.webp"],
+		[continue_button, "button_continue.webp"],
+		[options_button, "button_options.webp"],
+		[exit_button, "button_exit.webp"]
+	]
+	for entry in buttons:
+		var button: Button = entry[0]
+		var path: String = "res://assets/title/menu/" + str(entry[1])
+		if not ResourceLoader.exists(path):
+			continue
+		button.icon = load(path)
+		button.text = ""
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var empty := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "disabled"]:
+			button.add_theme_stylebox_override(state, empty)
+		button.mouse_entered.connect(_highlight_menu_button.bind(button, true))
+		button.mouse_exited.connect(_highlight_menu_button.bind(button, false))
+
+func _highlight_menu_button(button: Button, highlight: bool) -> void:
+	if button.disabled:
+		return
+	button.modulate = Color(1.12, 1.03, 0.82) if highlight else Color.WHITE
+
+func _show_options() -> void:
+	options_dialog.popup_centered()
+
+func _update_volume(value: float) -> void:
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(value, 0.0001)))
 
 func _start_new_run() -> void:
 	RunSession.start_new_world()
