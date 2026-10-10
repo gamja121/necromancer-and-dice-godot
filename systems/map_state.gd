@@ -145,7 +145,10 @@ func restore(saved: Dictionary) -> bool:
 		if not entry is Dictionary: return false
 		if not entry.get("status",null) is String or not entry.status in ["seen","active","complete"]: return false
 		if not entry.get("choice",null) is String: return false
-		if entry.status == "seen" and not entry.choice.is_empty(): return false
+		# Old story entries may omit battle_result; treat those as pending.
+		if not entry.get("battle_result","") is String: return false
+		if not entry.get("battle_result","") in ["","won","lost"]: return false
+		if entry.status == "seen" and (not entry.choice.is_empty() or not entry.get("battle_result","").is_empty()): return false
 	var plan: Dictionary = saved.get("patrol_plan",RoutePlan.default_plan())
 	if not RoutePlan.valid(plan): return false
 	var intel_state: Dictionary = saved.get("scout",{"scouted":false,"intel":[]})
