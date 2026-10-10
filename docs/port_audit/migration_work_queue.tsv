@@ -1,0 +1,32 @@
+work_id	priority	area	status	task	depends_on	done_when
+P0-01	P0	baseline	DONE	웹 reference/html-final@e13d514 고정	없음	웹 기준 SHA 변경 금지
+P0-02	P0	audit	DONE	159개 기능/규칙 + 전체 에셋 감사 완료	P0-01	1-1~1-5 문서
+P1-01	P1	story-assets	TODO	웹 사건 런타임 필수 원화/레이어 20개와 graveyard-choice-parchment 1개를 Godot로 이관	P0-02	사건 에셋 누락 0개
+P1-02	P1	story-state	TODO	Godot에 event/quest/story 상태기계 구현: seen/complete/active/choice/battle result/revival/hunt 상태	P0-02	W183 완료
+P1-03	P1	event-runtime	TODO	공동묘지 아이 사건 + 구한다/지나친다 선택 구현	P1-01;P1-02	W170,W171 완료
+P1-04	P1	event-battle	TODO	사건 싸운다 선택이 반드시 기존 전투 덱 선택을 거쳐 전투로 진입하도록 공용 사건전투 경로 구현	P1-02	W172 및 알려진 덱선택 우회 오류 해결
+P1-05	P1	event-return	TODO	사건 전투 종료 후 원래 사건/다음 비트로 복귀하는 event context 구현	P1-04	W120 완료
+P1-06	P1	event-resume	TODO	사건 전투 덱 선택/전투/복귀 중 종료 후 재실행 복원 구현	P1-04;P1-05	W163 완료
+P1-07	P1	story-chain	TODO	구조/방치 후 마을 소문 2종 구현	P1-03	W173,W174 완료
+P1-08	P1	story-chain	TODO	기사단장 조사 → 마물사냥꾼 조우 구현	P1-07	W175,W176 완료
+P1-09	P1	story-chain	TODO	광신도 소문 → 광신도 제단 조우 → 싸운다/지나간다 분기 구현	P1-08;P1-04	W177,W178,W179 완료
+P1-10	P1	story-chain	TODO	부활 의식/전이문 → 저지 승패 → 불완전/완전 부활 상태 구현	P1-09	W180,W181 완료
+P1-11	P1	story-chain	TODO	마물의 왕 추적 사건 구현 및 두 부활 상태 모두 추적 활성화 연결	P1-10	W182 완료
+P1-12	P1	story-presentation	TODO	사건 원화 레이어, 대사 비트, 선택 UI, 탭 진행을 Godot에 연결	P1-01;P1-03	W184 완료
+P2-01	P2	battle-rule	TODO	같은 주사위 눈금에서 저주가 축복보다 우선하는 웹 규칙을 Godot에 동일하게 적용	P0-02	W094 완료 + 회귀검증
+P2-02	P2	battle-rule	TODO	속도/슬롯 완전 동률 시 웹과 동일한 저장 가능한 RNG tie-break로 맞출지 확정하고 구현	P0-02	W086가 완료 또는 승인된 의도 변경
+P2-03	P2	unit-data	TODO	Godot 추가 dracula를 정식 콘텐츠로 유지할지 웹 기준 밖 확장으로 분리할지 확정	P0-02	W080 상태 확정, 46종 웹 데이터는 유지
+P2-04	P2	save-policy	TODO	Godot user:// 단일 프로세스 저장에서 revision 대체 정책을 확정하고 강제종료/재실행/중복처리 테스트	P0-02	W153 완료 또는 승인된 의도 변경
+P3-01	P3	title	TODO	웹 title-theme.mp3를 이관할지 새 Godot 타이틀 음악을 확정하고 타이틀 BGM 동작 구현	P0-02	W005 오디오 부분 완료
+P3-02	P3	title	TODO	타이틀 옵션에서 Music/SFX 설정 접근 가능하게 연결	P3-01	W006 완료
+P3-03	P3	title	TODO	웹 영상/로고/버튼 대신 cemetery 레이어형 Godot 타이틀을 최종 기준으로 문서 확정	P0-02	타이틀 시각 차이가 승인된 의도 변경으로 고정
+P3-04	P3	visual	TODO	goblin-commoner 15개 + soul-reaper 16개 갱신 전투 프레임 실제 재생 확인	P0-02	W195 에셋/재생 검증 완료
+P3-05	P3	visual	TODO	장소 배경 7종 Godot 갱신본과 구름/상점/순찰/포획 UI 대체 연출 실제 화면 승인	P0-02	시각 대체 항목 승인 기록
+P4-01	P4	regression	TODO	새 게임→인트로→맵→각 장소→전투→보상→집→다음 바퀴 end-to-end 회귀	P1-11;P2-01;P2-02;P2-04;P3-02	진행 막힘/중복보상/상태손상 0
+P4-02	P4	regression	TODO	사건 양 분기와 모든 사건 전투 승/패/지나감 경로 회귀	P1-12;P4-01	웹 구현 사건 체인 도달/분기 100%
+P4-03	P4	regression	TODO	전투/영혼수확/보상/이동/사건전투 각 중단 지점에서 저장 후 재실행 복원	P1-06;P2-04	중복/소실/결과변경 0
+P4-04	P4	regression	TODO	46종 기존 마물 및 dracula 정책 확정분의 카드/정보/공격/피격/사망 재생 검사	P2-03;P3-04	필수 런타임 에셋 누락 0
+P5-01	P5	independence	TODO	Godot 코드/씬/데이터에서 necromancer-dice-board, .html, 웹 상대경로, 원격 URL 의존성 검색	P4-01;P4-02;P4-03	웹 저장소 없이 실행 가능한 의존성 0
+P5-02	P5	archive	TODO	웹 고정 커밋 전체 ZIP/번들 + SHA + 감사 TSV/MD를 별도 보존	P5-01	원본 제작자료와 규칙 증거 복구 가능
+P5-03	P5	deletion-gate	TODO	159개 이식 대상이 모두 완료 또는 승인된 의도 변경인지 재집계	P5-01;P5-02	미이식 0, 미승인 부분이식 0
+P5-04	P5	deletion-gate	TODO	필수 웹 전용 에셋 미이관 0개 확인 후 웹 저장소 삭제 승인	P5-03	삭제 게이트 전 항목 PASS
