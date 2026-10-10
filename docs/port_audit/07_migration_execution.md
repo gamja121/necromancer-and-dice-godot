@@ -10,7 +10,7 @@
 
 ### 2-1 사건 에셋 이관
 - **2-1A 초기 사건/소문 에셋** — 완료
-- 2-1B 기사단장·마물사냥꾼·광신도 에셋
+- **2-1B 기사단장·마물사냥꾼·광신도 에셋 — 완료**
 - 2-1C 부활 의식/전이문 에셋 + 남은 인물 레이어
 - 2-1D 21개 사건 에셋 SHA/경로 최종 검증
 
@@ -64,3 +64,31 @@ Godot 경로:
 커밋: `0c21eb17d448709f7a9e33304eca1fa862eb749e`
 
 P1-01 전체 21개 중 **7개 이관 완료, 14개 남음**.
+
+
+## 2-1B 완료 내용
+
+기사단장·마물사냥꾼·광신도 구간의 웹 런타임 필수 에셋 8개를 Godot로 이관하고 존재를 다시 확인했다.
+
+- `knight-commander-village-day.webp`
+- `monster-hunter-worldtree-base.webp`
+- `monster-hunter-corrupted-beast-scene.webp`
+- `monster-hunter-pen-clean.webp`
+- `cultist-rumor-procession.webp`
+- `cultist-altar-night-base.webp`
+- `cultist-altar-ritual-layer.webp`
+- `cultist-altar-summon-layer.webp`
+
+Godot 경로: `assets/map/events/`
+
+각 파일은 웹 고정본과 동일 blob SHA로 이관했다.
+
+관련 커밋:
+- `5a5da69da6ee2b2aa3c8952cd8fbf191d0985bbc`
+- `9b7e7bafb714b1e4b935974121d24865ff9f2523`
+- `15d3e4f47451973d99364cc610058d76aba7d3bb`
+- `038a245608af76f582f12fc99073f70dd5ac89e6`
+
+P1-01 전체 21개 중 **15개 이관 완료, 6개 남음**.
+
+다음: **2-1C — 부활 의식/전이문 에셋 4개 + 기사단장/주인공 상반신 폴백 2개 이관**.
