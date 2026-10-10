@@ -87,6 +87,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
+	elif world.tiles[world.position] in ["village","event"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -665,6 +666,17 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 ## The story presentation advances only by explicit input; no timer picks a choice.
 ## Each explicit button advances one durable scene; a reopened save resumes
 ## the last confirmed beat, and the final scene is completed only on '마치기'.
+## Only automatically reopen a scene previously discovered and still unfinished.
+## A first visit remains driven by show_tile() and never consumes a new event.
+func resume_village_rumor_if_unfinished() -> void:
+	if is_instance_valid(overlay): return
+	var index: int=world.position
+	var event_id: String=VillageRumorEntry.eligible_event_id(session,index)
+	if event_id.is_empty(): return
+	if session.get_story_event(event_id).status!="seen": return
+	if VillageRumorEntry.current_beat(session,event_id)<0: return
+	show_village_rumor_beat(index,event_id)
+
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
 
