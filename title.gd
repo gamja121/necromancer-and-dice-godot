@@ -137,13 +137,39 @@ func _load_menu_art() -> void:
 		var empty := StyleBoxEmpty.new()
 		for state in ["normal", "hover", "pressed", "disabled"]:
 			button.add_theme_stylebox_override(state, empty)
+		button.pivot_offset = button.size * 0.5
+		button.resized.connect(_center_menu_pivot.bind(button))
 		button.mouse_entered.connect(_highlight_menu_button.bind(button, true))
 		button.mouse_exited.connect(_highlight_menu_button.bind(button, false))
+		button.button_down.connect(_wiggle_menu_button.bind(button))
+
+func _center_menu_pivot(button: Button) -> void:
+	button.pivot_offset = button.size * 0.5
 
 func _highlight_menu_button(button: Button, highlight: bool) -> void:
 	if button.disabled:
 		return
 	button.modulate = Color(1.12, 1.03, 0.82) if highlight else Color.WHITE
+	if highlight:
+		_wiggle_menu_button(button)
+
+func _wiggle_menu_button(button: Button) -> void:
+	if button.disabled or not is_instance_valid(button):
+		return
+	# Rotate in place around the button center; the VBox layout and TitleUI
+	# never move. The cemetery parallax keeps reacting independently.
+	if button.has_meta("wiggle_tween"):
+		var previous: Variant = button.get_meta("wiggle_tween")
+		if previous is Tween and previous.is_running():
+			previous.kill()
+	button.pivot_offset = button.size * 0.5
+	button.rotation_degrees = 0.0
+	var wiggle := create_tween()
+	button.set_meta("wiggle_tween", wiggle)
+	wiggle.tween_property(button, "rotation_degrees", -2.0, 0.055)
+	wiggle.tween_property(button, "rotation_degrees", 1.6, 0.075)
+	wiggle.tween_property(button, "rotation_degrees", -0.8, 0.070)
+	wiggle.tween_property(button, "rotation_degrees", 0.0, 0.090)
 
 func _show_options() -> void:
 	options_dialog.popup_centered()
