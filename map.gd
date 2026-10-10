@@ -11,6 +11,7 @@ const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
+const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
@@ -83,7 +84,7 @@ func _ready() -> void:
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
-	elif session.graveyard_battle_result_pending(): call_deferred("show_graveyard_battle_result")
+	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -537,8 +538,8 @@ func finish_embedded_battle() -> void:
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
-	if completed_story_event_id == StoryEventEntry.EVENT_ID and session.graveyard_battle_result_pending():
-		show_graveyard_battle_result()
+	if not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
+		show_story_battle_result(completed_story_event_id)
 
 
 func sound(kind: String) -> void:
@@ -701,49 +702,61 @@ func choose_graveyard_child(index: int, choice_id: String) -> void:
 		show_graveyard_story_deck(index)
 
 func show_graveyard_story_deck(index: int) -> void:
-	if index != world.position or not world.tiles[index] in ["graveyard","event"]: return
-	var event: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
-	if event.status != "active" or event.choice != "protect_child": return
-	if not session.encounter.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
-	show_battle_deck(index,StoryEventEntry.EVENT_ID)
+	show_story_battle_deck(StoryEventEntry.EVENT_ID,index)
 
-## Show only committed battle results. Nothing is acknowledged until a
-## close/retry button is pressed; reopening the save restores this modal.
+## Every registered event routes through the existing 1–4 card BattleDeck.
+func show_story_battle_deck(event_id: String, index: int) -> void:
+	var spec: Dictionary = StoryBattleRegistry.definition(event_id)
+	if not StoryBattleRegistry.can_start(world,session.get_story_event(event_id),index,spec): return
+	if not session.encounter.is_empty() or not world.active_encounter.is_empty(): return
+	if not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return
+	if world.roster.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
+	show_battle_deck(index,event_id)
+
+## Retained wrappers for the P1-03D screen; all outcome UI is now data-driven.
 func show_graveyard_battle_result() -> void:
-	if not session.graveyard_battle_result_pending() or is_instance_valid(overlay): return
+	show_story_battle_result(StoryEventEntry.EVENT_ID)
+
+func show_pending_story_battle_result() -> void:
+	var event_id: String = session.pending_story_battle_event_id()
+	if not event_id.is_empty(): show_story_battle_result(event_id)
+
+func show_story_battle_result(event_id: String) -> void:
+	if is_instance_valid(overlay): return
+	var view: Dictionary = session.story_battle_presentation(event_id)
+	if view.is_empty(): return
 	world = session.world
-	var event: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
-	var rescued: bool = event.battle_result == "won"
 	var panel = modal()
-	var art = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var art = image(panel,str(view.background),Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
-	if not rescued:
-		image(panel,GraveyardStoryBeats.GHOUL_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	var heading = label_at(panel,"아이 구조 성공" if rescued else "아이 구조 실패",Vector2(360,84),Vector2(568,42),24)
+	if not str(view.overlay).is_empty():
+		image(panel,str(view.overlay),Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var heading = label_at(panel,str(view.title),Vector2(360,84),Vector2(568,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var description: String = "구울이 쓰러지자 아이는 당신을 바라본다. 그러나 안도하기보다 겁에 질린 표정으로 뒷걸음치더니, 묘비 사이로 달아나 버린다." if rescued else "구울을 막지 못했습니다. 아이를 구하지 못했으며, 아직 구조를 완료한 것은 아닙니다."
-	var narrative = label_at(panel,description,Vector2(285,558),Vector2(710,62),18)
+	var narrative = label_at(panel,str(view.narration),Vector2(285,558),Vector2(710,62),18)
 	narrative.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	narrative.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	if rescued:
-		var dialogue = label_at(panel,"아이: ……!",Vector2(478,619),Vector2(325,26),17)
+	if not str(view.dialogue).is_empty():
+		var dialogue = label_at(panel,str(view.dialogue),Vector2(396,619),Vector2(492,26),17 if not view.retry else 16)
 		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	else:
-		var extra = label_at(panel,"남은 마물로 다시 도전할 수 있습니다.",Vector2(396,619),Vector2(492,26),16)
-		extra.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if not rescued and not world.roster.is_empty():
-		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_graveyard_result(true),1)
-	location_button(panel,"맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_graveyard_result(false),4)
+	if view.retry and not world.roster.is_empty():
+		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_story_battle_result_ui(event_id,true),1)
+	location_button(panel,"맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_story_battle_result_ui(event_id,false),4)
 
 func acknowledge_graveyard_result(retry: bool) -> void:
-	if not session.acknowledge_graveyard_battle_result():
+	acknowledge_story_battle_result_ui(StoryEventEntry.EVENT_ID,retry)
+
+func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
+	var view: Dictionary = session.story_battle_presentation(event_id)
+	if view.is_empty() or (retry and not view.retry): return
+	if not session.acknowledge_story_battle_result(event_id):
 		status.text = "사건 결과 저장 실패 · 다시 시도하세요."
 		return
 	var index: int = world.position
 	close_overlay()
 	if retry and not world.roster.is_empty():
-		show_graveyard_story_deck(index)
+		show_story_battle_deck(event_id,index)
 	else:
 		render()
 		status.text = session.notice
