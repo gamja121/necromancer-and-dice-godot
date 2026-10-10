@@ -14,6 +14,7 @@ const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
+const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
 const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
@@ -852,23 +853,51 @@ func advance_monster_hunter(index: int, shown_beat: int) -> void:
 	else:
 		show_monster_hunter_beat(index)
 
-## P1-05G: first cultist rumor scene only. The night procession,
-## subsequent dialogue and tracking quest are not started here.
+## P1-05H: current scene is reconstructed from the saved sequential beat flags.
+## Dismissing does not consume the event or its tracking reward.
 func show_cultist_rumor_intro(index: int) -> void:
+	show_cultist_rumor_beat(index)
+
+func show_cultist_rumor_beat(index: int) -> void:
 	if not CultistRumorEntry.can_enter(session,index): return
-	if session.get_story_event(CultistRumorEntry.EVENT_ID).status!="seen": return
+	var beat_index: int=CultistRumorEntry.current_beat(session)
+	var beat: Dictionary=CultistRumorBeats.beat(beat_index)
+	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var art=image(panel,CultistRumorEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	InkSceneReveal.play(art)
+	if beat_index==0: InkSceneReveal.play(art)
+	var layer: String=CultistRumorBeats.layer_for(str(beat.visual))
+	if not layer.is_empty():
+		image(panel,layer,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	var heading=label_at(panel,"사건 · 같은 문양",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var effect=label_at(panel,str(CultistRumorEntry.FIRST_BEAT.effect),Vector2(285,573),Vector2(710,64),18)
+	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if not str(beat.dialogue).is_empty():
+		var dialogue=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(291,604),Vector2(698,47),16)
+		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var finishing: bool=CultistRumorBeats.is_final(beat_index)
 	if world.tiles[index]=="village":
+		location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_cultist_rumor(index,beat_index),1)
 		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	else:
+		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_cultist_rumor(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func advance_cultist_rumor(index: int, shown_beat: int) -> void:
+	var finishing: bool=CultistRumorBeats.is_final(shown_beat)
+	if not CultistRumorEntry.advance(session,index,shown_beat):
+		status.text="광신도 소문 저장 실패 · 다시 시도하세요."
+		return
+	if finishing:
+		close_overlay()
+		render()
+		status.text="[광신도들의 흔적을 추적합니다.]"
+	else:
+		show_cultist_rumor_beat(index)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
