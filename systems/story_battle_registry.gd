@@ -95,6 +95,8 @@ static func can_start(world, event: Dictionary, index: int, spec: Dictionary) ->
 	if event.get("status","") != "active" or event.get("choice","") != spec.choice: return false
 	if event.get("battle_result","") not in ["","lost"]: return false
 	if world.event_flags.get(spec.complete_flag,false) == true: return false
+	# An unacknowledged outcome must not be erased by a new encounter.
+	if world.event_flags.get(spec.pending_flag,false) == true: return false
 	for slug in spec.enemies:
 		if not world.definitions.has(slug): return false
 	return true
