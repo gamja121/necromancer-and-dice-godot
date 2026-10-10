@@ -1,7 +1,7 @@
 work_id	priority	area	status	task	depends_on	done_when
 P0-01	P0	baseline	DONE	웹 reference/html-final@e13d514 고정	없음	웹 기준 SHA 변경 금지
 P0-02	P0	audit	DONE	159개 기능/규칙 + 전체 에셋 감사 완료	P0-01	1-1~1-5 문서
-P1-01	P1	story-assets	IN_PROGRESS	웹 사건 런타임 필수 원화/레이어 20개와 graveyard-choice-parchment 1개를 Godot로 이관	P0-02	사건 에셋 누락 0개
+P1-01	P1	story-assets	DONE	웹 사건 런타임 필수 원화/레이어 20개와 graveyard-choice-parchment 1개를 Godot로 이관	P0-02	사건 에셋 누락 0개
 P1-02	P1	story-state	TODO	Godot에 event/quest/story 상태기계 구현: seen/complete/active/choice/battle result/revival/hunt 상태	P0-02	W183 완료
 P1-03	P1	event-runtime	TODO	공동묘지 아이 사건 + 구한다/지나친다 선택 구현	P1-01;P1-02	W170,W171 완료
 P1-04	P1	event-battle	TODO	사건 싸운다 선택이 반드시 기존 전투 덱 선택을 거쳐 전투로 진입하도록 공용 사건전투 경로 구현	P1-02	W172 및 알려진 덱선택 우회 오류 해결
