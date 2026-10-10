@@ -8,6 +8,7 @@ const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
+const StoryBattleOutcomes = preload("res://systems/story_battle_outcomes.gd")
 const SAVE = "user://map_run_v1.json"
 # Tests use a separate user:// path; production keeps the canonical path by default.
 var save_file_path: String = SAVE
@@ -212,16 +213,17 @@ func story_battle_result_pending(event_id: String) -> bool:
 	if world == null or spec.is_empty(): return false
 	if not encounter.is_empty() or not world.active_encounter.is_empty(): return false
 	if not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return false
-	if world.event_flags.get(spec.pending_flag,false) != true: return false
-	var event: Dictionary = get_story_event(event_id)
-	if event.choice != spec.choice: return false
-	match str(spec.result_handler):
-		"graveyard_child":
-			if event.status == "complete" and event.battle_result == "won":
-				return world.event_flags.get("event:graveyard_child_ambush_01:rescued",false) == true
-			if event.status == "active" and event.battle_result == "lost":
-				return world.event_flags.get(spec.complete_flag,false) != true
-	return false
+	return StoryBattleOutcomes.valid_result(world,event_id,spec)
+
+## Reusable result scene data; returns nothing for unregistered or invalid outcomes.
+func story_battle_presentation(event_id: String) -> Dictionary:
+	if not story_battle_result_pending(event_id): return {}
+	return StoryBattleOutcomes.presentation(StoryBattleRegistry.definition(event_id),get_story_event(event_id))
+
+func pending_story_battle_event_id() -> String:
+	for event_id in StoryBattleRegistry.registered_ids():
+		if story_battle_result_pending(str(event_id)): return str(event_id)
+	return ""
 
 ## Acknowledge the visual result only after the player presses a close/retry
 ## button; do not consume it on display or on map startup.
@@ -325,8 +327,9 @@ func finish_encounter(battle) -> bool:
 	# ordinary tile reward branch or consume owned monsters.
 	if not event_id.is_empty() and story_spec.is_empty(): return false
 	if not story_spec.is_empty():
+		if not StoryBattleRegistry.valid_definition(story_spec): return false
 		if str(encounter.get("type","")) != str(story_spec.encounter_type): return false
-		if str(story_spec.result_handler) != "graveyard_child": return false
+		if not get_story_event(event_id).status == "active" or get_story_event(event_id).choice != story_spec.choice: return false
 	elif str(encounter.get("type","")).begins_with("event-"): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var survivors: Array = []
@@ -342,20 +345,12 @@ func finish_encounter(battle) -> bool:
 	world.roster = survivors
 	var story: bool = not story_spec.is_empty()
 	if story:
-		var won: bool = battle.winner() == "ally"
-		# Outcome and its unacknowledged scene are one atomic save operation.
-		world.event_flags[story_spec.pending_flag] = true
-		world.story_events[event_id] = {"status":"complete" if won else "active","choice":str(story_spec.choice),"battle_result":"won" if won else "lost"}
-		world.event_flags["battle:graveyard_child_ambush_01:won"] = won
-		world.event_flags["battle:graveyard_child_ambush_01:lost"] = not won
-		if won:
-			world.event_flags["event:graveyard_child_ambush_01:seen"] = true
-			world.event_flags["event:graveyard_child_ambush_01:complete"] = true
-			world.event_flags["event:graveyard_child_ambush_01:rescued"] = true
-			world.event_flags["event:graveyard_child_ambush_01:abandoned"] = false
-			notice = "구울 격퇴 · 아이 구조 성공"
-		else:
-			notice = "구울 전투 패배 · 구조 미완료 · 생존 마물로 다시 도전할 수 있습니다."
+		# Policy-specific flags and the unacknowledged result are one save.
+		notice = StoryBattleOutcomes.apply(world,event_id,story_spec,battle.winner()=="ally")
+		if notice.is_empty():
+			world.restore(before)
+			encounter = world.active_encounter.duplicate(true)
+			return false
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
 		world.contamination = maxi(0,world.contamination-1)
