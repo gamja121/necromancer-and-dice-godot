@@ -119,15 +119,15 @@ func _load_menu_art() -> void:
 		$TitleUI/LogoShadow.hide()
 		$TitleUI/Subtitle.hide()
 		$TitleUI/MenuPanel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var button_art := {
-		new_run_button: "button_new_game.webp",
-		continue_button: "button_continue.webp",
-		options_button: "button_options.webp",
-		exit_button: "button_exit.webp"
-	}
-	for item in button_art:
-		var button: Button = item
-		var path: String = "res://assets/title/menu/" + str(button_art[button])
+	var buttons := [
+		[new_run_button, "button_new_game.webp"],
+		[continue_button, "button_continue.webp"],
+		[options_button, "button_options.webp"],
+		[exit_button, "button_exit.webp"]
+	]
+	for entry in buttons:
+		var button: Button = entry[0]
+		var path: String = "res://assets/title/menu/" + str(entry[1])
 		if not ResourceLoader.exists(path):
 			continue
 		button.icon = load(path)
