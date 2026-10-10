@@ -445,6 +445,13 @@ func show_treasure(index: int = -1) -> void:
 func animate_reward_to_inventory(kind: String, source: TextureButton) -> void:
 	var target: TextureButton = deck_button if kind=="dice" else book_button
 	var flyer = image(stage,source.texture_normal.resource_path,source.global_position,source.size)
+	# Carry visual-only badges with the reward card during the flying-to-inventory animation.
+	for overlay_name in ["BrandFrameOverlay","AltarUpgradeBadge"]:
+		var overlay = source.get_node_or_null(overlay_name)
+		if overlay is TextureRect:
+			var copy: TextureRect = overlay.duplicate()
+			copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			flyer.add_child(copy)
 	flyer.z_index = 220
 	flyer.pivot_offset = flyer.size*0.5
 	var start = flyer.position
