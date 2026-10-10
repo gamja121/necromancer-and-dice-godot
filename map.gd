@@ -12,6 +12,7 @@ const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
+const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
@@ -89,7 +90,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
-	elif world.tiles[world.position] in ["village","event"]: call_deferred("resume_village_rumor_if_unfinished")
+	elif world.tiles[world.position] in ["village","unknown","event"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -367,6 +368,13 @@ func show_tile(index: int) -> void:
 	if type in ["village","event"] and KnightCommanderEntry.can_enter(session,index):
 		if KnightCommanderEntry.begin(session,index):
 			show_knight_commander_intro(index)
+			return
+		status.text = session.notice
+	# Follow the canonical event tile order; the hunter only appears
+	# after the commander quest has actually been accepted.
+	if type in ["unknown","event"] and MonsterHunterEntry.can_enter(session,index):
+		if MonsterHunterEntry.begin(session,index):
+			show_monster_hunter_intro(index)
 			return
 		status.text = session.notice
 	if type=="basic": return
@@ -688,6 +696,12 @@ func resume_village_rumor_if_unfinished() -> void:
 	if KnightCommanderEntry.can_enter(session,index):
 		if session.get_story_event(KnightCommanderEntry.EVENT_ID).status=="seen":
 			show_knight_commander_intro(index)
+			return
+	# On reload, show the first hunter scene only if its first discovery
+	# was already saved. Never auto-start a previously unseen hunter.
+	if MonsterHunterEntry.can_enter(session,index):
+		if session.get_story_event(MonsterHunterEntry.EVENT_ID).status=="seen":
+			show_monster_hunter_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
@@ -776,6 +790,24 @@ func advance_knight_commander(index: int, shown_beat: int) -> void:
 		status.text="[오염에 대한 의뢰를 받았습니다.]"
 	else:
 		show_knight_commander_beat(index)
+
+## P1-05E: opening world-tree contamination scene only. The hunter's
+## reveal, dialogue and clue/quest completion are future stages.
+func show_monster_hunter_intro(index: int) -> void:
+	if not MonsterHunterEntry.can_enter(session,index): return
+	if session.get_story_event(MonsterHunterEntry.EVENT_ID).status!="seen": return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var art=image(panel,MonsterHunterEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(art)
+	var heading=label_at(panel,"사건 · 세계수",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,str(MonsterHunterEntry.FIRST_BEAT.effect),Vector2(286,571),Vector2(708,66),18)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if world.tiles[index]=="unknown":
+		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
