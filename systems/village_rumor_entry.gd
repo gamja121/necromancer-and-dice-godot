@@ -1,7 +1,7 @@
 extends RefCounted
-## P1-05A: first landing and durable discovery of the two village rumors.
-## Dialogue progression, scene completion and the commander follow-up are
-## intentionally not part of this step.
+const RumorBeats = preload("res://systems/village_rumor_beats.gd")
+## P1-05B: village rumor entry plus persisted beat-by-beat progression.
+## Commander/hunter follow-up is a separate step.
 
 const RESCUED_ID = "rumor_saved_child_01"
 const ABANDONED_ID = "rumor_abandoned_child_01"
@@ -57,3 +57,41 @@ static func begin(session, index: int) -> String:
 		world.story_events[event_id]={"status":"seen","choice":"","battle_result":""}
 	world.event_flags[seen_flag(event_id)]=true
 	return event_id if session.persist_change(before) else ""
+
+## Store progress as boolean event flags for backwards-compatible world snapshots.
+## :beat:1 means the second scene is visible; the first scene is implicit.
+static func progress_flag(event_id: String, beat_index: int) -> String:
+	if event_id not in [RESCUED_ID,ABANDONED_ID]: return ""
+	if beat_index<1 or beat_index>=RumorBeats.count(event_id): return ""
+	return "event:%s:beat:%d" % [event_id,beat_index]
+
+static func current_beat(session, event_id: String) -> int:
+	if session == null or session.world == null: return -1
+	if event_id not in [RESCUED_ID,ABANDONED_ID]: return -1
+	if session.get_story_event(event_id).status!="seen": return -1
+	if session.world.event_flags.get(seen_flag(event_id),false)!=true: return -1
+	if session.world.event_flags.get(complete_flag(event_id),false)==true: return -1
+	var position: int=0
+	var found_gap: bool=false
+	for i in range(1,RumorBeats.count(event_id)):
+		var present: bool=session.world.event_flags.get(progress_flag(event_id,i),false)==true
+		if present and found_gap: return -1
+		if present: position=i
+		else: found_gap=true
+	return position
+
+## Explicit '계속' saves only the next beat. Only pressing '마치기' on
+## the last beat commits the whole scene and its web-compatible completion.
+static func advance(session, index: int, event_id: String, visible_index: int) -> bool:
+	if eligible_event_id(session,index)!=event_id: return false
+	var current: int=current_beat(session,event_id)
+	if current<0 or visible_index!=current: return false
+	var final_beat: bool=RumorBeats.is_final(event_id,current)
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	if final_beat:
+		session.world.story_events[event_id]={"status":"complete","choice":"","battle_result":""}
+		session.world.event_flags[seen_flag(event_id)]=true
+		session.world.event_flags[complete_flag(event_id)]=true
+	else:
+		session.world.event_flags[progress_flag(event_id,current+1)]=true
+	return session.persist_change(before)
