@@ -3,7 +3,6 @@ signal closed
 const UnitInfo = preload("res://systems/unit_info.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const FanMotion = preload("res://systems/card_fan_motion.gd")
-const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 var session
 var content: Control
 var fan
@@ -55,7 +54,6 @@ func show_kind(kind: String) -> void:
 			row.add_child(parent)
 			pos = Vector2(8,12)
 		var option = card(parent,kind,item,pos,Vector2(136,218),func(): show_item(kind,item))
-		if kind == "unit": AltarUpgradeBadge.sync(option,item)
 		option.rotation_degrees = clampf((i-half)*1.6,-5,5)
 		if kind=="unit":
 			option.get_child(0).text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]

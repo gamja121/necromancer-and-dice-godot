@@ -113,11 +113,13 @@ func refresh() -> void:
 	var donor=session.owned_unit(donor_id)
 	donor_art.texture=load(Catalog.image("unit",donor)) if not donor.is_empty() else null
 	BrandFrameOverlay.sync(donor_art,donor)
+	AltarUpgradeBadge.sync(donor_art,donor)
 	donor_hint.text=donor.name if not donor.is_empty() else ("재물 먼저 선택" if type=="altar" else "교환할 마물 선택")
 	if type=="altar":
 		var receiver=session.owned_unit(receiver_id)
 		receiver_art.texture=load(Catalog.image("unit",receiver)) if not receiver.is_empty() else null
 		BrandFrameOverlay.sync(receiver_art,receiver)
+		AltarUpgradeBadge.sync(receiver_art,receiver)
 		var level=int(receiver.get("altar_enhancements",0))
 		receiver_hint.text="%s · 강화 %d/3" % [receiver.name,level] if not receiver.is_empty() else "강화 대상 선택"
 		var used=session.place_visit_id("ritual",index) in session.world.reward_receipts
