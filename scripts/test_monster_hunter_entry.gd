@@ -215,7 +215,7 @@ func test_art_ui() -> void:
 	check(map.contains("MonsterHunterEntry.can_enter(session,index)"),"map dispatch eligibility wired")
 	check(map.contains("MonsterHunterEntry.begin(session,index)"),"map saves hunter before displaying")
 	check(map.contains('func show_monster_hunter_intro(index: int) -> void:'),"hunter first scene UI exists")
-	check(map.contains('str(MonsterHunterEntry.FIRST_BEAT.effect)'),"map renders original narration")
+	check(map.contains('str(beat.effect)'),"map renders source narration from current hunter beat")
 	check(map.contains("MonsterHunterEntry.BASE_ART"),"original background drawn")
 	check(map.contains('session.get_story_event(MonsterHunterEntry.EVENT_ID).status=="seen"'),"reload only reopens seen hunter")
 	check(map.contains('world.tiles[world.position] in ["village","unknown","event"]'),"world tree startup can resume")

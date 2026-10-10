@@ -13,6 +13,7 @@ const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
+const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
@@ -791,23 +792,51 @@ func advance_knight_commander(index: int, shown_beat: int) -> void:
 	else:
 		show_knight_commander_beat(index)
 
-## P1-05E: opening world-tree contamination scene only. The hunter's
-## reveal, dialogue and clue/quest completion are future stages.
+## P1-05F: retains the first-intro API; renders every saved hunter beat.
+## Leaving the panel never consumes the encounter or the investigation quest.
 func show_monster_hunter_intro(index: int) -> void:
+	show_monster_hunter_beat(index)
+
+func show_monster_hunter_beat(index: int) -> void:
 	if not MonsterHunterEntry.can_enter(session,index): return
-	if session.get_story_event(MonsterHunterEntry.EVENT_ID).status!="seen": return
+	var beat_index: int=MonsterHunterEntry.current_beat(session)
+	var beat: Dictionary=MonsterHunterBeats.beat(beat_index)
+	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var art=image(panel,MonsterHunterEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	InkSceneReveal.play(art)
+	if beat_index==0: InkSceneReveal.play(art)
+	var visual_art: String=MonsterHunterBeats.visual_art(str(beat.visual))
+	if not visual_art.is_empty():
+		image(panel,visual_art,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	var heading=label_at(panel,"사건 · 세계수",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var effect=label_at(panel,str(MonsterHunterEntry.FIRST_BEAT.effect),Vector2(286,571),Vector2(708,66),18)
+	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if not str(beat.dialogue).is_empty():
+		var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(291,604),Vector2(698,47),16)
+		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var finishing: bool=MonsterHunterBeats.is_final(beat_index)
 	if world.tiles[index]=="unknown":
+		location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_monster_hunter(index,beat_index),1)
 		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	else:
+		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_monster_hunter(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func advance_monster_hunter(index: int, shown_beat: int) -> void:
+	var finishing: bool=MonsterHunterBeats.is_final(shown_beat)
+	if not MonsterHunterEntry.advance(session,index,shown_beat):
+		status.text="마물 사냥꾼 사건 진행 저장 실패 · 다시 시도하세요."
+		return
+	if finishing:
+		close_overlay()
+		render()
+		status.text="[오염을 퍼뜨리는 자들에 대한 단서를 얻었습니다.]"
+	else:
+		show_monster_hunter_beat(index)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)

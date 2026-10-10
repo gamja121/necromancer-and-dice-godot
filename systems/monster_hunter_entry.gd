@@ -1,7 +1,8 @@
 extends RefCounted
-## P1-05E: source-canonical first encounter at world-tree/event.
-## The actual hunter dialogue, human/cultist clue, and quest completion are
-## separate future stages; this file never grants any of them.
+const HunterBeats = preload("res://systems/monster_hunter_beats.gd")
+## P1-05F: source-canonical hunter encounter with durable beat-by-beat progress.
+## The human involvement clue and hunter quest completion are granted only
+## by confirming the last beat.
 
 const EVENT_ID = "monster_hunter_encounter_01"
 const SEEN_FLAG = "event:monster_hunter_encounter_01:seen"
@@ -55,4 +56,47 @@ static func begin(session, index: int) -> bool:
 	var before: Dictionary=w.snapshot().duplicate(true)
 	w.story_events[EVENT_ID]={"status":"seen","choice":"","battle_result":""}
 	w.event_flags[SEEN_FLAG]=true
+	return session.persist_change(before)
+
+## Use the existing boolean event_flags store (no save-format migration).
+## Beat 0 is implicit when first discovered and saved.
+static func progress_flag(index: int) -> String:
+	if index<1 or index>=HunterBeats.count(): return ""
+	return "event:%s:beat:%d" % [EVENT_ID,index]
+
+static func current_beat(session) -> int:
+	if session == null or session.world == null: return -1
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	if state.status!="seen" or state.choice!="" or state.battle_result!="": return -1
+	var w=session.world
+	if w.event_flags.get(SEEN_FLAG,false)!=true: return -1
+	if w.event_flags.get(COMPLETE_FLAG,false)==true: return -1
+	if w.event_flags.get(QUEST_ACTIVE_FLAG,false)!=true: return -1
+	if w.event_flags.get(QUEST_COMPLETE_FLAG,false)==true: return -1
+	if w.event_flags.get(CULTIST_CLUE_FLAG,false)==true: return -1
+	var current: int=0
+	var gap: bool=false
+	for index in range(1,HunterBeats.count()):
+		var found: bool=w.event_flags.get(progress_flag(index),false)==true
+		if found and gap: return -1
+		if found: current=index
+		else: gap=true
+	return current
+
+## One user click advances one visible beat, and only a last-beat click
+## commits all four outcome fields in a single atomic persist operation.
+static func advance(session, index: int, shown_index: int) -> bool:
+	if not can_enter(session,index): return false
+	var current: int=current_beat(session)
+	if current<0 or current!=shown_index: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	if HunterBeats.is_final(current):
+		session.world.story_events[EVENT_ID]={"status":"complete","choice":"","battle_result":""}
+		session.world.event_flags[SEEN_FLAG]=true
+		session.world.event_flags[COMPLETE_FLAG]=true
+		session.world.event_flags[QUEST_ACTIVE_FLAG]=false
+		session.world.event_flags[QUEST_COMPLETE_FLAG]=true
+		session.world.event_flags[CULTIST_CLUE_FLAG]=true
+	else:
+		session.world.event_flags[progress_flag(current+1)]=true
 	return session.persist_change(before)
