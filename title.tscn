@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://title.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/title/cemetery/01_sky.webp" id="2"]
@@ -9,11 +9,6 @@
 [ext_resource type="Texture2D" path="res://assets/title/cemetery/06_flying_crows.webp" id="7"]
 
 [ext_resource type="FontFile" path="res://assets/fonts/nanum_gothic_bold.ttf" id="8_font"]
-
-[sub_resource type="SystemFont" id="Font_title"]
-fallbacks = Array[Font]([ExtResource("8_font")])
-font_names = PackedStringArray("Georgia", "Times New Roman", "Noto Serif KR", "Malgun Gothic")
-font_weight = 700
 
 [sub_resource type="StyleBoxFlat" id="Style_panel"]
 bg_color = Color(0.035, 0.027, 0.022, 0.68)
@@ -215,7 +210,7 @@ offset_right = 326.0
 offset_bottom = 126.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(0, 0, 0, 0.82)
-theme_override_fonts/font = SubResource("Font_title")
+theme_override_fonts/font = ExtResource("8_font")
 theme_override_font_sizes/font_size = 54
 text = "NECROMANCER"
 horizontal_alignment = 1
@@ -234,7 +229,7 @@ theme_override_colors/font_color = Color(0.82, 0.73, 0.55, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 3
-theme_override_fonts/font = SubResource("Font_title")
+theme_override_fonts/font = ExtResource("8_font")
 theme_override_font_sizes/font_size = 54
 text = "NECROMANCER"
 horizontal_alignment = 1
@@ -252,7 +247,7 @@ grow_horizontal = 2
 theme_override_colors/font_color = Color(0.66, 0.58, 0.43, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
 theme_override_constants/shadow_offset_y = 2
-theme_override_fonts/font = SubResource("Font_title")
+theme_override_fonts/font = ExtResource("8_font")
 theme_override_font_sizes/font_size = 23
 text = "&  D I C E"
 horizontal_alignment = 1
@@ -282,7 +277,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.88, 0.8, 0.63, 1)
 theme_override_colors/font_hover_color = Color(1, 0.92, 0.72, 1)
 theme_override_colors/font_pressed_color = Color(0.73, 0.63, 0.47, 1)
-theme_override_fonts/font = SubResource("Font_title")
+theme_override_fonts/font = ExtResource("8_font")
 theme_override_font_sizes/font_size = 19
 theme_override_styles/normal = SubResource("Style_button_normal")
 theme_override_styles/hover = SubResource("Style_button_hover")
@@ -296,7 +291,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.88, 0.8, 0.63, 1)
 theme_override_colors/font_hover_color = Color(1, 0.92, 0.72, 1)
 theme_override_colors/font_pressed_color = Color(0.73, 0.63, 0.47, 1)
-theme_override_fonts/font = SubResource("Font_title")
+theme_override_fonts/font = ExtResource("8_font")
 theme_override_font_sizes/font_size = 19
 theme_override_styles/normal = SubResource("Style_button_normal")
 theme_override_styles/hover = SubResource("Style_button_hover")
@@ -310,7 +305,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.88, 0.8, 0.63, 1)
 theme_override_colors/font_hover_color = Color(1, 0.92, 0.72, 1)
 theme_override_colors/font_pressed_color = Color(0.73, 0.63, 0.47, 1)
-theme_override_fonts/font = SubResource("Font_title")
+theme_override_fonts/font = ExtResource("8_font")
 theme_override_font_sizes/font_size = 19
 theme_override_styles/normal = SubResource("Style_button_normal")
 theme_override_styles/hover = SubResource("Style_button_hover")
