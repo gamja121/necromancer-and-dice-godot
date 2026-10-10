@@ -22,7 +22,9 @@ static func sync(card: Control, unit: Dictionary) -> void:
 	marker.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	marker.focus_mode = Control.FOCUS_NONE
-	marker.size = Vector2.ONE * clampf(card.size.x * 0.22,16.0,28.0)
-	marker.position = Vector2(card.size.x-marker.size.x-5.0,5.0)
+	# Larger, inset wax stamp: overlap the illustration instead of sitting on the edge.
+	var seal_size: float = clampf(card.size.x * 0.38,30.0,60.0)
+	marker.size = Vector2.ONE * seal_size
+	marker.position = Vector2(card.size.x-seal_size-card.size.x*0.05,card.size.y*0.095)
 	marker.z_index = 1
 	card.add_child(marker)
