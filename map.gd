@@ -11,6 +11,7 @@ const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
+const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
@@ -86,6 +87,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
+	elif world.tiles[world.position] in ["village","event"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -662,22 +664,62 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 	return node
 
 ## The story presentation advances only by explicit input; no timer picks a choice.
-## P1-05A: the first village arrival beat only; continuation/completion
-## is a separate step, so returning to the map does not consume the rumor.
+## Each explicit button advances one durable scene; a reopened save resumes
+## the last confirmed beat, and the final scene is completed only on '마치기'.
+## Only automatically reopen a scene previously discovered and still unfinished.
+## A first visit remains driven by show_tile() and never consumes a new event.
+func resume_village_rumor_if_unfinished() -> void:
+	if is_instance_valid(overlay): return
+	var index: int=world.position
+	var event_id: String=VillageRumorEntry.eligible_event_id(session,index)
+	if event_id.is_empty(): return
+	if session.get_story_event(event_id).status!="seen": return
+	if VillageRumorEntry.current_beat(session,event_id)<0: return
+	show_village_rumor_beat(index,event_id)
+
 func show_village_rumor_intro(index: int, event_id: String) -> void:
+	show_village_rumor_beat(index,event_id)
+
+func show_village_rumor_beat(index: int, event_id: String) -> void:
 	if index!=world.position or world.tiles[index] not in ["village","event"]: return
 	if VillageRumorEntry.eligible_event_id(session,index)!=event_id: return
+	var beat_index: int=VillageRumorEntry.current_beat(session,event_id)
+	var beat: Dictionary=VillageRumorBeats.beat(event_id,beat_index)
+	if beat.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var artwork=image(panel,VillageRumorEntry.SCENE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	InkSceneReveal.play(artwork)
+	if beat_index==0: InkSceneReveal.play(artwork)
+	for layer in beat.layers:
+		image(panel,str(layer),Vector2(243.2,136.8),Vector2(793.6,446.4))
 	var heading=label_at(panel,"사건 · 마을",Vector2(352,84),Vector2(575,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var narrative=label_at(panel,str(VillageRumorEntry.INTRO[event_id]),Vector2(285,576),Vector2(710,54),18)
+	var narrative=label_at(panel,str(beat.effect),Vector2(275,533),Vector2(730,66),17)
 	narrative.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	narrative.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if not str(beat.dialogue).is_empty():
+		var dialogue=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(294,601),Vector2(692,50),16)
+		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var final_scene: bool=VillageRumorBeats.is_final(event_id,beat_index)
 	if world.tiles[index]=="village":
-		location_button(panel,"마을 기능",Vector2(651,643),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,643),Vector2(171,48),func(): dismiss_overlay(render),4)
+		location_button(panel,"계속" if not final_scene else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_village_rumor(index,event_id,beat_index),1)
+		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	else:
+		location_button(panel,"계속" if not final_scene else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_village_rumor(index,event_id,beat_index),1)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func advance_village_rumor(index: int, event_id: String, shown_beat: int) -> void:
+	var finishing: bool=VillageRumorBeats.is_final(event_id,shown_beat)
+	if not VillageRumorEntry.advance(session,index,event_id,shown_beat):
+		status.text="마을 소문 진행 상태를 저장할 수 없습니다. 다시 시도하세요."
+		return
+	if finishing:
+		close_overlay()
+		render()
+		status.text="마을 소문 사건 완료"
+	else:
+		show_village_rumor_beat(index,event_id)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
