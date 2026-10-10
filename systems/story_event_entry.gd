@@ -19,6 +19,26 @@ static func can_enter(session, index: int) -> bool:
 	if world.event_flags.get(COMPLETE_FLAG,false) == true: return false
 	return session.get_story_event(EVENT_ID).status != "complete"
 
+## Commits the selected action without claiming a battle victory.
+## "protect_child" only reserves the rescue route; winning the ghoul fight is
+## required before the rescued flag may ever become true.
+static func choose(session, index: int, choice_id: String) -> bool:
+	if choice_id not in ["protect_child","leave"]: return false
+	if not can_enter(session,index): return false
+	var world = session.world
+	var current: Dictionary = session.get_story_event(EVENT_ID)
+	if current.status not in ["seen","active"]: return false
+	if not current.choice.is_empty(): return current.status == "active" and current.choice == choice_id
+	var before: Dictionary = world.snapshot().duplicate(true)
+	if choice_id == "protect_child":
+		world.story_events[EVENT_ID] = {"status":"active","choice":choice_id,"battle_result":""}
+	else:
+		world.story_events[EVENT_ID] = {"status":"complete","choice":choice_id,"battle_result":""}
+		world.event_flags[COMPLETE_FLAG] = true
+		world.event_flags["event:graveyard_child_ambush_01:abandoned"] = true
+		world.event_flags["event:graveyard_child_ambush_01:rescued"] = false
+	return session.persist_change(before)
+
 static func begin(session, index: int) -> bool:
 	if not can_enter(session,index): return false
 	var world = session.world
