@@ -15,9 +15,6 @@ window/size/window_width_override=1600
 window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 
-[gui]
-theme/custom_font="res://assets/fonts/nanum_gothic_regular.ttf"
-
 [rendering]
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
