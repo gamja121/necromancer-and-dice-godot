@@ -81,9 +81,7 @@ func _ready() -> void:
 	definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
 	# Embedded battles inherit the map font/theme instead of loading it again.
 	if not embedded:
-		var font = SystemFont.new()
-		font.fallbacks = [preload("res://assets/fonts/nanum_gothic_regular.ttf")]
-		font.font_names = PackedStringArray(["Malgun Gothic","맑은 고딕"])
+		var font = preload("res://assets/fonts/nanum_gothic_regular.ttf")
 		theme = Theme.new()
 		theme.default_font = font
 		theme.default_font_size = 15
