@@ -8,6 +8,8 @@ const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
 const SAVE = "user://map_run_v1.json"
+# Tests use a separate user:// path; production keeps the canonical path by default.
+var save_file_path: String = SAVE
 const RITUAL_EVENT_ID = "ritual_portal_trace_01"
 const HUNT_EVENT_ID = "monster_king_hunt_trace_01"
 var world
@@ -15,7 +17,7 @@ var encounter: Dictionary = {}
 var notice = ""
 
 func has_save() -> bool:
-	return FileAccess.file_exists(SAVE)
+	return FileAccess.file_exists(save_file_path)
 
 func start_new_world() -> void:
 	var definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
@@ -34,13 +36,13 @@ func ensure_world() -> void:
 	if world != null: return
 	var definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
 	world = MapState.new(definitions,Time.get_ticks_usec())
-	if FileAccess.file_exists(SAVE):
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string(SAVE))
+	if FileAccess.file_exists(save_file_path):
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(save_file_path))
 		if not parsed is Dictionary or not world.restore(parsed): notice = "저장된 맵을 읽지 못해 새 원정을 시작했습니다."
 	encounter = world.active_encounter.duplicate(true)
 
 func save_world() -> bool:
-	var file = FileAccess.open(SAVE+".tmp",FileAccess.WRITE)
+	var file = FileAccess.open(save_file_path+".tmp",FileAccess.WRITE)
 	if file == null:
 		notice = "저장에 실패했습니다."
 		return false
@@ -49,7 +51,7 @@ func save_world() -> bool:
 	var error = file.get_error()
 	file.close()
 	if error!=OK: return false
-	return DirAccess.rename_absolute(ProjectSettings.globalize_path(SAVE+".tmp"),ProjectSettings.globalize_path(SAVE))==OK
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(save_file_path+".tmp"),ProjectSettings.globalize_path(save_file_path))==OK
 
 ## Story/event flags are transiently edited in world, then saved atomically.
 ## The caller supplies canonical flag names from the reference story runtime.

@@ -1,0 +1,50 @@
+name: Story State Regression (Godot)
+
+on:
+  pull_request:
+    paths:
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_story_state_regression.gd"
+      - ".github/workflows/story-state-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_story_state_regression.gd"
+      - ".github/workflows/story-state-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  story-state-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
+            exit 1
+          fi
+      - name: Story-state save and reload regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_story_state_regression.gd 2>&1 | tee story-state.log
+          grep -E 'STORY_STATE_REGRESSION: [0-9]+ passed, 0 failed' story-state.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' story-state.log; then
+            exit 1
+          fi
