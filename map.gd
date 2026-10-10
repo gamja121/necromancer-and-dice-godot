@@ -9,6 +9,7 @@ const BookBattleLock = preload("res://systems/book_battle_lock.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
+const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
@@ -336,6 +337,13 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 
 func show_tile(index: int) -> void:
 	var type: String = world.tiles[index]
+	# Dispatch the earliest available story before generic location actions.
+	# can_enter blocks previewing other tiles and saves on an actual landing.
+	if type in ["graveyard","event"] and StoryEventEntry.can_enter(session,index):
+		if StoryEventEntry.begin(session,index):
+			show_graveyard_child_intro(index)
+			return
+		status.text = session.notice
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -631,6 +639,20 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 	node.add_theme_color_override("font_disabled_color",Color("6c594680"))
 	node.add_theme_font_size_override("font_size",18)
 	return node
+
+## Introductory discovery beat only. Decisions and combat are separate steps.
+func show_graveyard_child_intro(index: int) -> void:
+	var panel = modal()
+	var artwork = image(panel,"res://assets/map/events/graveyard-child-base-v3.webp",Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(artwork)
+	var heading = label_at(panel,"습격받는 아이",Vector2(352,84),Vector2(575,42),24)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var narration = label_at(panel,"공동묘지 안쪽에서 길을 잃은 듯한 아이를 발견했다.",Vector2(279,588),Vector2(720,32),18)
+	narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	location_button(panel,"돌아가기",Vector2(884,634),Vector2(152,48),func(): dismiss_overlay(render),4)
+	# Visiting the graveyard must not remove its existing corpse-extraction action.
+	if world.tiles[index] == "graveyard":
+		location_button(panel,"공동묘지 기능",Vector2(668,634),Vector2(195,48),func(): dismiss_overlay(func(): show_location(index)),4)
 
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
