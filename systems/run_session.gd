@@ -74,7 +74,7 @@ func get_story_event(event_id: String) -> Dictionary:
 ## Repeated requests for the same status are safe and do not rewrite the save.
 func advance_story_event(event_id: String, next_status: String) -> bool:
 	if world == null or event_id.is_empty(): return false
-	const ORDER := {"unseen":0,"seen":1,"active":2,"complete":3}
+	const ORDER = {"unseen":0,"seen":1,"active":2,"complete":3}
 	if not ORDER.has(next_status) or next_status == "unseen": return false
 	var current: Dictionary = get_story_event(event_id)
 	var step: int = ORDER[next_status] - ORDER[current.status]
