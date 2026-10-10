@@ -11,6 +11,7 @@ const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
+const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -361,6 +362,12 @@ func show_tile(index: int) -> void:
 				show_village_rumor_intro(index,started_rumor)
 				return
 			status.text = session.notice
+	# Story priority: graveyard -> village rumor -> commander.
+	if type in ["village","event"] and KnightCommanderEntry.can_enter(session,index):
+		if KnightCommanderEntry.begin(session,index):
+			show_knight_commander_intro(index)
+			return
+		status.text = session.notice
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -672,10 +679,14 @@ func resume_village_rumor_if_unfinished() -> void:
 	if is_instance_valid(overlay): return
 	var index: int=world.position
 	var event_id: String=VillageRumorEntry.eligible_event_id(session,index)
-	if event_id.is_empty(): return
-	if session.get_story_event(event_id).status!="seen": return
-	if VillageRumorEntry.current_beat(session,event_id)<0: return
-	show_village_rumor_beat(index,event_id)
+	if not event_id.is_empty() and session.get_story_event(event_id).status=="seen":
+		if VillageRumorEntry.current_beat(session,event_id)>=0:
+			show_village_rumor_beat(index,event_id)
+		return
+	# A reload may resume a previously seen commander, never first-trigger.
+	if KnightCommanderEntry.can_enter(session,index):
+		if session.get_story_event(KnightCommanderEntry.EVENT_ID).status=="seen":
+			show_knight_commander_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
@@ -720,6 +731,27 @@ func advance_village_rumor(index: int, event_id: String, shown_beat: int) -> voi
 		status.text="마을 소문 사건 완료"
 	else:
 		show_village_rumor_beat(index,event_id)
+
+## 2-5C: arrival beat only. Recognition and investigation quest
+## activation are separate stages and remain untouched in this step.
+func show_knight_commander_intro(index: int) -> void:
+	if not KnightCommanderEntry.can_enter(session,index): return
+	if session.get_story_event(KnightCommanderEntry.EVENT_ID).status!="seen": return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var artwork=image(panel,KnightCommanderEntry.ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(artwork)
+	image(panel,KnightCommanderEntry.PORTRAIT,Vector2(692,179),Vector2(265,338))
+	var heading=label_at(panel,"사건 · 기사단장",Vector2(348,84),Vector2(584,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var narrative=label_at(panel,str(KnightCommanderEntry.FIRST_BEAT.effect),Vector2(293,557),Vector2(694,38),18)
+	narrative.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	narrative.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var speech=label_at(panel,"%s: %s" % [str(KnightCommanderEntry.FIRST_BEAT.speaker),str(KnightCommanderEntry.FIRST_BEAT.dialogue)],Vector2(315,605),Vector2(657,36),18)
+	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if world.tiles[index]=="village":
+		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
