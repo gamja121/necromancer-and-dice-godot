@@ -2,6 +2,7 @@ extends Control
 
 signal confirmed(selected_ids: Array)
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
+const BrandCompletionSeal = preload("res://systems/brand_completion_seal.gd")
 const TARGET_RATES = {1:[100],2:[35,65],3:[20,33,47],4:[15,20,27,38]}
 var click_audio: AudioStreamPlayer
 var card_shader: Shader
@@ -125,6 +126,7 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	button.mouse_entered.connect(func(): material.set_shader_parameter("highlight",1.0))
 	button.mouse_exited.connect(func(): material.set_shader_parameter("highlight",0.75 if selected_ids.has(unit.id) else 0.15))
 	parent.add_child(button)
+	BrandCompletionSeal.sync(button,unit)
 	button.pressed.connect(func(): toggle_unit(unit.id))
 	return button
 

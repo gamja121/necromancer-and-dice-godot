@@ -1,4 +1,5 @@
 extends Control
+const BrandCompletionSeal = preload("res://systems/brand_completion_seal.gd")
 
 var scene
 var souls: Array = []
@@ -63,6 +64,7 @@ func play(battle_scene, fallen: Array) -> void:
 			card.position = Vector2(scene.cards[u.id].position.x,scene.card_rest_y()-18.8)
 			card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(card)
+			BrandCompletionSeal.sync(card,u)
 			source.visible = false
 			scene.bars[u.id].visible = false
 			scene.cards[u.id].visible = false
