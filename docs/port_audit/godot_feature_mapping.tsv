@@ -1,0 +1,160 @@
+id	category	feature	web_classification	godot_mapping_status	godot_candidates	mapping_note
+W001	진입/타이틀	타이틀 화면	REQUIRED	FOUND	title.gd; title.tscn	타이틀 장면과 메뉴 런타임 존재.
+W002	진입/타이틀	새 원정 시작	REQUIRED	FOUND	title.gd; systems/run_session.gd; intro.tscn	새 원정 생성 후 인트로 장면으로 전환하는 경로 존재.
+W003	진입/타이틀	이어하기 노출/진입	REQUIRED	FOUND	title.gd; systems/run_session.gd	저장 존재 여부를 확인해 Continue 활성화 후 맵으로 진입.
+W004	진입/타이틀	새 원정 시 기존 저장 초기화	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/map_state.gd	start_new_world가 새 MapState를 만들고 저장.
+W005	진입/타이틀	타이틀 BGM/영상 및 사운드 토글	REQUIRED	PARTIAL	title.gd; title.tscn; systems/audio_settings.gd	Godot 타이틀 시각 장면은 있으나 현재 title.tscn/title.gd에서 웹의 타이틀 BGM·영상·타이틀 사운드 토글 대응은 확인되지 않음.
+W006	진입/타이틀	옵션 패널	REQUIRED	PARTIAL	systems/audio_settings.gd; map.gd; battlefield.gd	공용 오디오 설정 UI는 맵/전장에 있으나 타이틀 자체 옵션 패널 대응은 확인되지 않음.
+W009	인트로	새 원정 인트로 장면	REQUIRED	FOUND	systems/intro_scene.gd; intro.tscn; data/intro_dialogue.json	인트로 장면, 대사 진행, 이미지/레이어 로딩, 종료 후 맵 연결 후보가 존재.
+W010	인트로	대사 순차 진행	REQUIRED	FOUND	systems/intro_scene.gd; intro.tscn; data/intro_dialogue.json	인트로 장면, 대사 진행, 이미지/레이어 로딩, 종료 후 맵 연결 후보가 존재.
+W011	인트로	인트로 이미지 청크 로딩	REQUIRED	FOUND	systems/intro_scene.gd; intro.tscn; data/intro_dialogue.json	인트로 장면, 대사 진행, 이미지/레이어 로딩, 종료 후 맵 연결 후보가 존재.
+W012	인트로	인트로 종료 후 맵 연결	REQUIRED_RULE	FOUND	systems/intro_scene.gd; intro.tscn; data/intro_dialogue.json	인트로 장면, 대사 진행, 이미지/레이어 로딩, 종료 후 맵 연결 후보가 존재.
+W020	맵/원정	24칸 보드 맵	REQUIRED	FOUND	systems/map_state.gd; map.gd	24칸 구성, 고정칸, 분포, 셔플, 랩, 집 이탈 +4가 MapState에 존재.
+W021	맵/원정	고정 타일 배치	REQUIRED_RULE	FOUND	systems/map_state.gd; map.gd	24칸 구성, 고정칸, 분포, 셔플, 랩, 집 이탈 +4가 MapState에 존재.
+W022	맵/원정	타일 카탈로그/기본 분포	REQUIRED_RULE	FOUND	systems/map_state.gd; map.gd	24칸 구성, 고정칸, 분포, 셔플, 랩, 집 이탈 +4가 MapState에 존재.
+W023	맵/원정	맵 무작위 재배치	REQUIRED_RULE	FOUND	systems/map_state.gd; map.gd	24칸 구성, 고정칸, 분포, 셔플, 랩, 집 이탈 +4가 MapState에 존재.
+W024	맵/원정	한 바퀴/랩 진행	REQUIRED_RULE	FOUND	systems/map_state.gd; map.gd	24칸 구성, 고정칸, 분포, 셔플, 랩, 집 이탈 +4가 MapState에 존재.
+W025	맵/원정	집에서 나갈 때 오염도 +4	REQUIRED_RULE	FOUND	systems/map_state.gd; map.gd	24칸 구성, 고정칸, 분포, 셔플, 랩, 집 이탈 +4가 MapState에 존재.
+W026	맵/원정	다음 바퀴 맵 재생성	REQUIRED	FOUND	systems/map_state.gd; systems/map_presentation.gd; map.gd	다음 랩 생성과 구름 전환 연출 후보 존재.
+W027	맵/원정	맵 주사위 굴림과 이동	REQUIRED	FOUND	systems/run_session.gd; systems/map_state.gd; systems/dice_animation.gd; map.gd	판정 저장, 이동 경로, 주사위 연출과 맵 이동 연결 존재.
+W028	맵/원정	맵 주사위 물리감/벽 충돌 연출	REQUIRED	FOUND	systems/dice_animation.gd; map.gd	Godot 맵 주사위 애니메이션 모듈과 보드 이동 연출 연결 존재; 세부 물리감은 1-4에서 비교.
+W029	맵/원정	워프 타일 이동	REQUIRED_RULE	FOUND	systems/map_state.gd; systems/run_session.gd; map.gd	워프 목적지와 이동 처리 존재.
+W030	맵/원정	처치한 마물 타일 상태/이미지	REQUIRED	FOUND	systems/map_state.gd; systems/run_session.gd; map.gd	cleared 상태 저장과 처치 타일 표시 경로 존재.
+W031	맵/원정	오염도 0~100	REQUIRED_RULE	FOUND	systems/map_state.gd; systems/encounter_generator.gd	오염 수치, 단계 기반 변환 및 80 이상 보스 배치 후보 존재.
+W032	맵/원정	오염 단계 5단계	REQUIRED_RULE	FOUND	systems/map_state.gd; systems/encounter_generator.gd	오염 수치, 단계 기반 변환 및 80 이상 보스 배치 후보 존재.
+W033	맵/원정	오염도에 따른 마물 타일 증가	REQUIRED_RULE	FOUND	systems/map_state.gd; systems/encounter_generator.gd	오염 수치, 단계 기반 변환 및 80 이상 보스 배치 후보 존재.
+W034	맵/원정	오염도 80 이상 보스 타일 활성	REQUIRED_RULE	FOUND	systems/map_state.gd; systems/encounter_generator.gd	오염 수치, 단계 기반 변환 및 80 이상 보스 배치 후보 존재.
+W035	맵/원정	오염 HUD	REQUIRED	FOUND	systems/contamination_hud.gd; systems/map_presentation.gd	오염 HUD와 시각 갱신 모듈 존재.
+W036	맵/원정	타일 도착당 기능 1회 사용	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/map_state.gd	place_visit_id/reward_receipts 기반 방문당 1회 제어 존재.
+W037	맵/원정	순찰경로 타일 교체	REQUIRED	FOUND	systems/route_plan.gd; systems/exploration_actions.gd; systems/run_session.gd; systems/map_state.gd	순찰 경로 편집/확정/저장 필드 존재.
+W038	맵/원정	순찰경로 지속 저장	REQUIRED_RULE	FOUND	systems/route_plan.gd; systems/exploration_actions.gd; systems/run_session.gd; systems/map_state.gd	순찰 경로 편집/확정/저장 필드 존재.
+W039	맵/원정	마물 정보 책/카드 목록	REQUIRED	FOUND	systems/inventory_panel.gd; map.gd	보유 카드/책 UI 후보 존재.
+W040	맵/원정	마물 상세 정보창	REQUIRED	FOUND	systems/unit_info.gd; map.gd	마물 상세 정보창 후보 존재.
+W041	맵/원정	예언 보정 포함 유효 능력치 표시	REQUIRED_RULE	FOUND	systems/unit_info.gd; systems/run_session.gd	예언을 포함한 유효 수치 미리보기 대응 후보 존재.
+W042	맵/원정	전투 전 덱 선택 1~4마리	REQUIRED	FOUND	systems/battle_deck.gd; map.gd	전투 전 1~4마리 덱 선택 UI 존재.
+W043	맵/원정	편성 인원별 피격 확률 표시	REQUIRED_RULE	FOUND	systems/battle_deck.gd; systems/battle_rules.gd	피격 가중치 1~4명 배열이 Godot 코드에 존재.
+W050	장소/타일	숙영 전체 회복	REQUIRED_RULE	FOUND	systems/run_session.gd; map.gd; systems/map_presentation.gd	숙영 회복 및 회복 연출 경로 존재.
+W051	장소/타일	오염된 늪지대 전체 HP -1	REQUIRED_RULE	FOUND	systems/run_session.gd	늪 도착 시 current_hp를 최소 1로 두고 -1 하는 규칙 존재.
+W052	장소/타일	늪 피해 시각 연출	REQUIRED	FOUND	systems/map_presentation.gd; map.gd	swamp_hit 및 -1 이미지 연출 후보 존재.
+W053	장소/타일	세계수 기도	REQUIRED	FOUND	systems/exploration_actions.gd; systems/run_session.gd	세계수 기도와 오염도 증감 처리 존재.
+W054	장소/타일	세계수 기도 오염도 증감	REQUIRED_RULE	FOUND	systems/exploration_actions.gd; systems/run_session.gd	세계수 기도와 오염도 증감 처리 존재.
+W055	장소/타일	세계수 기도 결과 숫자 연출	REQUIRED	FOUND	systems/world_tree_prayer_effect.gd; systems/exploration_actions.gd	세계수 결과 숫자 연출 모듈 존재.
+W056	장소/타일	점술가 예언	REQUIRED	FOUND	systems/place_actions.gd; systems/run_session.gd	점술 주사위, 누적 예언, 2번 즉시 회복 경로 존재.
+W057	장소/타일	예언 누적/다음 전투 적용	REQUIRED_RULE	FOUND	systems/place_actions.gd; systems/run_session.gd	점술 주사위, 누적 예언, 2번 즉시 회복 경로 존재.
+W058	장소/타일	점술 2번 즉시 전체 회복	REQUIRED_RULE	FOUND	systems/place_actions.gd; systems/run_session.gd	점술 주사위, 누적 예언, 2번 즉시 회복 경로 존재.
+W059	장소/타일	집 입장 시 전체 회복	REQUIRED_RULE	FOUND	systems/run_session.gd; map.gd; systems/map_presentation.gd	집 입장 회복 경로 존재.
+W060	장소/타일	집 낙인 계승	REQUIRED	FOUND	systems/home_inheritance.gd; systems/brand_inheritance.gd; systems/run_session.gd	마물 계승/낙인 카드 적용/슬롯·충돌 검증 후보 존재.
+W061	장소/타일	독립 낙인 카드 적용	REQUIRED	FOUND	systems/home_inheritance.gd; systems/brand_inheritance.gd; systems/run_session.gd	마물 계승/낙인 카드 적용/슬롯·충돌 검증 후보 존재.
+W062	장소/타일	계승 최대 3슬롯/태생 저주 충돌 규칙	REQUIRED_RULE	FOUND	systems/home_inheritance.gd; systems/brand_inheritance.gd; systems/run_session.gd	마물 계승/낙인 카드 적용/슬롯·충돌 검증 후보 존재.
+W063	장소/타일	제단 재물·강화 의식	REQUIRED	FOUND	systems/place_actions.gd; systems/run_session.gd	제단 재물/강화 의식 경로 존재.
+W064	장소/타일	공동묘지 사망 마물 시체 보관	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/exploration_actions.gd; systems/map_state.gd	영구사망 시체 저장과 공동묘지 낙인 추출 경로 존재.
+W065	장소/타일	공동묘지 낙인 추출	REQUIRED	FOUND	systems/run_session.gd; systems/exploration_actions.gd; systems/map_state.gd	영구사망 시체 저장과 공동묘지 낙인 추출 경로 존재.
+W066	장소/타일	언덕 전역 정찰	REQUIRED	FOUND	systems/exploration_actions.gd; systems/run_session.gd; systems/encounter_generator.gd	전역 정찰 및 오염/랩 기반 적 수·등급 정보 생성 존재.
+W067	장소/타일	오염 단계별 정찰 적 숫자/등급 예측	REQUIRED_RULE	FOUND	systems/exploration_actions.gd; systems/run_session.gd; systems/encounter_generator.gd	전역 정찰 및 오염/랩 기반 적 수·등급 정보 생성 존재.
+W068	장소/타일	마을 마물 상점	REQUIRED	FOUND	systems/place_actions.gd; systems/run_session.gd; systems/reward_catalog.gd	골드 없는 교환 상점, 등급별 제안, 카드 후보, 마지막 마물 보호 후보 존재.
+W069	장소/타일	등급별 상점 제안 수 3/4/5	REQUIRED_RULE	FOUND	systems/place_actions.gd; systems/run_session.gd; systems/reward_catalog.gd	골드 없는 교환 상점, 등급별 제안, 카드 후보, 마지막 마물 보호 후보 존재.
+W070	장소/타일	상점 제안: 주사위 카드/낙인 카드	REQUIRED_RULE	FOUND	systems/place_actions.gd; systems/run_session.gd; systems/reward_catalog.gd	골드 없는 교환 상점, 등급별 제안, 카드 후보, 마지막 마물 보호 후보 존재.
+W071	장소/타일	마지막 보유 마물 거래 방지	REQUIRED_RULE	FOUND	systems/place_actions.gd; systems/run_session.gd; systems/reward_catalog.gd	골드 없는 교환 상점, 등급별 제안, 카드 후보, 마지막 마물 보호 후보 존재.
+W072	장소/타일	보물상자 개방	REQUIRED	FOUND	systems/treasure_reward.gd; systems/reward_ui.gd; systems/run_session.gd; systems/encounter_generator.gd	상자 3후보/선택/미믹 분기 대응 후보 존재.
+W073	장소/타일	보물상자 3개 중 1개 선택	REQUIRED_RULE	FOUND	systems/treasure_reward.gd; systems/reward_ui.gd; systems/run_session.gd; systems/encounter_generator.gd	상자 3후보/선택/미믹 분기 대응 후보 존재.
+W074	장소/타일	보물상자 미믹 분기	REQUIRED_RULE	FOUND	systems/treasure_reward.gd; systems/reward_ui.gd; systems/run_session.gd; systems/encounter_generator.gd	상자 3후보/선택/미믹 분기 대응 후보 존재.
+W075	장소/타일	일반 이벤트 타일 기본 표시	REQUIRED	PARTIAL	map.gd; systems/map_state.gd	event 타일은 카탈로그와 진입 분기에 있으나 현재 map.gd의 일반 장소 이미지 매핑에는 event 키가 없어 완전한 표시 대응을 1-4에서 확인해야 함.
+W080	전투	마물 데이터 46종	REQUIRED_RULE	PARTIAL	data/units.json; systems/battle_rules.gd; systems/encounter_generator.gd	Godot 유닛 데이터가 존재하나 현재 units.json은 47종(웹 기준 46종 + dracula)이라 정확한 기준 대응은 1-4에서 확인 필요.
+W081	전투	일반/고급/영웅/특수 등급	REQUIRED_RULE	FOUND	data/units.json; systems/encounter_generator.gd	등급 필드와 normal/advanced/hero/special 데이터 후보 존재.
+W082	전투	전투 편성 최대 4마리	REQUIRED_RULE	FOUND	battlefield.gd; systems/battle_rules.gd; systems/battlefield_rules.gd	최대 4편성, 5번 소환 슬롯, 공용 눈금, 속도 행동순서 대응 코드 존재.
+W083	전투	공용 5번 소환 슬롯	REQUIRED_RULE	FOUND	battlefield.gd; systems/battle_rules.gd; systems/battlefield_rules.gd	최대 4편성, 5번 소환 슬롯, 공용 눈금, 속도 행동순서 대응 코드 존재.
+W084	전투	라운드 공용 주사위 눈금	REQUIRED_RULE	FOUND	battlefield.gd; systems/battle_rules.gd; systems/battlefield_rules.gd	최대 4편성, 5번 소환 슬롯, 공용 눈금, 속도 행동순서 대응 코드 존재.
+W085	전투	속도 기반 행동 순서	REQUIRED_RULE	FOUND	battlefield.gd; systems/battle_rules.gd; systems/battlefield_rules.gd	최대 4편성, 5번 소환 슬롯, 공용 눈금, 속도 행동순서 대응 코드 존재.
+W086	전투	동률 행동 순서 RNG	REQUIRED_RULE	PARTIAL	systems/battle_rules.gd	동률 처리 코드가 있으나 주석상 웹 랜덤 tie-break 대신 stable ID를 사용함. 상세 판정은 1-4 대상.
+W087	전투	대상 선택 가중치	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
+W088	전투	군단 10종	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
+W089	전투	군단 활성 인원 조건	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
+W090	전투	원소 군단의 상대 군단 억제	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
+W091	전투	낙인 10종	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
+W092	전투	낙인 축복/저주 눈금	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
+W093	전투	태생 저주만 유지 정책	REQUIRED_RULE	FOUND	systems/brand_inheritance.gd; systems/home_inheritance.gd; systems/battle_rules.gd	계승 축복/태생 낙인 정책 대응 코드 후보 존재; 정확한 저장 정규화는 1-4에서 검증.
+W094	전투	같은 눈금 저주 전역 우선	REQUIRED_RULE	PARTIAL	systems/battle_rules.gd	웹은 같은 눈금에서 저주가 전역 우선인데 현재 Godot step()은 bless와 curse를 각각 누적하는 구조로 보여 상세 parity 검증 필요.
+W095	전투	태생 고유 패시브 10종	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W096	전투	개체 생성 시 패시브/보너스 랜덤	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W097	전투	중독 스택/2회 지속/최대 3	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W098	전투	빙결 행동 봉쇄	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W099	전투	수호 방어/저주 추가 피해	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W100	전투	반격	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W101	전투	흡혈	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W102	전투	연격	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W103	전투	치명타	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W104	전투	회복 낙인	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W105	전투	소환 낙인 강화	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W106	전투	소환 군단 자동 소환	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W107	전투	영혼 소환 패시브	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W108	전투	씨앗 2라운드 후 식인식물 개화	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W109	전투	15라운드 이후 광폭화형 공격 증가	REQUIRED_RULE	FOUND	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
+W110	전투	마물 영구사망	REQUIRED_RULE	FOUND	systems/permanent_death.gd; systems/run_session.gd; battlefield.gd	영구사망 상태 반영과 전용 연출 후보 존재.
+W111	전투	공동묘지 시체 등록	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/map_state.gd	전투 사망 마물을 graveyard_corpses에 저장하는 경로 존재.
+W112	전투	전투 속도/일시정지	REQUIRED	FOUND	battlefield.gd	일시정지와 3단계 속도 제어 존재.
+W113	전투	전투 마물 상세 정보창	REQUIRED	FOUND	systems/unit_info.gd; battlefield.gd	전투 마물 상세 정보 UI 존재.
+W114	전투	낙인 눈금 참조표	REQUIRED	FOUND	systems/brand_reference.gd; battlefield.gd	낙인 눈금 참조 UI 존재.
+W115	전투	활성 군단 표시	REQUIRED	FOUND	battlefield.gd; systems/battle_rules.gd	활성 군단 표시/상태 후보 존재.
+W116	전투	오염/바퀴 기반 적 숫자	REQUIRED_RULE	FOUND	systems/encounter_generator.gd; systems/run_session.gd	랩 제한과 오염 단계 기반 적 수/등급 생성 코드 존재.
+W117	전투	오염 기반 적 등급/편성	REQUIRED_RULE	FOUND	systems/encounter_generator.gd; systems/run_session.gd	랩 제한과 오염 단계 기반 적 수/등급 생성 코드 존재.
+W118	전투	전투 승리 시 오염도 변화	REQUIRED_RULE	FOUND	systems/run_session.gd	일반 전투 승리 시 contamination -1 반영 코드 존재.
+W119	전투	예언 효과 전투 적용	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/unit_info.gd	예언을 아군/적 전투 스탯에 적용하는 코드 존재.
+W120	전투	사건 전투 후 사건으로 복귀	REQUIRED_RULE	NONE		사건 전투 후 특정 사건 장면으로 복귀하는 웹 eventId 기반 런타임 대응을 현재 Godot에서 찾지 못함.
+W130	보상/인벤토리	전투 승리 후 영혼 수확	REQUIRED	FOUND	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
+W131	보상/인벤토리	영혼 수확 대상 선택	REQUIRED	FOUND	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
+W132	보상/인벤토리	필요 눈금 2~6	REQUIRED_RULE	FOUND	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
+W133	보상/인벤토리	시체 군단 활성 시 수확 재도전 1회	REQUIRED_RULE	FOUND	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
+W134	보상/인벤토리	획득 마물 새 개체 생성	REQUIRED_RULE	FOUND	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
+W135	보상/인벤토리	보유 마물 중복 허용	REQUIRED_RULE	FOUND	systems/map_state.gd; systems/run_session.gd	고유 ID 기반 로스터 구조로 중복 종 보유 후보 존재.
+W136	보상/인벤토리	마물 보유 한도 10	REQUIRED_RULE	FOUND	systems/reward_catalog.gd; systems/reward_overflow.gd; systems/run_session.gd	마물 10/주사위 5 용량과 초과 보상 선택 UI 존재.
+W137	보상/인벤토리	주사위 제어 카드 18종	REQUIRED_RULE	FOUND	systems/dice_control.gd; systems/reward_catalog.gd	fixed 1~6, low/high, odd/even, exclude 1~6, repeat, echo 대응 카드 카탈로그 존재.
+W138	보상/인벤토리	주사위 카드 보유 한도 5	REQUIRED_RULE	FOUND	systems/reward_catalog.gd; systems/reward_overflow.gd; systems/run_session.gd	마물 10/주사위 5 용량과 초과 보상 선택 UI 존재.
+W139	보상/인벤토리	맵 주사위 제어 카드 사용	REQUIRED	FOUND	systems/dice_control_hand.gd; systems/dice_control.gd; systems/run_session.gd; map.gd	맵 카드 사용/소비/판정 연결 후보 존재.
+W140	보상/인벤토리	전투 주사위 제어 카드 사용	REQUIRED	FOUND	systems/dice_control_hand.gd; systems/dice_control.gd; systems/run_session.gd; battlefield.gd	전투 ready 단계 카드 사용 대응 후보 존재.
+W141	보상/인벤토리	repeat 카드 직전 눈금 반복	REQUIRED_RULE	FOUND	systems/dice_control.gd; systems/run_session.gd	previous_roll/previous_card 기반 repeat/echo 로직 존재.
+W142	보상/인벤토리	echo 카드 직전 카드 효과 재발동	REQUIRED_RULE	FOUND	systems/dice_control.gd; systems/run_session.gd	previous_roll/previous_card 기반 repeat/echo 로직 존재.
+W143	보상/인벤토리	독립 낙인 카드 인벤토리	REQUIRED	FOUND	systems/map_state.gd; systems/reward_catalog.gd; systems/home_inheritance.gd	독립 낙인 카드 저장/표시/적용 대응 후보 존재.
+W144	보상/인벤토리	보상 초과 시 기존/신규 중 버리기	REQUIRED	FOUND	systems/reward_catalog.gd; systems/reward_overflow.gd; systems/run_session.gd	마물 10/주사위 5 용량과 초과 보상 선택 UI 존재.
+W150	저장/복원	통합 RunState	REQUIRED_RULE	FOUND	systems/map_state.gd; systems/run_session.gd	원정 단일 상태 객체와 저장 세션 후보 존재.
+W151	저장/복원	IndexedDB 활성 원정 저장	WEB_IMPL_REPLACE	ENGINE_REPLACEMENT	systems/run_session.gd	IndexedDB 대신 user:// 저장 파일 + 임시 파일 후 rename 방식으로 교체.
+W153	저장/복원	revision 기반 커밋 충돌 방지	REQUIRED_RULE	PARTIAL	systems/run_session.gd	임시 파일 저장·실패 롤백은 있으나 웹의 revision 기반 충돌 검사를 직접 대응하는 필드는 현재 확인되지 않음.
+W154	저장/복원	operationId 멱등성	REQUIRED_RULE	PARTIAL	systems/run_session.gd; systems/map_state.gd	reward_receipts 기반 중복 방지는 있으나 웹의 범용 operationId 멱등성 계약 전체 대응 여부는 1-4에서 확인 필요.
+W155	저장/복원	전투 결과 원자 반영	REQUIRED_RULE	FOUND	systems/run_session.gd	변경 전 snapshot 복제 → 저장 실패 시 restore 패턴으로 전투/상점/추출/계승 변경을 보존하는 후보가 존재.
+W156	저장/복원	상점 거래 원자 반영	REQUIRED_RULE	FOUND	systems/run_session.gd	변경 전 snapshot 복제 → 저장 실패 시 restore 패턴으로 전투/상점/추출/계승 변경을 보존하는 후보가 존재.
+W157	저장/복원	공동묘지 추출 원자 반영	REQUIRED_RULE	FOUND	systems/run_session.gd	변경 전 snapshot 복제 → 저장 실패 시 restore 패턴으로 전투/상점/추출/계승 변경을 보존하는 후보가 존재.
+W158	저장/복원	계승 원자 반영	REQUIRED_RULE	FOUND	systems/run_session.gd	변경 전 snapshot 복제 → 저장 실패 시 restore 패턴으로 전투/상점/추출/계승 변경을 보존하는 후보가 존재.
+W159	저장/복원	전투 중 체크포인트	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/battlefield_rules.gd; battlefield.gd	전투 checkpoint와 phase 복원 후보 존재.
+W160	저장/복원	판정 RNG 직렬화/복원	REQUIRED_RULE	FOUND	systems/battle_rules.gd; systems/map_state.gd; systems/run_session.gd	RNG seed/state snapshot·restore 후보 존재.
+W161	저장/복원	영혼 수확 중단 복원	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/corpse_capture.gd; systems/map_state.gd	pending_reward에 대상/시도/결과를 저장하는 수확 복원 구조 존재.
+W162	저장/복원	주사위 카드 소비/이동 중단 복원	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/map_state.gd	pending_move 및 카드 판정 선저장 구조 존재.
+W163	저장/복원	사건 전투 덱 선택 중단 안전 복원	REQUIRED_RULE	NONE		사건 전투 자체가 아직 Godot 런타임에 없어 eventId/runId 기반 사건전투 덱 선택 복원 대응도 찾지 못함.
+W164	저장/복원	보상 receipt 중복 지급 방지	REQUIRED_RULE	FOUND	systems/run_session.gd; systems/map_state.gd	reward_receipts로 보상 중복 지급 방지 후보 존재.
+W165	저장/복원	오디오 설정 저장	REQUIRED	FOUND	systems/audio_settings.gd; map.gd; battlefield.gd	user://audio_settings.cfg 기반 출력/음량/Music/SFX 설정 저장 존재.
+W170	사건/퀘스트	공동묘지 습격받는 아이 사건	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W171	사건/퀘스트	아이 구한다/지나친다 선택	REQUIRED_RULE	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W172	사건/퀘스트	아이 구조 선택의 사건 전투	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W173	사건/퀘스트	아이 구조 후 마을 소문	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W174	사건/퀘스트	아이 방치 후 마을 소문	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W175	사건/퀘스트	기사단장 오염 조사 사건	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W176	사건/퀘스트	마물사냥꾼 조우	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W177	사건/퀘스트	광신도 소문	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W178	사건/퀘스트	광신도 제단 조우	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W179	사건/퀘스트	광신도 제단 싸운다/지나간다	REQUIRED_RULE	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W180	사건/퀘스트	마물의 왕 부활 의식 장소/전이문 사건	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W181	사건/퀘스트	의식 저지 전투 승패에 따른 불완전/완전 부활	REQUIRED_RULE	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W182	사건/퀘스트	마물의 왕 추적 사건	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W183	사건/퀘스트	사건/퀘스트/스토리 플래그 상태기계	REQUIRED_RULE	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W184	사건/퀘스트	사건별 원화 레이어/대사 비트	REQUIRED	NONE		웹의 9개 사건 ID, eventFlags/quest/story 플래그 상태기계 및 사건 대사/원화 런타임을 현재 Godot 코드/데이터에서 찾지 못함.
+W190	연출/오디오	맵 BGM	REQUIRED	FOUND	map.gd; assets/map/music/map_board.mp3; systems/audio_settings.gd	맵 BGM 플레이어와 Music bus 연결 존재.
+W191	연출/오디오	전투 BGM	REQUIRED	FOUND	battlefield.gd; assets/battle/music/battle.mp3; systems/audio_settings.gd	전투 BGM 플레이어와 Music bus 연결 존재.
+W192	연출/오디오	효과음 시스템	REQUIRED	FOUND	battlefield.gd; map.gd; assets/battle/sfx; systems/audio_settings.gd	맵/전투 SFX 재생 경로와 SFX bus 존재.
+W193	연출/오디오	BGM/SFX 개별 ON/OFF	REQUIRED	FOUND	systems/audio_settings.gd; map.gd; battlefield.gd	Music/SFX 개별 mute와 설정 저장 UI 후보 존재.
+W194	연출/오디오	주사위 애니메이션	REQUIRED	FOUND	systems/dice_animation.gd; map.gd; battlefield.gd	맵/전투 주사위 애니메이션 모듈 존재.
+W195	연출/오디오	공격/피격/사망 모션	REQUIRED	PARTIAL	systems/battle_visuals.gd; systems/battle_presentation_layout.gd; battlefield.gd; assets/battle	공격/피격/사망 연출 시스템은 존재하나 기존 이식 문서에 일부 마물 프레임 미완 기록이 있어 1-5 에셋 대조 필요.
+W196	연출/오디오	대기 호흡 모션	REQUIRED	FOUND	systems/battle_visuals.gd	idle_clock 기반 대기 호흡/미세 움직임 코드 존재.
+W197	연출/오디오	타격 플래시/히트스톱/화면 피드백	REQUIRED	FOUND	systems/battle_visuals.gd; systems/original_effects.gd	플래시, 흔들림, presentation_hold 기반 히트스톱 후보 존재.
+W198	연출/오디오	피해/회복 숫자	REQUIRED	FOUND	systems/battle_visuals.gd; systems/original_effects.gd	피해/회복 숫자와 회복 십자 연출 후보 존재.
+W199	연출/오디오	소환 마법진/소환 연출	REQUIRED	FOUND	systems/battle_visuals.gd; systems/original_effects.gd	소환 프레임/소리/등장 연출 후보 존재.
+W200	연출/오디오	카드 손패 펼침/회수/드래그	REQUIRED	FOUND	systems/card_fan_motion.gd; systems/drag_card_module.gd; systems/dice_control_hand.gd; systems/inventory_panel.gd	카드 팬/회수/드래그 공용 모듈 존재.
+W201	연출/오디오	전투 Presentation 큐/시각 레일	REQUIRED	FOUND	systems/combat_cues.gd; systems/battle_visuals.gd; battlefield.gd	전투 시각 rail과 행동 cue 큐 후보 존재.
+W202	연출/오디오	가로 화면 강제 안내/브라우저 회전 처리	WEB_IMPL_REPLACE	ENGINE_REPLACEMENT	project.godot	브라우저 회전/가로 강제 코드는 폐기하고 Godot 1280×720 viewport/stretch 정책으로 대체 후보. Steam 대상의 창/해상도 정책은 별도 최종 검증.
