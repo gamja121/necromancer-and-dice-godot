@@ -1,4 +1,4 @@
-name: Build and Deploy Godot Web
+name: Build and Publish Godot Web
 
 on:
   push:
@@ -17,19 +17,17 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: godot-pages-main
+  group: godot-web-main
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
-      - name: Checkout
+      - name: Checkout Godot source
         uses: actions/checkout@v4
 
       - name: Setup Godot 4.7.2
@@ -68,7 +66,7 @@ jobs:
           test -s build/web/index.pck
           test -s build/web/index.wasm
 
-      - name: Add mobile landscape shell
+      - name: Prepare phone preview
         shell: bash
         run: |
           set -euo pipefail
@@ -86,27 +84,40 @@ jobs:
               s = s.replace("</body>", f"  {js}\n</body>")
           p.write_text(s, encoding="utf-8")
           PY
-          printf '%s\n' "$GITHUB_SHA" > build/web/DEPLOYED_SOURCE_SHA.txt
+          printf '%s\n' "$GITHUB_SHA" > build/web/SOURCE_SHA.txt
+          cp build/web/SOURCE_SHA.txt build/web/DEPLOYED_SOURCE_SHA.txt
           touch build/web/.nojekyll
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+      - name: Checkout public preview host
+        uses: actions/checkout@v4
         with:
-          enablement: true
+          repository: gamja121/necromancer-dice-board
+          ref: main
+          path: public_deploy
+          ssh-key: ${{ secrets.GODOT_WEB_DEPLOY_KEY }}
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Replace preview with this Godot build
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$latest" != "$SOURCE_SHA" ]; then
+            echo "A newer source revision exists; skipping stale publication."
+            exit 0
+          fi
+          for file in index.html index.pck index.wasm SOURCE_SHA.txt DEPLOYED_SOURCE_SHA.txt; do
+            test -s "build/web/$file"
+          done
+          rsync -a --delete             --exclude='.git/'             --exclude='.github/'             --exclude='README.md'             build/web/ public_deploy/
+          cd public_deploy
+          git config user.name "godot-web-deploy"
+          git config user.email "godot-web-deploy@users.noreply.github.com"
+          git add --all
+          if git diff --cached --quiet; then
+            echo "Latest Godot Web build is already published."
+            exit 0
+          fi
+          git commit -m "Deploy Godot Web from ${SOURCE_SHA}"
+          git push origin HEAD:main
