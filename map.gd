@@ -8,6 +8,7 @@ const BattleResources = preload("res://systems/battle_resources.gd")
 const BookBattleLock = preload("res://systems/book_battle_lock.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
+const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
@@ -631,7 +632,10 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
 	var panel = modal()
-	image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],Vector2(243.2,136.8),Vector2(793.6,446.4))
+	# Pilot only: reveal fortune-teller camp artwork, not controls or other tiles.
+	if type == "fortune-teller-camp":
+		InkSceneReveal.play(scene_art)
 	var exit = location_button(panel,"나가기",Vector2(886,504),Vector2(143,48),func(): dismiss_overlay(render),4)
 	if type=="rest":
 		var allowed = session.rest_allowed(index)
