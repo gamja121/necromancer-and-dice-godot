@@ -16,6 +16,8 @@ on:
       - "scripts/test_village_rumor_entry.gd"
       - "scripts/test_village_rumor_beats.gd"
       - "scripts/test_knight_commander_entry.gd"
+      - "scripts/test_knight_commander_dialogue.gd"
+      - "systems/knight_commander_beats.gd"
       - "systems/knight_commander_entry.gd"
       - "systems/village_rumor_beats.gd"
       - "systems/village_rumor_entry.gd"
@@ -41,6 +43,8 @@ on:
       - "scripts/test_village_rumor_entry.gd"
       - "scripts/test_village_rumor_beats.gd"
       - "scripts/test_knight_commander_entry.gd"
+      - "scripts/test_knight_commander_dialogue.gd"
+      - "systems/knight_commander_beats.gd"
       - "systems/knight_commander_entry.gd"
       - "systems/village_rumor_beats.gd"
       - "systems/village_rumor_entry.gd"
@@ -181,5 +185,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_knight_commander_entry.gd 2>&1 | tee knight-commander-entry.log
           grep -E 'KNIGHT_COMMANDER_ENTRY_REGRESSION: [0-9]+ passed, 0 failed' knight-commander-entry.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' knight-commander-entry.log; then
+            exit 1
+          fi
+
+      - name: Knight commander full dialogue and quest acceptance regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_knight_commander_dialogue.gd 2>&1 | tee knight-dialogue.log
+          grep -E 'KNIGHT_COMMANDER_DIALOGUE_REGRESSION: [0-9]+ passed, 0 failed' knight-dialogue.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' knight-dialogue.log; then
             exit 1
           fi
