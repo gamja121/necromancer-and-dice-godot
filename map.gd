@@ -9,6 +9,7 @@ const BookBattleLock = preload("res://systems/book_battle_lock.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
+const WaxSealSelection = preload("res://systems/wax_seal_selection.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
@@ -660,7 +661,13 @@ func show_location(index: int) -> void:
 	elif type in ["unknown","graveyard","forest"]:
 		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"정찰 정보" if world.scout.scouted else "정찰"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]
-		var action = location_button(panel,names[type],Vector2(876,406),Vector2(153,48),func(): close_overlay(); show_exploration_actions(index),variant)
+		var open_exploration := func():
+			close_overlay()
+			show_exploration_actions(index)
+		var action = location_button(panel,names[type],Vector2(876,406),Vector2(153,48),open_exploration,variant)
+		# Pilot only: first click places the seal; second click performs the original action.
+		if type=="graveyard":
+			WaxSealSelection.attach(action,open_exploration,texture("res://assets/map/ui/wax_skull_seal.webp"))
 		if type=="unknown": action.disabled = session.place_visit_id("purify",index) in world.reward_receipts
 		if type=="graveyard": action.disabled = world.graveyard_corpses.is_empty() or session.place_visit_id("grave-extract",index) in world.reward_receipts
 
