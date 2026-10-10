@@ -7,6 +7,7 @@ on:
       - "systems/map_state.gd"
       - "scripts/test_story_state_regression.gd"
       - "scripts/test_card_decoration_layout.gd"
+      - "scripts/test_card_decoration_screens.gd"
       - "scripts/test_graveyard_event_entry.gd"
       - "scripts/test_graveyard_story_choice.gd"
       - "scripts/test_graveyard_story_combat.gd"
@@ -43,6 +44,7 @@ on:
       - "systems/map_state.gd"
       - "scripts/test_story_state_regression.gd"
       - "scripts/test_card_decoration_layout.gd"
+      - "scripts/test_card_decoration_screens.gd"
       - "scripts/test_graveyard_event_entry.gd"
       - "scripts/test_graveyard_story_choice.gd"
       - "scripts/test_graveyard_story_combat.gd"
@@ -106,6 +108,14 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' card-decoration.log; then
             exit 1
           fi
+
+      - name: Real card-screen and overlap integration regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_card_decoration_screens.gd 2>&1 | tee card-screen.log
+          grep -E 'CARD_SCREEN_REGRESSION: [0-9]+ passed, 0 failed' card-screen.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' card-screen.log; then exit 1; fi
 
       - name: Story-state save and reload regression
         shell: bash
