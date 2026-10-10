@@ -445,7 +445,7 @@ func confirm_new_run() -> void:
 		if get_tree().change_scene_to_file("res://intro.tscn")!=OK: render())
 
 
-func show_battle_deck(index: int) -> void:
+func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	if world.roster.is_empty():
 		status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
 		return
@@ -455,7 +455,8 @@ func show_battle_deck(index: int) -> void:
 	overlay = deck
 	deck.setup(world.roster)
 	deck.confirmed.connect(func(ids: Array):
-		if session.start_encounter(index,ids):
+		var started: bool = session.start_story_encounter(story_event_id,index,ids) if not story_event_id.is_empty() else session.start_encounter(index,ids)
+		if started:
 			open_embedded_battle()
 		else:
 			close_overlay()
@@ -660,7 +661,7 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
 	var chosen: bool = state.status == "active" and state.choice == "protect_child"
-	var description: String = "아이를 구하기 위해 구울 앞을 막아섰다. 전투 연결은 다음 단계에서 진행됩니다." if chosen else str(beat.effect)
+	var description: String = "아이를 구하기 위해 구울 앞을 막아섰다. 출전할 마물을 선택해 구울과 싸우세요." if chosen else str(beat.effect)
 	var narration = label_at(panel,description,Vector2(275,552),Vector2(730,52),17)
 	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -671,6 +672,7 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if world.tiles[index] == "graveyard":
 		location_button(panel,"공동묘지 기능",Vector2(870,495),Vector2(167,48),func(): dismiss_overlay(func(): show_location(index)),4)
 	if chosen:
+		location_button(panel,"출전 마물 선택",Vector2(629,643),Vector2(223,48),func(): show_graveyard_story_deck(index),1)
 		location_button(panel,"돌아가기",Vector2(866,643),Vector2(171,48),func(): dismiss_overlay(render),4)
 	elif beat.choice:
 		location_button(panel,"아이를 구한다",Vector2(384,643),Vector2(197,48),func(): choose_graveyard_child(index,"protect_child"),1)
@@ -688,8 +690,16 @@ func choose_graveyard_child(index: int, choice_id: String) -> void:
 		status.text = "아이를 지나쳤습니다. 공동묘지 사건이 완료되었습니다."
 		dismiss_overlay(render)
 	else:
-		status.text = "아이를 구하기로 선택했습니다. 전투 승리 전까지 구조 성공은 기록되지 않습니다."
-		show_graveyard_child_beat(index,3)
+		status.text = "아이를 구하기로 선택했습니다. 출전 마물 1~4마리를 고르세요."
+		show_graveyard_story_deck(index)
+
+func show_graveyard_story_deck(index: int) -> void:
+	if index != world.position or not world.tiles[index] in ["graveyard","event"]: return
+	var event: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
+	if event.status != "active" or event.choice != "protect_child": return
+	if not session.encounter.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
+	show_battle_deck(index,StoryEventEntry.EVENT_ID)
 
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]

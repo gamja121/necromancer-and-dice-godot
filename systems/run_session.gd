@@ -12,6 +12,7 @@ const SAVE = "user://map_run_v1.json"
 var save_file_path: String = SAVE
 const RITUAL_EVENT_ID = "ritual_portal_trace_01"
 const HUNT_EVENT_ID = "monster_king_hunt_trace_01"
+const GRAVEYARD_EVENT_ID = "graveyard_child_ambush_01"
 var world
 var encounter: Dictionary = {}
 var notice = ""
@@ -198,11 +199,33 @@ func complete_monster_king_hunt() -> bool:
 	for flag in changes: world.event_flags[flag] = changes[flag]
 	return persist_change(before)
 
+## Story fights must pass through the existing 1-4 owned-monster deck picker.
+## A lost rescue attempt may be retried; the previous loss stays in its flag.
+func start_story_encounter(event_id: String, index: int, selected_ids: Array) -> bool:
+	if event_id != GRAVEYARD_EVENT_ID or world == null: return false
+	if index<0 or index>=world.tiles.size() or index!=world.position: return false
+	if not world.tiles[index] in ["graveyard","event"]: return false
+	var event: Dictionary = get_story_event(event_id)
+	if event.status != "active" or event.choice != "protect_child": return false
+	if event.battle_result not in ["","lost"]: return false
+	if world.event_flags.get("event:graveyard_child_ambush_01:complete",false) == true: return false
+	return _start_encounter(index,selected_ids,event_id)
+
 func start_encounter(index: int, selected_ids: Array) -> bool:
-	var mimic = world.pending_reward.get("kind","")=="mimic" and int(world.pending_reward.get("index",-1))==index
-	if (not world.pending_reward.is_empty() and not mimic) or not encounter.is_empty() or not world.pending_move.is_empty(): return false
-	if index<0 or index>=world.tiles.size() or (not mimic and index in world.cleared): return false
-	if not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
+	return _start_encounter(index,selected_ids)
+
+func _start_encounter(index: int, selected_ids: Array, event_id: String = "") -> bool:
+	if world == null: return false
+	var story: bool = event_id == GRAVEYARD_EVENT_ID
+	var mimic: bool = not story and world.pending_reward.get("kind","")=="mimic" and int(world.pending_reward.get("index",-1))==index
+	if (not world.pending_reward.is_empty() and not mimic) or not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
+	if index<0 or index>=world.tiles.size() or (not mimic and not story and index in world.cleared): return false
+	if story:
+		if index!=world.position or not world.tiles[index] in ["graveyard","event"]: return false
+		var stage: Dictionary = get_story_event(event_id)
+		if stage.status!="active" or stage.choice!="protect_child" or stage.battle_result not in ["","lost"]: return false
+		if world.event_flags.get("event:graveyard_child_ambush_01:complete",false) == true: return false
+	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var allies: Array = []
@@ -216,9 +239,11 @@ func start_encounter(index: int, selected_ids: Array) -> bool:
 		used.append(id)
 		allies.append(unit.duplicate(true))
 	var rules = load("res://systems/battlefield_rules.gd").new(world.definitions,world.rng.randi())
-	var type: String = "mimic" if mimic else world.tiles[index]
+	var type: String = "event-graveyard-child" if story else ("mimic" if mimic else world.tiles[index])
 	var slugs: Array = []
-	if mimic:
+	if story:
+		slugs = ["ghoul"]
+	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
 	else:
 		var intel: Dictionary = {}
@@ -246,7 +271,11 @@ func start_encounter(index: int, selected_ids: Array) -> bool:
 			unit.base_attack += int(prophecy.get("enemy_attack",0))
 			unit.attack += int(prophecy.get("enemy_attack",0))
 	world.prophecy = {"rolls":[]}
+	# A retry is a new combat attempt; the prior loss is still journaled.
+	if story and get_story_event(event_id).battle_result == "lost":
+		world.story_events[event_id] = {"status":"active","choice":"protect_child","battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
+	if story: encounter["event_id"] = event_id
 	if mimic:
 		world.reward_receipts.append(world.pending_reward.id)
 		world.pending_reward = {}
@@ -271,7 +300,21 @@ func finish_encounter(battle) -> bool:
 			owned.current_hp = clampi(fought.hp-temporary_bonus,1,owned.max_hp)
 		survivors.append(owned)
 	world.roster = survivors
-	if battle.winner()=="ally":
+	var story: bool = encounter.get("event_id","") == GRAVEYARD_EVENT_ID
+	if story:
+		var won: bool = battle.winner() == "ally"
+		world.story_events[GRAVEYARD_EVENT_ID] = {"status":"complete" if won else "active","choice":"protect_child","battle_result":"won" if won else "lost"}
+		world.event_flags["battle:graveyard_child_ambush_01:won"] = won
+		world.event_flags["battle:graveyard_child_ambush_01:lost"] = not won
+		if won:
+			world.event_flags["event:graveyard_child_ambush_01:seen"] = true
+			world.event_flags["event:graveyard_child_ambush_01:complete"] = true
+			world.event_flags["event:graveyard_child_ambush_01:rescued"] = true
+			world.event_flags["event:graveyard_child_ambush_01:abandoned"] = false
+			notice = "구울 격퇴 · 아이 구조 성공"
+		else:
+			notice = "구울 전투 패배 · 구조 미완료 · 생존 마물로 다시 도전할 수 있습니다."
+	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
