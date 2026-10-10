@@ -10,6 +10,7 @@ const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
+const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
@@ -348,6 +349,16 @@ func show_tile(index: int) -> void:
 			show_graveyard_child_intro(index)
 			return
 		status.text = session.notice
+	# The first village rumor follows the resolved child story and never
+	# preempts the graveyard story on the generic event tile.
+	if type in ["village","event"]:
+		var rumor_id: String = VillageRumorEntry.eligible_event_id(session,index)
+		if not rumor_id.is_empty():
+			var started_rumor: String = VillageRumorEntry.begin(session,index)
+			if not started_rumor.is_empty():
+				show_village_rumor_intro(index,started_rumor)
+				return
+			status.text = session.notice
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -651,6 +662,23 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 	return node
 
 ## The story presentation advances only by explicit input; no timer picks a choice.
+## P1-05A: the first village arrival beat only; continuation/completion
+## is a separate step, so returning to the map does not consume the rumor.
+func show_village_rumor_intro(index: int, event_id: String) -> void:
+	if index!=world.position or world.tiles[index] not in ["village","event"]: return
+	if VillageRumorEntry.eligible_event_id(session,index)!=event_id: return
+	var panel=modal()
+	var artwork=image(panel,VillageRumorEntry.SCENE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(artwork)
+	var heading=label_at(panel,"사건 · 마을",Vector2(352,84),Vector2(575,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var narrative=label_at(panel,str(VillageRumorEntry.INTRO[event_id]),Vector2(285,576),Vector2(710,54),18)
+	narrative.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	narrative.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if world.tiles[index]=="village":
+		location_button(panel,"마을 기능",Vector2(651,643),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,643),Vector2(171,48),func(): dismiss_overlay(render),4)
+
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
 	show_graveyard_child_beat(index,3 if state.status == "active" and state.choice == "protect_child" else 0)
