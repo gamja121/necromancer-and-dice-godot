@@ -125,7 +125,8 @@ func _load_menu_art() -> void:
 		options_button: "button_options.webp",
 		exit_button: "button_exit.webp"
 	}
-	for button: Button in button_art:
+	for item in button_art:
+		var button: Button = item
 		var path: String = "res://assets/title/menu/" + str(button_art[button])
 		if not ResourceLoader.exists(path):
 			continue
