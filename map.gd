@@ -557,7 +557,10 @@ func show_dice_hand() -> void:
 
 func show_home(interior: bool = false) -> void:
 	var panel = modal()
-	image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",Vector2(256,120),Vector2(768,432))
+	var home_art = image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",Vector2(256,120),Vector2(768,432))
+	# The home exterior opens with ink; entering the house shows interior art instantly.
+	if not interior:
+		InkSceneReveal.play(home_art)
 	var title = label_at(panel,"우리집 · 실내" if interior else "우리집",Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	location_button(panel,"나가기",Vector2(865,492),Vector2(150,50),exit_home,4)
