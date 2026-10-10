@@ -17,6 +17,7 @@ const CorpseCapture = preload("res://systems/corpse_capture.gd")
 const CombatCues = preload("res://systems/combat_cues.gd")
 const BattleVisuals = preload("res://systems/battle_visuals.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
+const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
 const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","ghoul","ancient-treant","goblin-rider","minotaur","plague-doctor","spider-knight","siren","dracula","soul-reaper"]
@@ -359,6 +360,7 @@ func render_units(values: Array) -> void:
 			layer.add_child(card)
 			card.z_index = 44
 			cards[u.id] = card
+			BrandFrameOverlay.sync(card,u)
 		var sprite: TextureRect = sprites[u.id]
 		var tex = texture(frame_path(u,"attack",1))
 		if tex != null:

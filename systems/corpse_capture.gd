@@ -1,5 +1,6 @@
 extends Control
 const Overflow = preload("res://systems/reward_overflow.gd")
+const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 var scene
 var session
 var choices: Array = []
@@ -34,6 +35,7 @@ func setup(battle_scene) -> void:
 		option.tooltip_text = "%s · 필요 주사위 %d 이상" % [corpse.name,int(corpse.target)]
 		option.pressed.connect(func(): select_corpse(index))
 		add_child(option)
+		BrandFrameOverlay.sync(option,unit)
 		var sprite: TextureRect = scene.sprites[unit.id]
 		var target = Button.new()
 		target.flat = true
