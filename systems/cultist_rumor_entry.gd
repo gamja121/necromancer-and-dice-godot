@@ -1,6 +1,7 @@
 extends RefCounted
-## P1-05G: first encounter with the village cultist rumor only.
-## Later procession dialogue, tracking quest and king-revival rumor remain off.
+const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
+## P1-05H: complete six-scene village cultist rumor and tracking quest.
+## The later cultist altar encounter and its battle remain inactive.
 
 const EVENT_ID = "cultist_rumor_01"
 const SEEN_FLAG = "event:cultist_rumor_01:seen"
@@ -53,4 +54,43 @@ static func begin(session, index: int) -> bool:
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	session.world.story_events[EVENT_ID]={"status":"seen","choice":"","battle_result":""}
 	session.world.event_flags[SEEN_FLAG]=true
+	return session.persist_change(before)
+
+## Existing save schema: sequential boolean markers; the arrival is implicit.
+static func progress_flag(index: int) -> String:
+	if index<1 or index>=CultistRumorBeats.count(): return ""
+	return "event:%s:beat:%d" % [EVENT_ID,index]
+
+static func current_beat(session) -> int:
+	if session == null or session.world == null: return -1
+	var w=session.world
+	var event: Dictionary=session.get_story_event(EVENT_ID)
+	if event.status!="seen" or event.choice!="" or event.battle_result!="": return -1
+	if w.event_flags.get(SEEN_FLAG,false)!=true: return -1
+	if w.event_flags.get(COMPLETE_FLAG,false)==true: return -1
+	if w.event_flags.get(TRACKING_FLAG,false)==true: return -1
+	if w.event_flags.get(KING_RUMOR_FLAG,false)==true: return -1
+	var result: int=0
+	var gap: bool=false
+	for index in range(1,CultistRumorBeats.count()):
+		var found: bool=w.event_flags.get(progress_flag(index),false)==true
+		if found and gap: return -1
+		if found: result=index
+		else: gap=true
+	return result
+
+## One click == one saved beat. The final explicit '마치기' atomically
+## completes the rumor and unlocks cultist tracking, but not the altar.
+static func advance(session, index: int, shown_index: int) -> bool:
+	if not can_enter(session,index): return false
+	var current: int=current_beat(session)
+	if current<0 or current!=shown_index: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	if CultistRumorBeats.is_final(current):
+		session.world.story_events[EVENT_ID]={"status":"complete","choice":"","battle_result":""}
+		session.world.event_flags[SEEN_FLAG]=true
+		session.world.event_flags[COMPLETE_FLAG]=true
+		session.world.event_flags[TRACKING_FLAG]=true
+	else:
+		session.world.event_flags[progress_flag(current+1)]=true
 	return session.persist_change(before)
