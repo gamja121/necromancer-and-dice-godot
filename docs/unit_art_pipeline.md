@@ -97,3 +97,11 @@ input.segmentation="alpha_components"를 지정하면 알파64 이상의 독립 
 초대형4종 후보 제작 완료. 대형은 뼈 골렘·살점 골렘·미노타우로스·오우거·설인·심연 집게사냥꾼·해골 기사7종 후보 제작 완료, 고블린 족장·오크 전사2종 남음. 후보 제작과 인게임 설치는 별도 상태다. 사건 원고 보류와 나머지 HTML→Godot 기능 대응은 docs/godot_port_status.md에서 별도로 추적한다. 이 도구의 게시를 전체 PC 게임 동기화나 완전 이식 완료로 보지 않는다.
 
 공개 전 검증: Python AST/JSON 문법, 비밀키 패턴 검사, 24프레임 무손실 재조립, 최신 main Godot4.7.2 headless import 및120프레임 실행 확인 통과. 기존 후보의 네이티브 미리보기와 밝은/어두운 외곽 검수는 개별 제작 기록에 남긴다. 새 테스트 UI/코드는 추가하지 않는다.
+
+## 고정 파트에서 프레임 렌더링
+
+무기나 머리를 든 손이 생성 자세마다 바뀌는 경우에는 동일 파트를 Godot 관절 노드에 연결한다. render_rig_frames.gd는 로컬 atlas와 rig JSON의 region/pivot/parent/position/scale, 자세별 angles를 읽어 투명 SubViewport에서 PNG를 출력한다. 회전해도 부모 어깨와 손에 붙은 장비는 바뀌지 않는다. rig_template.json은 해골 기사에서 검수한4파트/16자세 예시이며 atlas는 별도로 준비해야 한다. 입력 경로는 rig JSON 폴더 기준이다.
+
+Godot 실행: --path <로컬 rig 프로젝트> --script <render_rig_frames.gd 절대경로> -- <rig.json 절대경로>. 로컬 프로젝트에는 Compatibility 렌더러를 사용한다. 출력 PNG는 frames 입력과 preserve:true로 기존 공용 파이프라인에 연결한다. 파트 제작 원본과 렌더 결과는 source_assets/raw_assets에서 관리하며 공개 저장소에 후보 이미지를 올리지 않는다.
+
+해골 기사 공격10/피격6에서 머리팔을 같은 부착점에 고정하고 검 상완/전완만 회전했다. 사망8장 PNG는 기존 후보 해시 그대로 보존했다. 말/몸체 미세 변형은 기존 개별 그림보다 적다는 한계가 있다. 집게사냥꾼 피격6장은 접촉 기준점을 맞춰 출력 지지점 가로 이동폭269px에서1px로 줄였으며 공격/사망18장 해시를 보존했다. 두 수정본의480px몸체/접지936/누끼/실제GPU 미리보기를 확인했다.

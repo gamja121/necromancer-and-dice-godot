@@ -1,0 +1,313 @@
+{
+  "schema": 1,
+  "atlas": "parts_atlas.png",
+  "canvas": [
+    1408,
+    960
+  ],
+  "origin": [
+    704,
+    933.31843575419
+  ],
+  "output": "frames",
+  "fixed_parts": [
+    "body",
+    "skull_arm"
+  ],
+  "parts": [
+    {
+      "id": "body",
+      "region": [
+        0,
+        0,
+        765,
+        575
+      ],
+      "pivot": [
+        400,
+        565
+      ],
+      "position": [
+        0,
+        0
+      ],
+      "scale": 0.65,
+      "z": 0
+    },
+    {
+      "id": "sword_upper",
+      "region": [
+        934,
+        145,
+        180,
+        344
+      ],
+      "pivot": [
+        86,
+        37
+      ],
+      "position": [
+        65,
+        -305.5
+      ],
+      "scale": 0.34,
+      "z": -1
+    },
+    {
+      "id": "sword_forearm",
+      "parent": "sword_upper",
+      "region": [
+        280,
+        576,
+        242,
+        570
+      ],
+      "pivot": [
+        49,
+        291
+      ],
+      "position": [
+        1.02,
+        89.42
+      ],
+      "scale": 0.38,
+      "z": 2
+    },
+    {
+      "id": "skull_arm",
+      "region": [
+        780,
+        710,
+        500,
+        390
+      ],
+      "pivot": [
+        430,
+        50
+      ],
+      "position": [
+        -32.5,
+        -302.25
+      ],
+      "scale": 0.32,
+      "z": 2
+    }
+  ],
+  "poses": [
+    {
+      "name": "attack-01",
+      "angles": {
+        "sword_upper": -15,
+        "sword_forearm": 49,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-02",
+      "angles": {
+        "sword_upper": -70,
+        "sword_forearm": 85,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-03",
+      "angles": {
+        "sword_upper": -140,
+        "sword_forearm": 115,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-04",
+      "angles": {
+        "sword_upper": -165,
+        "sword_forearm": 100,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-05",
+      "angles": {
+        "sword_upper": -170,
+        "sword_forearm": 95,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-06",
+      "angles": {
+        "sword_upper": -95,
+        "sword_forearm": 75,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-07",
+      "angles": {
+        "sword_upper": -15,
+        "sword_forearm": 155,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-08",
+      "angles": {
+        "sword_upper": -25,
+        "sword_forearm": 150,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-09",
+      "angles": {
+        "sword_upper": -35,
+        "sword_forearm": 95,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "attack-10",
+      "angles": {
+        "sword_upper": -15,
+        "sword_forearm": 49,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "hit-01",
+      "angles": {
+        "sword_upper": -30,
+        "sword_forearm": 75,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ],
+      "body_rotation": 0.4
+    },
+    {
+      "name": "hit-02",
+      "angles": {
+        "sword_upper": -45,
+        "sword_forearm": 80,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ],
+      "body_rotation": 0.9
+    },
+    {
+      "name": "hit-03",
+      "angles": {
+        "sword_upper": -55,
+        "sword_forearm": 80,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ],
+      "body_rotation": 0.5
+    },
+    {
+      "name": "hit-04",
+      "angles": {
+        "sword_upper": -40,
+        "sword_forearm": 70,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ],
+      "body_rotation": -0.3
+    },
+    {
+      "name": "hit-05",
+      "angles": {
+        "sword_upper": -25,
+        "sword_forearm": 59,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ],
+      "body_rotation": 0.15
+    },
+    {
+      "name": "hit-06",
+      "angles": {
+        "sword_upper": -15,
+        "sword_forearm": 49,
+        "skull_arm": 0,
+        "body": 0
+      },
+      "offset": [
+        0,
+        0
+      ],
+      "body_rotation": 0
+    }
+  ],
+  "scale": 1.3407821229050279
+}

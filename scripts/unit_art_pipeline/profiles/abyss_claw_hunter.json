@@ -80,6 +80,24 @@
   "overrides": {
     "death-05": {
       "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/death_05_override.png"
+    },
+    "hit-01": {
+      "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/hit_aligned/hit-01.png"
+    },
+    "hit-02": {
+      "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/hit_aligned/hit-02.png"
+    },
+    "hit-03": {
+      "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/hit_aligned/hit-03.png"
+    },
+    "hit-04": {
+      "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/hit_aligned/hit-04.png"
+    },
+    "hit-05": {
+      "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/hit_aligned/hit-05.png"
+    },
+    "hit-06": {
+      "path": "../../../source_assets/unit_art_pipeline/abyss_claw_hunter_input/hit_aligned/hit-06.png"
     }
   }
 }

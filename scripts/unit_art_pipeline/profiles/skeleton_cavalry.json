@@ -2,24 +2,13 @@
   "schema": 1,
   "slug": "skeleton-cavalry",
   "input": {
-    "mode": "sheet",
-    "path": "../../../source_assets/unit_art_pipeline/skeleton_cavalry_input/cavalry_source.png",
-    "grid": [
-      6,
-      4
-    ],
-    "segmentation": "alpha_components",
-    "prepared_canvas": [
-      600,
-      380
-    ],
-    "prepared_floor": 356,
+    "mode": "frames",
+    "path": "../../../source_assets/unit_art_pipeline/skeleton_cavalry_input/fixed_hands_frames",
     "counts": {
       "attack": 10,
       "hit": 6,
       "death": 8
-    },
-    "row_grouping": "grounded_bottom"
+    }
   },
   "output": {
     "canvas": [
@@ -28,7 +17,7 @@
     ],
     "body_height": 480,
     "floor": 936,
-    "preserve": false,
+    "preserve": true,
     "sheet_columns": 6,
     "decay_monotonic": true
   },
@@ -47,8 +36,6 @@
     ]
   },
   "enhance": {
-    "enabled": true,
-    "model": "realesrgan-x4plus",
-    "blend": 0.7
+    "enabled": false
   }
 }
