@@ -1,7 +1,7 @@
 extends RefCounted
-## P1-05C: first encounter with the knight commander on the rescue route.
-## Later dialogue, recognition, quest activation and hunter meeting are NOT
-## committed by discovering the commander.
+const CommanderBeats = preload("res://systems/knight_commander_beats.gd")
+## P1-05D: complete source dialogue, saved beat progression and atomic quest acceptance.
+## Monster-hunter meeting remains a separate event.
 
 const EVENT_ID = "knight_commander_contamination_01"
 const SEEN_FLAG = "event:knight_commander_contamination_01:seen"
@@ -54,4 +54,47 @@ static func begin(session, index: int) -> bool:
 	var before: Dictionary=w.snapshot().duplicate(true)
 	w.story_events[EVENT_ID]={"status":"seen","choice":"","battle_result":""}
 	w.event_flags[SEEN_FLAG]=true
+	return session.persist_change(before)
+
+## Beat progress uses existing world.event_flags so old map_run_v1 saves
+## remain compatible. Beat 0 is implicit after the first discovery.
+static func progress_flag(beat_index: int) -> String:
+	if beat_index<1 or beat_index>=CommanderBeats.count(): return ""
+	return "event:%s:beat:%d" % [EVENT_ID,beat_index]
+
+static func current_beat(session) -> int:
+	if session == null or session.world == null: return -1
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	if state.status!="seen" or state.choice!="" or state.battle_result!="": return -1
+	if session.world.event_flags.get(SEEN_FLAG,false)!=true: return -1
+	if session.world.event_flags.get(COMPLETE_FLAG,false)==true: return -1
+	if session.world.event_flags.get(RECOGNIZED_FLAG,false)==true: return -1
+	if session.world.event_flags.get(QUEST_ACTIVE_FLAG,false)==true: return -1
+	var position: int=0
+	var gap: bool=false
+	for index in range(1,CommanderBeats.count()):
+		var found: bool=session.world.event_flags.get(progress_flag(index),false)==true
+		if found and gap: return -1
+		if found: position=index
+		else: gap=true
+	return position
+
+## Only a fresh button click at the displayed beat may advance.
+## Final '마치기' saves recognition, event completion and hunter quest in
+## a SINGLE persist_change transaction. On failure every field rolls back.
+static func advance(session, index: int, shown_index: int) -> bool:
+	if not can_enter(session,index): return false
+	var current: int=current_beat(session)
+	if current<0 or current!=shown_index: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	if CommanderBeats.is_final(current):
+		session.world.story_events[EVENT_ID]={"status":"complete","choice":"","battle_result":""}
+		session.world.event_flags[SEEN_FLAG]=true
+		session.world.event_flags[COMPLETE_FLAG]=true
+		session.world.event_flags[RECOGNIZED_FLAG]=true
+		session.world.event_flags[QUEST_ACTIVE_FLAG]=true
+		# This quest will be completed by the separate hunter encounter.
+		session.world.event_flags[QUEST_COMPLETE_FLAG]=false
+	else:
+		session.world.event_flags[progress_flag(current+1)]=true
 	return session.persist_change(before)
