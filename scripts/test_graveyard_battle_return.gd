@@ -146,10 +146,11 @@ func _test_visual_code_paths() -> void:
 	_check(script.contains('func show_graveyard_battle_result() -> void:'),"dedicated result modal is present")
 	_check(script.contains('func acknowledge_graveyard_result(retry: bool) -> void:'),"result close/retry handler is present")
 	_check(script.contains('session.acknowledge_story_battle_result(event_id)'),"generic result acknowledged on explicit UI click")
-	_check(script.contains("구울이 쓰러지자 아이는 당신을 바라본다."),"canonical rescued narration reused")
+	var registry: String = FileAccess.get_file_as_string("res://systems/story_battle_registry.gd")
+	_check(registry.contains("구울이 쓰러지자 아이는 당신을 바라본다."),"canonical rescued narration reused in registered outcome")
 	_check(script.contains('"다시 도전"'),"loss UI includes retry")
 	_check(script.contains('"맵으로"'),"result UI has exit button")
-	_check(script.contains("if not rescued and not world.roster.is_empty():"),"retry hidden when no units survive")
+	_check(script.contains("if view.retry and not world.roster.is_empty():"),"retry hidden when no units survive")
 
 func _run() -> void:
 	_test_win()
