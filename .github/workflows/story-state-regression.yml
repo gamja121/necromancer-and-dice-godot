@@ -117,18 +117,18 @@ jobs:
           grep -E 'CARD_SCREEN_REGRESSION: [0-9]+ passed, 0 failed' card-screen.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' card-screen.log; then exit 1; fi
 
-      - name: Render real inventory fan decoration preview
+      - name: Render real five-screen monster card decoration preview
         shell: bash
         run: |
           set -euo pipefail
           command -v xvfb-run
           xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/render_card_decoration_preview.gd 2>&1 | tee card-preview.log
           grep -F 'CARD_PREVIEW_SAVED:' card-preview.log
-          grep -F 'CARD_PREVIEW_ALL_SCREENS: 4 rendered' card-preview.log
+          grep -F 'CARD_PREVIEW_ALL_SCREENS: 5 rendered' card-preview.log
           python3 - <<'PY'
           import base64
           from pathlib import Path
-          for name in ("inventory","deck","altar","inheritance"):
+          for name in ("inventory","deck","altar","inheritance","battle"):
               payload = Path(f"card_preview_{name}.webp").read_bytes()
               if not payload: raise SystemExit(f"empty preview: {name}")
               print(f"CARD_PREVIEW_{name.upper()}_BASE64:", base64.b64encode(payload).decode("ascii"))

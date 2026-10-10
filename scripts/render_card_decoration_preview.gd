@@ -5,6 +5,9 @@ const InventoryPanel = preload("res://systems/inventory_panel.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
+const Battlefield = preload("res://battlefield.gd")
+const BrandFrame = preload("res://systems/brand_frame_overlay.gd")
+const AltarBadge = preload("res://systems/altar_upgrade_badge.gd")
 
 class PreviewSession:
 	extends RefCounted
@@ -110,5 +113,23 @@ func _run() -> void:
 	inheritance.render_selection()
 	await create_timer(0.20).timeout
 	if not await _capture("inheritance"): quit(1); return
-	print("CARD_PREVIEW_ALL_SCREENS: 4 rendered")
+	inheritance.queue_free()
+	await process_frame
+
+	var battlefield = Battlefield.new()
+	battlefield.theme = style
+	root.add_child(battlefield)
+	if battlefield.cards.is_empty() or battlefield.rules.units.is_empty():
+		printerr("CARD_PREVIEW_FAILED: battlefield cards unavailable")
+		quit(1)
+		return
+	var selected: Dictionary = battlefield.rules.units[0]
+	selected.brands = [{"type":"guard","bless":[1],"curse":[5]},{"type":"critical","bless":[2],"curse":[]},{"type":"freeze","bless":[3],"curse":[]}]
+	selected.altar_enhancements = 3
+	var card: TextureButton = battlefield.cards[selected.id]
+	BrandFrame.sync(card,selected)
+	AltarBadge.sync(card,selected)
+	await create_timer(0.35).timeout
+	if not await _capture("battle"): quit(1); return
+	print("CARD_PREVIEW_ALL_SCREENS: 5 rendered")
 	quit(0)
