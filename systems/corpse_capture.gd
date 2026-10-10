@@ -1,6 +1,7 @@
 extends Control
 const Overflow = preload("res://systems/reward_overflow.gd")
 const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
+const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 var scene
 var session
 var choices: Array = []
@@ -36,6 +37,7 @@ func setup(battle_scene) -> void:
 		option.pressed.connect(func(): select_corpse(index))
 		add_child(option)
 		BrandFrameOverlay.sync(option,unit)
+		AltarUpgradeBadge.sync(option,unit)
 		var sprite: TextureRect = scene.sprites[unit.id]
 		var target = Button.new()
 		target.flat = true
@@ -122,6 +124,7 @@ func complete_success() -> void:
 	scene.message.text = corpse.name+" · 영혼 수확 성공"
 	var selected_card: TextureButton = choices[int(pending.selected)].card
 	var spirit = scene.image(self,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
+	AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
 	spirit.pivot_offset = spirit.size*0.5
 	spirit.modulate = Color(0.8,1,1)
 	selected_card.hide()
