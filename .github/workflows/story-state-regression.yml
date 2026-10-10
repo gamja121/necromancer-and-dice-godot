@@ -9,6 +9,7 @@ on:
       - "scripts/test_graveyard_event_entry.gd"
       - "scripts/test_graveyard_story_choice.gd"
       - "scripts/test_graveyard_story_combat.gd"
+      - "scripts/test_graveyard_battle_return.gd"
       - "systems/graveyard_story_beats.gd"
       - "systems/story_event_entry.gd"
       - "map.gd"
@@ -22,6 +23,7 @@ on:
       - "scripts/test_graveyard_event_entry.gd"
       - "scripts/test_graveyard_story_choice.gd"
       - "scripts/test_graveyard_story_combat.gd"
+      - "scripts/test_graveyard_battle_return.gd"
       - "systems/graveyard_story_beats.gd"
       - "systems/story_event_entry.gd"
       - "map.gd"
@@ -87,5 +89,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_graveyard_story_combat.gd 2>&1 | tee graveyard-combat.log
           grep -E 'GRAVEYARD_COMBAT_REGRESSION: [0-9]+ passed, 0 failed' graveyard-combat.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' graveyard-combat.log; then
+            exit 1
+          fi
+
+      - name: Graveyard battle outcome return and acknowledgement regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_graveyard_battle_return.gd 2>&1 | tee graveyard-return.log
+          grep -E 'GRAVEYARD_RETURN_REGRESSION: [0-9]+ passed, 0 failed' graveyard-return.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' graveyard-return.log; then
             exit 1
           fi

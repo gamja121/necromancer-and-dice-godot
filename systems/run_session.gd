@@ -13,6 +13,7 @@ var save_file_path: String = SAVE
 const RITUAL_EVENT_ID = "ritual_portal_trace_01"
 const HUNT_EVENT_ID = "monster_king_hunt_trace_01"
 const GRAVEYARD_EVENT_ID = "graveyard_child_ambush_01"
+const GRAVEYARD_RESULT_PENDING_FLAG = "story:graveyard_child_ambush_01:result_pending"
 var world
 var encounter: Dictionary = {}
 var notice = ""
@@ -199,6 +200,28 @@ func complete_monster_king_hunt() -> bool:
 	for flag in changes: world.event_flags[flag] = changes[flag]
 	return persist_change(before)
 
+## Persisted, single-use story presentation receipt. A crash after combat
+## resolution must not skip the result scene when the map is reopened.
+func graveyard_battle_result_pending() -> bool:
+	if world == null or not encounter.is_empty() or not world.active_encounter.is_empty(): return false
+	if not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return false
+	if world.event_flags.get(GRAVEYARD_RESULT_PENDING_FLAG,false) != true: return false
+	var event: Dictionary = get_story_event(GRAVEYARD_EVENT_ID)
+	if event.choice != "protect_child": return false
+	if event.status == "complete" and event.battle_result == "won":
+		return world.event_flags.get("event:graveyard_child_ambush_01:rescued",false) == true
+	if event.status == "active" and event.battle_result == "lost":
+		return world.event_flags.get("event:graveyard_child_ambush_01:complete",false) != true
+	return false
+
+## Acknowledge the visual result only after the player presses a close/retry
+## button; do not consume it on display or on map startup.
+func acknowledge_graveyard_battle_result() -> bool:
+	if not graveyard_battle_result_pending(): return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.event_flags[GRAVEYARD_RESULT_PENDING_FLAG] = false
+	return persist_change(before)
+
 ## Story fights must pass through the existing 1-4 owned-monster deck picker.
 ## A lost rescue attempt may be retried; the previous loss stays in its flag.
 func start_story_encounter(event_id: String, index: int, selected_ids: Array) -> bool:
@@ -303,6 +326,8 @@ func finish_encounter(battle) -> bool:
 	var story: bool = encounter.get("event_id","") == GRAVEYARD_EVENT_ID
 	if story:
 		var won: bool = battle.winner() == "ally"
+		# Outcome and its unacknowledged scene are one atomic save operation.
+		world.event_flags[GRAVEYARD_RESULT_PENDING_FLAG] = true
 		world.story_events[GRAVEYARD_EVENT_ID] = {"status":"complete" if won else "active","choice":"protect_child","battle_result":"won" if won else "lost"}
 		world.event_flags["battle:graveyard_child_ambush_01:won"] = won
 		world.event_flags["battle:graveyard_child_ambush_01:lost"] = not won
