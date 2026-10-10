@@ -18,6 +18,8 @@ on:
       - "scripts/test_knight_commander_entry.gd"
       - "scripts/test_knight_commander_dialogue.gd"
       - "scripts/test_monster_hunter_entry.gd"
+      - "scripts/test_monster_hunter_dialogue.gd"
+      - "systems/monster_hunter_beats.gd"
       - "systems/monster_hunter_entry.gd"
       - "systems/knight_commander_beats.gd"
       - "systems/knight_commander_entry.gd"
@@ -47,6 +49,8 @@ on:
       - "scripts/test_knight_commander_entry.gd"
       - "scripts/test_knight_commander_dialogue.gd"
       - "scripts/test_monster_hunter_entry.gd"
+      - "scripts/test_monster_hunter_dialogue.gd"
+      - "systems/monster_hunter_beats.gd"
       - "systems/monster_hunter_entry.gd"
       - "systems/knight_commander_beats.gd"
       - "systems/knight_commander_entry.gd"
@@ -209,5 +213,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_monster_hunter_entry.gd 2>&1 | tee monster-hunter-entry.log
           grep -E 'MONSTER_HUNTER_ENTRY_REGRESSION: [0-9]+ passed, 0 failed' monster-hunter-entry.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-hunter-entry.log; then
+            exit 1
+          fi
+
+      - name: Monster hunter full dialogue, clues and quest completion regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_monster_hunter_dialogue.gd 2>&1 | tee monster-hunter-dialogue.log
+          grep -E 'MONSTER_HUNTER_DIALOGUE_REGRESSION: [0-9]+ passed, 0 failed' monster-hunter-dialogue.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-hunter-dialogue.log; then
             exit 1
           fi
