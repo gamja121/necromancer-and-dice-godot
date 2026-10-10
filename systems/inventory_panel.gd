@@ -3,7 +3,6 @@ signal closed
 const UnitInfo = preload("res://systems/unit_info.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const FanMotion = preload("res://systems/card_fan_motion.gd")
-const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 var session
 var content: Control
 var fan
@@ -58,7 +57,6 @@ func show_kind(kind: String) -> void:
 		option.rotation_degrees = clampf((i-half)*1.6,-5,5)
 		if kind=="unit":
 			option.get_child(0).text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]
-			BrandFrameOverlay.sync(option,item)
 		if items.size()>6:
 			option.get_child(0).visible = false
 			option.mouse_entered.connect(func(): option.get_child(0).visible = true; option.z_index = 20)
