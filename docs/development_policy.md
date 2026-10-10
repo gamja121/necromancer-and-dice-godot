@@ -28,7 +28,7 @@ https://github.com/gamja121/necromancer-dice-board/tree/reference/html-final
 
 기존 HTML/JS 게임에는 새 기능을 추가하지 않는다. 기능, 규칙, 자산, 연출, 저장·복원 동작을 확인하기 위한 읽기 전용 참조로 사용한다. 기존 웹 기능은 Godot로 이식한다.
 
-**2026-10-10 웹 미리보기 재개:** 사용자 요청에 따라 Godot Web 내보내기와 기존 공개 Pages 배포를 다시 사용한다. Godot 원본의 `web-preview.yml`은 빌드 아티팩트까지만 만들며, 별도 Pages 생성은 하지 않는다. 공개 `gamja121/necromancer-dice-board`의 `verify-and-deploy.yml`이 최신 공개 Godot `main`을 직접 가져와 빌드하고 기존 Pages에 배포한다(매시간 UTC 17분에 예약, 수동 실행 가능). 별도의 크로스 저장소 쓰기 인증키는 필요 없다. 사이트의 갱신 여부는 배포 성공과 `DEPLOYED_SOURCE_SHA.txt`를 통해 확인하며 즉시 반영을 가정하지 않는다. 자세한 현행 구성은 루트 `CANONICAL_DEPLOYMENT.md`를 참조한다.
+**2026-10-10 웹 미리보기 재개:** 사용자 요청에 따라 Godot Web 내보내기와 기존 공개 Pages 배포를 다시 사용한다. Godot 원본의 `web-preview.yml`은 빌드 아티팩트까지만 만들며, 별도 Pages 생성은 하지 않는다. 공개 `gamja121/necromancer-dice-board`의 `publish-godot-pages.yml`이 최신 공개 Godot `main`을 직접 가져와 빌드하고 기존 Pages에 배포한다(매시간 UTC 17분에 예약, 수동 실행 가능). 별도의 크로스 저장소 쓰기 인증키는 필요 없다. 사이트의 갱신 여부는 배포 성공과 `DEPLOYED_SOURCE_SHA.txt`를 통해 확인하며 즉시 반영을 가정하지 않는다. 자세한 현행 구성은 루트 `CANONICAL_DEPLOYMENT.md`를 참조한다.
 
 ## 공개 제외 대상
 
