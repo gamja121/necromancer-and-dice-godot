@@ -117,6 +117,22 @@ jobs:
           grep -E 'CARD_SCREEN_REGRESSION: [0-9]+ passed, 0 failed' card-screen.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' card-screen.log; then exit 1; fi
 
+      - name: Render real inventory fan decoration preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run
+          xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/render_card_decoration_preview.gd 2>&1 | tee card-preview.log
+          grep -F 'CARD_PREVIEW_SAVED:' card-preview.log
+          test -s card_preview.webp
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          payload = Path("card_preview.webp").read_bytes()
+          print("CARD_PREVIEW_BASE64:", base64.b64encode(payload).decode("ascii"))
+          print("CARD_PREVIEW_BYTES:", len(payload))
+          PY
+
       - name: Story-state save and reload regression
         shell: bash
         run: |
