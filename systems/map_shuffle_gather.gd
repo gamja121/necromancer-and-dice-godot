@@ -46,6 +46,8 @@ var aura_strength: float = 0.0
 var aura_tween: Tween
 var cue_players: Dictionary = {}
 var played_audio_cues: Array[String] = []
+var cue_timestamps_msec: Dictionary = {}
+var active_sound_cue: String = ""
 
 
 func _ready() -> void:
@@ -61,6 +63,7 @@ func _ready() -> void:
 		player.bus = "SFX"
 		player.volume_db = float(SOUND_PRESETS[cue]["volume_db"])
 		player.pitch_scale = float(SOUND_PRESETS[cue]["pitch"])
+		player.max_polyphony = 1
 		match cue:
 			"gather": player.stream = GATHER_SFX
 			"rotate": player.stream = ROTATION_SFX
@@ -72,13 +75,19 @@ func _ready() -> void:
 func _play_sound(cue: String) -> void:
 	if not cue_players.has(cue):
 		return
-	# Never call once for each tile. One cue per stage, no sound on
-	# save failure, and SFX mute is handled by Godot's audio bus.
+	# The three recorded stage starts match the actual visual phases.
+	# Avoid layering effects when an older clip outlasts its phase.
+	for previous in cue_players.values():
+		if is_instance_valid(previous) and previous.playing:
+			previous.stop()
+	active_sound_cue = cue
 	played_audio_cues.append(cue)
+	cue_timestamps_msec[cue] = Time.get_ticks_msec()
+	# Headless checks record the same phase markers without opening audio.
+	# The SFX bus continues to own user mute and Master volume.
 	if DisplayServer.get_name() == "headless":
 		return
 	var player: AudioStreamPlayer = cue_players[cue]
-	player.stop()
 	player.play()
 
 
@@ -86,6 +95,8 @@ func _stop_sounds() -> void:
 	for player in cue_players.values():
 		if is_instance_valid(player):
 			player.stop()
+	active_sound_cue = ""
+	cue_timestamps_msec.clear()
 	played_audio_cues.clear()
 
 
