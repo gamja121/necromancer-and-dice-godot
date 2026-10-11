@@ -1,0 +1,59 @@
+name: Story Event UI Visual Port Stage 4B
+on:
+  push:
+    branches:
+      - feature/ui-parity-all-events-stage4b-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  event-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse all Godot scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: All seven standard story UI layout and callbacks
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 100s godot --headless --path . --script res://scripts/test_ui_all_story_event_parity.gd 2>&1 | tee story-ui.log
+          grep -E 'UI_ALL_STORY_EVENT_PARITY: [0-9]+ passed, 0 failed' story-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-story-event' story-ui.log; then exit 1; fi
+      - name: Earlier graveyard scene and corpse UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_graveyard_event_parity.gd 2>&1 | tee grave-ui.log
+          grep -E 'UI_STAGE4_PARITY: [0-9]+ passed, 0 failed' grave-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage4:' grave-ui.log; then exit 1; fi
+      - name: Cultist altar branches and irreversible choices
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 250s godot --headless --path . --script res://scripts/test_p4_cultist_altar_branch_integration.gd 2>&1 | tee cultist.log
+          grep -E 'P4_CULTIST_ALTAR_BRANCH_INTEGRATION: [0-9]+ passed, 0 failed' cultist.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-cultist' cultist.log; then exit 1; fi
+      - name: Graveyard branching battle permanent death and retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_p4_graveyard_branch_integration.gd 2>&1 | tee grave-battle.log
+          grep -E 'P4_GRAVEYARD_BRANCH_INTEGRATION: [0-9]+ passed, 0 failed' grave-battle.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-graveyard:' grave-battle.log; then exit 1; fi
+      - name: Route and inheritance UI remain intact
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee previous-ui.log
+          grep -E 'UI_STAGE3_PARITY: [0-9]+ passed, 0 failed' previous-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage3:' previous-ui.log; then exit 1; fi
