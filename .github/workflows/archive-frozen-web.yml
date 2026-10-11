@@ -1,0 +1,93 @@
+name: Preserve Frozen Web Source and Git History
+
+on:
+  pull_request:
+    paths:
+      - "scripts/archive_frozen_web.py"
+      - ".github/workflows/archive-frozen-web.yml"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/archive_frozen_web.py"
+      - ".github/workflows/archive-frozen-web.yml"
+      - "docs/port_audit/migration_work_queue.tsv"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p5-02-frozen-web-preservation
+  cancel-in-progress: false
+
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ARCHIVE_TAG: p5-02-frozen-html-final-e13d5149-20261011
+      ARCHIVE_DIR: ${{ runner.temp }}/p5-02-release
+      LEGACY_MIRROR: ${{ runner.temp }}/legacy-source.git
+    steps:
+      - name: Checkout Godot archive verifier
+        uses: actions/checkout@v4
+
+      - name: Verify archive script syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/archive_frozen_web.py
+
+      - name: Fetch public legacy repository without changing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --mirror --quiet https://github.com/gamja121/necromancer-dice-board.git "$LEGACY_MIRROR"
+          test "$(git -C "$LEGACY_MIRROR" rev-parse refs/heads/reference/html-final)" = "e13d5149fcecc802e5d626f3bef6e5daecd3d66c"
+          echo "P5_FROZEN_COMMIT_STILL_MATCHES"
+
+      - name: Archive tree and entire mirror and independently restore it
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/archive_frozen_web.py --source "$LEGACY_MIRROR" --output "$ARCHIVE_DIR" 2>&1 | tee archive-validation.log
+          grep -E '^P5_ARCHIVE_VERIFIED: [0-9]+ source files, [0-9]+ bytes, [0-9]+ preserved refs, [0-9]+ bundle parts, tree a5042ff5d055ddb3c560b23f37ffb307fe74a523, bundle SHA256 [a-f0-9]{64}$' archive-validation.log
+
+      - name: Verify every published asset checksum before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ARCHIVE_DIR"
+          sha256sum -c SHA256SUMS
+          test -s frozen-web-source.zip
+          test -s refs-and-commits.txt
+          test -s source-file-manifest.tsv
+          test -s history.bundle.part.000
+          echo "P5_ARCHIVE_SHA256_PASS"
+
+      - name: Publish permanent immutable GitHub Release from main only
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$ARCHIVE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Archive tag already published; never overwrite an existing snapshot"
+            exit 1
+          fi
+          gh release create "$ARCHIVE_TAG" "$ARCHIVE_DIR"/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Frozen HTML/JS Web Source — e13d5149 — P5-02" \
+            --notes-file "$ARCHIVE_DIR/README-RESTORE.md" \
+            --latest=false
+          expected="$(find "$ARCHIVE_DIR" -maxdepth 1 -type f -printf '%f\n' | sort)"
+          published="$(gh release view "$ARCHIVE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort)"
+          if [ "$expected" != "$published" ]; then
+            echo "::error::Published Release files differ from verified originals"
+            printf 'expected:\n%s\npublished:\n%s\n' "$expected" "$published"
+            exit 1
+          fi
+          gh release view "$ARCHIVE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url'
+          echo "P5_FROZEN_RELEASE_VERIFIED"
