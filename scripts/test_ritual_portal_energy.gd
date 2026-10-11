@@ -53,7 +53,7 @@ func fixture(tag: String, tile: String):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==3,"first two portal beats are preserved with third original scene")
+	check(Beats.count()==4,"first two portal beats preserved alongside third and fourth scenes")
 	check(Beats.beat(0)==Portal.FIRST_BEAT,"first scene unchanged")
 	check(Beats.beat(1).id=="portal_reveal","original second beat ID")
 	check(Beats.beat(1).effect=="제단에서 보았던 문양과 같은 빛이 석문 전체를 타고 흐르며 전이문이 거세게 요동친다.","original second narration exact")
@@ -61,12 +61,13 @@ func original_contract() -> void:
 	check(Beats.beat(1).speaker=="","no invented speaker")
 	check(Beats.beat(1).visual=="energy","second scene uses energy layer")
 	check(Beats.beat(2).id=="final_ritual","third scene added while energy scene stays unchanged")
-	check(Beats.beat(3).is_empty(),"future omen not yet accessible")
+	check(Beats.beat(3).id=="omen","fourth source-canonical omen now present")
+	check(Beats.beat(4).is_empty(),"future intervention still locked")
 	check(Beats.beat(-1).is_empty(),"negative scene rejected")
 	check(Beats.layer_for("base").is_empty(),"first scene shows background only")
 	check(Beats.layer_for("energy")==Beats.ENERGY_ART,"second scene selects energy layer")
 	check(Beats.layer_for("cultists")==Beats.CULTISTS_ART,"third original cultist layer available for later checkpoint")
-	check(Beats.layer_for("omen").is_empty(),"future omen layer inaccessible")
+	check(Beats.layer_for("omen")==Beats.OMEN_ART,"source omen layer enabled only in fourth beat")
 	check(Beats.ENERGY_ART=="res://assets/map/events/ritual-portal-energy-layer.webp","original Godot energy art used")
 	check(ResourceLoader.exists(Beats.ENERGY_ART),"energy layer artwork resource exists")
 	check(ResourceLoader.exists(Beats.BASE_ART),"first scene background remains present")
@@ -74,7 +75,8 @@ func original_contract() -> void:
 	check(Portal.progress_flag(1)=="event:ritual_portal_trace_01:beat:1","original second scene has durable checkpoint")
 	check(Portal.progress_flag(0).is_empty(),"arrival already represented by seen receipt")
 	check(Portal.progress_flag(2)=="event:ritual_portal_trace_01:beat:2","third beat uses distinct persisted checkpoint")
-	check(Portal.progress_flag(3).is_empty(),"future omen cannot be checkpointed")
+	check(Portal.progress_flag(3)=="event:ritual_portal_trace_01:beat:3","fourth omen beat has its own checkpoint")
+	check(Portal.progress_flag(4).is_empty(),"intervention cannot yet be checkpointed")
 	var copied: Dictionary=Beats.beat(1)
 	copied.effect="tampered"
 	check(Beats.beat(1).effect.begins_with("제단에서 보았던 문양"),"beat data cannot be changed through accessor")
@@ -87,7 +89,7 @@ func original_contract() -> void:
 	check(src.contains("InkSceneReveal.play(ritual_art)"),"original layer reveals over ruin background")
 	check(src.contains("RitualPortalEntry.advance(session,index,shown_beat)"),"Continue invokes transactional checkpoint")
 	check(src.contains('location_button(panel,"계속"'),"arrival has explicit Continue")
-	check(src.contains("if beat_index<2:"),"Continue appears on first two beats, not after cultists")
+	check(src.contains("if beat_index<3:"),"Continue appears on first three beats, not after omen")
 	check(src.contains('location_button(panel,"숲 기능"'),"forest actions preserved")
 	check(src.contains('location_button(panel,"돌아가기"'),"board return preserved")
 	check(not src.contains("start_ritual_portal_battle("),"battle handler not created")
