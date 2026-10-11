@@ -3,6 +3,7 @@ extends Control
 ## All changes here are temporary visuals; gameplay/save state stays authoritative.
 
 const Layout = preload("res://systems/map_shuffle_layout.gd")
+const StoneDust = preload("res://systems/map_shuffle_stone_dust.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
 # Reuse existing CC0 assets; the sound obeys the SFX and Master mute/volume.
 const GATHER_SFX = preload("res://assets/battle/sfx/move.ogg")
@@ -44,6 +45,7 @@ var tile_sources: Array[TextureButton] = []
 var source_visibility: Array[bool] = []
 var tile_visuals: Array[TextureRect] = []
 var tile_shadows: Array[TextureRect] = []
+var stone_dust: Control
 var slots: Array[Dictionary] = []
 var gathering: Tween
 var predeparture_tween: Tween
@@ -64,6 +66,11 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 3 # Static tiles (4), hero (16), and dice (19) remain visible above.
 	size = Vector2(1280.0, 720.0)
+	# One procedural layer handles all stone contacts; never 21 particle nodes.
+	stone_dust = StoneDust.new()
+	stone_dust.name = "StoneLandingDust"
+	stone_dust.z_index = 1
+	add_child(stone_dust)
 	# Map._ready normally creates the buses. Ensure the same bus in
 	# standalone scenes/tests without changing stored user preferences.
 	AudioSettings.ensure_buses()
@@ -348,6 +355,12 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		# the board, instead of lifting and bouncing with the stone.
 		reveal_tween.tween_property(shadow, "position:y", SHADOW_OFFSET.y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		reveal_tween.tween_property(shadow, "modulate:a", 0.0, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		# Dust is only emitted on a successful saved-map reveal, and only
+		# once the slab physically reaches its final board position.
+		reveal_tween.tween_callback(_emit_stone_contact.bind(destination_index)).set_delay(delay + FLIP_HALF_DURATION + LANDING_DURATION)
+	# Allow the last stone's dust to dissipate before removing cloned tiles.
+	# At most 160 ms of extra display time; no image assets or camera shake.
+	reveal_tween.tween_interval(float(tile_visuals.size() - 1) * FLIP_STAGGER + FLIP_HALF_DURATION + LANDING_DURATION + StoneDust.PUFF_DURATION)
 	await reveal_tween.finished
 
 	# Commit the already saved images to the formerly hidden buttons, then
@@ -357,6 +370,16 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		board_buttons[destination_index].texture_normal = next_tile_textures[destination_index]
 	restore_tiles()
 	return true
+
+
+func _emit_stone_contact(destination_index: int) -> void:
+	if stone_dust == null or not is_instance_valid(stone_dust):
+		return
+	if destination_index < 0 or destination_index >= board_buttons.size():
+		return
+	var tile: TextureButton = board_buttons[destination_index]
+	var floor_point: Vector2 = tile.position + Vector2(tile.size.x * 0.5, tile.size.y - 5.0)
+	stone_dust.emit_at(floor_point, destination_index)
 
 
 func _reveal_tile_face(visual: TextureRect, shadow: TextureRect, new_face: Texture2D) -> void:
@@ -379,6 +402,8 @@ func _valid_next_tiles(next_tile_textures: Array) -> bool:
 
 func restore_tiles() -> void:
 	_stop_sounds()
+	if stone_dust != null and is_instance_valid(stone_dust):
+		stone_dust.clear_puffs()
 	if aura_tween != null and aura_tween.is_running():
 		aura_tween.kill()
 	aura_tween = null
@@ -416,6 +441,8 @@ func restore_tiles() -> void:
 
 func _exit_tree() -> void:
 	_stop_sounds()
+	if stone_dust != null and is_instance_valid(stone_dust):
+		stone_dust.clear_puffs()
 	# If a transition is aborted, never leave the original board invisible.
 	for i in range(tile_sources.size()):
 		if is_instance_valid(tile_sources[i]):
