@@ -99,10 +99,11 @@ func _run() -> void:
 	AudioServer.set_bus_mute(bus_index, old_sfx_mute)
 	check(dice.position == Vector2(602.0, 307.6) and dice.texture_normal == old, "dice face and position unchanged")
 
-	# Watch for the single landing cue after the spread reaches its slots.
+	# Landing must synchronize with the first slab's actual floor contact,
+	# not merely with the end of horizontal scattering.
 	var sampled: Dictionary = {"seen": false, "ordered": false, "landing_gap": -1, "active": false}
 	var scatter_started: int = Time.get_ticks_msec()
-	create_timer(Gather.SCATTER_DURATION + 0.055).timeout.connect(func():
+	create_timer(Gather.SCATTER_DURATION + Gather.DUST_IMPACT_OFFSET + 0.07).timeout.connect(func():
 		sampled["seen"] = true
 		sampled["ordered"] = shuffle.played_audio_cues == ["gather", "rotate", "land"]
 		sampled["active"] = shuffle.active_sound_cue == "land"
@@ -112,7 +113,7 @@ func _run() -> void:
 	check(ok, "saved board reveal completes")
 	check(bool(sampled["seen"]) and bool(sampled["ordered"]), "landing cue plays once after spread, before cards reveal")
 	check(bool(sampled["active"]), "landing is the only active phase after scatter")
-	check(int(sampled["landing_gap"]) >= 410 and int(sampled["landing_gap"]) <= 800, "landing sound begins at end of scatter, not per tile")
+	check(int(sampled["landing_gap"]) >= 590 and int(sampled["landing_gap"]) <= 1050, "single heavy thud begins on first slab impact, not during scatter")
 	check(shuffle.played_audio_cues.is_empty() and shuffle.active_sound_cue.is_empty() and shuffle.cue_timestamps_msec.is_empty(), "audio state cleared after map reconstruction")
 	var silent: bool = true
 	for player in shuffle.cue_players.values():
