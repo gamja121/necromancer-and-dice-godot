@@ -57,7 +57,9 @@ func capture_frame(filename: String) -> void:
 func _run() -> void:
 	outdir = OS.get_environment("WINDOWS_GUI_EVIDENCE_DIR")
 	check(OS.get_name() == "Windows", "running a native Windows Godot executable")
-	check(DisplayServer.get_name() == "windows", "real Windows GUI display driver, not headless")
+	var display_driver: String = DisplayServer.get_name()
+	print("WINDOWS_GUI_DISPLAY_DRIVER: ", display_driver)
+	check(display_driver.to_lower() == "windows", "real Windows GUI display driver, not headless")
 	check(not outdir.is_empty(), "CI provided a dedicated external evidence directory")
 	if failures > 0:
 		print("WINDOWS_GUI_PREVIEW: %d captured, %d failed; manual review remains required" % [shots, failures])
