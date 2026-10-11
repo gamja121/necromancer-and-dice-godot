@@ -101,7 +101,6 @@ func _run() -> void:
 	if actor_ids.has("goblin-commoner"):
 		var id: String = actor_ids["goblin-commoner"]
 		var u: Dictionary = scene.rules.find_id(id)
-		var target: Dictionary = scene.rules.units.duplicate(true)[0]
 		var before: Array=[u.duplicate(true)]
 		var dead: Dictionary=u.duplicate(true)
 		dead.alive=false
