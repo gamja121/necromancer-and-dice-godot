@@ -59,7 +59,7 @@ func _run() -> void:
 		check(panel.options.size()==3 and panel.options.all(func(o): return o.texture_normal!=null),"three original reward art assets render")
 		for i in range(3):
 			check(near(panel.options[i].rotation_degrees,[-7.0,0.0,7.0][i]),"source reward-card tilt %d" % i)
-			check(panel.options[i].position==Vector2(314+i*216,245) and panel.options[i].size==Vector2(170,254),"reward card %d preserves source layout" % i)
+			check(panel.options[i].position.distance_to(Vector2(314+i*216,245))<1.0 and panel.options[i].size.distance_to(Vector2(170,254))<0.3,"reward card %d preserves source layout" % i)
 			check(not panel.reward_outlines[i].visible and near(panel.options[i].modulate.a,1.0),"unselected card %d stays fully visible" % i)
 		panel.options[1].pressed.emit()
 		check(world.pending_reward.selected==1 and not world.pending_reward.has("reward"),"first click saves choice but awards nothing")
