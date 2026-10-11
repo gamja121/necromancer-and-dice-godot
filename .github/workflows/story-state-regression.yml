@@ -32,6 +32,7 @@ on:
       - "scripts/test_ritual_portal_entry.gd"
       - "scripts/test_ritual_portal_energy.gd"
       - "scripts/test_ritual_portal_cultists.gd"
+      - "scripts/test_ritual_portal_omen.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
       - "systems/cultist_altar_entry.gd"
@@ -82,6 +83,7 @@ on:
       - "scripts/test_ritual_portal_entry.gd"
       - "scripts/test_ritual_portal_energy.gd"
       - "scripts/test_ritual_portal_cultists.gd"
+      - "scripts/test_ritual_portal_omen.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
       - "systems/cultist_altar_entry.gd"
@@ -397,5 +399,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_ritual_portal_cultists.gd 2>&1 | tee ritual-portal-cultists.log
           grep -E 'RITUAL_PORTAL_CULTISTS_REGRESSION: [0-9]+ passed, 0 failed' ritual-portal-cultists.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' ritual-portal-cultists.log; then
+            exit 1
+          fi
+
+      - name: Ritual portal original fourth king-omen reveal and durable checkpoint regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_ritual_portal_omen.gd 2>&1 | tee ritual-portal-omen.log
+          grep -E 'RITUAL_PORTAL_OMEN_REGRESSION: [0-9]+ passed, 0 failed' ritual-portal-omen.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' ritual-portal-omen.log; then
             exit 1
           fi
