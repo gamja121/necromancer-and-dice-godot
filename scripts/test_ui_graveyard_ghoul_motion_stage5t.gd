@@ -26,12 +26,12 @@ func clear_save() -> void:
 		if FileAccess.file_exists(scratch+suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
 
-func get_frame(map: Control) -> TextureRect:
+func get_ghoul_frame(map: Control) -> TextureRect:
 	if not is_instance_valid(map.overlay): return null
 	return map.overlay.get_node_or_null("StoryCharacterLayer") as TextureRect
 
 func get_ghoul(map: Control) -> TextureRect:
-	var frame = get_frame(map)
+	var frame = get_ghoul_frame(map)
 	return frame.get_node_or_null("GhoulSprite") as TextureRect if frame != null else null
 
 func has_button(panel: Control, title: String) -> bool:
@@ -73,10 +73,10 @@ func _run() -> void:
 	var initial_receipts: Array = session.world.reward_receipts.duplicate()
 	map.show_graveyard_child_beat(index,0)
 	check(is_instance_valid(map.overlay),"discovery scene opens")
-	check(get_frame(map) == null,"discovery has no false ghoul sprite")
+	check(get_ghoul_frame(map) == null,"discovery has no false ghoul sprite")
 
 	map.show_graveyard_child_beat(index,1)
-	var frame = get_frame(map)
+	var frame = get_ghoul_frame(map)
 	var ghoul = get_ghoul(map)
 	check(frame is TextureRect and ghoul is TextureRect,"threat scene creates story character frame and separately animated sprite")
 	if ghoul != null:
@@ -98,7 +98,7 @@ func _run() -> void:
 		check(ghoul.position.x > -ghoul.size.x*0.012-0.3 and ghoul.position.y > -ghoul.size.y*0.006-0.3,"idle stays within source 1.2%/0.6% travel")
 
 	map.show_graveyard_child_beat(index,2)
-	frame = get_frame(map)
+	frame = get_ghoul_frame(map)
 	ghoul = get_ghoul(map)
 	check(is_instance_valid(ghoul) and near(ghoul.modulate.a,0.96,0.01),"child dialogue uses immediate ghoul visibility, not a second reveal")
 	check(map.overlay.get_node_or_null("StoryDialogueFrame") is TextureRect,"original spoken dialogue parchment survives")
