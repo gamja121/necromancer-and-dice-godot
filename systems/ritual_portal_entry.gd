@@ -170,8 +170,16 @@ static func completed(session) -> bool:
 	if state.battle_result not in ["won","lost"]: return false
 	var won: bool=state.battle_result=="won"
 	var flags: Dictionary=session.world.event_flags
-	for key in [SEEN_FLAG,INTERVENE_CHOICE_FLAG,COMPLETE_FLAG,PORTAL_FOUND_FLAG,SITE_LOCATION_FLAG,TRACKING_COMPLETE_FLAG,REVIVED_FLAG,HUNT_FLAG]:
+	for key in [SEEN_FLAG,INTERVENE_CHOICE_FLAG,COMPLETE_FLAG,PORTAL_FOUND_FLAG,SITE_LOCATION_FLAG,TRACKING_COMPLETE_FLAG,REVIVED_FLAG]:
 		if flags.get(key,false)!=true: return false
+	# The portal stays historically complete when the *later* hunt
+	# hands off its active quest to a fully saved location/final quest.
+	var hunt_active: bool=flags.get(HUNT_FLAG,false)==true
+	var hunt_done: bool=(flags.get("quest:monster_king_hunt:complete",false)==true
+		and flags.get("event:monster_king_hunt_trace_01:complete",false)==true
+		and flags.get("story:monster_king:sealed_ruins_location_known",false)==true
+		and flags.get("quest:monster_king_final_battle:active",false)==true)
+	if hunt_active==hunt_done: return false
 	for key in [TRACKING_FLAG,INTERVENTION_FLAG,RESULT_PENDING_FLAG]:
 		if flags.get(key,false)==true: return false
 	if flags.get(BATTLE_WON_FLAG,false)!=won or flags.get(BATTLE_LOST_FLAG,false)==won: return false

@@ -77,7 +77,7 @@ func fixture(tag: String, side: String, destination: String):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==4,"first two hunt scenes preserved alongside hunter dialogue and destination clue")
+	check(Beats.count()==5,"first two hunt scenes preserved alongside hunter dialogue and destination clue")
 	check(Beats.beat(0)==Hunt.FIRST_BEAT,"first scene remains identical")
 	check(Beats.beat(1).id=="trace","original second beat id")
 	check(Beats.beat(1).effect=="검게 변한 뿌리 곁에 오염된 마물의 사체가 있다. 흔적을 따라가던 마물 사냥꾼이 그 앞에 서 있다.","exact source second narration")
@@ -111,7 +111,7 @@ func original_contract() -> void:
 	check(src.contains("InkSceneReveal.play(scene_art)"),"corrupted beast layer reveals over source base")
 	check(src.contains("MonsterKingHuntEntry.advance(session,index,shown_beat)"),"Continue saves the trace")
 	check(src.contains('location_button(panel,"계속"'),"first scene has deliberate Continue")
-	check(src.contains("if beat_index<3:"),"Continue appears before destination clue, not after fourth scene")
+	check(src.contains("if beat_index<4:"),"Continue appears before destination clue, not after fourth scene")
 	check(src.contains('location_button(panel,"세계수 기능"'),"world-tree action preserved")
 	check(src.contains('location_button(panel,"돌아가기"'),"map return preserved")
 	check(src.contains('session.get_story_event(MonsterKingHuntEntry.EVENT_ID).status=="seen"'),"restart only restores already-seen hunt")
