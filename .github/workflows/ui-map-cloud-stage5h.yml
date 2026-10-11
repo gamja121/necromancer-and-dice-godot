@@ -1,0 +1,52 @@
+name: Frozen Web Map Cloud Transition UI Stage 5H
+on:
+  push:
+    branches:
+      - feature/ui-parity-map-cloud-stage5h-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  map-cloud-source-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and parse all cloud assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Four distinct original clouds, eight sprites, once-only shuffle, input recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_ui_map_cloud_parity.gd 2>&1 | tee cloud.log
+          grep -E 'UI_MAP_CLOUD_PARITY: [0-9]+ passed, 0 failed' cloud.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL ui-map-cloud:' cloud.log; then exit 1; fi
+      - name: Genuine treasure, home heal, tile shuffle and next lap persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee reward-lap.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' reward-lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' reward-lap.log; then exit 1; fi
+      - name: Full intro, map, battle, capture, treasure, home and next lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' e2e.log; then exit 1; fi
+      - name: Prior stage G overflow selection and reward storage regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_deck_overflow_parity.gd 2>&1 | tee overflow.log
+          grep -E 'UI_DECK_OVERFLOW_PARITY: [0-9]+ passed, 0 failed' overflow.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-deck-overflow:' overflow.log; then exit 1; fi

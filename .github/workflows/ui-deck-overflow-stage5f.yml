@@ -1,0 +1,45 @@
+name: Original Deck and Overflow UI Visual Port 5F
+on:
+  push:
+    branches:
+      - feature/ui-parity-deck-overflow-stage5f-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deck-overflow-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot headless import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Four-slot lineup and both capacity modals
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_ui_deck_overflow_parity.gd 2>&1 | tee deck-overflow.log
+          grep -E 'UI_DECK_OVERFLOW_PARITY: [0-9]+ passed, 0 failed' deck-overflow.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-deck-overflow:' deck-overflow.log; then exit 1; fi
+      - name: P4 real treasure pick save and next-lap regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 260s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee p4-reward.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' p4-reward.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' p4-reward.log; then exit 1; fi
+      - name: P4 deck entry victory defeat and corpse save regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 260s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee p4-combat.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' p4-combat.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat:' p4-combat.log; then exit 1; fi

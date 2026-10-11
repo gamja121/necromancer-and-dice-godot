@@ -73,7 +73,9 @@ func source_and_visual_contract() -> void:
 	check(source.contains("CultistAltarEntry.current_beat(session)"),"renderer reads saved scene")
 	check(source.contains("CultistAltarBeats.beat(beat_index)"),"renderer reads original two-beat table")
 	check(source.contains("CultistAltarBeats.layer_for(str(beat.visual))"),"correct ritual layer selected")
-	check(source.contains("InkSceneReveal.play(ritual_art)"),"ritual layer reveals over static base")
+	check(source.contains("if beat_index==0: InkSceneReveal.play(artwork)")
+		and source.contains('CultistStoryLayerMotion.play(ritual_art,true,beat.id=="ritual_reveal"'),
+		"ritual layer plays source entrance motion over ink-revealed static base")
 	check(source.contains("str(beat.effect)"),"source narration displayed")
 	check(source.contains("CultistAltarEntry.advance(session,index,shown_beat)"),"continue button saves exact beat")
 	check(source.contains('if beat_index<2:'),"first two scenes offer Continue")

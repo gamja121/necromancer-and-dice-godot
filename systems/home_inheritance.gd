@@ -19,7 +19,10 @@ var confirm_button: Button
 var hand: Control
 var unit_options: Dictionary = {}
 var brand_options: Dictionary = {}
-var tab = "unit"
+var unit_hand_scroll: ScrollContainer
+var brand_fan_scroll: ScrollContainer
+var brand_fan: Control
+var inheritance_frame: TextureRect
 var interface_data: Dictionary
 
 func setup(run_session) -> void:
@@ -27,35 +30,40 @@ func setup(run_session) -> void:
 	z_index = 85
 	interface_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json"))
 	backdrop()
-	label_at(self,"낙인 계승",Vector2(450,20),Vector2(380,36),24)
-	button(self,"닫기",Vector2(1105,26),Vector2(100,36),func(): if not busy: closed.emit())
-	panel_slot(Vector2(212,66),true)
-	panel_slot(Vector2(840,66),false)
-	art(self,"res://assets/map/ui/inheritance_info.webp",Vector2(476,90),Vector2(328,286)).stretch_mode = TextureRect.STRETCH_SCALE
-	var title = label_at(self,"낙인 · 최대 3칸",Vector2(503,107),Vector2(274,28),18)
+	label_at(self,"낙인 계승",Vector2(450,7),Vector2(380,30),24)
+	button(self,"닫기",Vector2(1129,29),Vector2(92,38),func(): if not busy: closed.emit())
+	# Web prototype shows three adjacent columns and two simultaneous card sources.
+	panel_slot(Vector2(198,38),true)
+	panel_slot(Vector2(814,38),false)
+	inheritance_frame=art(self,"res://assets/map/ui/inheritance_info.webp",Vector2(471,62),Vector2(338,352))
+	inheritance_frame.stretch_mode=TextureRect.STRETCH_SCALE
+	var title=label_at(self,"낙인 · 최대 3칸",Vector2(502,104),Vector2(276,27),18)
 	title.add_theme_color_override("font_color",Color("34251c"))
 	title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	var scroll = ScrollContainer.new()
-	scroll.position = Vector2(502,143)
-	scroll.size = Vector2(276,194)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var scroll=ScrollContainer.new()
+	scroll.position=Vector2(495,141)
+	scroll.size=Vector2(292,213)
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
-	details = VBoxContainer.new()
-	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details=VBoxContainer.new()
+	details.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	details.add_theme_constant_override("separation",5)
 	scroll.add_child(details)
-	status = label_at(self,"",Vector2(206,384),Vector2(868,34),14)
-	confirm_button = button(self,"계승",Vector2(529,423),Vector2(222,42),confirm)
-	confirm_button.add_theme_font_size_override("font_size",16)
-	button(self,"마물",Vector2(431,480),Vector2(180,32),func(): tab="unit"; render_hand())
-	button(self,"낙인 카드",Vector2(629,480),Vector2(220,32),func(): tab="brand"; render_hand())
+	status=label_at(self,"",Vector2(361,384),Vector2(558,32),14)
+	confirm_button=button(self,"계승",Vector2(552,419),Vector2(176,46),confirm)
+	confirm_button.add_theme_font_size_override("font_size",17)
+	var parchment=StyleBoxTexture.new()
+	parchment.texture=load("res://assets/map/ui/parchment_button_variant_01.png")
+	for state in ["normal","hover","pressed","focus","disabled"]:
+		confirm_button.add_theme_stylebox_override(state,parchment)
+	confirm_button.add_theme_color_override("font_color",Color("40291c"))
 	render_hand()
 	render_selection()
 
 func panel_slot(pos: Vector2, material: bool) -> void:
 	var node = Control.new()
 	node.position = pos
-	node.size = Vector2(228,310)
+	node.size = Vector2(266,390)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(node)
 	var board = TextureRect.new()
@@ -67,15 +75,15 @@ func panel_slot(pos: Vector2, material: bool) -> void:
 	board.size = node.size
 	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(board)
-	label_at(node,"재료" if material else "받는 마물",Vector2(12,20),Vector2(204,28),19)
+	label_at(node,"재료" if material else "결과",Vector2(21,32),Vector2(225,31),20)
 	var preview = TextureRect.new()
 	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	preview.position = Vector2(39,58)
-	preview.size = Vector2(150,208)
+	preview.position = Vector2(38,92)
+	preview.size = Vector2(191,233)
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(preview)
-	var hint = label_at(node,"",Vector2(15,269),Vector2(198,28),13)
+	var hint = label_at(node,"",Vector2(27,336),Vector2(214,34),13)
 	if material:
 		material_art = preview
 		material_marks = label_at(preview,"",Vector2(18,164),Vector2(114,32),13)
@@ -146,8 +154,12 @@ func render_selection() -> void:
 		option.get_child(0).text = str(session.owned_unit(id).get("name",""))+("\n재료" if id==material_id else ("\n받는 마물" if id==receiver_id else ""))
 		option.disabled = busy or completed
 	for id in brand_options:
-		brand_options[id].modulate = Color(1.1,1.12,1.15) if id==brand_card_id else Color.WHITE
-		brand_options[id].disabled = busy or completed
+		var brand_option: TextureButton=brand_options[id]
+		brand_option.modulate = Color(1.1,1.12,1.15) if id==brand_card_id else Color.WHITE
+		brand_option.position.y=float(brand_option.get_meta("fan_y",22))-16 if id==brand_card_id else float(brand_option.get_meta("fan_y",22))
+		brand_option.rotation_degrees=0 if id==brand_card_id else float(brand_option.get_meta("fan_rotation",0))
+		brand_option.z_index=20 if id==brand_card_id else 0
+		brand_option.disabled = busy or completed
 
 func render_hand() -> void:
 	if is_instance_valid(hand):
@@ -155,31 +167,59 @@ func render_hand() -> void:
 		hand.queue_free()
 	unit_options.clear()
 	brand_options.clear()
-	hand = Control.new()
+	hand=Control.new()
 	add_child(hand)
-	var scroll = ScrollContainer.new()
-	scroll.position = Vector2(124,526)
-	scroll.size = Vector2(1032,190)
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	hand.add_child(scroll)
-	var row = HBoxContainer.new()
-	row.custom_minimum_size.x = 1032
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation",16)
-	scroll.add_child(row)
-	var items: Array = session.world.roster if tab=="unit" else session.world.brand_cards
-	if items.is_empty(): label_at(hand,"보유한 마물이 없습니다" if tab=="unit" else "보유한 낙인 카드가 없습니다",Vector2(260,590),Vector2(760,40),18)
-	for item in items:
-		var box = Control.new()
-		box.custom_minimum_size = Vector2(104,182)
-		row.add_child(box)
-		var id = str(item.id)
-		var kind = tab
-		var option = card(box,kind,item,Vector2(4,0),Vector2(96,139),func(): select_unit(id) if kind=="unit" else select_brand_card(id))
+	# Display both resource sources at once, instead of a tab switch.
+	var unit_label=label_at(hand,"보유 마물",Vector2(616,479),Vector2(200,25),14)
+	unit_label.add_theme_color_override("font_color",Color("e9cc94"))
+	unit_hand_scroll=ScrollContainer.new()
+	unit_hand_scroll.position=Vector2(351,510)
+	unit_hand_scroll.size=Vector2(828,200)
+	unit_hand_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	hand.add_child(unit_hand_scroll)
+	var unit_row=HBoxContainer.new()
+	unit_row.alignment=BoxContainer.ALIGNMENT_CENTER
+	unit_row.add_theme_constant_override("separation",16)
+	unit_hand_scroll.add_child(unit_row)
+	if session.world.roster.is_empty():
+		label_at(hand,"보유한 마물이 없습니다",Vector2(540,605),Vector2(490,29),16)
+	for item in session.world.roster:
+		var box=Control.new()
+		box.custom_minimum_size=Vector2(106,181)
+		unit_row.add_child(box)
+		var id=str(item.id)
+		var option=card(box,"unit",item,Vector2(4,0),Vector2(97,140),func(): select_unit(id))
 		option.get_child(0).add_theme_font_size_override("font_size",12)
-		if tab=="unit": unit_options[id] = option
-		else: brand_options[id] = option
+		unit_options[id]=option
+	var fan_label=label_at(hand,"낙인 카드",Vector2(76,478),Vector2(240,26),14)
+	fan_label.add_theme_color_override("font_color",Color("e3c58d"))
+	brand_fan_scroll=ScrollContainer.new()
+	brand_fan_scroll.position=Vector2(37,508)
+	brand_fan_scroll.size=Vector2(310,193)
+	brand_fan_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	hand.add_child(brand_fan_scroll)
+	brand_fan=Control.new()
+	brand_fan.custom_minimum_size=Vector2(maxi(310,125+session.world.brand_cards.size()*59),188)
+	brand_fan_scroll.add_child(brand_fan)
+	if session.world.brand_cards.is_empty():
+		label_at(hand,"보유 낙인 없음",Vector2(70,604),Vector2(247,33),15)
+	for i in range(session.world.brand_cards.size()):
+		var item: Dictionary=session.world.brand_cards[i]
+		var id: String=str(item.id)
+		var option=card(brand_fan,"brand",item,Vector2(9+i*59,22),Vector2(107,151),func(): select_brand_card(id))
+		option.rotation_degrees=clampf((i%5-2)*5.5,-14,14)
+		option.set_meta("fan_y",option.position.y)
+		option.set_meta("fan_rotation",option.rotation_degrees)
+		for child in option.get_children():
+			if child is Label: child.visible=false
+		brand_options[id]=option
 	render_selection()
+	# Rise-in motion matching the source card hand's entrance.
+	hand.position.y=48
+	hand.modulate.a=0.0
+	var rise=create_tween().set_parallel(true)
+	rise.tween_property(hand,"position:y",0.0,0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	rise.tween_property(hand,"modulate:a",1.0,0.24)
 
 func select_unit(id: String) -> void:
 	if completed or busy: return

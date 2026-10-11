@@ -66,7 +66,7 @@ func original_contract() -> void:
 	check(src.contains("CultistAltarEntry.choose(session,index,shown_beat,decision)"),"choice button explicitly saves intent")
 	check(src.contains('location_button(panel,"선택 변경"'),"pending choice may be changed")
 	check(src.contains("CultistAltarEntry.reconsider(session,index)"),"change button restores choice without reset")
-	check(src.contains("InkSceneReveal.play(ritual_art)"),"ritual illustration remains in scene")
+	check(src.contains("if beat_index==0: InkSceneReveal.play(artwork)") and src.contains('CultistStoryLayerMotion.play(ritual_art,true,beat.id=="ritual_reveal"'),"ritual illustration remains in scene")
 	check(src.contains("str(beat.effect)"),"original text rendered")
 	check(src.contains('session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active"'),"reconnect reopens saved pending choice")
 	check(not src.contains("start_cultist_altar_battle("),"no combat launch handler")

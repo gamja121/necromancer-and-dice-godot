@@ -1,0 +1,78 @@
+name: Original Patrol and Inheritance UI Port
+on:
+  push:
+    branches: [feature/ui-parity-route-inheritance-stage3-20261011]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  ui-stage3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and SHA-verify both original patrol frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/map/ui
+          SOURCE=https://raw.githubusercontent.com/gamja121/necromancer-dice-board/e13d5149fcecc802e5d626f3bef6e5daecd3d66c/art/v2-style/ui
+          if [ ! -f assets/map/ui/patrol-route-frame.webp ]; then
+            curl -fL --retry 3 --max-time 70 "$SOURCE/patrol-route-frame.webp" -o assets/map/ui/patrol-route-frame.webp
+          fi
+          if [ ! -f assets/map/ui/patrol-route-current-frame.webp ]; then
+            curl -fL --retry 3 --max-time 70 "$SOURCE/patrol-route-current-frame.webp" -o assets/map/ui/patrol-route-current-frame.webp
+          fi
+          test "$(git hash-object assets/map/ui/patrol-route-frame.webp)" = 943587c4bbf8ea3bd225eef9b119634ca2c62ce4
+          test "$(git hash-object assets/map/ui/patrol-route-current-frame.webp)" = 0bb95423378664765135b9a274db868165006b73
+      - name: Commit verified original art to feature branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = feature/ui-parity-route-inheritance-stage3-20261011
+          git add assets/map/ui/patrol-route-frame.webp assets/map/ui/patrol-route-current-frame.webp
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets(ui): preserve exact patrol board artwork [skip ci]"
+            git push origin HEAD:"${GITHUB_REF_NAME}"
+          fi
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify route layout and inheritance selection/save regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 110s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee stage3.log
+          grep -E 'UI_STAGE3_PARITY: [0-9]+ passed, 0 failed' stage3.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage3:' stage3.log; then exit 1; fi
+      - name: Existing village shop UI regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 95s godot --headless --path . --script res://scripts/test_shop_ui_parity.gd 2>&1 | tee shop.log
+          grep -E 'SHOP_UI_PARITY: [0-9]+ passed, 0 failed' shop.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL shop-ui-parity:' shop.log; then exit 1; fi
+      - name: Existing home and next lap regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 190s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee home.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' home.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home' home.log; then exit 1; fi
+      - name: Full single expedition regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 225s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee p4.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' p4.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' p4.log; then exit 1; fi

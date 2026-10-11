@@ -1,0 +1,52 @@
+name: Source Treasure Reward Selection UI Stage 5F
+on:
+  push:
+    branches:
+      - feature/ui-parity-treasure-reward-stage5f-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  treasure-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse scripts and visual shaders
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Treasure cards animation, selection, original dimming, save and reward claim
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_ui_treasure_reward_parity.gd 2>&1 | tee ui-reward.log
+          grep -E 'UI_TREASURE_REWARD_PARITY: [0-9]+ passed, 0 failed' ui-reward.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL ui-treasure:' ui-reward.log; then exit 1; fi
+      - name: Genuine treasure, interruption, one-time receipt, home and next-lap regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 250s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee p4-reward.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' p4-reward.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' p4-reward.log; then exit 1; fi
+      - name: Previous soul-capture UI still matches original
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_ui_corpse_capture_parity.gd 2>&1 | tee p5e.log
+          grep -E 'UI_CAPTURE_PARITY: [0-9]+ passed, 0 failed' p5e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-capture:' p5e.log; then exit 1; fi
+      - name: Live single-run intro, map, battle, capture, treasure, home and lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 285s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee p4-e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' p4-e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' p4-e2e.log; then exit 1; fi

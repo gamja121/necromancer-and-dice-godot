@@ -30,6 +30,18 @@ REVIEW_PENDING_BLOBS = {
     "assets/map/events/knight-commander-upperbody-hd.webp": "7710370f7462cf12da98f9721b054500d5b43c4e",
     "assets/map/events/necromancer-upperbody-hd.webp": "c707c93a5ca3feeca9a51c7baa1fd2252ea58970",
 }
+# Stage 5H repaired corrupt source PNGs into decodeable *runtime* copies.
+# The immutable 791-row historical ledger deliberately still records the old
+# single-sprite fallback; it is NOT rewritten as if those pixels were exact.
+# Hash-pin all four runtime variants, and require the original third blob to
+# remain available. Replacement cloud 4 is still visually incomplete.
+RUNTIME_CLOUD_BLOBS = {
+    "assets/map/ui/map_cloud_transition.png": "c367076294ec20ea0aa6c4e1a31d315cd0e9de44",
+    "assets/map/ui/map_cloud_transition_2.png": "23308e4ee4634acb28484b5e6de0d04a913f2f26",
+    "assets/map/ui/map_cloud_transition_3.png": "d10dcadffda9a4758314b54fc830011c1b9348d3",
+    "assets/map/ui/map_cloud_transition_4.png": "f6b504c7078c994ee529d4bdc3ed689c36de7890",
+}
+HISTORICAL_CLOUD_FALLBACK_SHA = "d10dcadffda9a4758314b54fc830011c1b9348d3"
 REVIEW_ORIGINS = {
     "art/v2-style/event-portraits/knight-commander-upperbody-hd.webp":
         "assets/map/events/knight-commander-upperbody-hd.webp",
@@ -119,6 +131,7 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
     missing = []
     baseline = collections.Counter()
     observed_review = set()
+    observed_cloud_repair = set()
     if len(assets) != 791:
         problems.append(f"asset baseline rows {len(assets)} != 791")
     for row in assets:
@@ -144,6 +157,16 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
                     review.append({"web_path": original, "godot_path": godot_path,
                                    "reference_sha": expected_sha, "current_sha": sha,
                                    "reason": "historical EXACT record differs; visual approval required"})
+                elif (godot_path == "assets/map/ui/map_cloud_transition.png"
+                      and expected == HISTORICAL_CLOUD_FALLBACK_SHA
+                      and sha == RUNTIME_CLOUD_BLOBS[godot_path]
+                      and tracked.get("assets/map/ui/map_cloud_transition_3.png", ("", 0))[0]
+                          == HISTORICAL_CLOUD_FALLBACK_SHA):
+                    # The old 1/2/3/4 mapping all pointed to a single copy
+                    # of sprite 3. Stage 5H supplied four distinct source
+                    # runtime sprites and repaired damaged PNG containers.
+                    # This exception is hash-pinned and NEVER artistic approval.
+                    observed_cloud_repair.add(godot_path)
                 else:
                     problems.append(f"unexplained mapped asset drift {godot_path}: "
                                     f"ledger {expected}, current {sha}")
@@ -183,6 +206,15 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
     if observed_review != set(REVIEW_PENDING_BLOBS):
         problems.append(f"missing or unexpected review-pending drift: "
                         f"{sorted(set(REVIEW_PENDING_BLOBS)-observed_review)}")
+    if observed_cloud_repair != {"assets/map/ui/map_cloud_transition.png"}:
+        problems.append("historical cloud fallback drift was not matched to the documented Stage 5H repair")
+    for cloud_path, expected_sha in RUNTIME_CLOUD_BLOBS.items():
+        actual_sha, actual_size = tracked.get(cloud_path, ("", 0))
+        if actual_sha != expected_sha or actual_size <= 0:
+            problems.append(f"unapproved runtime cloud image drift {cloud_path}: "
+                            f"expected {expected_sha}, found {actual_sha}")
+    if tracked.get("assets/map/ui/map_cloud_transition_3.png", ("", 0))[0] != HISTORICAL_CLOUD_FALLBACK_SHA:
+        problems.append("original preserved cloud 3 fallback is missing")
     if len(archive) != 22:
         problems.append(f"historic missing resolution count {len(archive)} != 22")
     if sum(x["classification"] == "NOW_EXACT" for x in archive) != 20:
@@ -209,6 +241,10 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
         "mapped_assets_missing": len(missing),
         "candidate_paths_missing": sum("missing Godot candidate" in x for x in problems),
         "review_pending": review,
+        "runtime_cloud_repairs_pending_visual_approval": [
+            {"path": name, "tracked_sha": sha, "source_exact": name.endswith("_3.png")}
+            for name, sha in RUNTIME_CLOUD_BLOBS.items()
+        ],
         "historical_reconciliations": archive,
         "deletion_blockers": {name: work[name]["status"] for name in mandatory if name in work},
         "errors": problems,
@@ -248,6 +284,9 @@ def main() -> int:
     for item in result["review_pending"]:
         print(f"P5_03_REVIEW_PENDING: {item['godot_path']} "
               f"{item['reference_sha']} -> {item['current_sha']}")
+    for item in result["runtime_cloud_repairs_pending_visual_approval"]:
+        print(f"P5_03_CLOUD_SOURCE_REPAIR_NOT_APPROVED: {item['path']} "
+              f"{item['tracked_sha']} exact_original={item['source_exact']}")
     for error in result["errors"]:
         print("P5_03_AUDIT_FAIL:", error)
     if result["errors"]:

@@ -10,6 +10,12 @@ const BookBattleLock = preload("res://systems/book_battle_lock.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
+const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
+const GraveyardStoryEntryMotion = preload("res://systems/graveyard_story_entry_motion.gd")
+const CommanderPortraitMotion = preload("res://systems/knight_commander_portrait_motion.gd")
+const MonsterHunterLayerMotion = preload("res://systems/monster_hunter_layer_motion.gd")
+const CultistStoryLayerMotion = preload("res://systems/cultist_story_layer_motion.gd")
+const RitualPortalLayerMotion = preload("res://systems/ritual_portal_layer_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
@@ -26,6 +32,18 @@ const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
+# Frozen web v2-map-practice.js fitTileEventScene() and CSS event controls.
+# The 1280x720 board uses the 62%-wide 16:9 scene and a separate 18%-wide right button rail.
+const TILE_EVENT_SCENE_RECT = Rect2(243.2,136.8,793.6,446.4)
+const TILE_EVENT_ACTION_RECT = Rect2(1036.8,434.4,230.4,76.8) # right 1%, bottom 29%
+const TILE_EVENT_EXIT_RECT = Rect2(1036.8,592.8,230.4,76.8) # right 1%, bottom 7%
+const TILE_EVENT_INHERITANCE_RECT = Rect2(1036.8,391.2,230.4,76.8) # bottom 35%
+const TILE_EVENT_PATROL_RECT = Rect2(1036.8,492.0,230.4,76.8) # bottom 21%
+# Frozen CSS places the ghoul at 55%/18% of the event art frame,
+# sized to 30%/64% (not stretched across the whole scene).
+const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
+const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
+const GRAVEYARD_DIALOGUE_RECT = Rect2(102.4,489.6,1075.2,216.0)
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
@@ -53,7 +71,14 @@ var hero: TextureRect
 var dice: TextureButton
 var status: Label
 var hud: Label
-var overlay: Control
+# Route *all* overlay assignments through the map's audio visibility guard.
+# An explicit setter also handles direct scene creation (story/battle/treasure),
+# avoiding a one-frame popup overlapping the original location art.
+var overlay: Control:
+	set(value):
+		overlay = value
+		if is_instance_valid(map_audio): map_audio.set_modal_blocked(is_instance_valid(value))
+		_sync_map_chrome()
 var selected = -1
 var moving = false
 var textures: Dictionary = {}
@@ -64,6 +89,16 @@ var battle_returning = false
 var returning_story_event_id: String = ""
 var deck_button: TextureButton
 var dice_count_label: Label
+# Frozen web map hides board controls (not tiles/hero) behind an open event.
+# Track only chrome created by render(), so rebuilt boards cannot retain old nodes.
+var map_chrome: Array[Control] = []
+
+func _sync_map_chrome() -> void:
+	var show_board_controls: bool = not is_instance_valid(overlay)
+	for control in map_chrome:
+		if is_instance_valid(control): control.visible = show_board_controls
+	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
+		presentation.gauge.visible = show_board_controls
 
 func _ready() -> void:
 	DisplayServer.window_set_title("Necromancer and Dice")
@@ -152,7 +187,7 @@ func center(index: int) -> Vector2:
 
 func tile_path(index: int) -> String:
 	var id: String = world.tiles[index]
-	if id=="rare-monster" and index in world.cleared: id = "monster"
+	# The frozen web map retains a separate rare-monster-cleared tile silhouette.
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
 	return "res://assets/map/tiles/"+id+".png"
 
@@ -161,6 +196,7 @@ func render() -> void:
 		remove_child(stage)
 		stage.queue_free()
 	buttons = []
+	map_chrome.clear()
 	stage = Control.new()
 	stage.size = Vector2(1280,720)
 	add_child(stage)
@@ -203,7 +239,8 @@ func render() -> void:
 	hud = label_at(stage,"%s · %d바퀴" % [{"default":"기본 지역","winter":"겨울 지역","hell":"지옥 지역"}[world.region],world.laps],Vector2(420,16),Vector2(440,30),14)
 	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.z_index = 25
-	button(stage,"새 원정",Vector2(12,12),Vector2(94,30),confirm_new_run).z_index = 25
+	var restart_button = button(stage,"새 원정",Vector2(12,12),Vector2(94,30),confirm_new_run)
+	restart_button.z_index = 25
 	var book = TextureButton.new()
 	book.ignore_texture_size = true
 	book.texture_normal = texture("res://assets/map/ui/map-book-closed.png")
@@ -218,7 +255,8 @@ func render() -> void:
 	add_button_effect(book)
 	book_lock = BookBattleLock.new()
 	book.add_child(book_lock)
-	label_at(stage,"보유 마물 %d" % world.roster.size(),Vector2(20,684),Vector2(130,26),12).z_index = 51
+	var roster_count = label_at(stage,"보유 마물 %d" % world.roster.size(),Vector2(20,684),Vector2(130,26),12)
+	roster_count.z_index = 51
 	deck_button = TextureButton.new()
 	deck_button.ignore_texture_size = true
 	deck_button.texture_normal = texture("res://assets/map/ui/map-card-deck.png")
@@ -232,8 +270,10 @@ func render() -> void:
 	add_button_effect(deck_button)
 	dice_count_label = label_at(stage,"주사위 카드 %d/5" % world.dice_cards.size(),Vector2(1120,684),Vector2(150,26),12)
 	dice_count_label.z_index = 51
+	map_chrome.append_array([dice,status,hud,restart_button,book,roster_count,deck_button,dice_count_label])
 	map_audio = AudioSettings.new()
 	map_audio.setup(stage)
+	map_audio.set_modal_blocked(is_instance_valid(overlay))
 	var options: Button = map_audio.get_child(0)
 	options.text = ""
 	options.position = Vector2(1053,133)
@@ -243,6 +283,7 @@ func render() -> void:
 	image(options,"res://assets/map/ui/map_audio_options.webp",Vector2.ZERO,options.size)
 	add_button_effect(options)
 	dice.disabled = moving
+	_sync_map_chrome()
 	highlight(world.position)
 
 func hero_position(index: int) -> Vector2:
@@ -316,13 +357,13 @@ func select_tile(index: int) -> void:
 	status.text = "%d번 · %s%s" % [index+1,MapState.NAMES[world.tiles[index]]," · 처치 완료" if index in world.cleared else ""]
 	show_tile(index)
 
-func modal() -> Control:
+func modal(dim_board: bool = true) -> Control:
 	var node = Control.new()
 	node.size = Vector2(1280,720)
 	node.z_index = 80
 	stage.add_child(node)
 	var backdrop = ColorRect.new()
-	backdrop.color = Color("030201c4")
+	backdrop.color = Color("030201c4") if dim_board else Color.TRANSPARENT
 	backdrop.size = node.size
 	backdrop.set_meta("ui_backdrop",true)
 	node.add_child(backdrop)
@@ -651,16 +692,16 @@ func show_dice_hand() -> void:
 		roll_move(id))
 
 func show_home(interior: bool = false) -> void:
-	var panel = modal()
-	var home_art = image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",Vector2(256,120),Vector2(768,432))
+	var panel = modal(false)
+	var home_art = image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
 	# The home exterior opens with ink; entering the house shows interior art instantly.
 	if not interior:
 		InkSceneReveal.play(home_art)
 	var title = label_at(panel,"우리집 · 실내" if interior else "우리집",Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	location_button(panel,"나가기",Vector2(865,492),Vector2(150,50),exit_home,4)
+	location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
 	if not interior:
-		location_button(panel,"들어가기",Vector2(865,397),Vector2(150,50),func():
+		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			var injured = world.roster.any(func(u): return u.current_hp<u.max_hp)
 			if not session.enter_home():
 				status.text = session.notice
@@ -671,9 +712,9 @@ func show_home(interior: bool = false) -> void:
 			if injured: await presentation.full_heal())
 	else:
 		var allowed: Dictionary = session.home_action_allowed()
-		var action = location_button(panel,"낙인 계승",Vector2(865,343),Vector2(150,50),show_home_inheritance,3)
+		var action = location_button(panel,"낙인 계승",TILE_EVENT_INHERITANCE_RECT.position,TILE_EVENT_INHERITANCE_RECT.size,show_home_inheritance,3)
 		action.disabled = not allowed.ok
-		var patrol = location_button(panel,"순찰경로",Vector2(865,397),Vector2(150,50),func():
+		var patrol = location_button(panel,"순찰경로",TILE_EVENT_PATROL_RECT.position,TILE_EVENT_PATROL_RECT.size,func():
 			close_overlay()
 			show_exploration_actions(MapState.HOME))
 		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
@@ -844,8 +885,13 @@ func show_knight_commander_beat(index: int) -> void:
 	var panel=modal()
 	var artwork=image(panel,KnightCommanderEntry.ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
-	# Commander speaks in six beats; the silent player reply swaps portraits.
-	image(panel,str(beat.portrait),Vector2(692,179),Vector2(265,338))
+	# The frozen web uses distinct right/mirrored commander and left player
+	# portrait footprints, with entrance animation only at beats 0, 2 and 3.
+	var player_reply: bool = str(beat.id)=="player_reply"
+	var portrait_bounds: Rect2 = CommanderPortraitMotion.source_rect(TILE_EVENT_SCENE_RECT,player_reply)
+	var portrait = image(panel,str(beat.portrait),portrait_bounds.position,portrait_bounds.size)
+	portrait.name = "PlayerStoryPortrait" if player_reply else "CommanderStoryPortrait"
+	CommanderPortraitMotion.play(portrait,player_reply,beat.id in ["arrival","recognition","player_reply"])
 	var heading=label_at(panel,"사건 · 기사단장",Vector2(348,84),Vector2(584,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narrative=label_at(panel,str(beat.effect),Vector2(285,530),Vector2(710,63),17)
@@ -888,9 +934,22 @@ func show_monster_hunter_beat(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,MonsterHunterEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
-	var visual_art: String=MonsterHunterBeats.visual_art(str(beat.visual))
+	var visual: String=str(beat.visual)
+	var visual_art: String=MonsterHunterBeats.visual_art(visual)
 	if not visual_art.is_empty():
-		image(panel,visual_art,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		var is_player: bool=visual=="player"
+		var is_hunter_portrait: bool=visual=="portrait"
+		var art_rect: Rect2=CommanderPortraitMotion.source_rect(TILE_EVENT_SCENE_RECT,true) if is_player else MonsterHunterLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,is_hunter_portrait)
+		var story_layer=image(panel,visual_art,art_rect.position,art_rect.size)
+		story_layer.name="HunterPlayerPortrait" if is_player else ("HunterPortrait" if is_hunter_portrait else "HunterSceneLayer")
+		if is_player:
+			# Existing Stage V source player-enter: 0.48s from -7%/+2%.
+			CommanderPortraitMotion.play(story_layer,true,beat.id=="player_reply")
+		else:
+			# Original web: only warning_reveal/unnatural/clue scenes and
+			# identify/sent_by_commander portraits animate on reappearance.
+			var animated: bool=beat.id in (["identify","sent_by_commander"] if is_hunter_portrait else ["warning_reveal","unnatural","clue"])
+			MonsterHunterLayerMotion.play(story_layer,is_hunter_portrait,animated)
 	var heading=label_at(panel,"사건 · 세계수",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
@@ -936,7 +995,10 @@ func show_cultist_rumor_beat(index: int) -> void:
 	if beat_index==0: InkSceneReveal.play(art)
 	var layer: String=CultistRumorBeats.layer_for(str(beat.visual))
 	if not layer.is_empty():
-		image(panel,layer,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		var bounds: Rect2=CultistStoryLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,false)
+		var procession=image(panel,layer,bounds.position,bounds.size)
+		procession.name="CultistProcessionLayer"
+		CultistStoryLayerMotion.play(procession,false,beat.id=="procession")
 	var heading=label_at(panel,"사건 · 같은 문양",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
@@ -987,10 +1049,16 @@ func show_monster_king_hunt_beat(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
-	var layer_path: String=MonsterKingHuntBeats.visual_art(str(beat.visual))
+	# Frozen web reuses the already ported hunter scene and hunter portrait
+	# layer CSS, but only trace and revival play their source animations.
+	var visual: String=str(beat.visual)
+	var layer_path: String=MonsterKingHuntBeats.visual_art(visual)
 	if not layer_path.is_empty():
-		var scene_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		InkSceneReveal.play(scene_art)
+		var is_portrait: bool=visual=="portrait"
+		var bounds: Rect2=MonsterHunterLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,is_portrait)
+		var hunt_layer=image(panel,layer_path,bounds.position,bounds.size)
+		hunt_layer.name="KingHuntPortrait" if is_portrait else "KingHuntSceneLayer"
+		MonsterHunterLayerMotion.play(hunt_layer,is_portrait,beat.id==("revival" if is_portrait else "trace"))
 	var heading=label_at(panel,"사건 · 왕의 흔적",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,61),18)
@@ -1044,10 +1112,15 @@ func show_ritual_portal_beat(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
-	var layer_path: String=RitualPortalBeats.layer_for(str(beat.visual))
+	var visual: String=str(beat.visual)
+	var layer_path: String=RitualPortalBeats.layer_for(visual)
 	if not layer_path.is_empty():
-		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		InkSceneReveal.play(ritual_art)
+		var bounds: Rect2=RitualPortalLayerMotion.source_rect(TILE_EVENT_SCENE_RECT)
+		var ritual_art=image(panel,layer_path,bounds.position,bounds.size)
+		ritual_art.name="PortalEnergyLayer" if visual=="energy" else ("PortalCultistsLayer" if visual=="cultists" else "PortalOmenLayer")
+		# Frozen web JS animates portal_reveal and omen; its crossing ID
+		# is absent from the canonical five beats, so cultists stay still.
+		RitualPortalLayerMotion.play(ritual_art,beat.id in ["portal_reveal","omen"])
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narration: String=RitualPortalBeats.INTERVENTION_EFFECT if intervening and scene_state.battle_result=="" else str(beat.effect)
@@ -1101,7 +1174,10 @@ func show_ritual_portal_aftermath(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
-	image(panel,RitualPortalBeats.OMEN_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var bounds: Rect2=RitualPortalLayerMotion.source_rect(TILE_EVENT_SCENE_RECT)
+	var omen=image(panel,RitualPortalBeats.OMEN_ART,bounds.position,bounds.size)
+	omen.name="PortalOmenLayer"
+	RitualPortalLayerMotion.play(omen,false)
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,65),17)
@@ -1147,8 +1223,10 @@ func show_cultist_altar_beat(index: int) -> void:
 	if beat_index==0: InkSceneReveal.play(artwork)
 	var layer_path: String=CultistAltarBeats.SUMMON if fighting else CultistAltarBeats.layer_for(str(beat.visual))
 	if not layer_path.is_empty():
-		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		InkSceneReveal.play(ritual_art)
+		var bounds: Rect2=CultistStoryLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,true)
+		var ritual_art=image(panel,layer_path,bounds.position,bounds.size)
+		ritual_art.name="CultistSummonLayer" if fighting else "CultistRitualLayer"
+		CultistStoryLayerMotion.play(ritual_art,true,beat.id=="ritual_reveal" or (fighting and altar_state.battle_result==""))
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narration: String=CultistAltarBeats.SUMMON_EFFECT if fighting else str(beat.effect)
@@ -1194,7 +1272,10 @@ func show_cultist_altar_followup(index: int) -> void:
 	var art=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
 	var overlay_path: String=CultistAltarBeats.RITUAL if story.choice=="pass" else CultistAltarBeats.SUMMON
-	image(panel,overlay_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var bounds: Rect2=CultistStoryLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,true)
+	var overlay_layer=image(panel,overlay_path,bounds.position,bounds.size)
+	overlay_layer.name="CultistRitualLayer" if story.choice=="pass" else "CultistSummonLayer"
+	CultistStoryLayerMotion.play(overlay_layer,true,false)
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,narration,Vector2(285,548),Vector2(710,62),17)
@@ -1259,20 +1340,55 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if is_instance_valid(overlay): close_overlay()
 	var panel = modal()
 	var artwork = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	if beat_index == 0: InkSceneReveal.play(artwork)
+	artwork.name="StorySceneImage"
+	if beat_index == 0:
+		InkSceneReveal.play(artwork)
+		GraveyardStoryEntryMotion.play_board_drop(artwork)
 	if beat.ghoul:
-		image(panel,GraveyardStoryBeats.GHOUL_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		# The stationary direct-child frame receives the common modal entrance.
+		# Animate only its nested image to avoid competing position tweens.
+		var ghoul_frame = TextureRect.new()
+		ghoul_frame.name = "StoryCharacterLayer"
+		ghoul_frame.position = TILE_EVENT_SCENE_RECT.position + TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position
+		ghoul_frame.size = TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size
+		ghoul_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(ghoul_frame)
+		var ghoul_art = image(ghoul_frame,GraveyardStoryBeats.GHOUL_ART,Vector2.ZERO,ghoul_frame.size)
+		ghoul_art.name = "GhoulSprite"
+		GraveyardGhoulMotion.play(ghoul_art,beat_index == 1)
 	var heading = label_at(panel,"습격받는 아이",Vector2(352,84),Vector2(575,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
 	var chosen: bool = state.status == "active" and state.choice == "protect_child"
 	var description: String = "아이를 구하기 위해 구울 앞을 막아섰다. 출전할 마물을 선택해 구울과 싸우세요." if chosen else str(beat.effect)
-	var narration = label_at(panel,description,Vector2(275,552),Vector2(730,52),17)
+	var has_dialogue: bool=not str(beat.dialogue).is_empty() and not chosen
+	var narration = label_at(panel,description,Vector2(275,425) if has_dialogue else Vector2(275,552),Vector2(730,52),17)
+	narration.name="StoryInfoPanel"
 	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if not str(beat.dialogue).is_empty() and not chosen:
-		var dialogue = label_at(panel,"아이: %s" % beat.dialogue,Vector2(398,602),Vector2(485,28),17)
-		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if has_dialogue:
+		# Source v2-map-practice.css: dialogue left/right 8%, bottom 2%,
+		# height 30%, with a full-stretch original WebP and overlaid text.
+		# This is visual-only; existing Continue/choice buttons remain the
+		# sole story state transitions, never the decorative frame.
+		var frame=image(panel,GRAVEYARD_DIALOGUE_FRAME,GRAVEYARD_DIALOGUE_RECT.position,GRAVEYARD_DIALOGUE_RECT.size)
+		frame.name="StoryDialogueFrame"
+		frame.stretch_mode=TextureRect.STRETCH_SCALE
+		var speaker=label_at(panel,"아이",Vector2(210,526),Vector2(280,31),20)
+		speaker.name="StoryDialogueName"
+		speaker.add_theme_color_override("font_color",Color("3a2819"))
+		speaker.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		var dialogue=label_at(panel,str(beat.dialogue),Vector2(210,580),Vector2(830,45),24)
+		dialogue.name="StoryDialogueText"
+		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		dialogue.add_theme_color_override("font_color",Color("21150d"))
+		dialogue.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		if not beat.choice:
+			var advance_hint=label_at(panel,"▼",Vector2(1052,653),Vector2(38,30),19)
+			advance_hint.name="StoryDialogueNext"
+			GraveyardStoryEntryMotion.play_next_hint(advance_hint)
+			advance_hint.add_theme_color_override("font_color",Color("5e4329"))
+			advance_hint.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	# The original location actions remain available on graveyard tiles.
 	if world.tiles[index] == "graveyard":
 		location_button(panel,"공동묘지 기능",Vector2(870,495),Vector2(167,48),func(): dismiss_overlay(func(): show_location(index)),4)
@@ -1375,14 +1491,14 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
-	var panel = modal()
-	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var panel = modal(false)
+	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
 	InkSceneReveal.play(scene_art)
-	var exit = location_button(panel,"나가기",Vector2(886,504),Vector2(143,48),func(): dismiss_overlay(render),4)
+	var exit = location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func(): dismiss_overlay(render),4)
 	if type=="rest":
 		var allowed = session.rest_allowed(index)
-		var heal = location_button(panel,"전체 회복",Vector2(886,406),Vector2(143,48),func():
+		var heal = location_button(panel,"전체 회복",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			var result = session.heal_at_rest(index)
 			status.text = result.reason
 			if not result.ok: return
@@ -1395,13 +1511,13 @@ func show_location(index: int) -> void:
 	elif type in ["village","altar","fortune-teller-camp"]:
 		var names = {"village":"마물 상점","altar":"의식","fortune-teller-camp":"예언"}
 		var variant = {"village":1,"altar":2,"fortune-teller-camp":4}[type]
-		var action = location_button(panel,names[type],Vector2(886,406),Vector2(143,48),func(): close_overlay(); show_place_actions(index),variant)
+		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func(): close_overlay(); show_place_actions(index),variant)
 		var key = "ritual" if type=="altar" else "prophecy"
 		if type!="village": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
 	elif type in ["unknown","graveyard","forest"]:
 		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"정찰 정보" if world.scout.scouted else "정찰"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]
-		var action = location_button(panel,names[type],Vector2(876,406),Vector2(153,48),func(): close_overlay(); show_exploration_actions(index),variant)
+		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func(): close_overlay(); show_exploration_actions(index),variant)
 		if type=="unknown": action.disabled = session.place_visit_id("purify",index) in world.reward_receipts
 		if type=="graveyard": action.disabled = world.graveyard_corpses.is_empty() or session.place_visit_id("grave-extract",index) in world.reward_receipts
 

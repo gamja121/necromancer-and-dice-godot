@@ -44,6 +44,18 @@ var editing: Control
 var detail: Control
 var selected_card = ""
 var card_tweens: Dictionary = {}
+var card_death_shader: Shader
+# The original HTML dock uses 16dvh cards capped at 72..118px.
+const DOCK_CARD_ASPECT = 370.0 / 540.0
+const DOCK_DEATH_SHADER_SOURCE = """
+shader_type canvas_item;
+uniform float death_factor : hint_range(0.0, 1.0) = 0.0;
+void fragment() {
+    vec4 original = COLOR;
+    float grey = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+    COLOR = vec4(mix(original.rgb, vec3(grey), death_factor), original.a * mix(1.0, 0.6, death_factor));
+}
+"""
 var busy = false
 var paused = false
 var speed_index = 0
@@ -238,8 +250,8 @@ void fragment() {
 	world_layer.add_child(visuals)
 	visuals.setup(self,world_layer)
 	var header = Panel.new()
-	header.position = Vector2(420,14)
-	header.size = Vector2(452,36)
+	header.position = Vector2(312,14)
+	header.size = Vector2(461,36)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var header_style = StyleBoxFlat.new()
 	header_style.bg_color = Color("17100ff0")
@@ -249,11 +261,11 @@ void fragment() {
 	layer.add_child(header)
 	map_return = button(layer,"전투 닫기" if embedded else "맵으로",Vector2(24,18),Vector2(110,32),return_to_map)
 	map_return.disabled = map_mode
-	round_label = text(layer,"%d VS %d" % [allies.size(),enemies.size()],Vector2(422,14),Vector2(110,36),18)
+	round_label = text(layer,"%d VS %d" % [allies.size(),enemies.size()],Vector2(316,14),Vector2(122,36),18)
 	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if rules.round_number>0: round_label.text = "%d턴 · 주사위 %d" % [rules.round_number,rules.face]
-	message = text(layer,"주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1),Vector2(536,14),Vector2(334,36),12)
+	message = text(layer,"주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1),Vector2(439,14),Vector2(331,36),12)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	message.clip_text = true
@@ -266,7 +278,24 @@ void fragment() {
 	formation_button.visible = not map_mode
 	dice_cards_button = button(layer,"주사위 카드",Vector2(1138,18),Vector2(116,32),show_dice_hand)
 	dice_cards_button.visible = map_mode
-	brand_reference_button = button(layer,"낙인 확인표",Vector2(148,18),Vector2(118,32),show_brand_reference)
+	if map_mode:
+		# The original deck is an image button at bottom right, not toolbar text.
+		dice_cards_button.name="BattleDiceDeckButton"
+		dice_cards_button.text=""
+		dice_cards_button.position=Vector2(1094,surface_size.y-134)
+		dice_cards_button.size=Vector2(165,95)
+		set_deck_button_style(false)
+		var count=Label.new()
+		count.name="DeckCount"
+		count.position=Vector2(56,-5)
+		count.size=Vector2(56,21)
+		count.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		count.add_theme_font_size_override("font_size",12)
+		count.add_theme_color_override("font_color",Color("f1d9aa"))
+		count.text="%d/5" % session.world.dice_cards.size()
+		count.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		dice_cards_button.add_child(count)
+	brand_reference_button = button(layer,"✦☠ 낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
 	for team in ["ally","enemy"]:
 		var title = text(layer,"아군 활성 군단" if team == "ally" else "적군 활성 군단",Vector2(25.6 if team == "ally" else 1054.4,53),Vector2(200,26),16)
 		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -285,7 +314,7 @@ void fragment() {
 	dice.position = (surface_size-dice.size)/2.0
 	dice.ignore_texture_size = true
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % rules.face)
+	dice.texture_normal = texture("res://assets/battle/dice/roll-01.png" if rules.round_number==0 else "res://assets/battle/dice/result-%02d.png" % rules.face)
 	dice.pressed.connect(on_dice_pressed)
 	dice.tooltip_text = "클릭하여 다음 라운드 진행"
 	layer.add_child(dice)
@@ -307,10 +336,19 @@ func battle_background_path() -> String:
 func unit_floor_y() -> float:
 	return 390.0 if embedded else 570.0
 
+func dock_card_height() -> float:
+	return clampf(surface_size.y*0.16,72.0,118.0)
+
+func dock_card_size() -> Vector2:
+	var h: float=dock_card_height()
+	return Vector2(h*DOCK_CARD_ASPECT,h)
+
 func card_rest_y() -> float:
-	return surface_size.y-107.2
+	# Source CSS: bottom 8px + translateY(16px) in ready phase.
+	return surface_size.y+8.0-dock_card_height()
 
 func card_action_y() -> float:
+	# Source CSS: bottom 8px + translateY(card height - 12px).
 	return surface_size.y-20.0
 
 func unit_x(u: Dictionary) -> float:
@@ -347,11 +385,18 @@ func render_units(values: Array) -> void:
 			card.texture_normal = texture("res://assets/cards/unit-card-%s.png" % u.slug)
 			card.ignore_texture_size = true
 			card.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			card.size = Vector2(78.93,115.2)
+			card.size = dock_card_size()
 			card.pivot_offset = card.size*Vector2(0.5,0.85)
+			if card_death_shader==null:
+				card_death_shader=Shader.new()
+				card_death_shader.code=DOCK_DEATH_SHADER_SOURCE
+			var appearance=ShaderMaterial.new()
+			appearance.shader=card_death_shader
+			appearance.set_shader_parameter("death_factor",0.0)
+			card.material=appearance
 			var angles = [-3,2,-1,3,-2]
 			card.rotation_degrees = angles[(u.slot+(2 if u.team == "enemy" else 0))%5]
-			card.position = Vector2(unit_x(u)-39.465,card_action_y() if busy else card_rest_y())
+			card.position = Vector2(unit_x(u)-card.size.x*0.5,card_action_y() if busy else card_rest_y())
 			card.disabled = busy
 			card.tooltip_text = "%s · %d/%d" % [u.name,u.hp,u.max_hp]
 			var id: String = u.id
@@ -378,7 +423,13 @@ func render_units(values: Array) -> void:
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]
-		cards[u.id].modulate = Color.WHITE if u.alive else Color(0.6,0.6,0.6,0.6)
+		# Web dock dims only the corpse artwork to monochrome; the separate
+		# brand/altar decorations must retain their own texture colors.
+		cards[u.id].modulate = Color.WHITE
+		var card_appearance: ShaderMaterial=cards[u.id].material as ShaderMaterial
+		if card_appearance!=null:
+			card_appearance.set_shader_parameter("death_factor",0.0 if u.alive else 1.0)
+		cards[u.id].set_meta("dead",not u.alive)
 		cards[u.id].tooltip_text = "%s · %d/%d" % [u.name,u.hp,u.max_hp]
 		if u.alive and u.frozen: sprite.modulate = Color(0.5,0.85,1.0)
 		elif u.alive and not u.poison.is_empty(): sprite.modulate = Color(0.6,1.0,0.5)
@@ -508,6 +559,14 @@ func storage_failed(reason: String) -> void:
 func resume_battle() -> void:
 	await roll_round()
 
+func set_deck_button_style(open: bool) -> void:
+	if not is_instance_valid(dice_cards_button): return
+	var path="res://assets/map/ui/map-card-deck-open.png" if open else "res://assets/map/ui/map-card-deck.png"
+	var style=StyleBoxTexture.new()
+	style.texture=texture(path)
+	for state in ["normal","hover","pressed","focus","disabled"]:
+		dice_cards_button.add_theme_stylebox_override(state,style)
+
 func show_dice_hand() -> void:
 	close_brand_reference()
 	if not map_mode or busy or is_instance_valid(capture_panel) or not rules.winner().is_empty() or session.encounter.get("phase","ready")!="ready": return
@@ -515,7 +574,10 @@ func show_dice_hand() -> void:
 	close_detail()
 	dice_hand = DiceHand.new()
 	(detail_parent if embedded else layer).add_child(dice_hand)
-	dice_hand.setup(session.world.dice_cards,session.dice_context(true),true)
+	var context: Dictionary=session.dice_context(true).duplicate(true)
+	context["ui_surface_height"]=surface_size.y
+	dice_hand.setup(session.world.dice_cards,context,true)
+	set_deck_button_style(true)
 	dice_hand.closed.connect(close_dice_hand)
 	dice_hand.chosen.connect(func(id: String):
 		close_dice_hand()
@@ -526,6 +588,7 @@ func close_dice_hand() -> void:
 		dice_hand.get_parent().remove_child(dice_hand)
 		dice_hand.queue_free()
 	dice_hand = null
+	if map_mode: set_deck_button_style(false)
 
 func return_to_map() -> void:
 	if busy: return
@@ -574,6 +637,8 @@ func close_detail() -> void:
 	set_card_phase(busy)
 
 func set_card_phase(acting: bool) -> void:
+	# Original unit-card dock clears selection as the battle enters action.
+	if acting: selected_card = ""
 	for id in cards:
 		var card: TextureButton = cards[id]
 		card.disabled = acting or visuals.removed.has(id)
@@ -689,6 +754,10 @@ func can_open_brand_reference() -> bool:
 func _process(_delta: float) -> void:
 	if is_instance_valid(brand_reference_button):
 		brand_reference_button.disabled = not can_open_brand_reference()
+	if map_mode and is_instance_valid(dice_cards_button):
+		var count=dice_cards_button.get_node_or_null("DeckCount")
+		if count is Label and session!=null and session.world!=null:
+			count.text="%d/5" % session.world.dice_cards.size()
 
 func show_brand_reference() -> void:
 	if not can_open_brand_reference() or is_instance_valid(brand_reference): return

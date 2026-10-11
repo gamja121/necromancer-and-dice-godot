@@ -237,8 +237,15 @@ func restore(saved: Dictionary) -> bool:
 	previous_map_card = str(saved.get("previous_map_card",""))
 	pending_move = saved.get("pending_move",{}).duplicate(true)
 	active_encounter = saved.get("active_encounter",{}).duplicate(true)
+	# Godot JSON parses all numbers as floats. Source prophecy faces and
+	# accumulated effects are integer game counts; normalize on reload so
+	# subsequent saves, card effects and snapshot comparisons remain stable.
 	prophecy = prediction.duplicate(true)
+	for key in ["ally_hp","ally_attack","ally_speed","enemy_attack"]:
+		if prophecy.has(key): prophecy[key] = int(prophecy[key])
+	prophecy["rolls"] = prophecy.get("rolls",[]).map(func(face): return int(face))
 	last_prophecy = saved.get("last_prophecy",{}).duplicate(true)
+	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
 	patrol_plan = plan.duplicate(true)
 	scout = intel_state.duplicate(true)
@@ -252,6 +259,8 @@ func restore(saved: Dictionary) -> bool:
 	roster = saved.roster.duplicate(true)
 	for u in roster:
 		for key in ["max_hp","attack","speed","current_hp"]: u[key] = int(u[key])
+		# Altar level is a durable integer count; Godot JSON decodes it as float.
+		if u.has("altar_enhancements"): u.altar_enhancements = int(u.altar_enhancements)
 		for b in u.brands:
 			b.bless = b.bless.map(func(n): return int(n))
 			b.curse = b.curse.map(func(n): return int(n))

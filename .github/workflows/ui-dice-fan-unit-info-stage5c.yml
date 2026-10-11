@@ -1,0 +1,59 @@
+name: Original Battle Dice Fan and Unit Info Port 5C
+on:
+  push:
+    branches:
+      - feature/ui-parity-dice-fan-unit-info-stage5c-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  battle-dice-info:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 135s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Battle dice fan, disabled card, embedded screen and unit info
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_dice_fan_unit_info_parity.gd 2>&1 | tee dice-ui.log
+          grep -E 'UI_DICE_FAN_UNIT_INFO_PARITY: [0-9]+ passed, 0 failed' dice-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-dice-fan:' dice-ui.log; then exit 1; fi
+      - name: Previous source-compatible battle HUD
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 90s godot --headless --path . --script res://scripts/test_ui_battle_hud_parity.gd 2>&1 | tee hud.log
+          grep -E 'UI_BATTLE_HUD_PARITY: [0-9]+ passed, 0 failed' hud.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-battle-hud:' hud.log; then exit 1; fi
+      - name: Previous reference dice image and curse-first rule
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 95s godot --headless --path . --script res://scripts/test_ui_battle_brand_parity.gd 2>&1 | tee brand.log
+          grep -E 'UI_BATTLE_BRAND_PARITY: [0-9]+ passed, 0 failed' brand.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-brand-reference:' brand.log; then exit 1; fi
+      - name: Combat rule parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 95s godot --headless --path . --script res://scripts/test_battle_source_parity.gd 2>&1 | tee combat.log
+          grep -E 'BATTLE_SOURCE_PARITY_REGRESSION: [0-9]+ passed, 0 failed' combat.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL battle-parity:' combat.log; then exit 1; fi
+      - name: Full actual battlefield to map victory and defeat
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 260s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee p4.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' p4.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat:' p4.log; then exit 1; fi
