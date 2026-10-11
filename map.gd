@@ -1448,7 +1448,7 @@ func exit_home() -> void:
 	else:
 		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
 		if world.tiles[MapState.BOSS_TILE_INDEX]=="boss" and (contamination_before_exit < MapState.BOSS_CONTAMINATION or world.boss_peak in [40,60]):
-			status.text += " · %s 출현" % str(world.definitions[world.current_boss_id()].name)
+			status.text += " · 보스 타일 출현 · %s" % str(world.definitions[world.current_boss_id()].name)
 			play_boss_tile_reveal()
 
 func play_boss_tile_reveal() -> void:
