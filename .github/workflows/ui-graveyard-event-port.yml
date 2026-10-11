@@ -1,0 +1,75 @@
+name: Original Graveyard Event and Extraction UI Port
+on:
+  push:
+    branches: [feature/ui-parity-event-graveyard-stage4-20261011]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  ui-stage4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Import original graveyard dialogue frame with pinned Git blob SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/map/ui
+          FILE=assets/map/ui/intro-dialogue-box.webp
+          SOURCE=https://raw.githubusercontent.com/gamja121/necromancer-dice-board/e13d5149fcecc802e5d626f3bef6e5daecd3d66c/art/v2-style/ui/intro-dialogue-box.webp
+          if [ ! -f "$FILE" ]; then
+            curl -fL --retry 3 --max-time 75 "$SOURCE" -o "$FILE"
+          fi
+          test "$(git hash-object "$FILE")" = 3bab039aa347faa7546e213de941213dd8cade8d
+      - name: Save verified executable art to this branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = feature/ui-parity-event-graveyard-stage4-20261011
+          git add assets/map/ui/intro-dialogue-box.webp
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets(ui): add pinned original graveyard dialogue frame [skip ci]"
+            git push origin HEAD:"${GITHUB_REF_NAME}"
+          fi
+      - name: Install Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Check graveyard scene, dialogue, choice and corpse extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_graveyard_event_parity.gd 2>&1 | tee stage4.log
+          grep -E 'UI_STAGE4_PARITY: [0-9]+ passed, 0 failed' stage4.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage4:' stage4.log; then exit 1; fi
+      - name: Preserve preceding route and inheritance UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 115s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee stage3.log
+          grep -E 'UI_STAGE3_PARITY: [0-9]+ passed, 0 failed' stage3.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage3:' stage3.log; then exit 1; fi
+      - name: P4 authentic graveyard branch, battle and permanent death
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 275s godot --headless --path . --script res://scripts/test_p4_graveyard_branch_integration.gd 2>&1 | tee p4-graveyard.log
+          grep -E 'P4_GRAVEYARD_BRANCH_INTEGRATION: [0-9]+ passed, 0 failed' p4-graveyard.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-graveyard:' p4-graveyard.log; then exit 1; fi
+      - name: P4 saved treasure, home recovery and next lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee home.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' home.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' home.log; then exit 1; fi
