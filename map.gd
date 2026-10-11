@@ -100,7 +100,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
-	elif world.tiles[world.position] in ["village","unknown","event"] or world.tiles[world.position]=="altar": call_deferred("resume_village_rumor_if_unfinished")
+	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -735,6 +735,14 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 func resume_village_rumor_if_unfinished() -> void:
 	if is_instance_valid(overlay): return
 	var index: int=world.position
+	# Restore an already-discovered child at the exact persisted scene, or
+	# restore its selected rescue deck before a battle has started. Reload
+	# alone must never discover a previously unseen child.
+	if StoryEventEntry.can_enter(session,index):
+		var child: Dictionary=session.get_story_event(StoryEventEntry.EVENT_ID)
+		if child.status in ["seen","active"] and world.event_flags.get(StoryEventEntry.SEEN_FLAG,false)==true:
+			show_graveyard_child_intro(index)
+			return
 	var event_id: String=VillageRumorEntry.eligible_event_id(session,index)
 	if not event_id.is_empty() and session.get_story_event(event_id).status=="seen":
 		if VillageRumorEntry.current_beat(session,event_id)>=0:
@@ -778,67 +786,6 @@ func resume_village_rumor_if_unfinished() -> void:
 	if MonsterKingHuntEntry.can_resume_completion(session,index):
 		show_monster_king_hunt_beat(index)
 
-
-## Stage 4B: all remaining story beats share the HTML event-lab scene/copy
-## composition without altering scene choice progression or callbacks.
-## The childhood graveyard scene retains its dedicated presentation.
-func style_standard_story_panel(panel: Control) -> void:
-	var info=Panel.new()
-	info.name="StoryInfoPanel"
-	info.position=Vector2(816,86)
-	info.size=Vector2(384,532)
-	info.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var paper=StyleBoxFlat.new()
-	paper.bg_color=Color("c8a873")
-	paper.border_color=Color("765336")
-	paper.set_border_width_all(2)
-	paper.set_corner_radius_all(4)
-	info.add_theme_stylebox_override("panel",paper)
-	panel.add_child(info)
-	panel.move_child(info,1)
-	var buttons: Array[Button]=[]
-	for item in panel.get_children():
-		if item is TextureRect:
-			if item.position.distance_to(Vector2(243.2,136.8)) < 3.0:
-				item.position=Vector2(88,86)
-				item.size=Vector2(715,532)
-				item.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
-			elif item.position.distance_to(Vector2(692,179)) < 3.0:
-				# The commander portrait must stay inside the left illustrated area.
-				item.position=Vector2(486,173)
-				item.size=Vector2(278,335)
-		elif item is Label:
-			if item.position.y >= 78 and item.position.y < 136:
-				item.position=Vector2(839,154)
-				item.size=Vector2(330,57)
-				item.add_theme_color_override("font_color",Color("291b13"))
-				item.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-				item.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
-				item.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-			elif item.position.y >= 500 and item.position.y < 595:
-				item.position=Vector2(839,233)
-				item.size=Vector2(330,157)
-				item.add_theme_color_override("font_color",Color("312117"))
-				item.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-				item.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
-				item.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-			elif item.position.y >= 595 and item.position.y <= 649:
-				item.position=Vector2(839,382)
-				item.size=Vector2(330,56)
-				item.add_theme_color_override("font_color",Color("5a351c"))
-				item.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-				item.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
-				item.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-		elif item is Button and item.position.y >= 620:
-			buttons.append(item)
-	# Preserve every bound action and its visible order, only move its surface.
-	buttons.sort_custom(func(a: Button,b: Button): return a.position.x < b.position.x)
-	var count: int=buttons.size()
-	var beginning: float=605.0-float(count)*43.0-float(maxi(0,count-1))*6.0
-	for i in range(count):
-		buttons[i].position=Vector2(840,beginning+float(i)*49.0)
-		buttons[i].size=Vector2(328,43)
-
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
 
@@ -870,7 +817,6 @@ func show_village_rumor_beat(index: int, event_id: String) -> void:
 	else:
 		location_button(panel,"계속" if not final_scene else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_village_rumor(index,event_id,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
-	style_standard_story_panel(panel)
 
 func advance_village_rumor(index: int, event_id: String, shown_beat: int) -> void:
 	var finishing: bool=VillageRumorBeats.is_final(event_id,shown_beat)
@@ -915,7 +861,6 @@ func show_knight_commander_beat(index: int) -> void:
 	else:
 		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_knight_commander(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
-	style_standard_story_panel(panel)
 
 func advance_knight_commander(index: int, shown_beat: int) -> void:
 	var finishing: bool=KnightCommanderBeats.is_final(shown_beat)
@@ -962,7 +907,6 @@ func show_monster_hunter_beat(index: int) -> void:
 	else:
 		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_monster_hunter(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
-	style_standard_story_panel(panel)
 
 func advance_monster_hunter(index: int, shown_beat: int) -> void:
 	var finishing: bool=MonsterHunterBeats.is_final(shown_beat)
@@ -1009,7 +953,6 @@ func show_cultist_rumor_beat(index: int) -> void:
 	else:
 		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_cultist_rumor(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
-	style_standard_story_panel(panel)
 
 func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	var finishing: bool=CultistRumorBeats.is_final(shown_beat)
@@ -1065,7 +1008,6 @@ func show_monster_king_hunt_beat(index: int) -> void:
 	if world.tiles[index]=="unknown":
 		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
-	style_standard_story_panel(panel)
 
 func advance_monster_king_hunt(index: int, shown_beat: int) -> void:
 	var saved: bool=MonsterKingHuntEntry.finish(session,index) if shown_beat==3 else MonsterKingHuntEntry.advance(session,index,shown_beat)
@@ -1128,7 +1070,6 @@ func show_ritual_portal_beat(index: int) -> void:
 	if world.tiles[index]=="forest":
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
-	style_standard_story_panel(panel)
 
 func advance_ritual_portal(index: int, shown_beat: int) -> void:
 	if not RitualPortalEntry.advance(session,index,shown_beat):
@@ -1243,8 +1184,6 @@ func show_cultist_altar_beat(index: int) -> void:
 
 ## Original final narration is shown only after a pass was saved or a battle
 ## result was acknowledged. Closing/reloading never consumes the quest handoff.
-	style_standard_story_panel(panel)
-
 func show_cultist_altar_followup(index: int) -> void:
 	if not CultistAltarEntry.followup_ready(session,index): return
 	var story: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
@@ -1311,73 +1250,7 @@ func reconsider_cultist_altar(index: int) -> void:
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
-	show_graveyard_child_beat(index,3 if state.status == "active" and state.choice == "protect_child" else 0)
-
-# Source v2-event-lab: illustrated left scene, right parchment story and
-# choices, separate bottom speech frame over artwork. Presentation only.
-func graveyard_story_chrome(panel: Control, background: String, overlay_art: String, title: String, narrative: String, speaker: String = "", speech: String = "", animate_art: bool = false) -> void:
-	var scene_back=ColorRect.new()
-	scene_back.name="StorySceneBackdrop"
-	scene_back.position=Vector2(80,80)
-	scene_back.size=Vector2(731,545)
-	scene_back.color=Color("080706")
-	scene_back.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	panel.add_child(scene_back)
-	var painting=image(panel,background,Vector2(88,86),Vector2(715,532))
-	painting.name="StorySceneImage"
-	if animate_art: InkSceneReveal.play(painting)
-	if not overlay_art.is_empty():
-		var layer=image(panel,overlay_art,Vector2(88,86),Vector2(715,532))
-		layer.name="StoryCharacterLayer"
-		layer.modulate=Color(1,1,1,0)
-		panel.create_tween().tween_property(layer,"modulate:a",1.0,0.48)
-	var info=Panel.new()
-	info.name="StoryInfoPanel"
-	info.position=Vector2(816,86)
-	info.size=Vector2(384,532)
-	info.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var parchment=StyleBoxFlat.new()
-	parchment.bg_color=Color("c8a873")
-	parchment.border_color=Color("775438")
-	parchment.set_border_width_all(2)
-	parchment.set_corner_radius_all(5)
-	info.add_theme_stylebox_override("panel",parchment)
-	panel.add_child(info)
-	var location=label_at(panel,"공동묘지 · 사건",Vector2(839,123),Vector2(336,27),14)
-	location.add_theme_color_override("font_color",Color("745038"))
-	location.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	var heading=label_at(panel,title,Vector2(839,160),Vector2(329,53),29)
-	heading.add_theme_color_override("font_color",Color("291b13"))
-	heading.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	var description=label_at(panel,narrative,Vector2(839,235),Vector2(329,152),18)
-	description.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	description.add_theme_color_override("font_color",Color("312117"))
-	description.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	if not speech.is_empty():
-		# The frozen WebP frame is truncated (libwebp: NOT_ENOUGH_DATA).
-		# Reproduce its parchment panel with a native style; never load bad art.
-		var speech_frame=Panel.new()
-		speech_frame.name="StoryDialogueFrame"
-		speech_frame.position=Vector2(112,467)
-		speech_frame.size=Vector2(659,139)
-		speech_frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		var frame_style=StyleBoxFlat.new()
-		frame_style.bg_color=Color("d4b78a")
-		frame_style.border_color=Color("76553a")
-		frame_style.set_border_width_all(3)
-		frame_style.set_corner_radius_all(4)
-		frame_style.shadow_color=Color(0,0,0,0.52)
-		frame_style.shadow_size=7
-		speech_frame.add_theme_stylebox_override("panel",frame_style)
-		panel.add_child(speech_frame)
-		var who=label_at(panel,speaker,Vector2(176,491),Vector2(430,27),15)
-		who.add_theme_color_override("font_color",Color("352317"))
-		who.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-		var said=label_at(panel,speech,Vector2(176,526),Vector2(516,53),23)
-		said.name="StoryDialogueText"
-		said.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-		said.add_theme_color_override("font_color",Color("352317"))
-		said.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	show_graveyard_child_beat(index,3 if state.status == "active" and state.choice == "protect_child" else maxi(0,StoryEventEntry.current_beat(session)))
 
 func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if index != world.position or session.get_story_event(StoryEventEntry.EVENT_ID).status == "complete": return
@@ -1385,23 +1258,40 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel = modal()
+	var artwork = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	if beat_index == 0: InkSceneReveal.play(artwork)
+	if beat.ghoul:
+		image(panel,GraveyardStoryBeats.GHOUL_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var heading = label_at(panel,"습격받는 아이",Vector2(352,84),Vector2(575,42),24)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
 	var chosen: bool = state.status == "active" and state.choice == "protect_child"
 	var description: String = "아이를 구하기 위해 구울 앞을 막아섰다. 출전할 마물을 선택해 구울과 싸우세요." if chosen else str(beat.effect)
-	graveyard_story_chrome(panel,GraveyardStoryBeats.BASE_ART,GraveyardStoryBeats.GHOUL_ART if beat.ghoul else "","습격받는 아이",description,"아이",str(beat.dialogue) if not chosen else "",beat_index==0)
-	# All actions remain direct children so existing story and save tests work.
+	var narration = label_at(panel,description,Vector2(275,552),Vector2(730,52),17)
+	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if not str(beat.dialogue).is_empty() and not chosen:
+		var dialogue = label_at(panel,"아이: %s" % beat.dialogue,Vector2(398,602),Vector2(485,28),17)
+		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# The original location actions remain available on graveyard tiles.
 	if world.tiles[index] == "graveyard":
-		location_button(panel,"공동묘지 기능",Vector2(843,397),Vector2(326,42),func(): dismiss_overlay(func(): show_location(index)),4)
+		location_button(panel,"공동묘지 기능",Vector2(870,495),Vector2(167,48),func(): dismiss_overlay(func(): show_location(index)),4)
 	if chosen:
-		location_button(panel,"출전 마물 선택",Vector2(843,454),Vector2(326,49),func(): show_graveyard_story_deck(index),1)
-		location_button(panel,"돌아가기",Vector2(843,561),Vector2(326,42),func(): dismiss_overlay(render),4)
+		location_button(panel,"출전 마물 선택",Vector2(629,643),Vector2(223,48),func(): show_graveyard_story_deck(index),1)
+		location_button(panel,"돌아가기",Vector2(866,643),Vector2(171,48),func(): dismiss_overlay(render),4)
 	elif beat.choice:
-		location_button(panel,"아이를 구한다",Vector2(843,449),Vector2(326,48),func(): choose_graveyard_child(index,"protect_child"),1)
-		location_button(panel,"지나친다",Vector2(843,504),Vector2(326,48),func(): choose_graveyard_child(index,"leave"),2)
-		location_button(panel,"나가기",Vector2(843,561),Vector2(326,42),func(): dismiss_overlay(render),4)
+		location_button(panel,"아이를 구한다",Vector2(384,643),Vector2(197,48),func(): choose_graveyard_child(index,"protect_child"),1)
+		location_button(panel,"지나친다",Vector2(590,643),Vector2(175,48),func(): choose_graveyard_child(index,"leave"),2)
+		location_button(panel,"나가기",Vector2(867,643),Vector2(170,48),func(): dismiss_overlay(render),4)
 	else:
-		location_button(panel,"계속",Vector2(843,470),Vector2(326,48),func(): show_graveyard_child_beat(index,beat_index+1),1)
-		location_button(panel,"나가기",Vector2(843,561),Vector2(326,42),func(): dismiss_overlay(render),4)
+		location_button(panel,"계속",Vector2(688,643),Vector2(168,48),func(): advance_graveyard_child_beat(index,beat_index),1)
+		location_button(panel,"나가기",Vector2(867,643),Vector2(170,48),func(): dismiss_overlay(render),4)
+
+func advance_graveyard_child_beat(index: int, shown_beat: int) -> void:
+	if not StoryEventEntry.advance(session,index,shown_beat):
+		status.text="공동묘지 장면 저장 실패 · 다시 시도하세요."
+		return
+	show_graveyard_child_beat(index,shown_beat+1)
 
 func choose_graveyard_child(index: int, choice_id: String) -> void:
 	if not StoryEventEntry.choose(session,index,choice_id):
@@ -1441,12 +1331,6 @@ func show_story_battle_result(event_id: String) -> void:
 	if view.is_empty(): return
 	world = session.world
 	var panel = modal()
-	if event_id==StoryEventEntry.EVENT_ID:
-		graveyard_story_chrome(panel,str(view.background),str(view.overlay),str(view.title),str(view.narration),"",str(view.dialogue),true)
-		if view.retry and not world.roster.is_empty():
-			location_button(panel,"다시 도전",Vector2(843,470),Vector2(326,49),func(): acknowledge_story_battle_result_ui(event_id,true),1)
-		location_button(panel,"맵으로",Vector2(843,561),Vector2(326,42),func(): acknowledge_story_battle_result_ui(event_id,false),4)
-		return
 	var art = image(panel,str(view.background),Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
 	if not str(view.overlay).is_empty():
