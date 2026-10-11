@@ -8,6 +8,7 @@ const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
+const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const StoryBattleOutcomes = preload("res://systems/story_battle_outcomes.gd")
 const SAVE = "user://map_run_v1.json"
 # Tests use a separate user:// path; production keeps the canonical path by default.
@@ -275,7 +276,15 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	var type: String = str(story_spec.encounter_type) if story else ("mimic" if mimic else world.tiles[index])
 	var slugs: Array = []
 	if story:
-		slugs = story_spec.enemies.duplicate()
+		# The altar fight rolls its 4 unique enemies only when an actual
+		# owned-monster deck has been confirmed. Encounter + RNG save together.
+		if event_id==StoryBattleRegistry.CULTIST_ALTAR_ID:
+			slugs = CultistAltarEnemies.select(world.definitions,world.rng)
+			if not CultistAltarEnemies.valid(world.definitions,slugs):
+				world.restore(before)
+				return false
+		else:
+			slugs = story_spec.enemies.duplicate()
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
 	else:

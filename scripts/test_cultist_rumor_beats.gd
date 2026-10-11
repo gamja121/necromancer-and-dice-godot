@@ -99,7 +99,7 @@ func source_beats() -> void:
 	var dup: Dictionary=Beats.beat(2)
 	dup.dialogue="tampered"
 	check(Beats.beat(2).dialogue.begins_with("요즘 밤마다"),"beat cannot mutate original")
-	check(Registry.definition("cultist_altar_encounter_01").is_empty(),"cultist altar battle not enabled")
+	check(Registry.valid_definition(Registry.definition(Registry.CULTIST_ALTAR_ID)),"altar battle registration requires later saved fight choice")
 
 func full_story(wildcard: bool) -> void:
 	var s=make("event" if wildcard else "village")

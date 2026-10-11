@@ -1,7 +1,7 @@
 extends RefCounted
 const AltarBeats = preload("res://systems/cultist_altar_beats.gd")
-## P1-05I-3: original three altar scenes and saved, reversible fight/pass intent.
-## The actual battle, passage result, later ritual and quest outcomes stay locked.
+## P1-05I-4: original altar fight can start and persist its battle result.
+## Passage resolution and ritual tracking/quest completion stay locked.
 
 const EVENT_ID = "cultist_altar_encounter_01"
 const SEEN_FLAG = "event:cultist_altar_encounter_01:seen"
@@ -13,6 +13,8 @@ const RUMOR_COMPLETE_FLAG = "event:cultist_rumor_01:complete"
 const TRACKING_FLAG = "quest:cultist_tracking_01:active"
 const RITUAL_CONFIRMED_FLAG = "story:monster_king:ritual_confirmed"
 const RITUAL_TRACKING_FLAG = "quest:ritual_site_tracking:active"
+const BATTLE_WON_FLAG = "battle:cultist_altar_encounter_01:won"
+const BATTLE_LOST_FLAG = "battle:cultist_altar_encounter_01:lost"
 const BASE_ART = "res://assets/map/events/cultist-altar-night-base.webp"
 const FIRST_BEAT = {
 	"id":"arrival",
@@ -40,7 +42,13 @@ static func can_enter(session, index: int) -> bool:
 		if w.event_flags.get(flag,false)==true: return false
 	var state: Dictionary=session.get_story_event(EVENT_ID)
 	if state.status not in ["unseen","seen","active"]: return false
-	if state.battle_result!="": return false
+	if state.battle_result not in ["","won","lost"]: return false
+	# A committed battle result may re-open for follow-up, but must match
+	# its original fight choice and the actual battle outcome receipts.
+	if state.battle_result!="":
+		if state.status!="active" or state.choice!="fight": return false
+		if w.event_flags.get(BATTLE_WON_FLAG,false)!=(state.battle_result=="won"): return false
+		if w.event_flags.get(BATTLE_LOST_FLAG,false)!=(state.battle_result=="lost"): return false
 	var discovered: bool=w.event_flags.get(SEEN_FLAG,false)==true
 	if (state.status!="unseen") != discovered: return false
 	var has_ritual: bool=w.event_flags.get(progress_flag(1),false)==true
@@ -100,6 +108,7 @@ static func reconsider(session, index: int) -> bool:
 	if not can_enter(session,index): return false
 	if current_beat(session)!=2: return false
 	if session.get_story_event(EVENT_ID).status!="active": return false
+	if session.get_story_event(EVENT_ID).battle_result!="": return false
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	session.world.story_events[EVENT_ID]={"status":"seen","choice":"","battle_result":""}
 	session.world.event_flags.erase(FIGHT_FLAG)
