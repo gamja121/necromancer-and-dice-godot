@@ -213,6 +213,9 @@ func scenario_win(session: Node) -> void:
 		panel_button(map,"맵으로").pressed.emit()
 		check(not session.story_battle_result_pending(STORY.EVENT_ID),"win: actual result button acknowledges exactly once")
 		check(not session.acknowledge_graveyard_battle_result(),"win: repeated acknowledgement rejected")
+	# Confirmation re-renders the board, which creates an AudioSettings node
+	# awaiting two frames in _ready; don't destroy that node immediately.
+	for i in range(3): await process_frame
 	map.queue_free()
 	await process_frame
 	session.reload_world()
@@ -244,6 +247,7 @@ func scenario_loss_and_retry(session: Node) -> void:
 	var confirm: Button = panel_button(map,"맵으로")
 	if confirm!=null: confirm.pressed.emit()
 	check(not session.story_battle_result_pending(STORY.EVENT_ID),"retry: final victory confirmed via UI")
+	for i in range(3): await process_frame
 	map.queue_free()
 	await process_frame
 	var committed: Dictionary = session.world.snapshot().duplicate(true)
