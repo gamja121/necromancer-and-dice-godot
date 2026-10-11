@@ -9,6 +9,7 @@ const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
+const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
 const StoryBattleOutcomes = preload("res://systems/story_battle_outcomes.gd")
 const SAVE = "user://map_run_v1.json"
 # Tests use a separate user:// path; production keeps the canonical path by default.
@@ -281,6 +282,11 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		if event_id==StoryBattleRegistry.CULTIST_ALTAR_ID:
 			slugs = CultistAltarEnemies.select(world.definitions,world.rng)
 			if not CultistAltarEnemies.valid(world.definitions,slugs):
+				world.restore(before)
+				return false
+		elif event_id==StoryBattleRegistry.RITUAL_PORTAL_ID:
+			slugs = RitualPortalEnemies.select(world.definitions,world.rng)
+			if not RitualPortalEnemies.valid(world.definitions,slugs):
 				world.restore(before)
 				return false
 		else:
