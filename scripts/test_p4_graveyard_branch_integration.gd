@@ -244,6 +244,10 @@ func scenario_loss_and_retry(session: Node) -> void:
 	check(session.get_story_event(STORY.EVENT_ID).status=="complete" and session.get_story_event(STORY.EVENT_ID).battle_result=="won","retry: subsequent real win rescues child")
 	check(session.world.graveyard_corpses.any(func(c): return str(c.id)==lost_id) and session.world.roster.size()==1,"retry: winning does not resurrect permanently dead monster")
 	check(session.world.reward_receipts==receipts,"retry: no ghost reward after multiple attempts")
+	# finish_embedded_battle() has just re-rendered the board under the result
+	# popup. A human cannot close and redraw it before AudioSettings._ready()
+	# gets its two initialization frames; this script can, so emulate that.
+	for i in range(3): await process_frame
 	var confirm: Button = panel_button(map,"맵으로")
 	if confirm!=null: confirm.pressed.emit()
 	check(not session.story_battle_result_pending(STORY.EVENT_ID),"retry: final victory confirmed via UI")
