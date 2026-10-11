@@ -35,6 +35,9 @@ on:
       - "scripts/test_ritual_portal_omen.gd"
       - "scripts/test_ritual_portal_intervention.gd"
       - "scripts/test_ritual_portal_revival.gd"
+      - "scripts/test_monster_king_hunt_entry.gd"
+      - "systems/monster_king_hunt_entry.gd"
+      - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
@@ -89,6 +92,9 @@ on:
       - "scripts/test_ritual_portal_omen.gd"
       - "scripts/test_ritual_portal_intervention.gd"
       - "scripts/test_ritual_portal_revival.gd"
+      - "scripts/test_monster_king_hunt_entry.gd"
+      - "systems/monster_king_hunt_entry.gd"
+      - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
@@ -435,5 +441,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_ritual_portal_revival.gd 2>&1 | tee ritual-portal-revival.log
           grep -E 'RITUAL_PORTAL_REVIVAL_REGRESSION: [0-9]+ passed, 0 failed' ritual-portal-revival.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' ritual-portal-revival.log; then
+            exit 1
+          fi
+
+      - name: Monster king hunt first world-tree scene and saved revival-mode prerequisite regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_monster_king_hunt_entry.gd 2>&1 | tee monster-king-hunt-entry.log
+          grep -E 'MONSTER_KING_HUNT_ENTRY_REGRESSION: [0-9]+ passed, 0 failed' monster-king-hunt-entry.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-king-hunt-entry.log; then
             exit 1
           fi
