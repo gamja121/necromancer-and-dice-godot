@@ -152,6 +152,18 @@ func _scenario(session: Node, victor: String) -> void:
 				print("P4_DIAG ",label," field=",key," before=",before_text.substr(0,480)," after=",after_text.substr(0,480))
 	check(loaded==committed,label+": result and player units persist across full reload")
 	check(session.world.reward_receipts.size()==expected_receipts,label+": reopening map cannot duplicate capture receipt")
+	if victor=="enemy":
+		check(not session.world.graveyard_corpses.is_empty(),label+": permanently lost owned monsters retained in graveyard after reload")
+		var stats_are_int: bool = session.world.graveyard_corpses.all(func(c):
+			if not c is Dictionary: return false
+			for key in ["max_hp","attack","speed","current_hp"]:
+				if c.has(key) and typeof(c[key]) != TYPE_INT: return false
+			for b in c.get("brands",[]):
+				if not b is Dictionary: return false
+				for face in b.get("bless",[]) + b.get("curse",[]):
+					if typeof(face) != TYPE_INT: return false
+			return true)
+		check(stats_are_int,label+": graveyard corpse stats and dice-brand faces restore as integers")
 	check(session.world.cleared.has(target)==(victor=="ally"),label+": win/loss tile state survives reload")
 	check(session.world.contamination==(2 if victor=="ally" else 3),label+": original once-only contamination result survives reload")
 	check(not session.has_method("finish_encounter") or session.encounter.is_empty(),label+": no suspended combat on the reloaded run")
