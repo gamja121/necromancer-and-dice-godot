@@ -58,7 +58,7 @@ func original_contract() -> void:
 	check(Beats.beat(3).is_empty(),"no subsequent scene unlocked")
 	check(Altar.progress_flag(2)=="event:cultist_altar_encounter_01:beat:2","third beat checkpoint uses existing save schema")
 	check(Altar.progress_flag(3).is_empty(),"later checkpoint blocked")
-	check(Registry.definition(Altar.EVENT_ID).is_empty(),"cultist combat registration disabled")
+	check(Registry.valid_definition(Registry.definition(Altar.EVENT_ID)),"cultist combat now registered behind saved fight choice")
 	var src: String=FileAccess.get_file_as_string("res://map.gd")
 	check(src.contains('location_button(panel,"싸운다"'),"fight option shown in choice UI")
 	check(src.contains('location_button(panel,"지나간다"'),"pass option shown in choice UI")
