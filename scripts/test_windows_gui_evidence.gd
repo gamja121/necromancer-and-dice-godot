@@ -37,7 +37,7 @@ func capture_frame(filename: String) -> void:
 		return
 	var width: int = img.get_width()
 	var height: int = img.get_height()
-	check(width >= 1024 and height >= 576, filename + ": real window image has usable dimensions %dx%d" % [width, height])
+	check(width == 1280 and height == 720, filename + ": native image is exactly 1280x720, got %dx%d" % [width, height])
 	var sample_colors: Dictionary = {}
 	for y in range(15):
 		for x in range(25):
