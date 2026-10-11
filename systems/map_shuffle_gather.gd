@@ -4,8 +4,8 @@ extends Control
 ## This is not wired into the live home-exit transition until later steps.
 
 const Layout = preload("res://systems/map_shuffle_layout.gd")
-const GATHER_DURATION = 0.47
-const STAGGER = 0.025
+const SHRINK_DURATION = 0.12
+const TRAVEL_DURATION = 0.43
 
 var tile_sources: Array[TextureButton] = []
 var source_visibility: Array[bool] = []
@@ -16,7 +16,7 @@ var gathering: Tween
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	z_index = 7 # Above map tiles (4), below the hero (16) and dice (19).
+	z_index = 3 # Static tiles (4), hero (16), and dice (19) remain visible above.
 	size = Vector2(1280.0, 720.0)
 
 
@@ -61,17 +61,19 @@ func play_gather() -> void:
 		return
 	if gathering != null and gathering.is_running():
 		return
+	# Shrink in place first. Keeping the tiles small during travel avoids
+	# crossing/stacking that would occur if 21 full-size tiles moved at once.
 	gathering = create_tween().set_parallel(true)
 	for i in range(tile_visuals.size()):
 		var visual: TextureRect = tile_visuals[i]
-		var slot: Dictionary = slots[i]
-		var destination: Vector2 = Layout.orbit_position(slot, 0.0) - visual.size * 0.5
-		var destination_scale: Vector2 = Vector2.ONE * float(slot["scale"])
-		var delay: float = float(i % 3) * STAGGER
-		gathering.tween_property(visual, "position", destination, GATHER_DURATION).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		gathering.tween_property(visual, "scale", destination_scale, GATHER_DURATION).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		gathering.tween_property(visual, "scale", Vector2.ONE * float(slots[i]["scale"]), SHRINK_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await gathering.finished
-
+	gathering = create_tween().set_parallel(true)
+	for i in range(tile_visuals.size()):
+		var visual: TextureRect = tile_visuals[i]
+		var destination: Vector2 = Layout.orbit_position(slots[i], 0.0) - visual.size * 0.5
+		gathering.tween_property(visual, "position", destination, TRAVEL_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await gathering.finished
 
 func restore_tiles() -> void:
 	if gathering != null and gathering.is_running():
