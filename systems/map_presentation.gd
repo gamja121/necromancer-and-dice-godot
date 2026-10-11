@@ -1,6 +1,18 @@
 extends Node
 const ContaminationHud = preload("res://systems/contamination_hud.gd")
 const HEAL = [[8,18,22,0,1080,-4],[18,30,26,70,1020,4],[29,22,21,140,1120,-3],[40,43,29,40,1060,4],[52,27,24,180,1160,-4],[64,38,28,100,1040,3],[75,20,21,230,1100,-3],[87,34,25,150,1060,4],[93,51,20,290,1080,-3],[12,57,24,330,1040,3],[25,69,22,220,1140,-4],[37,60,27,390,1020,4],[49,74,20,450,1100,-3],[61,64,25,300,1060,3],[73,78,22,500,1120,-4],[84,69,28,410,1040,4],[94,82,21,540,1080,-3],[56,50,20,580,1000,3]]
+# Fixed CSS source positions/speeds: v2-map-practice.css lines 705–748.
+# Bottom lanes are anchored from the screen bottom, not from a top percentage.
+const CLOUD_LANES = [
+	{"variant":1,"width":0.75,"anchor":-0.21,"bottom":false,"y":-0.05,"rot":-4.0,"scale":1.22,"duration":0.72,"delay":0.0},
+	{"variant":2,"width":0.67,"anchor":-0.10,"bottom":false,"y":0.03,"rot":3.0,"scale":1.14,"duration":1.12,"delay":0.165},
+	{"variant":3,"width":0.78,"anchor":0.06,"bottom":false,"y":0.05,"rot":2.0,"scale":1.20,"duration":0.98,"delay":0.115},
+	{"variant":4,"width":0.71,"anchor":0.18,"bottom":false,"y":-0.04,"rot":-3.0,"scale":1.16,"duration":0.85,"delay":0.065},
+	{"variant":2,"width":0.76,"anchor":0.39,"bottom":false,"y":-0.03,"rot":3.0,"scale":1.20,"duration":1.12,"delay":0.165},
+	{"variant":1,"width":0.69,"anchor":0.48,"bottom":false,"y":0.04,"rot":-2.0,"scale":1.15,"duration":0.72,"delay":0.0},
+	{"variant":4,"width":0.80,"anchor":-0.18,"bottom":true,"y":0.04,"rot":-3.0,"scale":1.24,"duration":0.85,"delay":0.065},
+	{"variant":3,"width":0.72,"anchor":-0.09,"bottom":true,"y":-0.04,"rot":3.0,"scale":1.17,"duration":0.98,"delay":0.115}
+]
 var map
 var gauge: Control
 var corruption: ColorRect
@@ -137,6 +149,37 @@ func warp(hero: TextureRect, destination: Vector2) -> void:
 	await reveal.finished
 	layer.free()
 
+# Translate source % widths, left/right offscreen origin, lane bottom anchors,
+# CSS translateY and covered/opening transforms into 1280×720 Godot coordinates.
+func cloud_lane_geometry(index: int, texture: Texture2D) -> Dictionary:
+	var lane: Dictionary = CLOUD_LANES[index]
+	var w: float = 1280.0 * float(lane["width"])
+	var h: float = w * float(texture.get_height()) / float(texture.get_width())
+	var dimensions = Vector2(w,h)
+	var anchor: float = float(lane["anchor"])
+	var baseline: float = (720.0 * (1.0 - anchor) - h) if bool(lane["bottom"]) else (720.0 * anchor)
+	var shift: float = h * float(lane["y"])
+	var left: bool = index%2==0
+	var start_x: float = -998.4 - w*0.22 if left else 2278.4-w*0.78
+	var covered_x: float = -998.4+w*1.08 if left else 2278.4-w*2.08
+	var opening_x: float = -998.4+w*2.35 if left else 2278.4-w*3.35
+	var rot: float = float(lane["rot"]) * (1.0 if left else -1.0)
+	var base_scale: float = float(lane["scale"])
+	return {
+		"dimensions":dimensions,
+		"start":Vector2(start_x,baseline+shift),
+		"covered":Vector2(covered_x,baseline+shift*0.18),
+		"opening":Vector2(opening_x,baseline-shift*1.5),
+		"start_rotation":rot,
+		"covered_rotation":rot*0.22,
+		"opening_rotation":-rot*1.6,
+		"start_scale":base_scale,
+		"covered_scale":base_scale*1.02,
+		"opening_scale":base_scale*1.08,
+		"duration":float(lane["duration"]),
+		"delay":float(lane["delay"])
+	}
+
 func cloud_refresh(change_board: Callable) -> bool:
 	var layer = effect(true)
 	layer.clip_contents = true
@@ -148,31 +191,41 @@ func cloud_refresh(change_board: Callable) -> bool:
 	var sweep = layer.create_tween().set_parallel(true)
 	sweep.tween_property(mist,"color:a",1.0,0.73).set_delay(0.43)
 	var clouds: Array = []
-	var widths = [0.75,0.67,0.78,0.71,0.76,0.69,0.80,0.72]
-	var ys = [-0.21,-0.10,0.06,0.18,0.39,0.48,0.68,0.77]
-	var variants = [0,1,2,3,1,0,3,2]
-	var speeds = [0.72,1.12,0.98,0.85,1.12,0.72,0.85,0.98]
-	var delays = [0.0,0.165,0.115,0.065,0.165,0.0,0.065,0.115]
-	for i in range(8):
-		var key: String = "map_cloud_transition"+("_"+str(variants[i]+1) if variants[i]>0 else "")+".png"
+	var geometries: Array = []
+	for i in range(CLOUD_LANES.size()):
+		var lane: Dictionary = CLOUD_LANES[i]
+		var variant: int = int(lane["variant"])
+		var suffix: String = "" if variant==1 else "_%d" % variant
+		var key: String = "map_cloud_transition%s.png" % suffix
 		var texture: Texture2D = textures[key]
-		var width: float = 1280.0*widths[i]
-		var dimensions = Vector2(width,width*texture.get_height()/texture.get_width())
-		var left = i%2==0
-		var cloud = art(layer,texture,Vector2(-width*1.1 if left else 1280.0+width*0.1,720.0*ys[i]),dimensions)
+		var geometry: Dictionary = cloud_lane_geometry(i,texture)
+		var left: bool = i%2==0
+		var cloud = art(layer,texture,geometry["start"],geometry["dimensions"])
+		cloud.name = "CloudLane_%d" % (i+1)
 		cloud.flip_h = not left
-		cloud.scale = Vector2.ONE*1.18
+		cloud.scale = Vector2.ONE*float(geometry["start_scale"])
+		cloud.rotation_degrees = float(geometry["start_rotation"])
 		cloud.modulate.a = 0.08
-		sweep.tween_property(cloud,"position:x",1280.0*0.22 if left else 1280.0*0.78-width,speeds[i]).set_delay(delays[i]).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		sweep.tween_property(cloud,"modulate:a",0.97,0.26).set_delay(delays[i])
+		var duration: float = float(geometry["duration"])
+		var delay: float = float(geometry["delay"])
+		sweep.tween_property(cloud,"position",geometry["covered"],duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		sweep.tween_property(cloud,"rotation_degrees",geometry["covered_rotation"],duration).set_delay(delay)
+		sweep.tween_property(cloud,"scale",Vector2.ONE*float(geometry["covered_scale"]),duration).set_delay(delay)
+		sweep.tween_property(cloud,"modulate:a",0.97,0.26).set_delay(delay)
 		clouds.append(cloud)
+		geometries.append(geometry)
 	await map.get_tree().create_timer(1.32).timeout
 	var ok: bool = change_board.call()
 	await map.get_tree().create_timer(0.22).timeout
 	var reveal = layer.create_tween().set_parallel(true)
 	reveal.tween_property(mist,"color:a",0.0,0.52).set_delay(0.13)
 	for i in range(clouds.size()):
-		reveal.tween_property(clouds[i],"position:x",1600.0 if i%2==0 else -1600.0,speeds[i]*0.82).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		var geometry: Dictionary = geometries[i]
+		var opening_duration: float = float(geometry["duration"])*0.82
+		var opening_delay: float = float(geometry["delay"])*0.35
+		reveal.tween_property(clouds[i],"position",geometry["opening"],opening_duration).set_delay(opening_delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		reveal.tween_property(clouds[i],"rotation_degrees",geometry["opening_rotation"],opening_duration).set_delay(opening_delay)
+		reveal.tween_property(clouds[i],"scale",Vector2.ONE*float(geometry["opening_scale"]),opening_duration).set_delay(opening_delay)
 		reveal.tween_property(clouds[i],"modulate:a",0.0,0.42).set_delay(0.08)
 	await map.get_tree().create_timer(1.12).timeout
 	layer.free()
