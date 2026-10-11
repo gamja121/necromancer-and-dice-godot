@@ -21,6 +21,13 @@ func check(ok: bool, label: String) -> void:
 		printerr("FAIL shuffle-home: ", label)
 
 
+func wait_for_shuffle(map: Control, timeout_msec: int = 12000) -> bool:
+	var start: int = Time.get_ticks_msec()
+	while map.moving and Time.get_ticks_msec() - start < timeout_msec:
+		await process_frame
+	return not map.moving
+
+
 func _run() -> void:
 	var session = root.get_node_or_null("RunSession")
 	if session == null:
@@ -42,7 +49,14 @@ func _run() -> void:
 	await process_frame
 	check(map.buttons.size() == 24, "24 live map buttons available")
 	check(map.dice != null and not map.dice.disabled, "map dice initially interactive")
-	await map.exit_home()
+	print("HOME_SHUFFLE_TEST: start successful home exit")
+	map.exit_home()
+	var first_completed: bool = await wait_for_shuffle(map)
+	check(first_completed, "successful home exit animation completes")
+	if not first_completed:
+		print("MAP_SHUFFLE_HOME_EXIT: %d passed, %d failed" % [passed, failed])
+		quit(1)
+		return
 	check(session.world.map_serial == prior_serial + 1, "leaving home generated one new map")
 	check(session.world.laps == prior_laps + 1, "completed lap counted once")
 	check(map.world == session.world, "view is bound to committed world")
@@ -63,7 +77,14 @@ func _run() -> void:
 	for tile in map.buttons:
 		before_image.append(tile.texture_normal)
 	session.save_file_path = "user://missing_shuffle_home_exit_directory/invalid.json"
-	await map.exit_home()
+	print("HOME_SHUFFLE_TEST: start failed-save home exit")
+	map.exit_home()
+	var second_completed: bool = await wait_for_shuffle(map)
+	check(second_completed, "failed-save home exit animation completes")
+	if not second_completed:
+		print("MAP_SHUFFLE_HOME_EXIT: %d passed, %d failed" % [passed, failed])
+		quit(1)
+		return
 	check(session.world.map_serial == before.map_serial and session.world.tiles == before.tiles, "failed disk save restores original map data")
 	check(map.buttons.size() == 24 and map.buttons.all(func(tile): return tile.visible), "all 24 original tiles visible after failure")
 	var unchanged_images := true
