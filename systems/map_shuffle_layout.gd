@@ -24,6 +24,16 @@ const OUTER_ORIGIN_ORDER = [21, 22, 23, 5, 6, 7, 9, 10, 11, 12, 18, 19, 20]
 const INNER_OFFSET = 7
 const OUTER_OFFSET = 10
 
+# The nearest distinct board destinations after counter-rotation, one per
+# ring_slots() entry. This is a fixed minimum-distance assignment for the
+# canonical 24-position board, not a change to the generated tile types.
+# Old artwork stays on each traveling card until it lands; new face artwork
+# is selected by DESTINATION index, never by its previous origin index.
+const SCATTER_DESTINATIONS = [
+	14, 17, 20, 22, 2, 4, 6, 10,
+	5, 7, 9, 11, 12, 13, 16, 18, 19, 21, 23, 1, 3
+]
+
 
 static func moving_indices() -> Array[int]:
 	var result: Array[int] = []
