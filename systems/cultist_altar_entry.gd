@@ -1,7 +1,7 @@
 extends RefCounted
 const AltarBeats = preload("res://systems/cultist_altar_beats.gd")
-## P1-05I-2: first arrival and ritual-reveal scenes only.
-## The fight/pass choice, battle and later quest outcomes stay locked.
+## P1-05I-3: original three altar scenes and saved, reversible fight/pass intent.
+## The actual battle, passage result, later ritual and quest outcomes stay locked.
 
 const EVENT_ID = "cultist_altar_encounter_01"
 const SEEN_FLAG = "event:cultist_altar_encounter_01:seen"
@@ -22,6 +22,10 @@ const FIRST_BEAT = {
 	"visual":"base"
 }
 
+static func progress_flag(index: int) -> String:
+	if index not in [1,2]: return ""
+	return "event:%s:beat:%d" % [EVENT_ID,index]
+
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var w = session.world
@@ -29,46 +33,75 @@ static func can_enter(session, index: int) -> bool:
 	if w.tiles[index] not in ["altar","event"]: return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty(): return false
 	if not w.pending_move.is_empty() or not w.pending_reward.is_empty(): return false
-	# Both the completed preceding story AND the tracking quest must exist.
 	if session.get_story_event(RUMOR_ID).status!="complete": return false
 	if w.event_flags.get(RUMOR_COMPLETE_FLAG,false)!=true: return false
 	if w.event_flags.get(TRACKING_FLAG,false)!=true: return false
-	# Never backtrack into a story that was completed elsewhere.
-	for flag in [COMPLETE_FLAG,FIGHT_FLAG,PASS_FLAG,RITUAL_CONFIRMED_FLAG,RITUAL_TRACKING_FLAG]:
+	for flag in [COMPLETE_FLAG,RITUAL_CONFIRMED_FLAG,RITUAL_TRACKING_FLAG]:
 		if w.event_flags.get(flag,false)==true: return false
 	var state: Dictionary=session.get_story_event(EVENT_ID)
-	if state.status not in ["unseen","seen"]: return false
-	if state.choice!="" or state.battle_result!="": return false
-	# Refuse inconsistent saves instead of silently granting a scene.
-	if (state.status=="seen") != (w.event_flags.get(SEEN_FLAG,false)==true): return false
-	# An unvisited altar cannot already have progressed to the ritual layer.
-	if state.status=="unseen" and w.event_flags.get(progress_flag(1),false)==true: return false
+	if state.status not in ["unseen","seen","active"]: return false
+	if state.battle_result!="": return false
+	var discovered: bool=w.event_flags.get(SEEN_FLAG,false)==true
+	if (state.status!="unseen") != discovered: return false
+	var has_ritual: bool=w.event_flags.get(progress_flag(1),false)==true
+	var has_choice: bool=w.event_flags.get(progress_flag(2),false)==true
+	if has_choice and not has_ritual: return false
+	var fight: bool=w.event_flags.get(FIGHT_FLAG,false)==true
+	var passed_choice: bool=w.event_flags.get(PASS_FLAG,false)==true
+	if state.status=="active":
+		# An unfinished decision must be one of the two original choices.
+		# A fight/pass receipt on an unseen or unchosen scene is corruption.
+		if not has_choice or fight==passed_choice: return false
+		return (state.choice=="fight" and fight) or (state.choice=="pass" and passed_choice)
+	if state.choice!="" or fight or passed_choice: return false
+	if state.status=="unseen" and (has_ritual or has_choice): return false
 	return true
 
-## Discovery persists only the first arrival receipt. No choice or reward.
+## Discovery saves only the arrival receipt; reopened scenes remain unchanged.
 static func begin(session, index: int) -> bool:
 	if not can_enter(session,index): return false
-	if session.get_story_event(EVENT_ID).status=="seen": return true
+	if session.get_story_event(EVENT_ID).status!="unseen": return true
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	session.world.story_events[EVENT_ID]={"status":"seen","choice":"","battle_result":""}
 	session.world.event_flags[SEEN_FLAG]=true
 	return session.persist_change(before)
 
-## Persist one extra beat in the existing boolean event_flags schema.
-## Beat 1 displays the ritual layer. The original next beat (choice) is locked.
-static func progress_flag(index: int) -> String:
-	if index!=1: return ""
-	return "event:%s:beat:%d" % [EVENT_ID,index]
-
 static func current_beat(session) -> int:
 	if session == null or session.world == null: return -1
 	if not can_enter(session,session.world.position): return -1
-	if session.get_story_event(EVENT_ID).status!="seen": return -1
-	return 1 if session.world.event_flags.get(progress_flag(1),false)==true else 0
+	if session.get_story_event(EVENT_ID).status=="unseen": return -1
+	if session.world.event_flags.get(progress_flag(2),false)==true: return 2
+	if session.world.event_flags.get(progress_flag(1),false)==true: return 1
+	return 0
 
+## Exactly one explicit click advances exactly one checkpoint (arrival→ritual→choice).
 static func advance(session, index: int, shown_index: int) -> bool:
 	if not can_enter(session,index): return false
-	if current_beat(session)!=0 or shown_index!=0: return false
+	if session.get_story_event(EVENT_ID).status!="seen": return false
+	if current_beat(session)!=shown_index or shown_index not in [0,1]: return false
 	var before: Dictionary=session.world.snapshot().duplicate(true)
-	session.world.event_flags[progress_flag(1)]=true
+	session.world.event_flags[progress_flag(shown_index+1)]=true
+	return session.persist_change(before)
+
+## Save an INTENT only; do not launch combat or resolve a pass in this phase.
+static func choose(session, index: int, shown_index: int, decision: String) -> bool:
+	if not can_enter(session,index): return false
+	if current_beat(session)!=2 or shown_index!=2: return false
+	if session.get_story_event(EVENT_ID).status!="seen": return false
+	if decision not in ["fight","pass"]: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.story_events[EVENT_ID]={"status":"active","choice":decision,"battle_result":""}
+	session.world.event_flags[FIGHT_FLAG if decision=="fight" else PASS_FLAG]=true
+	return session.persist_change(before)
+
+## Until the actual battle/pass handlers are implemented, permit a deliberate
+## decision change without rewinding arrival or replaying the ritual reveal.
+static func reconsider(session, index: int) -> bool:
+	if not can_enter(session,index): return false
+	if current_beat(session)!=2: return false
+	if session.get_story_event(EVENT_ID).status!="active": return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.story_events[EVENT_ID]={"status":"seen","choice":"","battle_result":""}
+	session.world.event_flags.erase(FIGHT_FLAG)
+	session.world.event_flags.erase(PASS_FLAG)
 	return session.persist_change(before)
