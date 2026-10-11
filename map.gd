@@ -750,8 +750,8 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 			return
-	# A saved portal scene or committed intervention resumes at its tile;
-	# reconnect never starts combat without a new deck confirmation.
+	# Saved portal intervention or acknowledged epilogue resumes at its tile;
+	# reconnect never starts combat or concludes the quest automatically.
 	if RitualPortalEntry.can_enter(session,index):
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]:
 			show_ritual_portal_intro(index)
@@ -942,9 +942,15 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 ## P1-05J-4: the source-canonical fourth scene reveals the king omen.
 ## Final intervention, combat and actual revival stay locked.
 func show_ritual_portal_intro(index: int) -> void:
-	show_ritual_portal_beat(index)
+	if RitualPortalEntry.aftermath_ready(session,index):
+		show_ritual_portal_aftermath(index)
+	else:
+		show_ritual_portal_beat(index)
 
 func show_ritual_portal_beat(index: int) -> void:
+	if RitualPortalEntry.aftermath_ready(session,index):
+		show_ritual_portal_aftermath(index)
+		return
 	if not RitualPortalEntry.can_enter(session,index): return
 	var beat_index: int=RitualPortalEntry.current_beat(session)
 	var beat: Dictionary=RitualPortalBeats.beat(beat_index)
@@ -1000,6 +1006,41 @@ func choose_ritual_portal_intervention(index: int, shown_beat: int) -> void:
 	if is_instance_valid(declaration_overlay) and overlay==declaration_overlay and RitualPortalEntry.can_enter(session,index):
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="intervene":
 			show_story_battle_deck(RitualPortalEntry.EVENT_ID,index)
+
+## After a real fight has been acknowledged, replay this canonical
+## outcome on reconnect. Completing the portal needs an explicit Finish press.
+func show_ritual_portal_aftermath(index: int) -> void:
+	if not RitualPortalEntry.aftermath_ready(session,index): return
+	var result: String=str(session.get_story_event(RitualPortalEntry.EVENT_ID).battle_result)
+	var beat: Dictionary=RitualPortalBeats.aftermath(result)
+	if beat.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(art)
+	image(panel,RitualPortalBeats.OMEN_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,65),17)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var speech=label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,619),Vector2(710,34),16)
+	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	location_button(panel,"마치기",Vector2(463,653),Vector2(171,48),func(): finish_ritual_portal(index),1)
+	if world.tiles[index]=="forest":
+		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func finish_ritual_portal(index: int) -> void:
+	if not RitualPortalEntry.finish(session,index):
+		status.text="마물의 왕 부활 결과 저장 실패 · 다시 시도하세요."
+		return
+	close_overlay()
+	if world.tiles[index]=="forest":
+		show_location(index)
+	else:
+		render()
+	status.text="전이문 의식 종료 · 마물의 왕 추적 시작"
 
 func show_cultist_altar_intro(index: int) -> void:
 	if CultistAltarEntry.followup_ready(session,index):
@@ -1215,7 +1256,7 @@ func show_story_battle_result(event_id: String) -> void:
 		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if view.retry and not world.roster.is_empty():
 		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_story_battle_result_ui(event_id,true),1)
-	location_button(panel,"흔적 확인" if event_id==CultistAltarEntry.EVENT_ID else "맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_story_battle_result_ui(event_id,false),4)
+	location_button(panel,"부활 확인" if event_id==RitualPortalEntry.EVENT_ID else ("흔적 확인" if event_id==CultistAltarEntry.EVENT_ID else "맵으로"),Vector2(870,653),Vector2(165,48),func(): acknowledge_story_battle_result_ui(event_id,false),4)
 
 func acknowledge_graveyard_result(retry: bool) -> void:
 	acknowledge_story_battle_result_ui(StoryEventEntry.EVENT_ID,retry)
@@ -1234,6 +1275,10 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 		# The battle receipt is acknowledged, but story completion waits for
 		# the separate original narration and explicit '마치기' press.
 		show_cultist_altar_followup(index)
+	elif event_id==RitualPortalEntry.EVENT_ID and RitualPortalEntry.aftermath_ready(session,index):
+		# Keep the source weak/full revival epilogue separate from the result
+		# acknowledgement and save every quest flag only at final Finish.
+		show_ritual_portal_aftermath(index)
 	else:
 		render()
 		status.text = session.notice
