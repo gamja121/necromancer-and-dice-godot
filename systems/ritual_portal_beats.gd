@@ -1,6 +1,6 @@
 extends RefCounted
-## P1-05J-5: all five source-canonical portal scenes, including intervention.
-## The win/loss revival consequences and follow-up quest remain later.
+## P1-05J-6: five source portal beats and the two canonical revival endings.
+## Monster king hunting scenes are a separate next story stage.
 
 const BASE_ART = "res://assets/map/events/ritual-portal-ruins-base.webp"
 const ENERGY_ART = "res://assets/map/events/ritual-portal-energy-layer.webp"
@@ -22,6 +22,26 @@ static func beat(index: int) -> Dictionary:
 	return BEATS[index].duplicate(true)
 
 const INTERVENTION_EFFECT = "광신도들이 남은 힘을 전이문에 쏟아붓는다. 완전한 부활을 막기 위한 마지막 저지전이 시작된다."
+
+## The original battle-return scene, not a new sixth portal beat.
+const AFTER_BATTLE = {
+	"won":{
+		"effect":"의식의 핵심을 파괴했다. 하지만 이미 넘어온 왕의 존재까지 되돌리지는 못했다. 불완전한 육체로 현세에 떨어진 마물의 왕이 어둠 속으로 사라진다.",
+		"dialogue":"[불완전하게 부활한 마물의 왕을 추적합니다.]",
+		"speaker":"시스템",
+		"visual":"omen"
+	},
+	"lost":{
+		"effect":"저지선이 무너지자 전이문이 완전히 열린다. 마물의 왕은 온전한 힘을 되찾은 채 현세에 모습을 드러내고, 곧 어둠 속으로 사라진다.",
+		"dialogue":"[완전히 부활한 마물의 왕을 추적합니다.]",
+		"speaker":"시스템",
+		"visual":"omen"
+	}
+}
+
+static func aftermath(result: String) -> Dictionary:
+	if result not in ["won","lost"]: return {}
+	return AFTER_BATTLE[result].duplicate(true)
 
 static func layer_for(visual: String) -> String:
 	match visual:

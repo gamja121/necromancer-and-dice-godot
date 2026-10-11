@@ -1,6 +1,6 @@
 extends RefCounted
-## P1-05J-5: original intervention beat and saved fight commitment.
-## The king's actual revival and completed tracking quest are later.
+## P1-05J-6: after an acknowledged fight, explicitly complete the ritual.
+## The revival form, ended ritual quest and new hunt are atomic receipts.
 const CultistAltar = preload("res://systems/cultist_altar_entry.gd")
 const PortalBeats = preload("res://systems/ritual_portal_beats.gd")
 
@@ -19,6 +19,12 @@ const BATTLE_WON_FLAG = "battle:ritual_portal_trace_01:won"
 const BATTLE_LOST_FLAG = "battle:ritual_portal_trace_01:lost"
 const RESULT_PENDING_FLAG = "story:ritual_portal_trace_01:result_pending"
 const INTERVENE_CHOICE_FLAG = "event:ritual_portal_trace_01:choice_intervene"
+const WEAKENED_FLAG = "story:monster_king:revival_weakened"
+const FULL_REVIVAL_FLAG = "story:monster_king:revival_complete"
+const HUNT_EVENT_COMPLETE_FLAG = "event:monster_king_hunt_trace_01:complete"
+const HUNT_QUEST_COMPLETE_FLAG = "quest:monster_king_hunt:complete"
+const SEALED_RUINS_KNOWN_FLAG = "story:monster_king:sealed_ruins_location_known"
+const FINAL_BATTLE_FLAG = "quest:monster_king_final_battle:active"
 const BASE_ART = PortalBeats.BASE_ART
 const FIRST_BEAT = {
 	"id":"arrival",
@@ -40,7 +46,7 @@ static func can_enter(session, index: int) -> bool:
 	if not CultistAltar.completed(session): return false
 	if w.event_flags.get(RITUAL_CONFIRMED_FLAG,false)!=true: return false
 	if w.event_flags.get(TRACKING_FLAG,false)!=true: return false
-	for flag in [COMPLETE_FLAG,TRACKING_COMPLETE_FLAG,PORTAL_FOUND_FLAG,SITE_LOCATION_FLAG,INTERVENTION_FLAG,REVIVED_FLAG,HUNT_FLAG]:
+	for flag in [COMPLETE_FLAG,TRACKING_COMPLETE_FLAG,PORTAL_FOUND_FLAG,SITE_LOCATION_FLAG,INTERVENTION_FLAG,REVIVED_FLAG,WEAKENED_FLAG,FULL_REVIVAL_FLAG,HUNT_FLAG,HUNT_EVENT_COMPLETE_FLAG,HUNT_QUEST_COMPLETE_FLAG,SEALED_RUINS_KNOWN_FLAG,FINAL_BATTLE_FLAG]:
 		if w.event_flags.get(flag,false)==true: return false
 	var state: Dictionary = session.get_story_event(EVENT_ID)
 	if state.status not in ["unseen","seen","active"]: return false
@@ -115,3 +121,61 @@ static func choose_intervention(session, index: int, shown_index: int) -> bool:
 	session.world.story_events[EVENT_ID]={"status":"active","choice":"intervene","battle_result":""}
 	session.world.event_flags[INTERVENE_CHOICE_FLAG]=true
 	return session.persist_change(before)
+
+## Only an acknowledged final battle result permits the final scene.
+## Reading a result, or saving the intervention choice, never advances quests.
+static func aftermath_ready(session, index: int) -> bool:
+	if not can_enter(session,index): return false
+	if current_beat(session)!=4: return false
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	if state.status!="active" or state.choice!="intervene": return false
+	if state.battle_result not in ["won","lost"]: return false
+	if session.world.event_flags.get(RESULT_PENDING_FLAG,false)==true: return false
+	return true
+
+## Commit ALL consequences of both source outcomes in a single world save.
+## Victory -> weakened revival; defeat -> full revival. Both unlock hunt.
+## Invalid or interrupted writes never partially complete either quest.
+static func finish(session, index: int) -> bool:
+	if session == null or session.world == null: return false
+	if completed(session): return true
+	if not aftermath_ready(session,index): return false
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	var won: bool=state.battle_result=="won"
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.story_events[EVENT_ID]={"status":"complete","choice":"intervene","battle_result":str(state.battle_result)}
+	var flags: Dictionary=session.world.event_flags
+	flags[SEEN_FLAG]=true
+	flags[INTERVENE_CHOICE_FLAG]=true
+	flags[COMPLETE_FLAG]=true
+	flags[PORTAL_FOUND_FLAG]=true
+	flags[SITE_LOCATION_FLAG]=true
+	flags[TRACKING_FLAG]=false
+	flags[TRACKING_COMPLETE_FLAG]=true
+	flags[INTERVENTION_FLAG]=false
+	flags[BATTLE_WON_FLAG]=won
+	flags[BATTLE_LOST_FLAG]=not won
+	flags[REVIVED_FLAG]=true
+	flags[WEAKENED_FLAG]=won
+	flags[FULL_REVIVAL_FLAG]=not won
+	flags[HUNT_FLAG]=true
+	return session.persist_change(before)
+
+## An already confirmed result is read-only and idempotent, provided that
+## all story outcome receipts remain consistent with the real battle result.
+static func completed(session) -> bool:
+	if session == null or session.world == null: return false
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	if state.status!="complete" or state.choice!="intervene": return false
+	if state.battle_result not in ["won","lost"]: return false
+	var won: bool=state.battle_result=="won"
+	var flags: Dictionary=session.world.event_flags
+	for key in [SEEN_FLAG,INTERVENE_CHOICE_FLAG,COMPLETE_FLAG,PORTAL_FOUND_FLAG,SITE_LOCATION_FLAG,TRACKING_COMPLETE_FLAG,REVIVED_FLAG,HUNT_FLAG]:
+		if flags.get(key,false)!=true: return false
+	for key in [TRACKING_FLAG,INTERVENTION_FLAG,RESULT_PENDING_FLAG]:
+		if flags.get(key,false)==true: return false
+	if flags.get(BATTLE_WON_FLAG,false)!=won or flags.get(BATTLE_LOST_FLAG,false)==won: return false
+	if flags.get(WEAKENED_FLAG,false)!=won or flags.get(FULL_REVIVAL_FLAG,false)==won: return false
+	if flags.get(progress_flag(4),false)!=true or flags.get(progress_flag(3),false)!=true: return false
+	if flags.get(progress_flag(2),false)!=true or flags.get(progress_flag(1),false)!=true: return false
+	return true

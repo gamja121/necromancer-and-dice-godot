@@ -34,6 +34,7 @@ on:
       - "scripts/test_ritual_portal_cultists.gd"
       - "scripts/test_ritual_portal_omen.gd"
       - "scripts/test_ritual_portal_intervention.gd"
+      - "scripts/test_ritual_portal_revival.gd"
       - "systems/ritual_portal_enemies.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
@@ -87,6 +88,7 @@ on:
       - "scripts/test_ritual_portal_cultists.gd"
       - "scripts/test_ritual_portal_omen.gd"
       - "scripts/test_ritual_portal_intervention.gd"
+      - "scripts/test_ritual_portal_revival.gd"
       - "systems/ritual_portal_enemies.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
@@ -423,5 +425,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_ritual_portal_intervention.gd 2>&1 | tee ritual-portal-intervention.log
           grep -E 'RITUAL_PORTAL_INTERVENTION_REGRESSION: [0-9]+ passed, 0 failed' ritual-portal-intervention.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' ritual-portal-intervention.log; then
+            exit 1
+          fi
+
+      - name: Ritual portal victory weakened / defeat full revival, atomic king hunt transition regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_ritual_portal_revival.gd 2>&1 | tee ritual-portal-revival.log
+          grep -E 'RITUAL_PORTAL_REVIVAL_REGRESSION: [0-9]+ passed, 0 failed' ritual-portal-revival.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' ritual-portal-revival.log; then
             exit 1
           fi
