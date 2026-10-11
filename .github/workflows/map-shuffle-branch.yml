@@ -44,3 +44,10 @@ jobs:
           godot --headless --path . --script res://scripts/test_map_shuffle_gather.gd 2>&1 | tee gather.log
           grep -E 'MAP_SHUFFLE_GATHER: [0-9]+ passed, 0 failed' gather.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' gather.log; then exit 1; fi
+      - name: Counter-rotation animation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_rotation.gd 2>&1 | tee rotation.log
+          grep -E 'MAP_SHUFFLE_ROTATION: [0-9]+ passed, 0 failed' rotation.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' rotation.log; then exit 1; fi
