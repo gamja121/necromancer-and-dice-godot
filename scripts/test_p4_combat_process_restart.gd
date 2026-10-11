@@ -120,13 +120,24 @@ func settle(s, victor: String, commit_result: bool) -> void:
 	var already_defeated: int = r.units.filter(func(u): return u.team != victor and not u.alive).size()
 	check(already_defeated == 1, "first action was not replayed after reload")
 	var steps: int = 0
-	while r.winner().is_empty() and steps < 30:
+	var turns: int = 0
+	while r.winner().is_empty() and steps < 100 and turns < 12:
 		var action: Dictionary = r.next_action()
+		if action.is_empty():
+			# A finished action queue is not necessarily a victory. Return to the
+			# normal ready -> rolled -> actions state machine for the next turn.
+			check(s.checkpoint_battle(r, "ready"), "completed nonterminal turn saved")
+			var rolled: Dictionary = s.prepare_battle_roll(r)
+			check(rolled.get("ok", false), "subsequent real combat die rolled through session")
+			if not rolled.get("ok", false): break
+			r.begin_round(int(rolled.face))
+			check(s.checkpoint_battle(r, "actions"), "subsequent turn begins with durable action queue")
+			turns += 1
+			continue
 		check(s.checkpoint_battle(r, "actions"), "each subsequent action saves before presentation")
-		if action.is_empty(): break
 		steps += 1
 	check(r.winner() == victor, "original combat rules resolve deterministic " + victor + " winner")
-	check(steps > 0 and steps < 30, "restarted action queue completes without infinite loop")
+	check(steps > 0 and steps < 100 and turns < 12, "restarted action queue completes without infinite loop")
 	check(s.encounter.phase == "actions" and s.world.pending_reward.is_empty(), "terminal action checkpoint exists before committing final result")
 	if not commit_result: return
 	var original_encounter: String = str(s.encounter.id)
