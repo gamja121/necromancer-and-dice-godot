@@ -1,6 +1,6 @@
 extends RefCounted
-## Geometry-only layout for the home-exit map shuffle.
-## The visual transition will use these slots; this file does not change map rules.
+## Two-ring, collision-conscious shuffle geometry for the 24-tile map.
+## Fixed map nodes and all game rules remain unchanged.
 
 const BOARD_TILE_COUNT = 24
 const FIXED_INDICES = [0, 8, 15] # Fortune teller, village, home.
@@ -16,6 +16,14 @@ const OUTER_SCALE = 0.48
 const INNER_ROTATION_DEGREES = 210.0
 const OUTER_ROTATION_DEGREES = -250.0
 
+# Board positions are fixed in MapState.centers(); assign the nearer eight
+# cells to the inner orbit. Within each ring, slots follow perimeter order.
+# Offsets reduce intersections on the approach to the two orbits.
+const INNER_ORIGIN_ORDER = [1, 2, 3, 4, 13, 14, 16, 17]
+const OUTER_ORIGIN_ORDER = [21, 22, 23, 5, 6, 7, 9, 10, 11, 12, 18, 19, 20]
+const INNER_OFFSET = 7
+const OUTER_OFFSET = 10
+
 
 static func moving_indices() -> Array[int]:
 	var result: Array[int] = []
@@ -25,29 +33,27 @@ static func moving_indices() -> Array[int]:
 	return result
 
 
-## A stable 8+13-slot arrangement. Slots never overlap at nominal scale
-## during the counter-rotation, including while the two rings pass each other.
 static func ring_slots() -> Array[Dictionary]:
-	var indices: Array[int] = moving_indices()
 	var slots: Array[Dictionary] = []
-	for order in range(indices.size()):
-		var inner: bool = order < INNER_COUNT
-		var ring_index: int = order if inner else order - INNER_COUNT
-		var ring_size: int = INNER_COUNT if inner else OUTER_COUNT
-		var angle: float = -PI * 0.5 + TAU * float(ring_index) / float(ring_size)
-		slots.append({
-			"tile_index": indices[order],
-			"ring": 0 if inner else 1,
-			"slot_index": ring_index,
-			"start_angle": angle,
-			"travel_degrees": INNER_ROTATION_DEGREES if inner else OUTER_ROTATION_DEGREES,
-			"scale": INNER_SCALE if inner else OUTER_SCALE
-		})
+	for ring in range(2):
+		var group: Array = INNER_ORIGIN_ORDER if ring == 0 else OUTER_ORIGIN_ORDER
+		var offset: int = INNER_OFFSET if ring == 0 else OUTER_OFFSET
+		var ring_size: int = group.size()
+		for i in range(ring_size):
+			var angle: float = -PI * 0.5 + TAU * float((i + offset) % ring_size) / float(ring_size)
+			slots.append({
+				"tile_index": int(group[i]),
+				"ring": ring,
+				"slot_index": i,
+				"start_angle": angle,
+				"travel_degrees": INNER_ROTATION_DEGREES if ring == 0 else OUTER_ROTATION_DEGREES,
+				"scale": INNER_SCALE if ring == 0 else OUTER_SCALE
+			})
 	return slots
 
 
 ## progress ranges from 0 (gathered) to 1 (rotation complete).
-## The displayed tile face stays upright; only its orbit position changes.
+## Faces stay upright; the tiles move along the orbits.
 static func orbit_position(slot: Dictionary, progress: float) -> Vector2:
 	var radius: Vector2 = INNER_RADIUS if int(slot["ring"]) == 0 else OUTER_RADIUS
 	var angle: float = float(slot["start_angle"]) + deg_to_rad(float(slot["travel_degrees"])) * clampf(progress, 0.0, 1.0)
