@@ -7,11 +7,14 @@ const AudioSettings = preload("res://systems/audio_settings.gd")
 # Reuse existing CC0 assets; the sound obeys the SFX and Master mute/volume.
 const GATHER_SFX = preload("res://assets/battle/sfx/move.ogg")
 const ROTATION_SFX = preload("res://assets/battle/sfx/magic.ogg")
-const LANDING_SFX = preload("res://assets/battle/sfx/ui.ogg")
+const LANDING_SFX = preload("res://assets/battle/sfx/heavy.ogg")
+# Low, restrained movement scrape / magical grinding / stone thud.
+# Keep the original three CC0 streams and the existing SFX mute controls;
+# only the landing stream changes to the project's existing heavy impact.
 const SOUND_PRESETS = {
-	"gather": {"volume_db": -23.0, "pitch": 0.92},
-	"rotate": {"volume_db": -25.0, "pitch": 0.90},
-	"land": {"volume_db": -20.0, "pitch": 0.88}
+	"gather": {"volume_db": -23.0, "pitch": 0.76},
+	"rotate": {"volume_db": -27.0, "pitch": 0.72},
+	"land": {"volume_db": -24.0, "pitch": 0.76}
 }
 # Tiny resistance tremor before stone slabs leave their original sockets.
 # Never displace the static map nodes or alter their saved positions.
@@ -367,7 +370,8 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		var destination: Vector2 = board_buttons[destination_index].position
 		scatter_tween.tween_property(visual, "position", destination, SCATTER_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await scatter_tween.finished
-	_play_sound("land")
+	# Stone thud is triggered at the FIRST tile's physical contact, not
+	# when tiles merely finish travelling toward their board locations.
 	# Dust is strictly visual, only after persistence has succeeded. All
 	# 21 puffs are drawn in this one Control with a single time tween.
 	dust_centers.clear()
@@ -382,6 +386,9 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 	# overshoot or bounce, as stone would feel rubbery.
 	# Delay by tile index to preserve the existing staggered reveal.
 	reveal_tween = create_tween().set_parallel(true)
+	# One low-pitched, mono thud for the full landing wave; playing a
+	# separate sound per stone would be noisy and expensive on mobile.
+	reveal_tween.tween_callback(_play_sound.bind("land")).set_delay(DUST_IMPACT_OFFSET)
 	for i in range(tile_visuals.size()):
 		var visual: TextureRect = tile_visuals[i]
 		var shadow: TextureRect = tile_shadows[i]
