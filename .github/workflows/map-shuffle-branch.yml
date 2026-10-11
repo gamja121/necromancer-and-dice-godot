@@ -16,6 +16,7 @@ on:
       - feature/stone-shuffle-dust-impact-20261011
       - feature/stone-shuffle-audio-weight-20261011
       - feature/stone-shuffle-final-qa-20261011
+      - feature/boss-tile-contamination-20-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -158,3 +159,10 @@ jobs:
           timeout 100s godot --headless --path . --script res://scripts/test_map_shuffle_stone_integrated.gd 2>&1 | tee stone-integrated.log
           grep -E 'MAP_SHUFFLE_STONE_INTEGRATED: [0-9]+ passed, 0 failed' stone-integrated.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-integrated.log; then exit 1; fi
+      - name: Boss tile contamination 20 persistence and map UI regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 90s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss-threshold.log
+          grep -E 'MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed' boss-threshold.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' boss-threshold.log; then exit 1; fi
