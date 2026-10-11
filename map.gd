@@ -1427,7 +1427,8 @@ func exit_home() -> void:
 		await shuffle.play_rotation()
 	# The authoritative map and save are updated exactly once, only after
 	# the old visuals have finished shuffling. No visual code writes game state.
-	var contamination_before_exit: int = world.contamination
+	var boss_tier_before_exit: int = world.current_boss_tier()
+	var red_stone_before_exit: bool = world.tiles[MapState.BOSS_TILE_INDEX]=="boss"
 	var ok: bool = session.leave_home()
 	world = session.world
 	if ok:
@@ -1451,7 +1452,7 @@ func exit_home() -> void:
 		show_home()
 	else:
 		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
-		if world.tiles[MapState.BOSS_TILE_INDEX]=="boss" and (contamination_before_exit < MapState.BOSS_CONTAMINATION or world.boss_peak in [40,60]):
+		if world.tiles[MapState.BOSS_TILE_INDEX]=="boss" and (not red_stone_before_exit or boss_tier_before_exit != world.current_boss_tier()):
 			status.text += " · 보스 타일 출현 · %s" % str(world.definitions[world.current_boss_id()].name)
 			play_boss_tile_reveal()
 

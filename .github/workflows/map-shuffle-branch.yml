@@ -19,6 +19,7 @@ on:
       - feature/boss-tile-contamination-20-20261011
       - feature/boss-tile-preserve-step3-20261011
       - feature/boss-roster-tiers-tile-grades-20261011
+      - feature/boss-unified-integration-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -27,6 +28,7 @@ on:
       - "systems/boss_roster.gd"
       - "systems/map_state.gd"
       - "scripts/test_boss_roster_rules.gd"
+      - "scripts/test_boss_tier_combat_integration.gd"
       - "systems/encounter_generator.gd"
       - "systems/battle_rules.gd"
       - "systems/story_battle_registry.gd"
@@ -181,6 +183,14 @@ jobs:
           timeout 95s godot --headless --path . --script res://scripts/test_boss_roster_rules.gd 2>&1 | tee boss-roster-rules.log
           grep -E 'BOSS_ROSTER_RULES: [0-9]+ passed, 0 failed' boss-roster-rules.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' boss-roster-rules.log; then exit 1; fi
+
+      - name: Tier 20/40/60 real combat, permanent defeat and retry integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 95s godot --headless --path . --script res://scripts/test_boss_tier_combat_integration.gd 2>&1 | tee boss-tier-combat-integration.log
+          grep -E 'BOSS_TIER_COMBAT_INTEGRATION: [0-9]+ passed, 0 failed' boss-tier-combat-integration.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL boss-tier-combat:' boss-tier-combat-integration.log; then exit 1; fi
 
       - name: Boss tile contamination 20 persistence and map UI regression
         shell: bash

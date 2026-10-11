@@ -93,6 +93,7 @@ func _run() -> void:
 	check(rules.units.any(func(u): return u.slug=="raging-treant") and not rules.units.any(func(u): return u.slug=="crystal-devourer"),"reserved plant cannot appear via seed growth")
 	var restored_rules=BattleRules.new(definitions,98)
 	check(restored_rules.restore(rules.snapshot()) and "crystal-devourer" in restored_rules.forbidden_species,"summon exclusion survives checkpoint reload")
+	check(rules.events.any(func(e): return str(e).contains("광폭 고목")),"reserved plant reports correct transformed monster name")
 
 	var session = root.get_node_or_null("RunSession")
 	if session==null:
