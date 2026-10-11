@@ -24,3 +24,11 @@ godot --headless --path . --script res://scripts/test_p4_natural_commander_hunte
 
 성공 로그: `P4_NATURAL_COMMANDER_HUNTER: N passed, 0 failed`.
 GitHub CI: [P4 Natural Commander Hunter Story](../../.github/workflows/p4-natural-commander-hunter.yml).
+
+## 최초 PR 자동검사 실측
+
+- GitHub PR #98: https://github.com/gamja121/necromancer-and-dice-godot/pull/98
+- Godot 4.7.2 실제 실행: https://github.com/gamja121/necromancer-and-dice-godot/actions/runs/38174685600
+- **신규 전체 체인 163 PASS / 0 FAIL**. 공동묘지 이후 마을 소문은 실제 주사위 4회, 기사단장까지 추가 3회, 사냥꾼까지 추가 3회, 기사단장~사냥꾼 사이 실제 집 셔플 1회.
+- 기사단장 7개와 사냥꾼 11개 사건 비트 모두 사용자 버튼으로 진행했고, 각 사건 중간 비트에서 별도 씬 인스턴스와 저장 재읽기로 이어짐을 확인했다. 신규 테스트 외 다른 원본·게임 구현은 변경하지 않았다.
+- 이 수치는 **고정 테스트 지도의 실제 실행 결과**로, 모든 시드/모든 경로에서 같은 주사위 수가 나온다는 뜻이 아니다. Windows GUI/오디오 및 이후 광신도 사건의 전 구간 무단축 검증은 여전히 별도 작업이다.
