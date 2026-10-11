@@ -1,6 +1,9 @@
 extends Control
 const OriginalEffects = preload("res://systems/original_effects.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
+# Exact frozen web battle badge used in v2-auto-battle-practice.js.
+const FREEZE_STATUS_TEXTURE = preload("res://assets/battle/ui/freeze-status-label.png")
+const FREEZE_BADGE_SIZE = Vector2(78,47.125)
 
 class Ground extends Control:
 	var effects
@@ -21,6 +24,7 @@ var particles: Array = []
 var numbers: Array = []
 var missiles: Array = []
 var removed: Dictionary = {}
+var freeze_badges: Dictionary = {}
 var presentation_hold = false
 var clock = 0.0
 var idle_clock = 0.0
@@ -69,6 +73,41 @@ func sync(values: Array) -> void:
 			var material = ShaderMaterial.new()
 			material.shader = shader
 			sprite.material = material
+		_sync_freeze_badge(unit)
+
+# The HTML renders the 96x58 original freeze-status-label as a persistent
+# ~78px badge over each living frozen unit, not a generic text-only status.
+# The image is a visual slave to the *actual* combat frozen flag: it never
+# modifies status counters, input, rolls, or saved checkpoint data.
+func _sync_freeze_badge(unit: Dictionary) -> void:
+	var id: String=str(unit.id)
+	var should_show: bool=bool(unit.get("alive",false)) and bool(unit.get("frozen",false)) and not removed.has(id)
+	if should_show and not freeze_badges.has(id):
+		var badge=TextureRect.new()
+		badge.name="FreezeStatusBadge_"+id
+		badge.texture=FREEZE_STATUS_TEXTURE
+		badge.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+		badge.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		badge.size=FREEZE_BADGE_SIZE
+		badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		badge.z_index=1
+		add_child(badge)
+		freeze_badges[id]=badge
+	if freeze_badges.has(id):
+		var badge: TextureRect=freeze_badges[id]
+		badge.visible=should_show
+		if should_show:
+			badge.position=_freeze_badge_position(id)
+
+func _freeze_badge_position(id: String) -> Vector2:
+	var unit: Dictionary=states.get(id,{})
+	if unit.is_empty() or not is_instance_valid(scene): return Vector2.ZERO
+	var health_bar: Control=scene.bars.get(id,null)
+	if not is_instance_valid(health_bar): return Vector2.ZERO
+	var delta_x: float=0.0
+	if scene.sprites.has(id) and homes.has(id):
+		delta_x=scene.sprites[id].position.x-homes[id].x
+	return Vector2(scene.unit_x(unit)+delta_x-FREEZE_BADGE_SIZE.x*0.5,health_bar.position.y-FREEZE_BADGE_SIZE.y-9.0)
 
 func _process(delta: float) -> void:
 	if scene == null: return
@@ -107,6 +146,8 @@ func _process(delta: float) -> void:
 				if tex!=null: sprite.texture = tex
 				sprite.position.x += sin((idle_clock-motion.started)/motion.interval*PI)*6.0*(1.0 if unit.team=="enemy" else -1.0)
 		sprite.material.set_shader_parameter("flash",0.35 if flashes.get(id,0.0)>clock and sin((flashes[id]-clock)*48.0)>0.0 else 0.0)
+		if freeze_badges.has(id) and is_instance_valid(freeze_badges[id]) and freeze_badges[id].visible:
+			freeze_badges[id].position=_freeze_badge_position(id)
 	for i in range(art_items.size()-1,-1,-1):
 		var item: Dictionary = art_items[i]
 		item.age += (0.0 if scene.paused or presentation_hold else delta) if item.get("pop",false) else dt
@@ -177,7 +218,8 @@ func _draw() -> void:
 				var phase = fmod(clock*0.55+i*0.25,1.0)
 				draw_circle(foot+Vector2(sin(i*2.3+clock)*22,-phase*50),2.5,Color(0.45,0.85,0.25,(1-phase)*0.7))
 		var badges = ""
-		if unit.frozen: badges += "빙결 "
+		# Original freeze icon replaces the redundant drawn Korean text;
+		# poison and shield messages stay adjacent and independently visible.
 		if not unit.poison.is_empty(): badges += "독 "
 		if unit.get("shields",0)>0: badges += "보호 %d" % unit.shields
 		if not badges.is_empty():

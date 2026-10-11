@@ -1,0 +1,59 @@
+name: Frozen Web Combat Freeze Status Stage 5P
+on:
+  push:
+    branches:
+      - feature/ui-parity-freeze-status-stage5p-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  freeze-source-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import original status sprite and parse Godot scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Live battle frozen badge, clear, death, removal and checkpoint reload
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_freeze_status_stage5p.gd 2>&1 | tee freeze.log
+          grep -E 'UI_FREEZE_STATUS_PARITY: [0-9]+ passed, 0 failed' freeze.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL ui-freeze:' freeze.log; then exit 1; fi
+      - name: Existing battle dock interaction parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_ui_battle_card_dock_parity.gd 2>&1 | tee dock.log
+          grep -E 'UI_BATTLE_CARD_DOCK_PARITY: [0-9]+ passed, 0 failed' dock.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-battle-card-dock:' dock.log; then exit 1; fi
+      - name: Persistent battle source rules and curse controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_battle_source_parity.gd 2>&1 | tee rules.log
+          grep -E 'BATTLE_SOURCE_PARITY_REGRESSION: [0-9]+ passed, 0 failed' rules.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL battle-parity:' rules.log; then exit 1; fi
+      - name: Round result and actual battle-to-map integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee return.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' return.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat-return:' return.log; then exit 1; fi
+      - name: Full expedition title to next lap regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee run.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' run.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' run.log; then exit 1; fi
