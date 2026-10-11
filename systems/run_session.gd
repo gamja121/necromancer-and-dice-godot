@@ -433,8 +433,10 @@ func open_treasure(index: int = -1) -> bool:
 		world.pending_reward = {"id":visit_id,"kind":"mimic","index":index,"count":EncounterGenerator.mimic_count(world.contamination,world.laps+1)}
 		return persist_change(before)
 	var pool: Array = []
-	for slug in world.definitions:
-		if world.definitions[slug].grade!="special": pool.append({"kind":"unit","source":{"slug":slug,"name":world.definitions[slug].name}})
+	# Fixed web V2 roster only. Extra Godot species remain loadable from
+	# existing saves, but cannot appear as newly generated treasure rewards.
+	for slug in EncounterGenerator.eligible_roster(world.definitions):
+		pool.append({"kind":"unit","source":{"slug":slug,"name":world.definitions[slug].name}})
 	for card in Catalog.dice_cards(): pool.append({"kind":"dice","source":card})
 	for i in range(3): pool.append({"kind":"brand","source":create_item("brand",{})})
 	for i in range(pool.size()-1,0,-1):
