@@ -52,7 +52,7 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 	fan = FanMotion.new()
 	add_child(fan)
 	if items.is_empty():
-		label_at(self,"보유한 주사위 카드가 없습니다",Vector2(260,315),Vector2(760,40),19)
+		if not battle: label_at(self,"보유한 주사위 카드가 없습니다",Vector2(260,315),Vector2(760,40),19)
 		opening = false
 		return
 	var half = (items.size()-1)*0.5
