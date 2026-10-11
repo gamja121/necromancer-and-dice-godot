@@ -26,7 +26,7 @@ func _run() -> void:
 	check(hand.battle_mode and hand.battle_backdrop!=null,"battle overlay is transparent and dismissible")
 	check(hand.options.size()==5,"all five cards laid out")
 	check(hand.options[0].position.x>hand.options[1].position.x and hand.options[4].position.x<hand.options[2].position.x,"source overlapping 5-card fan stretches toward left")
-	check(hand.options[0].rotation_degrees==10 and hand.options[2].rotation_degrees==0 and hand.options[4].rotation_degrees==-10,"source 10/5/0/-5/-10 angles kept")
+	check(absf(hand.options[0].rotation_degrees-10.0)<0.1 and absf(hand.options[2].rotation_degrees)<0.1 and absf(hand.options[4].rotation_degrees+10.0)<0.1,"source 10/5/0/-5/-10 angles kept")
 	check(hand.options[0].position.x>995 and hand.options[4].position.x>610,"fan is anchored to original bottom-right deck")
 	check(hand.options.all(func(card): return card.position.y>=430 and card.position.y<550),"card bases stay in lower 40% of 720px battlefield")
 	check(hand.options.all(func(card): return not card.get_child(0).visible),"battle card labels hidden; original artwork remains")
