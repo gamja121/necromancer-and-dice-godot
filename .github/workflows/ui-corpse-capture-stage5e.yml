@@ -1,0 +1,45 @@
+name: Original Soul Capture Choice Visual Port 5E
+on:
+  push:
+    branches:
+      - feature/ui-parity-corpse-capture-stage5e-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual capture banner selection and lock information
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 110s godot --headless --path . --script res://scripts/test_ui_corpse_capture_parity.gd 2>&1 | tee capture-ui.log
+          grep -E 'UI_CAPTURE_PARITY: [0-9]+ passed, 0 failed' capture-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-capture:' capture-ui.log; then exit 1; fi
+      - name: Previous 720 and 530 pixel battle dock presentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_ui_battle_card_dock_parity.gd 2>&1 | tee dock.log
+          grep -E 'UI_BATTLE_CARD_DOCK_PARITY: [0-9]+ passed, 0 failed' dock.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-battle-dock:' dock.log; then exit 1; fi
+      - name: P4 actual victory corpse capture and return to map
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 260s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee p4.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' p4.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat:' p4.log; then exit 1; fi
