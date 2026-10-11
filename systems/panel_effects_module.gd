@@ -32,7 +32,7 @@ func _open() -> void:
 	if closing or not is_instance_valid(_panel): return
 	_reset_tween()
 	for child in _panel.get_children():
-		if child == self or not child is Control or child.has_meta("ui_backdrop"): continue
+		if child == self or not child is Control or child.has_meta("ui_backdrop") or bool(child.get_meta("ui_custom_open_motion",false)): continue
 		_positions[child] = child.position
 		child.position.y += travel
 		_tween.tween_property(child,"position",_positions[child],open_duration)
