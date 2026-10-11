@@ -1,0 +1,59 @@
+name: Frozen Web Rare Cleared Monster Tile Stage 5K
+on:
+  push:
+    branches:
+      - feature/ui-parity-rare-cleared-tile-stage5k-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rare-cleared-source-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse the original rare monster cleared sprite
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Real map tile artwork, save/reload, new-lap reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_ui_rare_cleared_tile_stage5k.gd 2>&1 | tee rare.log
+          grep -E 'UI_RARE_CLEARED_TILE_PARITY: [0-9]+ passed, 0 failed' rare.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-rare-tile:' rare.log; then exit 1; fi
+      - name: Real combat win and defeat return to map
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee combat.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' combat.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat:' combat.log; then exit 1; fi
+      - name: All map locations and persistence after movement
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee map.log
+          grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' map.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-map-location:' map.log; then exit 1; fi
+      - name: Source visual map fog and prior 8-lane transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_map_cloud_fog_stage5j.gd 2>&1 | tee fog.log
+          grep -E 'UI_CLOUD_FOG_PARITY: [0-9]+ passed, 0 failed' fog.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-cloud-fog:' fog.log; then exit 1; fi
+      - name: One complete expedition through reward and next lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee full.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' full.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' full.log; then exit 1; fi

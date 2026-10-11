@@ -152,7 +152,7 @@ func center(index: int) -> Vector2:
 
 func tile_path(index: int) -> String:
 	var id: String = world.tiles[index]
-	if id=="rare-monster" and index in world.cleared: id = "monster"
+	# The frozen web map retains a separate rare-monster-cleared tile silhouette.
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
 	return "res://assets/map/tiles/"+id+".png"
 
