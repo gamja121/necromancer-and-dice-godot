@@ -64,6 +64,7 @@ jobs:
         with:
           version: 4.7.2
           use-dotnet: false
+          cache: false  # Cached Windows package omits the _console.exe required for reliable exit codes
 
       - name: Verify Windows executable and import native runtime assets
         shell: pwsh
