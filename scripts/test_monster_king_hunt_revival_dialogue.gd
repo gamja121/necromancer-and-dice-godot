@@ -127,7 +127,9 @@ func branch(side: String, tile: String) -> void:
 	check(s.event_flag_is_set(Hunt.progress_flag(1)) and s.event_flag_is_set(Hunt.progress_flag(2)),"both sequential scene receipts present")
 	check(s.get_story_event(Hunt.EVENT_ID).status=="seen","hunt event remains unfinished")
 	var stable: Dictionary=s.world.snapshot().duplicate(true)
-	for stale in [0,1,2]:
+	# The fourth clue is now intentionally reachable from saved beat 2.
+	# Previous or future indices must still be rejected without a write.
+	for stale in [0,1,3]:
 		check(not Hunt.advance(s,at,stale),"stale/future Continue %d refused" % stale)
 	check(Hunt.begin(s,at),"reopen saved third scene is idempotent")
 	check(s.world.snapshot()==stable,"reopening does not modify original state")
