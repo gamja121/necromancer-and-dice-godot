@@ -51,6 +51,14 @@ func _run() -> void:
 		check(art!=null and art.get_width()>0 and art.get_height()>0,"Godot decodes original tile "+name)
 	var actual_rare: Texture2D = load(prefix+"rare-monster-cleared.png")
 	var ordinary_done: Texture2D = load(prefix+"monster-cleared.png")
+	if actual_rare==null or ordinary_done==null:
+		check(false,"runtime must decode both original cleared stones before rendering map")
+		session.save_file_path = original_save
+		if own_session: session.queue_free()
+		cleanup()
+		print("UI_RARE_CLEARED_TILE_PARITY: %d passed, %d failed" % [passed,failed])
+		quit(1)
+		return
 	check(actual_rare!=ordinary_done and actual_rare.resource_path!=ordinary_done.resource_path,"rare completion has distinct preserved artwork")
 	var original_map_serial: int = world.map_serial
 	var original_receipts: Array = world.reward_receipts.duplicate(true)
