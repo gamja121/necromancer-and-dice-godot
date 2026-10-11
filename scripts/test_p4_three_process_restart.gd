@@ -95,11 +95,14 @@ func move_resume(s) -> void:
 	# animation/arrival completion, not a direct test-only acknowledgement.
 	var map = MapScene.instantiate()
 	root.add_child(map)
+	for i in range(5): await process_frame
+	print("P4_MOVE_DEBUG start session_equal=", map.session == s, " pending=", JSON.stringify(w.pending_move), " moving=", map.moving, " scene_pending=", JSON.stringify(map.world.pending_move))
 	var begun: int = Time.get_ticks_msec()
 	while Time.get_ticks_msec() - begun < 20000:
 		if w.pending_move.is_empty() and not map.moving: break
 		await process_frame
 	for i in range(3): await process_frame
+	print("P4_MOVE_DEBUG end pending=", JSON.stringify(w.pending_move), " moving=", map.moving, " status=", map.status.text, " stage_children=", map.stage.get_child_count())
 	check(w.pending_move.is_empty() and not map.moving, "real Map scene completes interrupted movement after process restart")
 	check(w.position == dest and w.move_serial == serial and w.last_face == last_face, "map landing, die and serial are not rerolled")
 	check(w.roster[0].current_hp == 1 and w.roster[1].current_hp == 1, "swamp damage remains once-only after Map animation")
