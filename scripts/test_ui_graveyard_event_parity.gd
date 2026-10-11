@@ -50,7 +50,7 @@ func _run() -> void:
 	check(not session.get_story_event("graveyard_child_ambush_01").status=="complete","visual beat alone does not complete story")
 	map.show_graveyard_child_beat(grave,2)
 	check(child_named(map.overlay,"StoryCharacterLayer")!=null,"ghoul visible on its own image layer")
-	check(child_named(map.overlay,"StoryDialogueFrame") is TextureRect and child_named(map.overlay,"StoryDialogueFrame").texture.resource_path=="res://assets/map/ui/intro-dialogue-box.webp","original frozen web dialogue frame displays in graveyard dialogue scene")
+	check(child_named(map.overlay,"StoryDialogueFrame") is TextureRect and child_named(map.overlay,"StoryDialogueFrame").texture.resource_path=="res://assets/map/ui/intro-dialogue-box.webp","verified source-based dialogue frame displays in graveyard scene")
 	var speech=child_named(map.overlay,"StoryDialogueText")
 	check(speech is Label and speech.text.contains("도와주세요"),"original child dialogue appears in speech frame")
 	map.show_graveyard_child_beat(grave,3)

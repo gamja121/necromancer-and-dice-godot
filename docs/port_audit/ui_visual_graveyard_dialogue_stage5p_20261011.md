@@ -2,12 +2,14 @@
 
 ## 원본 기준과 실제 차이
 - 변경 불가 웹 기준: `gamja121/necromancer-dice-board/reference/html-final@e13d5149fcecc802e5d626f3bef6e5daecd3d66c`.
-- 웹 `v2-map-practice.html` 464–469행과 `v2-map-practice.css` 2130–2205행: 공동묘지 아이가 말할 때 `intro-dialogue-box.webp` 원본 프레임 위에 ‘아이’ 이름, “…도와주세요!” 대사 및 다음 표시가 나타난다.
-- 원본 WebP: `art/v2-style/ui/intro-dialogue-box.webp`, Git blob `3bab039aa347faa7546e213de941213dd8cade8d` (12,000 bytes). 기존 Godot에는 아이 사건 대화용 해당 파일이 없고, `show_graveyard_child_beat()`는 일반 말풍선 없는 `아이: …도와주세요!` 텍스트만 사용했다.
+- 웹 `v2-map-practice.html` 464–469행과 `v2-map-practice.css` 2130–2205행: 공동묘지 아이가 말할 때 `intro-dialogue-box.webp` 복구한 원본 기반 프레임 위에 ‘아이’ 이름, “…도와주세요!” 대사 및 다음 표시가 나타난다.
+- 웹 원본 WebP: `art/v2-style/ui/intro-dialogue-box.webp`, Git blob `3bab039aa347faa7546e213de941213dd8cade8d` (12,000 bytes). **원본 자체가 330바이트 잘렸다.** RIFF/VP8 청크에서는 12,330바이트를 요구하며 Godot·Pillow 기본 디코딩 불가. 기존 Godot 맵에는 아이 대화 상자 파일이 없었고 `show_graveyard_child_beat()`는 텍스트만 사용했다.
+- source prefix(12,000 bytes)를 1바이트도 바꾸지 않고 **누락된 뒷부분 330바이트만 0으로 채운 복구 WebP** blob `3ccec1f913e4df4f01a5e80888297c521ed48d6c` (12,330 bytes)를 Godot용으로 추가한다. Pillow 일반 디코드 및 dwebp 디코드에서 768×288 RGBA 동일 `sha256=c7ee30520ef60773f058ab4775304459dee2960196100dd69e5d3f108fcead26`으로 복원됨. ffmpeg 디코딩은 손상 복원 부위에 따라 다른 픽셀 결과도 냈음.
+- **복원 한계:** 잘린 원본의 마지막 부분 330바이트는 복원할 수 없다. zero padding은 읽을 수 있는 이미지로 만드는 실용적 복구이며 손실 없는 100% 제작 원화 복원이 아니다. 원본 웹 Git SHA와 수정본 SHA를 별도로 기록하며 웹 소스는 변경하지 않는다.
 - `assets/intro/dialogue_frame.webp`는 원본과 blob이 다른 **별도 인트로 전용 이미지**이므로 덮어쓰지 않는다.
 
 ## 작업
-- 원본 WebP 바이트를 `assets/map/ui/intro-dialogue-box.webp`로 무손실 동일 blob 저장. 이력·원본 웹/인트로 에셋은 변경하지 않음.
+- 원본과 완전한 prefix가 일치하는 **zero-padded 복구 WebP**를 `assets/map/ui/intro-dialogue-box.webp`에 저장. 330바이트 패딩/RIFF 검증은 CI에서 별도 확인한다. 원본 웹/인트로 에셋 변경 없음.
 - `map.gd`의 공동묘지 `show_graveyard_child_beat()`에서 **대사가 있고 구조 선택 전일 때만** 원본 WebP를 그림으로 표시. 1280×720 맵 기준 웹 CSS left/right 8%, bottom 2%, height 30% → `Rect2(102.4,489.6,1075.2,216)`, stretch scale.
 - 발화자 ‘아이’와 대사 글자를 양피지 위에 별도 레이어 표시, 선택 전 계속 단계에서만 ▼. 사건 설명 텍스트는 프레임 위쪽으로 이동해 겹침 방지.
 - 평상시 첫 두 장면에는 프레임 없음. 구조 선택 뒤에는 프레임/선택지를 통해 사건을 새로 실행하지 않고 기존 상태를 복원. 프레임 `MOUSE_FILTER_IGNORE`로 입력을 절대 가로채지 않는다.
@@ -25,3 +27,7 @@
 - 기존 공동묘지 UI 시각/시체 추출 회귀, 모든 사건 중단 복원(P4-03), 구조/포기/패배 후 재전투, 맵 장소, 단일 원정 E2E 검사.
 - 웹 CSS에서 원본 프레임은 클릭하여 계속할 수 있지만 본 이식에서는 **의도적으로 기존 계속 버튼만 트리거**, 키보드/터치 오작동 방지. Windows/Android 실기에서 글자 가독성·버튼 겹침 및 픽셀 정합은 미승인.
 - `main` 병합·배포·PC 동기화·원본 삭제 없음.
+
+## 독립 이미지 복구 증빙
+- 진단 GitHub Actions 실행에서 `original` Pillow normal/tolerant, `dwebp`, `ffmpeg` 직접 디코딩 모두 실패.
+- `zero_pad` 330바이트 버전에서 Pillow·dwebp 정상 해독(동일 픽셀 해시). `length_fixed`는 Pillow 및 dwebp 실패. 복구 WebP의 앞 12,000바이트 Git blob은 웹 고정본 `3bab039aa347faa7546e213de941213dd8cade8d`와 동일함을 CI에서 검증한다.

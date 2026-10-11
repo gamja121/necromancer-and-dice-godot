@@ -47,7 +47,7 @@ func _run() -> void:
 	var idx: int=session.world.tiles.find("graveyard")
 	check(idx>=0,"real generated board contains graveyard tile")
 	var source=load(SOURCE) as Texture2D
-	check(source!=null,"exact source dialogue WebP imports into Godot")
+	check(source!=null,"source-based recovered dialogue WebP imports into Godot")
 	if idx<0 or source==null:
 		session.save_file_path=original_path
 		if created: session.queue_free()
@@ -81,7 +81,7 @@ func _run() -> void:
 	var frame=panel.get_node_or_null("StoryDialogueFrame") as TextureRect
 	check(frame!=null,"spoken child scene creates dedicated original dialogue artwork node")
 	if frame!=null:
-		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame references exact imported frozen-web source")
+		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame references verified recovered source image")
 		check(frame.stretch_mode==TextureRect.STRETCH_SCALE,"source frame stretches to map dialogue window without letterboxing")
 		check(frame.position.distance_to(Vector2(102.4,489.6))<0.5 and frame.size==Vector2(1075.2,216.0),"8%-margins/2%-bottom/30%-height source footprint")
 		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE,"visual-only dialogue frame cannot consume touch or mouse input")

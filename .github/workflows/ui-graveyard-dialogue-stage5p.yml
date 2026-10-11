@@ -16,7 +16,24 @@ jobs:
         with:
           version: 4.7.2
           use-dotnet: false
-      - name: Import exact source graveyard dialogue texture
+      - name: Check repaired WebP preserves every existing original byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct, subprocess
+          raw=Path("assets/map/ui/intro-dialogue-box.webp").read_bytes()
+          assert len(raw)==12330, "padded WebP length"
+          assert raw[:4]==b"RIFF" and raw[8:12]==b"WEBP" and raw[12:16]==b"VP8 ", "original VP8 headers"
+          assert struct.unpack_from("<I",raw,4)[0]+8==len(raw), "RIFF chunk length"
+          assert struct.unpack_from("<I",raw,16)[0]+20==len(raw), "VP8 data chunk length"
+          assert raw[12000:]==bytes(330), "only 330 zero bytes appended"
+          prefix_sha=subprocess.run(["git","hash-object","--stdin"],input=raw[:12000],capture_output=True,check=True).stdout.decode().strip()
+          assert prefix_sha=="3bab039aa347faa7546e213de941213dd8cade8d", "source prefix differs from frozen web original"
+          print("WEBP_SOURCE_PREFIX: 12000 original bytes intact, 330 zero padded, original Git SHA verified")
+          PY
+      - name: Import reconstructed source-based graveyard dialogue texture
         shell: bash
         run: |
           set -euo pipefail
