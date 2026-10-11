@@ -1,17 +1,21 @@
 extends Control
-## Step 2 only: visually gather the 21 movable map tiles into two distinct
-## rings. No map state, randomness, dice result, or save data is modified.
+## Steps 2 and 3: gather the 21 movable map tiles, then counter-rotate
+## their two separate orbits. No game rules, dice results or saves change.
 ## This is not wired into the live home-exit transition until later steps.
 
 const Layout = preload("res://systems/map_shuffle_layout.gd")
 const SHRINK_DURATION = 0.12
 const TRAVEL_DURATION = 0.43
+const ROTATE_DURATION = 0.85
 
 var tile_sources: Array[TextureButton] = []
 var source_visibility: Array[bool] = []
 var tile_visuals: Array[TextureRect] = []
 var slots: Array[Dictionary] = []
 var gathering: Tween
+var rotation_tween: Tween
+var gathered := false
+var rotated := false
 
 
 func _ready() -> void:
@@ -55,7 +59,7 @@ func prepare(tile_buttons: Array) -> bool:
 
 
 ## At the end, cloned tiles remain at the beginning of their respective orbits.
-## Step 3 will rotate these same visuals; step 4 will return them to the map.
+## Step 3 rotates the same temporary visuals; step 4 will redistribute them.
 func play_gather() -> void:
 	if tile_visuals.size() != Layout.INNER_COUNT + Layout.OUTER_COUNT:
 		return
@@ -74,10 +78,38 @@ func play_gather() -> void:
 		var destination: Vector2 = Layout.orbit_position(slots[i], 0.0) - visual.size * 0.5
 		gathering.tween_property(visual, "position", destination, TRAVEL_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await gathering.finished
+	if tile_visuals.size() == slots.size():
+		gathered = true
+
+
+## Clockwise inner orbit (+210 deg), counterclockwise outer orbit (-250 deg).
+## Only centers orbit around the unchanged dice; sprites themselves stay upright.
+## Calling before gathering, while spinning, or twice after completion is a no-op.
+func play_rotation() -> void:
+	if not gathered or rotated or tile_visuals.size() != Layout.INNER_COUNT + Layout.OUTER_COUNT:
+		return
+	if rotation_tween != null and rotation_tween.is_running():
+		return
+	rotation_tween = create_tween()
+	rotation_tween.tween_method(_apply_rotation_progress, 0.0, 1.0, ROTATE_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	await rotation_tween.finished
+	if tile_visuals.size() == slots.size():
+		_apply_rotation_progress(1.0)
+		rotated = true
+
+
+func _apply_rotation_progress(progress: float) -> void:
+	for i in range(tile_visuals.size()):
+		var visual: TextureRect = tile_visuals[i]
+		if is_instance_valid(visual):
+			visual.position = Layout.orbit_position(slots[i], progress) - visual.size * 0.5
+
 
 func restore_tiles() -> void:
 	if gathering != null and gathering.is_running():
 		gathering.kill()
+	if rotation_tween != null and rotation_tween.is_running():
+		rotation_tween.kill()
 	for i in range(tile_sources.size()):
 		if is_instance_valid(tile_sources[i]):
 			tile_sources[i].visible = source_visibility[i]
@@ -89,6 +121,9 @@ func restore_tiles() -> void:
 	tile_visuals.clear()
 	slots.clear()
 	gathering = null
+	rotation_tween = null
+	gathered = false
+	rotated = false
 
 
 func _exit_tree() -> void:
