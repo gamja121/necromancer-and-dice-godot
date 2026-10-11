@@ -100,6 +100,7 @@ func _run() -> void:
 			if fresh.get(key)!=serial[key]:
 				print("DIAG altar key=",key," before=",JSON.stringify(serial[key]).substr(0,900)," after=",JSON.stringify(fresh.get(key)).substr(0,900))
 	check(fresh==serial,"ritual state and roster survive JSON reload")
+	check(typeof(session.owned_unit(target_id).get("altar_enhancements"))==TYPE_INT,"restarted altar enhancement level retains integer type")
 	map=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame

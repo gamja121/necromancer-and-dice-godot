@@ -24,3 +24,8 @@
 - `scripts/test_ui_altar_ritual_stage5n.gd`: 실제 Map/PlaceActions, 원본 PNG path/규격, 실제 버튼으로 선택·의식 실행, 재물 소멸, 강화 +1 공격·+2 최대 체력, RNG 불변, 영수증 1회, 파일 저장·재시작, 중복 차단, 임시 세이브 정리.
 - 이전 M 오디오 옵션·P4 실제 장소 이동·보상 집 귀환·원정 E2E 자동검증.
 - `main` 병합·웹 배포·PC 동기화 안 함. Windows/Android 실기 확인·웹 원화 100% 렌더 승인 안 함.
+
+## 저장·재실행 시 발견·해결한 정수 복원 차이
+- 초기 Godot CI: 제단 UI와 제물 희생/공격+1/체력+2/영수증 1회 모두 성공(36개 검사)이지만 전체 snapshot 동일성 1건 실패.
+- `MapState.restore()`에서 `roster[].max_hp/attack/speed/current_hp`는 이미 정수로 변환했으나 신규 `roster[].altar_enhancements`는 실수 `1.0`을 그대로 두었다. 디버그 로그로 이 한 필드만 차이가 있음을 확인.
+- `altar_enhancements`가 저장에 있으면 `int`로 복원한다. 실제 강화 정책, 영구 소멸, `reward_receipts`, RNG는 그대로. 재시작 후 snapshot 완전 동일·`TYPE_INT` 검사 추가.

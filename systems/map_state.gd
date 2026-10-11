@@ -259,6 +259,8 @@ func restore(saved: Dictionary) -> bool:
 	roster = saved.roster.duplicate(true)
 	for u in roster:
 		for key in ["max_hp","attack","speed","current_hp"]: u[key] = int(u[key])
+		# Altar level is a durable integer count; Godot JSON decodes it as float.
+		if u.has("altar_enhancements"): u.altar_enhancements = int(u.altar_enhancements)
 		for b in u.brands:
 			b.bless = b.bless.map(func(n): return int(n))
 			b.curse = b.curse.map(func(n): return int(n))
