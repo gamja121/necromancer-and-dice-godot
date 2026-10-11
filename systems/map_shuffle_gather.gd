@@ -13,6 +13,11 @@ const SOUND_PRESETS = {
 	"rotate": {"volume_db": -25.0, "pitch": 0.90},
 	"land": {"volume_db": -20.0, "pitch": 0.88}
 }
+# Tiny resistance tremor before stone slabs leave their original sockets.
+# Never displace the static map nodes or alter their saved positions.
+const PREDEPARTURE_DURATION = 0.09
+const PREDEPARTURE_AMPLITUDE = Vector2(0.8, 0.35)
+const PREDEPARTURE_CYCLES = 3.0
 const SHRINK_DURATION = 0.12
 const TRAVEL_DURATION = 0.43
 const ROTATE_DURATION = 0.85
@@ -37,6 +42,7 @@ var tile_visuals: Array[TextureRect] = []
 var tile_shadows: Array[TextureRect] = []
 var slots: Array[Dictionary] = []
 var gathering: Tween
+var predeparture_tween: Tween
 var rotation_tween: Tween
 var scatter_tween: Tween
 var reveal_tween: Tween
@@ -198,10 +204,16 @@ func prepare(tile_buttons: Array) -> bool:
 func play_gather() -> void:
 	if tile_visuals.size() != Layout.INNER_COUNT + Layout.OUTER_COUNT:
 		return
-	if gathered or (gathering != null and gathering.is_running()):
+	if gathered or (gathering != null and gathering.is_running()) or (predeparture_tween != null and predeparture_tween.is_running()):
 		return
 	_aura_fade_in()
 	_play_sound("gather")
+	# The slab first resists the pull: 21 tiny alternating tremors fade
+	# to exactly zero, then all cards shrink and travel along the old path.
+	predeparture_tween = create_tween()
+	predeparture_tween.tween_method(_apply_predeparture, 0.0, 1.0, PREDEPARTURE_DURATION)
+	await predeparture_tween.finished
+	_apply_predeparture(1.0)
 	# Shrink in place first. Keeping the tiles small during travel avoids
 	# crossing/stacking that would occur if 21 full-size tiles moved at once.
 	gathering = create_tween().set_parallel(true)
@@ -213,10 +225,24 @@ func play_gather() -> void:
 	for i in range(tile_visuals.size()):
 		var visual: TextureRect = tile_visuals[i]
 		var destination: Vector2 = Layout.orbit_position(slots[i], 0.0) - visual.size * 0.5
-		gathering.tween_property(visual, "position", destination, TRAVEL_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		# Heavy acceleration from rest and then a controlled slowdown near
+		# the inner/outer ring. Route and total travel time do not change.
+		gathering.tween_property(visual, "position", destination, TRAVEL_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	await gathering.finished
 	if tile_visuals.size() == slots.size():
 		gathered = true
+
+
+func _apply_predeparture(progress: float) -> void:
+	# Each cloned stone stays within one pixel of its original tile. The
+	# sine envelope guarantees no offset remains when shrinking begins.
+	var envelope: float = sin(PI * progress)
+	var pulse: float = sin(TAU * PREDEPARTURE_CYCLES * progress) * envelope
+	for i in range(tile_visuals.size()):
+		var visual: TextureRect = tile_visuals[i]
+		if is_instance_valid(visual) and is_instance_valid(tile_sources[i]):
+			var direction: float = -1.0 if i % 2 == 0 else 1.0
+			visual.position = tile_sources[i].position + Vector2(direction * PREDEPARTURE_AMPLITUDE.x * pulse, PREDEPARTURE_AMPLITUDE.y * pulse)
 
 
 ## Clockwise inner orbit (+210 deg), counterclockwise outer orbit (-250 deg).
@@ -328,6 +354,8 @@ func restore_tiles() -> void:
 		aura_tween.kill()
 	aura_tween = null
 	_set_aura_strength(0.0)
+	if predeparture_tween != null and predeparture_tween.is_running():
+		predeparture_tween.kill()
 	if gathering != null and gathering.is_running():
 		gathering.kill()
 	if rotation_tween != null and rotation_tween.is_running():
@@ -348,6 +376,7 @@ func restore_tiles() -> void:
 	tile_visuals.clear()
 	tile_shadows.clear()
 	slots.clear()
+	predeparture_tween = null
 	gathering = null
 	rotation_tween = null
 	scatter_tween = null

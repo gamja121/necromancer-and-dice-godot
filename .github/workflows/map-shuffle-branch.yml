@@ -11,6 +11,7 @@ on:
       - feature/map-shuffle-audio-timing-20261011
       - feature/map-shuffle-final-qa-20261011
       - feature/stone-shuffle-landing-20261011
+      - feature/stone-shuffle-departure-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -118,3 +119,10 @@ jobs:
           timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_stone_landing.gd 2>&1 | tee stone-landing.log
           grep -E 'MAP_SHUFFLE_STONE_LANDING: [0-9]+ passed, 0 failed' stone-landing.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-landing.log; then exit 1; fi
+      - name: Heavy stone departure tremor and acceleration regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 70s godot --headless --path . --script res://scripts/test_map_shuffle_stone_departure.gd 2>&1 | tee stone-departure.log
+          grep -E 'MAP_SHUFFLE_STONE_DEPARTURE: [0-9]+ passed, 0 failed' stone-departure.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-departure.log; then exit 1; fi
