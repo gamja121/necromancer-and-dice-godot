@@ -21,6 +21,10 @@ const PREDEPARTURE_CYCLES = 3.0
 const SHRINK_DURATION = 0.12
 const TRAVEL_DURATION = 0.43
 const ROTATE_DURATION = 0.85
+# Stone flywheel: overcome initial inertia, maintain speed between rings,
+# then apply a longer controlled brake. Fractions of ROTATE_DURATION.
+const ROTATION_ACCEL_FRACTION = 0.20
+const ROTATION_BRAKE_FRACTION = 0.30
 const SCATTER_DURATION = 0.46
 const FLIP_HALF_DURATION = 0.105
 const FLIP_STAGGER = 0.008
@@ -256,11 +260,36 @@ func play_rotation() -> void:
 	_aura_during_rotation()
 	_play_sound("rotate")
 	rotation_tween = create_tween()
-	rotation_tween.tween_method(_apply_rotation_progress, 0.0, 1.0, ROTATE_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	rotation_tween.tween_method(_apply_inertial_rotation_progress, 0.0, 1.0, ROTATE_DURATION).set_trans(Tween.TRANS_LINEAR)
 	await rotation_tween.finished
 	if tile_visuals.size() == slots.size():
 		_apply_rotation_progress(1.0)
 		rotated = true
+
+
+## Integrated rotational velocity curve: zero initial speed, short smooth
+## acceleration, constant angular travel in the middle, a longer smooth brake.
+## A cosine-derived ramp keeps speed and acceleration continuous at joins.
+## The normalized integral guarantees each ring still turns exactly its
+## canonical +210 / -250 degrees in the original 0.85 seconds.
+static func stone_rotation_progress(time_fraction: float) -> float:
+	var t: float = clampf(time_fraction, 0.0, 1.0)
+	var a: float = ROTATION_ACCEL_FRACTION
+	var b: float = ROTATION_BRAKE_FRACTION
+	var brake_start: float = 1.0 - b
+	var area: float = 1.0 - 0.5 * (a + b)
+	if t <= a:
+		return clampf(0.5 * (t - a / PI * sin(PI * t / a)) / area, 0.0, 1.0)
+	if t < brake_start:
+		return (0.5 * a + t - a) / area
+	var braking_time: float = t - brake_start
+	var distance_before_brake: float = 0.5 * a + brake_start - a
+	var braking_distance: float = 0.5 * (braking_time + b / PI * sin(PI * braking_time / b))
+	return clampf((distance_before_brake + braking_distance) / area, 0.0, 1.0)
+
+
+func _apply_inertial_rotation_progress(time_fraction: float) -> void:
+	_apply_rotation_progress(stone_rotation_progress(time_fraction))
 
 
 func _apply_rotation_progress(progress: float) -> void:
