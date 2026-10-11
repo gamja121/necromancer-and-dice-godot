@@ -173,10 +173,16 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		var delay: float = float(i) * FLIP_STAGGER
 		var landing_y: float = visual.position.y
 		visual.position.y -= LANDING_LIFT
+		# Counter-shift the child shadow as the tile lifts: unlike the
+		# card, its world-space contact point remains on the ground.
+		shadow.position.y = SHADOW_OFFSET.y + LANDING_LIFT
 		reveal_tween.tween_property(visual, "scale:x", 0.04, FLIP_HALF_DURATION).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		reveal_tween.tween_callback(_reveal_tile_face.bind(visual, shadow, next_texture)).set_delay(delay + FLIP_HALF_DURATION)
 		reveal_tween.tween_property(visual, "scale", Vector2.ONE, FLIP_EXPAND_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		reveal_tween.tween_property(visual, "position:y", landing_y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		# Mirror the same bounce on the child offset so the shadow stays
+		# fixed to the board rather than floating upward with the tile.
+		reveal_tween.tween_property(shadow, "position:y", SHADOW_OFFSET.y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
 		reveal_tween.tween_property(shadow, "modulate:a", 0.0, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await reveal_tween.finished
 
