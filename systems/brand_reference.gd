@@ -74,14 +74,10 @@ func setup(rules) -> void:
 	header.add_child(corner)
 	dice_headers.clear()
 	for face in range(1,7):
-		var slot=CenterContainer.new()
+		var slot=PanelContainer.new()
 		slot.name="DiceFace%02d" % face
 		slot.custom_minimum_size=Vector2(FACE_COL,40)
-		var backing=Panel.new()
-		backing.set_anchors_preset(Control.PRESET_FULL_RECT)
-		backing.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		backing.add_theme_stylebox_override("panel",header_style())
-		slot.add_child(backing)
+		slot.add_theme_stylebox_override("panel",header_style())
 		var die=TextureRect.new()
 		die.name="DiceImage"
 		die.texture=load(DICE_RESULT_PATH % face)
