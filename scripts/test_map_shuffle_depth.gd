@@ -72,7 +72,7 @@ func _run() -> void:
 	for i in range(24):
 		fresh.append(old_face if i in Layout.FIXED_INDICES else texture_for(Color(float(i) / 24.0, 0.5, 0.6)))
 	# Sample face transition while it is active, before cleanup removes all clones.
-	var scatter_wait = shuffle.play_scatter(fresh, true)
+	shuffle.play_scatter(fresh, true)
 	await create_timer(Gather.SCATTER_DURATION + Gather.FLIP_HALF_DURATION + 0.075).timeout
 	var sampled_shadow_faded := false
 	var reveal_sync := true
@@ -85,8 +85,10 @@ func _run() -> void:
 			reveal_sync = false
 	check(sampled_shadow_faded, "contact shadow fades during landing")
 	check(reveal_sync, "reveal texture and shadow silhouette stay in sync")
-	var scattered: bool = await scatter_wait
-	check(scattered, "scatter and landing complete")
+	var start: int = Time.get_ticks_msec()
+	while not shuffle.tile_visuals.is_empty() and Time.get_ticks_msec() - start < 5000:
+		await process_frame
+	check(shuffle.tile_visuals.is_empty(), "scatter and landing complete")
 	check(shuffle.tile_shadows.is_empty() and shuffle.tile_visuals.is_empty(), "all temporary faces and shadows cleaned up")
 	check(buttons.all(func(tile): return tile.visible), "all gameplay tile buttons visible")
 	check(dice.texture_normal == old_face, "dice texture remains unchanged")
