@@ -33,16 +33,20 @@ func wipe(path: String) -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path + ext))
 
 func open_session(path: String, fresh: bool = false):
-	var s = Session.new()
-	s.name = "RunSession"
-	root.add_child(s)
+	# The Godot project autoloads /root/RunSession. Reuse that exact node,
+	# otherwise Map._ready reads a second session's default player save.
+	var s = root.get_node_or_null("RunSession")
+	if s == null:
+		s = Session.new()
+		s.name = "RunSession"
+		root.add_child(s)
 	s.save_file_path = path
 	if fresh:
 		wipe(path)
 		s.start_new_world()
 	else:
 		check(s.has_save(), "previous process saved this isolated transaction")
-		s.ensure_world()
+		s.reload_world()
 	return s
 
 func stable_snapshot(s) -> Dictionary:
@@ -95,14 +99,11 @@ func move_resume(s) -> void:
 	# animation/arrival completion, not a direct test-only acknowledgement.
 	var map = MapScene.instantiate()
 	root.add_child(map)
-	for i in range(5): await process_frame
-	print("P4_MOVE_DEBUG start session_equal=", map.session == s, " pending=", JSON.stringify(w.pending_move), " moving=", map.moving, " scene_pending=", JSON.stringify(map.world.pending_move))
 	var begun: int = Time.get_ticks_msec()
 	while Time.get_ticks_msec() - begun < 20000:
 		if w.pending_move.is_empty() and not map.moving: break
 		await process_frame
 	for i in range(3): await process_frame
-	print("P4_MOVE_DEBUG end pending=", JSON.stringify(w.pending_move), " moving=", map.moving, " status=", map.status.text, " stage_children=", map.stage.get_child_count())
 	check(w.pending_move.is_empty() and not map.moving, "real Map scene completes interrupted movement after process restart")
 	check(w.position == dest and w.move_serial == serial and w.last_face == last_face, "map landing, die and serial are not rerolled")
 	check(w.roster[0].current_hp == 1 and w.roster[1].current_hp == 1, "swamp damage remains once-only after Map animation")
@@ -321,6 +322,6 @@ func _run() -> void:
 				"story_ack": story_ack(s)
 				"story_verify": story_verify(s)
 				_: check(false, "unknown phase " + phase)
-		s.free()
+		# Autoload remains owned by the SceneTree until this process exits.
 	print("P4_THREE_PROCESS_RESTART_%s: %d passed, %d failed" % [phase, passed, failed])
 	quit(0 if failed == 0 else 1)
