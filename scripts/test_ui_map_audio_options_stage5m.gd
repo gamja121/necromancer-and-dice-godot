@@ -95,7 +95,11 @@ func _run() -> void:
 	var actual = map.map_audio
 	check(actual!=null and actual.options_button!=null,"real map initializes audio settings correctly")
 	check(actual.get_child(0)==actual.options_button,"real map original audio image targets expected first button")
-	var icon = actual.options_button.get_node_or_null("TextureRect") as TextureRect
+	var icon: TextureRect
+	for child in actual.options_button.get_children():
+		if child is TextureRect and child.texture!=null:
+			icon=child
+			break
 	check(icon!=null and icon.texture!=null,"real map displays decoded embedded original audio icon")
 	if icon!=null and icon.texture!=null:
 		check(icon.texture.resource_path=="res://assets/map/ui/map_audio_options.webp","real map icon is the byte-exact original web asset")
