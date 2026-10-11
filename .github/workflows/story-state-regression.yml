@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "systems/run_session.gd"
+      - "scripts/test_p4_run_entry_integration.gd"
+      - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_combat_map_return_integration.gd"
       - "data/battle_visual_metrics.json"
       - "systems/battle_presentation_layout.gd"
       - "systems/battle_visuals.gd"
@@ -83,6 +86,9 @@ on:
     branches: [main]
     paths:
       - "systems/run_session.gd"
+      - "scripts/test_p4_run_entry_integration.gd"
+      - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_combat_map_return_integration.gd"
       - "data/battle_visual_metrics.json"
       - "systems/battle_presentation_layout.gd"
       - "systems/battle_visuals.gd"
@@ -183,6 +189,36 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: P4-01 step 3 deck selection embedded battle win defeat capture and map return integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee p4-combat-return.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' p4-combat-return.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat:' p4-combat-return.log; then
+            exit 1
+          fi
+
+      - name: P4-01 step 2 real dice movement and saved location arrival integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 100s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee p4-map-location.log
+          grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' p4-map-location.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-map-location:' p4-map-location.log; then
+            exit 1
+          fi
+
+      - name: P4-01 step 1 full Title New Run Intro 12 beats Map and isolated save integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 60s godot --headless --path . --script res://scripts/test_p4_run_entry_integration.gd 2>&1 | tee p4-run-entry.log
+          grep -E 'P4_RUN_ENTRY_INTEGRATION: [0-9]+ passed, 0 failed' p4-run-entry.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-entry:' p4-run-entry.log; then
+            exit 1
+          fi
+
       - name: All species real battle attack hit death motion and restored guardian-seed regression
         shell: bash
         run: |

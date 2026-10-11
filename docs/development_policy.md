@@ -33,3 +33,7 @@ https://github.com/gamja121/necromancer-dice-board/tree/reference/html-final
 ## 공개 제외 대상
 
 .env, 비밀키, 개인 로그인 정보와 대화 기록, 개인 저장·오디오 설정, .godot 캐시, 빌드 결과물, source_assets 및 미승인 후보 원본은 게시하지 않는다. 원본 아트는 별도 raw_assets에서 관리한다. GitHub는 실행 원본과 승인된 게임용 에셋 중심으로 유지한다.
+
+## PC ↔ GitHub 양방향 통합 — 2026-10-11
+
+사용자는 각 작업 공간에서 완성한 Godot 변경을 수시로 통합하여 같은 실행 결과를 유지하도록 요청했다. 작업 시작, 원격 병합 전, 검증된 작업 단위 게시 후에 최신 공개 main을 확인하고 양쪽 변경을 보존해 통합한다. 완료한 작업은 공개 main 반영과 PC의 같은 버전 확인까지 포함한다. PC 반영이 남았으면 동기화 완료로 표시하지 않는다. 상세 절차: [shared_source_sync.md](shared_source_sync.md).

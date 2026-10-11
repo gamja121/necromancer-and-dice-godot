@@ -265,6 +265,18 @@ func restore(saved: Dictionary) -> bool:
 		card.brand.curse = []
 	tiles = saved.tiles.duplicate()
 	roster = saved.roster.duplicate(true)
+	# Permanently lost owned units are saved in the graveyard with the
+	# same numeric/card shape as roster units. JSON parses numbers as float;
+	# restore their ints too, so a loss -> reload does not subtly change
+	# the corpse item used later for extraction or inheritance.
+	for corpse in graveyard_corpses:
+		if not corpse is Dictionary: continue
+		for key in ["max_hp","attack","speed","current_hp"]:
+			if corpse.has(key): corpse[key] = int(corpse[key])
+		for b in corpse.get("brands",[]):
+			if not b is Dictionary: continue
+			if b.get("bless",[]) is Array: b.bless = b.bless.map(func(n): return int(n))
+			if b.get("curse",[]) is Array: b.curse = b.curse.map(func(n): return int(n))
 	for u in roster:
 		for key in ["max_hp","attack","speed","current_hp"]: u[key] = int(u[key])
 		for b in u.brands:
