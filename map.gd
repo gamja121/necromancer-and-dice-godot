@@ -15,6 +15,7 @@ const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
 const CultistAltarEntry = preload("res://systems/cultist_altar_entry.gd")
+const CultistAltarBeats = preload("res://systems/cultist_altar_beats.gd")
 const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
 const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
@@ -918,23 +919,44 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	else:
 		show_cultist_rumor_beat(index)
 
-## P1-05I-1: original night altar background only, no ritual/fight/pass yet.
-## Returning to altar features does not consume the saved first event.
+## P1-05I-2: introduction and original ritual layer, with saved progress.
+## No fight/pass button or battle is enabled at the ritual reveal step.
 func show_cultist_altar_intro(index: int) -> void:
+	show_cultist_altar_beat(index)
+
+func show_cultist_altar_beat(index: int) -> void:
 	if not CultistAltarEntry.can_enter(session,index): return
-	if session.get_story_event(CultistAltarEntry.EVENT_ID).status!="seen": return
+	var beat_index: int=CultistAltarEntry.current_beat(session)
+	var beat: Dictionary=CultistAltarBeats.beat(beat_index)
+	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var artwork=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	InkSceneReveal.play(artwork)
+	if beat_index==0: InkSceneReveal.play(artwork)
+	var layer_path: String=CultistAltarBeats.layer_for(str(beat.visual))
+	if not layer_path.is_empty():
+		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		InkSceneReveal.play(ritual_art)
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var effect=label_at(panel,str(CultistAltarEntry.FIRST_BEAT.effect),Vector2(285,573),Vector2(710,64),18)
+	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	# Only arrival can advance in this phase. Ritual reveal waits for 2-5I-3.
+	if beat_index==0:
+		if world.tiles[index]=="altar":
+			location_button(panel,"계속",Vector2(463,653),Vector2(171,48),func(): advance_cultist_altar(index,beat_index),1)
+		else:
+			location_button(panel,"계속",Vector2(651,653),Vector2(194,48),func(): advance_cultist_altar(index,beat_index),1)
 	if world.tiles[index]=="altar":
 		location_button(panel,"제단 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func advance_cultist_altar(index: int, shown_beat: int) -> void:
+	if not CultistAltarEntry.advance(session,index,shown_beat):
+		status.text="광신도 제단 장면 저장 실패 · 다시 시도하세요."
+		return
+	show_cultist_altar_beat(index)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
