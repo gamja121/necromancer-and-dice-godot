@@ -31,6 +31,7 @@ P4-01E	P4	single-run-e2e-regression	DONE	5단계 하나의 저장된 원정에�
 P4-01F	P4	pc-visual-acceptance	TODO	6단계 Windows PC 실제 화면·조작·가청 오디오·단일 원정 중단 복원 및 7종 장소·전투·보상·집·다음 바퀴 최종 승인	P4-01E	docs/port_audit/14_p4_01_pc_visual_acceptance_20261011.md V01~V08 실기 PASS 증거/PC-GitHub SHA 동기화/최종 main CI 녹색 전 P4-01 상위 DONE 금지
 P4-02	P4	regression	TODO	사건 양 분기와 모든 사건 전투 승/패/지나감 경로 회귀	P1-12;P4-01	웹 구현 사건 체인 도달/분기 100%
 P4-02A	P4	graveyard-branch-regression	DONE	실제 공동묘지 주사위 진입→4장면→아이 구한다/지나친다→구울 전투 승·패→영구사망 후 예비 마물 재도전→결과 확인·재실행 복원	P4-02	scripts/test_p4_graveyard_branch_integration.gd; Godot 4.7.2 PR #79 CI 38123020139 신규 81 PASS 0 FAIL. 다음 P4-02B 광신도 제단/전이문 전투 양 분기, P4-02 전체 TODO. Windows 실화면 PC 승인 별도
+P4-02B	P4	cultist-altar-branch-regression	DONE	실제 주사위 제단 진입→3장면→싸운다/지나간다·선택 변경→4마리 소환 전투 승·패·재도전→흔적 확인→후속 마치기→새 의식 추적 퀘스트 및 저장 복원	P4-02A	scripts/test_p4_cultist_altar_branch_integration.gd; Godot 4.7.2 PR #80 CI 실제 UI/전장 4분기 검사 성공. 승패와 지나감 모두 최종 마치기 전까지 의식 확인·추적 전환 금지 검증; P4-02 전체는 P4-02C 전이문 사건 검사가 남아 TODO; PC Windows 실제 화면·오디오 승인은 별도
 P4-03	P4	regression	TODO	전투/영혼수확/보상/이동/사건전투 각 중단 지점에서 저장 후 재실행 복원	P1-06;P2-04	중복/소실/결과변경 0
 P4-04	P4	regression	TODO	46종 기존 마물 및 dracula 정책 확정분의 카드/정보/공격/피격/사망 재생 검사	P2-03;P3-04	필수 런타임 에셋 누락 0
 P5-01	P5	independence	TODO	Godot 코드/씬/데이터에서 necromancer-dice-board, .html, 웹 상대경로, 원격 URL 의존성 검색	P4-01;P4-02;P4-03	웹 저장소 없이 실행 가능한 의존성 0

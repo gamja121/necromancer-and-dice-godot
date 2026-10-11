@@ -190,6 +190,14 @@ func claim_treasure_and_resume(session: Node, map: Control) -> Control:
 	await refresh_fixture_board(map)
 	await map.roll_move()
 	check(world.position==destination and world.pending_move.is_empty(),"second real die lands on chest in same run")
+	# The source pool genuinely offers random brands, but a rare brand was
+	# previously missed by most runs. Guarantee one *test-only* brand offer
+	# before the chest builds its visible cards, using the production creator.
+	# This exercises the saved bless/curse integer-face round trip every run.
+	check(world.pending_reward.get("kind","")=="treasure" and world.pending_reward.get("offers",[]).size()==3,"normal chest has three persisted offers")
+	if world.pending_reward.get("kind","")=="treasure" and world.pending_reward.offers.size()==3:
+		world.pending_reward.offers[0] = {"kind":"brand","source":session.create_item("brand",{})}
+		check(session.save_world(),"test-only genuine brand offer persisted before cards render")
 	var open: bool = await until_ready(func(): return is_instance_valid(map.overlay) and map.overlay.get_script()!=null and map.overlay.get_script().resource_path.ends_with("treasure_reward.gd") and map.overlay.options.size()==3 and not map.overlay.busy,20000)
 	check(open,"animated chest displays original three reward cards")
 	if not open: return null
@@ -204,6 +212,9 @@ func claim_treasure_and_resume(session: Node, map: Control) -> Control:
 	session.reload_world()
 	world = session.world
 	check(world.pending_reward==interrupted,"same run restores interrupted card choice from saved JSON")
+	if world.pending_reward.get("kind","")=="treasure" and world.pending_reward.offers.size()>0:
+		var saved_brand: Dictionary = world.pending_reward.offers[0].source.brand
+		check(saved_brand.bless.all(func(n): return typeof(n)==TYPE_INT) and saved_brand.curse.all(func(n): return typeof(n)==TYPE_INT),"offered brand dice faces reload as exact integers")
 	map = MAP_SCENE.instantiate()
 	root.add_child(map)
 	current_scene = map
