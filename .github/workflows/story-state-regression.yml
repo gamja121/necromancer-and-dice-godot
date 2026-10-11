@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - "systems/run_session.gd"
+      - "systems/audio_settings.gd"
+      - "title.gd"
+      - "title.tscn"
+      - "assets/title/music/title-theme.mp3"
+      - "scripts/test_title_audio_parity.gd"
       - "systems/map_state.gd"
       - "systems/battle_rules.gd"
       - "systems/battlefield_rules.gd"
@@ -69,6 +74,11 @@ on:
     branches: [main]
     paths:
       - "systems/run_session.gd"
+      - "systems/audio_settings.gd"
+      - "title.gd"
+      - "title.tscn"
+      - "assets/title/music/title-theme.mp3"
+      - "scripts/test_title_audio_parity.gd"
       - "systems/map_state.gd"
       - "systems/battle_rules.gd"
       - "systems/battlefield_rules.gd"
@@ -557,3 +567,13 @@ jobs:
           crash_phase crash_after_commit
           phase verify_new_commit
           phase cleanup
+
+      - name: Fixed original title music and persisted Music SFX volume preferences regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_title_audio_parity.gd 2>&1 | tee title-audio-parity.log
+          grep -E 'TITLE_AUDIO_PARITY_REGRESSION: [0-9]+ passed, 0 failed' title-audio-parity.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL title-audio:' title-audio-parity.log; then
+            exit 1
+          fi
