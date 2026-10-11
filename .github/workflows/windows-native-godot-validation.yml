@@ -71,9 +71,13 @@ jobs:
           $ErrorActionPreference = "Stop"
           Write-Output "Native runner OS: $env:RUNNER_OS"
           if ($env:RUNNER_OS -ne "Windows") { throw "Not a native Windows runner" }
-          & godot --version
-          if ($LASTEXITCODE -ne 0) { throw "Windows Godot --version failed" }
-          & godot --headless --path . --editor --quit 2>&1 | Tee-Object -FilePath windows-godot-import.log
+          $exe = @(Get-ChildItem -Path (Join-Path $env:USERPROFILE "godot") -Filter "*win64_console.exe" -File | Select-Object -First 1 -ExpandProperty FullName)[0]
+          if (-not $exe) { throw "Windows console Godot binary missing after setup" }
+          Write-Output "Using native Windows console Godot: $exe"
+          Add-Content -Path $env:GITHUB_ENV -Value "GODOT_WINDOWS_CONSOLE=$exe"
+          & $exe --headless --version
+          if ($LASTEXITCODE -ne 0) { throw "Windows Godot console --version failed" }
+          & $exe --headless --path . --editor --quit 2>&1 | Tee-Object -FilePath windows-godot-import.log
           if ($LASTEXITCODE -ne 0) { throw "Godot Windows editor import failed" }
           $log = Get-Content -Raw windows-godot-import.log
           if ($log -match "SCRIPT ERROR|Parse Error|Failed loading resource|Cannot open") { throw "Windows import reports a resource or script error" }
@@ -97,7 +101,7 @@ jobs:
           foreach ($check in $checks) {
             Write-Output "::group::Windows Godot $($check.id)"
             $logPath = Join-Path "windows-native-logs" "$($check.id).log"
-            & godot --headless --path . --script "res://scripts/$($check.file)" 2>&1 | Tee-Object -FilePath $logPath
+            & $env:GODOT_WINDOWS_CONSOLE --headless --path . --script "res://scripts/$($check.file)" 2>&1 | Tee-Object -FilePath $logPath
             $exitCode = $LASTEXITCODE
             $log = Get-Content -Raw $logPath
             if ($exitCode -ne 0) { throw "$($check.id) native Godot process returned $exitCode" }
@@ -117,7 +121,7 @@ jobs:
           WINDOWS_GUI_EVIDENCE_DIR: ${{ runner.temp }}/windows-godot-visual-evidence
         run: |
           $ErrorActionPreference = "Stop"
-          & godot --path . --script res://scripts/test_windows_gui_evidence.gd 2>&1 | Tee-Object -FilePath windows-gui-preview.log
+          & $env:GODOT_WINDOWS_CONSOLE --path . --script res://scripts/test_windows_gui_evidence.gd 2>&1 | Tee-Object -FilePath windows-gui-preview.log
           $exitCode = $LASTEXITCODE
           $log = Get-Content -Raw windows-gui-preview.log
           if ($exitCode -ne 0 -or $log -notmatch "WINDOWS_GUI_PREVIEW: 4 captured, 0 failed") {
