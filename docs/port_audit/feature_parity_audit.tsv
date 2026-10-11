@@ -3,7 +3,7 @@ W001	진입/타이틀	타이틀 화면	REQUIRED	✅ 완료	title.gd; title.tscn	
 W002	진입/타이틀	새 원정 시작	REQUIRED	✅ 완료	title.gd; systems/run_session.gd; intro.tscn	새 원정 생성 후 인트로 장면으로 전환하는 경로 존재.
 W003	진입/타이틀	이어하기 노출/진입	REQUIRED	✅ 완료	title.gd; systems/run_session.gd	저장 존재 여부를 확인해 Continue 활성화 후 맵으로 진입.
 W004	진입/타이틀	새 원정 시 기존 저장 초기화	REQUIRED_RULE	✅ 완료	systems/run_session.gd; systems/map_state.gd	start_new_world가 새 MapState를 만들고 저장.
-W005	진입/타이틀	타이틀 BGM/영상 및 사운드 토글	REQUIRED	🟡 부분 이식	title.gd; title.tscn; assets/title/music/title-theme.mp3; scripts/test_title_audio_parity.gd	고정 웹 title-theme.mp3 동일 blob SHA로 이관, Music 버스 0.34 음량 루프/저장 토글 구현·회귀검사. 기존 Godot 묘지 패럴랙스가 웹 title-loop.mp4 영상 대체—시각적 최종 승인 P3-03 남음
+W005	진입/타이틀	타이틀 BGM/영상 및 사운드 토글	REQUIRED	🔵 의도적 변경	title.gd; title.tscn; assets/title/music/title-theme.mp3; scripts/test_title_audio_parity.gd	사용자 2026-10-11 명시적 결정: 현재 Godot 묘지 패럴랙스 타이틀 최종 채택, 웹 title-loop.mp4 영상/원본 타이틀 외형은 이식하지 않음. 원본 title-theme.mp3는 고정 웹 blob SHA 동일 이관 및 음악 루프·Music/SFX 설정/저장·실제 씬 회귀검사 22/0 통과. PC 화면·스피커 실사용 검증은 P4에서 별도 수행
 W006	진입/타이틀	옵션 패널	REQUIRED	✅ 완료	title.gd; title.tscn; systems/audio_settings.gd; scripts/test_title_audio_parity.gd	타이틀 OptionsDialog에서 기존 Master 음량 + Music/SFX 체크, user://audio_settings.cfg 공용 저장/복원. 실사용자 설정을 건드리지 않는 별도 경로 회귀검사
 W009	인트로	새 원정 인트로 장면	REQUIRED	✅ 완료	systems/intro_scene.gd; intro.tscn; data/intro_dialogue.json	인트로 장면, 대사 진행, 이미지/레이어 로딩, 종료 후 맵 연결 후보가 존재.
 W010	인트로	대사 순차 진행	REQUIRED	✅ 완료	systems/intro_scene.gd; intro.tscn; data/intro_dialogue.json	인트로 장면, 대사 진행, 이미지/레이어 로딩, 종료 후 맵 연결 후보가 존재.
