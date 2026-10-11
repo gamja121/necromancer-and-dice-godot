@@ -54,6 +54,29 @@ func capture_frame(filename: String) -> void:
 		if bytes >= 16000 and sample_colors.size() > 12:
 			shots += 1
 
+## Capture only after the actual Map ink-reveal animation has settled.
+## These are render snapshots, not evidence of walking to or clicking a location.
+func capture_settled_art(map: Control, expected_path: String, label: String, filename: String) -> void:
+	await create_timer(1.1).timeout
+	var art: TextureRect = null
+	var expected: Texture2D = map.texture(expected_path)
+	if is_instance_valid(map.overlay):
+		for node in map.overlay.get_children():
+			if node is TextureRect and node.texture == expected:
+				art = node
+				break
+	check(art != null, label + ": production Map panel contains the expected art")
+	if art != null:
+		check(art.visible and art.size.x > 0.0 and art.size.y > 0.0,
+			label + ": art is visible with positive dimensions")
+		check(art.material == null,
+			label + ": ink-reveal finished before the final screenshot")
+		check(art.position.x >= 0.0 and art.position.y >= 0.0
+			and art.position.x + art.size.x <= 1280.0
+			and art.position.y + art.size.y <= 720.0,
+			label + ": art bounds remain inside the native 1280x720 window")
+	await capture_frame(filename)
+
 func _run() -> void:
 	outdir = OS.get_environment("WINDOWS_GUI_EVIDENCE_DIR")
 	check(OS.get_name() == "Windows", "running a native Windows Godot executable")
@@ -98,18 +121,34 @@ func _run() -> void:
 	await capture_frame("03_home_interior_native_windows.png")
 	map.close_overlay()
 	map.show_location(0)
-	# The location art is intentionally revealed by a 0.65s pen-and-ink tween.
-	# Capture the settled final UI, not a misleading half-revealed frame.
-	await create_timer(1.1).timeout
-	var art: TextureRect = null
-	if is_instance_valid(map.overlay):
-		for node in map.overlay.get_children():
-			if node is TextureRect and node.texture == map.texture("res://assets/map/events/fortune-teller.jpg"):
-				art = node
-				break
-	check(art != null and art.material == null, "fortune teller final scene reveal completed before visual evidence")
-	await capture_frame("04_fortune_teller_native_windows.png")
+	# A settled first view is required; a transition frame can hide real art.
+	await capture_settled_art(map, "res://assets/map/events/fortune-teller.jpg",
+		"fortune-teller location", "04_fortune_teller_native_windows.png")
 	map.close_overlay()
+	map.show_home(false)
+	await capture_settled_art(map, "res://assets/map/events/home.jpg",
+		"home exterior", "05_home_exterior_native_windows.png")
+	map.close_overlay()
+	# These six production panels plus the fortune-teller form the seven
+	# location types. Keep the original 24-tile board and player state intact.
+	var locations: Array[Dictionary] = [
+		{"tile":"village", "filename":"06_village_native_windows.png"},
+		{"tile":"graveyard", "filename":"07_graveyard_native_windows.png"},
+		{"tile":"altar", "filename":"08_altar_native_windows.png"},
+		{"tile":"unknown", "filename":"09_world_tree_native_windows.png"},
+		{"tile":"forest", "filename":"10_forest_native_windows.png"},
+		{"tile":"rest", "filename":"11_rest_native_windows.png"}
+	]
+	for entry in locations:
+		var tile_type: String = str(entry["tile"])
+		var index: int = map.world.tiles.find(tile_type)
+		check(index >= 0, tile_type + ": location exists on the original generated board")
+		if index < 0:
+			continue
+		map.show_location(index)
+		var art_path: String = "res://assets/map/events/%s.jpg" % str(map.EVENT_IMAGES[tile_type])
+		await capture_settled_art(map, art_path, tile_type, str(entry["filename"]))
+		map.close_overlay()
 	current_scene = null
 	root.remove_child(map)
 	map.queue_free()
@@ -122,4 +161,4 @@ func _run() -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	check(not FileAccess.file_exists(temp_save), "disposable CI save removed; no player save changed")
 	print("WINDOWS_GUI_PREVIEW: %d captured, %d failed; manual review remains required" % [shots, failures])
-	quit(0 if shots == 4 and failures == 0 else 1)
+	quit(0 if shots == 11 and failures == 0 else 1)
