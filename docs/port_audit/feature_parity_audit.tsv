@@ -150,7 +150,7 @@ W191	연출/오디오	전투 BGM	REQUIRED	✅ 완료	battlefield.gd; assets/batt
 W192	연출/오디오	효과음 시스템	REQUIRED	✅ 완료	battlefield.gd; map.gd; assets/battle/sfx; systems/audio_settings.gd	맵/전투 SFX 재생 경로와 SFX bus 존재.
 W193	연출/오디오	BGM/SFX 개별 ON/OFF	REQUIRED	✅ 완료	systems/audio_settings.gd; map.gd; battlefield.gd	Music/SFX 개별 mute와 설정 저장 UI 후보 존재.
 W194	연출/오디오	주사위 애니메이션	REQUIRED	✅ 완료	systems/dice_animation.gd; map.gd; battlefield.gd	맵/전투 주사위 애니메이션 모듈 존재.
-W195	연출/오디오	공격/피격/사망 모션	REQUIRED	🟡 부분 이식	systems/battle_visuals.gd; systems/battle_presentation_layout.gd; battlefield.gd; assets/battle	공격/피격/사망 런타임은 있으나 모든 마물 프레임·모션 대응은 1-5 에셋 전수 대조에서 확정해야 함.
+W195	연출/오디오	공격/피격/사망 모션	REQUIRED	✅ 완료	systems/battle_visuals.gd; systems/permanent_death.gd; battlefield.gd; systems/battle_presentation_layout.gd; data/battle_visual_metrics.json; scripts/test_battle_motion_parity.gd; scripts/port_guardian_seed_frames.py; assets/battle/frames/guardian-seed	원본 guardian-seed 애니메이션 JPEG SHA 검증 후 공격5/피격3/사망4 총12장 복원. 46종 원본 + Dracula 47종/733장 ResourceLoader 실제 디코딩·프레임 연속성, 전장 애니메이션/공격/사망 경로 headless CI 검사. Windows 실기/시각적 승인 P4-04 별도
 W196	연출/오디오	대기 호흡 모션	REQUIRED	✅ 완료	systems/battle_visuals.gd	idle_clock 기반 대기 호흡/미세 움직임 코드 존재.
 W197	연출/오디오	타격 플래시/히트스톱/화면 피드백	REQUIRED	✅ 완료	systems/battle_visuals.gd; systems/original_effects.gd	플래시, 흔들림, presentation_hold 기반 히트스톱 후보 존재.
 W198	연출/오디오	피해/회복 숫자	REQUIRED	✅ 완료	systems/battle_visuals.gd; systems/original_effects.gd	피해/회복 숫자와 회복 십자 연출 후보 존재.
