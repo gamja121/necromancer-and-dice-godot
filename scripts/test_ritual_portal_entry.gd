@@ -85,7 +85,7 @@ func original_contract() -> void:
 	check(src.contains('location_button(panel,"돌아가기"'),"return to board available")
 	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]'),"restart resumes saved portal choice without automatic combat")
 	check(not src.contains("start_ritual_portal_battle("),"no hidden or premature portal fight handler")
-	check(not src.contains("finish_ritual_portal("),"no premature portal completion handler")
+	check(src.contains("func finish_ritual_portal(index: int) -> void:"),"portal completion handler exists but remains guarded by a real acknowledged battle result")
 
 func first_discovery(tile: String) -> void:
 	var s=fixture("first_"+tile,tile)
