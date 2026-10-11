@@ -20,6 +20,30 @@ func check(ok: bool, label: String) -> void:
 		printerr("FAIL map-gather: ", label)
 
 
+## Model the stagger-free travel after all tiles have shrunk.
+## Check both rings through the complete approach rather than only at arrival.
+func approach_has_no_overlaps(centers: Array) -> bool:
+	var slots: Array[Dictionary] = Layout.ring_slots()
+	var dice_rect := Rect2(Vector2(602.0, 307.6), Vector2(76.0, 76.0))
+	for frame in range(241):
+		var fraction: float = float(frame) / 240.0
+		var eased: float = 0.5 - 0.5 * cos(PI * fraction)
+		var rects: Array[Rect2] = []
+		for slot in slots:
+			var origin: Vector2 = centers[int(slot["tile_index"])] * Vector2(12.8, 7.2)
+			var destination: Vector2 = Layout.orbit_position(slot, 0.0)
+			var tile_center: Vector2 = origin.lerp(destination, eased)
+			var dimensions: Vector2 = Layout.TILE_SIZE * float(slot["scale"])
+			var rect := Rect2(tile_center - dimensions * 0.5, dimensions)
+			if rect.intersects(dice_rect):
+				return false
+			for previous in rects:
+				if rect.intersects(previous):
+					return false
+			rects.append(rect)
+	return true
+
+
 func _run() -> void:
 	var stage := Control.new()
 	stage.size = Vector2(1280, 720)
@@ -29,6 +53,7 @@ func _run() -> void:
 	var texture := ImageTexture.create_from_image(image)
 	var buttons: Array = []
 	var centers: Array = preload("res://systems/map_state.gd").centers()
+	check(approach_has_no_overlaps(centers), "241 approach samples without tile/dice overlaps")
 	for i in range(Layout.BOARD_TILE_COUNT):
 		var button := TextureButton.new()
 		button.ignore_texture_size = true
@@ -51,6 +76,7 @@ func _run() -> void:
 	check(gather.prepare(buttons), "prepare complete board")
 	check(gather.tile_visuals.size() == 21, "create 21 distinct temporary visuals")
 	check(gather.z_index < dice.z_index, "dice remains above gathered tile visuals")
+	check(gather.z_index < buttons[0].z_index, "fixed map tiles remain visible above gathering")
 	for fixed_index in Layout.FIXED_INDICES:
 		check(buttons[fixed_index].visible, "fixed index %d remains visible" % fixed_index)
 	var moving_hidden := true
