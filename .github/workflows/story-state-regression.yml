@@ -30,6 +30,7 @@ on:
       - "scripts/test_cultist_altar_battle.gd"
       - "scripts/test_cultist_altar_followup.gd"
       - "scripts/test_ritual_portal_entry.gd"
+      - "scripts/test_ritual_portal_energy.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
       - "systems/cultist_altar_entry.gd"
@@ -78,6 +79,7 @@ on:
       - "scripts/test_cultist_altar_battle.gd"
       - "scripts/test_cultist_altar_followup.gd"
       - "scripts/test_ritual_portal_entry.gd"
+      - "scripts/test_ritual_portal_energy.gd"
       - "systems/ritual_portal_entry.gd"
       - "systems/ritual_portal_beats.gd"
       - "systems/cultist_altar_entry.gd"
@@ -373,5 +375,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_ritual_portal_entry.gd 2>&1 | tee ritual-portal-entry.log
           grep -E 'RITUAL_PORTAL_ENTRY_REGRESSION: [0-9]+ passed, 0 failed' ritual-portal-entry.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' ritual-portal-entry.log; then
+            exit 1
+          fi
+
+      - name: Ritual portal original second energy-layer reveal and saved checkpoint regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_ritual_portal_energy.gd 2>&1 | tee ritual-portal-energy.log
+          grep -E 'RITUAL_PORTAL_ENERGY_REGRESSION: [0-9]+ passed, 0 failed' ritual-portal-energy.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' ritual-portal-energy.log; then
             exit 1
           fi
