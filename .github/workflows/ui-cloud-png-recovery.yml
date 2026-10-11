@@ -1,0 +1,54 @@
+name: Diagnose legacy PNG cloud pixel recovery
+on:
+  push:
+    branches:
+      - feature/ui-parity-map-cloud-stage5h-20261011
+    paths:
+      - .github/workflows/ui-cloud-png-recovery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  recover-png:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pillow for legacy PNG decoding
+        run: python3 -m pip install --quiet pillow
+      - name: Recover pixels without changing their original colors
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from PIL import Image, ImageFile
+          import base64, io, hashlib
+          ImageFile.LOAD_TRUNCATED_IMAGES = True
+          files = [
+              "map_cloud_transition.png",
+              "map_cloud_transition_2.png",
+              "map_cloud_transition_3.png",
+              "map_cloud_transition_4.png",
+          ]
+          for name in files:
+              path = "assets/map/ui/" + name
+              try:
+                  im = Image.open(path)
+                  im.load()
+                  rgba = im.convert("RGBA")
+                  al = rgba.getchannel("A")
+                  pixel_info = {
+                      "size": rgba.size,
+                      "alpha_range": al.getextrema(),
+                      "alpha_bbox": al.getbbox(),
+                      "colors": len(rgba.getcolors(maxcolors=1000000) or []),
+                      "byte_sha256": hashlib.sha256(rgba.tobytes()).hexdigest(),
+                  }
+                  print("RECOVERY_STATS " + name + " " + repr(pixel_info), flush=True)
+                  if not al.getbbox():
+                      raise ValueError("no nontransparent pixels to preserve")
+                  dst=io.BytesIO()
+                  rgba.save(dst,format="PNG",optimize=True)
+                  print("ENCODED_CLOUD_" + name.replace(".png","") + "=" + base64.b64encode(dst.getvalue()).decode("ascii"),flush=True)
+              except Exception as ex:
+                  print("RECOVERY_FAILED " + name + " " + repr(ex), flush=True)
+          PY
