@@ -12,6 +12,7 @@ on:
       - feature/map-shuffle-final-qa-20261011
       - feature/stone-shuffle-landing-20261011
       - feature/stone-shuffle-departure-20261011
+      - feature/stone-shuffle-rotation-inertia-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -126,3 +127,10 @@ jobs:
           timeout 70s godot --headless --path . --script res://scripts/test_map_shuffle_stone_departure.gd 2>&1 | tee stone-departure.log
           grep -E 'MAP_SHUFFLE_STONE_DEPARTURE: [0-9]+ passed, 0 failed' stone-departure.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-departure.log; then exit 1; fi
+      - name: Heavy stone rotation inertia and braking regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 70s godot --headless --path . --script res://scripts/test_map_shuffle_stone_rotation.gd 2>&1 | tee stone-rotation.log
+          grep -E 'MAP_SHUFFLE_STONE_ROTATION: [0-9]+ passed, 0 failed' stone-rotation.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-rotation.log; then exit 1; fi
