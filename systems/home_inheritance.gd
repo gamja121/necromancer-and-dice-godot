@@ -105,11 +105,16 @@ func detail(value: String, color: Color = Color("34251c")) -> void:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	details.add_child(line)
 
-func append_brands(brands: Array, origin: String) -> void:
+func append_brands(brands: Array, origin: String, show_curse: bool = true) -> void:
 	for brand in brands:
 		var name = str(interface_data.brands[brand.type].name).replace("의 낙인","")
 		detail("%s · %s" % [origin,name])
-		detail("축복 [%s] · 저주 [%s]" % [", ".join(brand.bless.map(func(n): return str(int(n)))),", ".join(brand.curse.map(func(n): return str(int(n))))],Color("5b3526"))
+		var blessings: String = ", ".join(brand.bless.map(func(n): return str(int(n))))
+		if show_curse:
+			detail("축복 [%s] · 저주 [%s]" % [blessings,", ".join(brand.curse.map(func(n): return str(int(n))))],Color("5b3526"))
+		else:
+			# Inheritance consumes only blessings; don't show non-inherited material curses.
+			detail("축복 [%s]" % blessings,Color("5b3526"))
 
 func render_selection() -> void:
 	var material: Dictionary = session.owned_unit(material_id)
@@ -123,11 +128,13 @@ func render_selection() -> void:
 	for child in details.get_children():
 		details.remove_child(child)
 		child.queue_free()
+	# Put material information above the receiving monster.
+	# Materials pass blessings only; the receiver still shows its own curses.
+	if not material.is_empty(): append_brands(BrandInheritance.normalize(material,session.world.definitions),"재료",false)
+	if not source_card.is_empty(): append_brands([source_card.brand],"카드",false)
 	if not receiver.is_empty():
 		detail("받는 마물 · %d / 3칸" % receiver.brands.size())
 		append_brands(BrandInheritance.normalize(receiver,session.world.definitions),"결과" if completed else "기존")
-	if not material.is_empty(): append_brands(BrandInheritance.normalize(material,session.world.definitions),"재료")
-	if not source_card.is_empty(): append_brands([source_card.brand],"카드")
 	if receiver.is_empty() and material.is_empty() and source_card.is_empty(): detail("재료 마물 또는 낙인 카드를 선택하세요.")
 	status.text = notice if not notice.is_empty() else ("계승 완료 · 받는 마물의 능력치와 체력은 유지됩니다" if completed else ("낙인 카드 1장 소모 · 축복만 적용" if not source_card.is_empty() else "재료 마물 소모 · 무작위 낙인 1개의 축복만 계승"))
 	var eligible = not receiver.is_empty() and receiver.brands.size()<3 and (not source_card.is_empty() or (not material.is_empty() and not material.brands.is_empty()))
