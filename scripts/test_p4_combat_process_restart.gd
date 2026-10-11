@@ -66,7 +66,7 @@ func configure_fixture(r, victor: String) -> void:
 		if not strong: u.hp = 1
 	r.refresh()
 
-func seed(s, victor: String) -> void:
+func seed_encounter(s, victor: String) -> void:
 	var w = s.world
 	var tile: int = w.tiles.find("monster")
 	check(tile >= 0 and tile != 23, "real ordinary monster tile selected")
@@ -219,13 +219,13 @@ func _run() -> void:
 			check(false, "session world missing")
 		else:
 			match phase:
-				"win_seed": seed(s, "ally")
+				"win_seed": seed_encounter(s, "ally")
 				"win_actions": begin_actions(s, "ally")
 				"win_settle": settle(s, "ally", true)
 				"win_capture": capture_roll(s)
 				"win_claim": claim_capture(s)
 				"win_verify": verify_win(s)
-				"loss_seed": seed(s, "enemy")
+				"loss_seed": seed_encounter(s, "enemy")
 				"loss_actions": begin_actions(s, "enemy")
 				"loss_terminal": settle(s, "enemy", false)
 				"loss_finish": finish_terminal_loss(s)
