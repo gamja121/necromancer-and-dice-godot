@@ -44,7 +44,7 @@ func _run() -> void:
 			map.location_button(panel,"선택 %d"%index,Vector2(320+index*181,653),Vector2(167,48),func():calls[0]+=1,1)
 		var backdrops:Array=panel.get_children().filter(func(n):return n is ColorRect and n.get_meta("ui_backdrop",false))
 		check(backdrops.size()==1 and backdrops[0].color.a>0.7,"story modal darkens the board with one backdrop for %d choices"%count)
-		check(art.position==source.position and art.size==source.size and art.texture!=null,"original event image uses source centered frame for %d choices"%count)
+		check(art.position.distance_to(source.position)<=6.5 and art.size.distance_to(source.size)<0.15 and art.texture!=null,"source image stays inside allowed 0–6px opening travel; choices=%d position=%s size=%s texture=%s"%[count,str(art.position),str(art.size),str(art.texture!=null)])
 		check(art.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED and art.mouse_filter==Control.MOUSE_FILTER_IGNORE,"event art preserves aspect and never captures clicks")
 		check(heading.position.y<source.position.y and effect.position.y>=540 and dialogue.position.y>=600,"source heading, narration and speech remain visible")
 		var btns:Array=panel.get_children().filter(func(n):return n is Button)
