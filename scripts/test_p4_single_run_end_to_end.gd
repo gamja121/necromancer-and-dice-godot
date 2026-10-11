@@ -110,6 +110,14 @@ func swap_next_landing(world, kind: String, normal_chest: bool = false) -> int:
 		world.tiles[source] = replaced
 	return target
 
+## Rendering a test-reordered board must not destroy a just-created
+## AudioSettings node while its _ready awaits two process frames. In normal
+## play render is not called in the same frame as a scene transition.
+func refresh_fixture_board(map: Control) -> void:
+	for i in range(3): await process_frame
+	map.render()
+	for i in range(3): await process_frame
+
 func force_allied_victory(battle: Control) -> void:
 	# Test-only combat strengths: the production attack queue, dice and
 	# animations still decide the encounter outcome on the actual battlefield.
@@ -139,7 +147,7 @@ func fight_and_capture(session: Node, map: Control) -> bool:
 	check(target>=0,"same run can target an ordinary encounter with real map die")
 	if target<0: return false
 	check(session.save_world(),"encounter tile permutation persisted")
-	map.render()
+	await refresh_fixture_board(map)
 	await map.roll_move()
 	check(world.position==target and world.pending_move.is_empty(),"first real die lands on monster and finalizes movement")
 	var deck: Control = map.overlay
@@ -179,7 +187,7 @@ func claim_treasure_and_resume(session: Node, map: Control) -> Control:
 	check(destination>=0,"same expedition can roll to deterministic ordinary treasure")
 	if destination<0: return null
 	check(session.save_world(),"treasure approach persisted")
-	map.render()
+	await refresh_fixture_board(map)
 	await map.roll_move()
 	check(world.position==destination and world.pending_move.is_empty(),"second real die lands on chest in same run")
 	var open: bool = await until_ready(func(): return is_instance_valid(map.overlay) and map.overlay.get_script()!=null and map.overlay.get_script().resource_path.ends_with("treasure_reward.gd") and map.overlay.options.size()==3 and not map.overlay.busy,20000)
@@ -225,7 +233,7 @@ func return_home_and_advance(session: Node, map: Control) -> bool:
 	world.roster[0].current_hp = maxi(1,int(world.roster[0].max_hp)-2)
 	check(world.roster[0].current_hp<world.roster[0].max_hp,"surviving roster can enter home injured")
 	check(session.save_world(),"same run stores near-home approach after rewards")
-	map.render()
+	await refresh_fixture_board(map)
 	await map.roll_move()
 	check(world.position==MapState.HOME and world.lap_ready,"third real die enters home and sets end-of-lap readiness")
 	check(world.laps==before_laps and world.contamination==before_contamination,"home arrival alone cannot advance lap or contamination")
