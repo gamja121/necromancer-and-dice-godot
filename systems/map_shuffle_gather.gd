@@ -45,7 +45,7 @@ var tile_sources: Array[TextureButton] = []
 var source_visibility: Array[bool] = []
 var tile_visuals: Array[TextureRect] = []
 var tile_shadows: Array[TextureRect] = []
-var stone_dust: Control
+var stone_dust: StoneDust
 var slots: Array[Dictionary] = []
 var gathering: Tween
 var predeparture_tween: Tween
