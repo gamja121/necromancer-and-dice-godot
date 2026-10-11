@@ -1246,7 +1246,6 @@ func show_graveyard_child_intro(index: int) -> void:
 
 # Source v2-event-lab: illustrated left scene, right parchment story and
 # choices, separate bottom speech frame over artwork. Presentation only.
-const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.png"
 func graveyard_story_chrome(panel: Control, background: String, overlay_art: String, title: String, narrative: String, speaker: String = "", speech: String = "", animate_art: bool = false) -> void:
 	var scene_back=ColorRect.new()
 	scene_back.name="StorySceneBackdrop"
@@ -1286,16 +1285,22 @@ func graveyard_story_chrome(panel: Control, background: String, overlay_art: Str
 	description.add_theme_color_override("font_color",Color("312117"))
 	description.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	if not speech.is_empty():
-		if ResourceLoader.exists(GRAVEYARD_DIALOGUE_FRAME):
-			var speech_frame=image(panel,GRAVEYARD_DIALOGUE_FRAME,Vector2(112,467),Vector2(659,139))
-			speech_frame.name="StoryDialogueFrame"
-			speech_frame.stretch_mode=TextureRect.STRETCH_SCALE
-		else:
-			var missing=ColorRect.new()
-			missing.position=Vector2(112,467)
-			missing.size=Vector2(659,139)
-			missing.color=Color("c8a873")
-			panel.add_child(missing)
+		# The frozen WebP frame is truncated (libwebp: NOT_ENOUGH_DATA).
+		# Reproduce its parchment panel with a native style; never load bad art.
+		var speech_frame=Panel.new()
+		speech_frame.name="StoryDialogueFrame"
+		speech_frame.position=Vector2(112,467)
+		speech_frame.size=Vector2(659,139)
+		speech_frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		var frame_style=StyleBoxFlat.new()
+		frame_style.bg_color=Color("d4b78a")
+		frame_style.border_color=Color("76553a")
+		frame_style.set_border_width_all(3)
+		frame_style.set_corner_radius_all(4)
+		frame_style.shadow_color=Color(0,0,0,0.52)
+		frame_style.shadow_size=7
+		speech_frame.add_theme_stylebox_override("panel",frame_style)
+		panel.add_child(speech_frame)
 		var who=label_at(panel,speaker,Vector2(176,491),Vector2(430,27),15)
 		who.add_theme_color_override("font_color",Color("352317"))
 		who.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)

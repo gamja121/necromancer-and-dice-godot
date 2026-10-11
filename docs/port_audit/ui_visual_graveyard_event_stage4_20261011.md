@@ -5,7 +5,7 @@
 ## 사건 장면
 - `v2-event-lab.html/css`에 맞춰 왼쪽 장면·구울 레이어·하단 대사 박스, 오른쪽 사건 설명·선택지로 정렬.
 - 기존 `graveyard-child-base-v3.webp` 및 `graveyard-child-ghoul-event-v3.webp`은 Godot 원본 그대로 재사용.
-- 웹 원본 `intro-dialogue-box.webp` Git blob SHA `3bab039aa347faa7546e213de941213dd8cade8d`의 정확한 파일을 Actions가 다운로드/검증 후 Godot WebP 임포터 호환을 위해 libwebp로 PNG 디코딩해 실행용 파일만 브랜치에 커밋 (원본 WebP 제거).
+- 웹 원본 `intro-dialogue-box.webp` (SHA `3bab039aa347faa7546e213de941213dd8cade8d`)은 **불완전한 파일**로 Godot/libwebp가 `NOT_ENOUGH_DATA`를 반환. 잘못된 바이너리는 저장소에서 제거하고 동일 위치에 원본 CSS 기준 Godot 양피지 Panel 대체. 정상 원본 확보 전까지 픽셀 동일 이식으로 판정하지 않는다.
 - 아이 구출/지나침 선택, 전투 출전, 맵 복귀, 패배 후 재도전 콜백은 변경하지 않음. 결과 화면의 공동묘지 분기에도 같은 사건 화면 프레임 사용.
 - **다른 사건(기사단장/사냥꾼/광신도 등) 화면은 4단계에서 미변경**. 캐릭터 원화가 다른 사건에 잘못 노출되지 않도록 분리.
 

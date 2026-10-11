@@ -4,51 +4,13 @@ on:
     branches: [feature/ui-parity-event-graveyard-stage4-20261011]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   ui-stage4:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Import original graveyard dialogue frame with pinned Git blob SHA
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p assets/map/ui
-          FILE=assets/map/ui/intro-dialogue-box.webp
-          SOURCE=https://raw.githubusercontent.com/gamja121/necromancer-dice-board/e13d5149fcecc802e5d626f3bef6e5daecd3d66c/art/v2-style/ui/intro-dialogue-box.webp
-          if [ ! -f "$FILE" ]; then
-            curl -fL --retry 3 --max-time 75 "$SOURCE" -o "$FILE"
-          fi
-          test "$(git hash-object "$FILE")" = 3bab039aa347faa7546e213de941213dd8cade8d
-      - name: Convert source WebP into executable Godot-compatible PNG
-        shell: bash
-        run: |
-          set -euo pipefail
-          SRC=assets/map/ui/intro-dialogue-box.webp
-          OUT=assets/map/ui/intro-dialogue-box.png
-          file "$SRC"
-          if [ ! -f "$OUT" ]; then
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq webp
-            dwebp "$SRC" -o "$OUT"
-          fi
-          file "$OUT"
-          python3 -c 'import struct; p=open("assets/map/ui/intro-dialogue-box.png","rb").read(24); assert p[:8]==b"\x89PNG\r\n\x1a\n"; print("PNG dimensions",struct.unpack(">II",p[16:24]))'
-      - name: Save verified executable art to this branch only
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "${GITHUB_REF_NAME}" = feature/ui-parity-event-graveyard-stage4-20261011
-          git add assets/map/ui/intro-dialogue-box.png
-          git rm -f --ignore-unmatch assets/map/ui/intro-dialogue-box.webp
-          if ! git diff --cached --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "assets(ui): add pinned original graveyard dialogue frame [skip ci]"
-            git push origin HEAD:"${GITHUB_REF_NAME}"
-          fi
       - name: Install Godot 4.7.2
         uses: chickensoft-games/setup-godot@v2
         with:
