@@ -15,6 +15,8 @@ const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
 const CultistAltarEntry = preload("res://systems/cultist_altar_entry.gd")
+const RitualPortalEntry = preload("res://systems/ritual_portal_entry.gd")
+const RitualPortalBeats = preload("res://systems/ritual_portal_beats.gd")
 const CultistAltarBeats = preload("res://systems/cultist_altar_beats.gd")
 const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
 const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
@@ -395,6 +397,13 @@ func show_tile(index: int) -> void:
 			show_cultist_altar_intro(index)
 			return
 		status.text = session.notice
+	# P1-05J-1: the forest (or event wildcard) reveals the portal only
+	# after the *completed* cultist altar story and new tracking quest.
+	if type in ["forest","event"] and RitualPortalEntry.can_enter(session,index):
+		if RitualPortalEntry.begin(session,index):
+			show_ritual_portal_intro(index)
+			return
+		status.text = session.notice
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -739,6 +748,12 @@ func resume_village_rumor_if_unfinished() -> void:
 	if CultistAltarEntry.can_enter(session,index):
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
+			return
+	# A previously saved portal discovery reopens only at its actual tile.
+	# Reading a save must never create a fresh portal event.
+	if RitualPortalEntry.can_enter(session,index):
+		if session.get_story_event(RitualPortalEntry.EVENT_ID).status=="seen":
+			show_ritual_portal_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
@@ -921,6 +936,26 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 		show_cultist_rumor_beat(index)
 
 ## P1-05I-5: selected fight, pass follow-up and deliberate tracking completion.
+## P1-05J-1: original first portal scene only. Reopening a saved arrival
+## is read-only; do not enable energy layers, final battle or revival.
+func show_ritual_portal_intro(index: int) -> void:
+	if not RitualPortalEntry.can_enter(session,index): return
+	if RitualPortalEntry.current_beat(session)!=0: return
+	var beat: Dictionary=RitualPortalBeats.beat(0)
+	if beat.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(art)
+	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if world.tiles[index]=="forest":
+		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
 func show_cultist_altar_intro(index: int) -> void:
 	if CultistAltarEntry.followup_ready(session,index):
 		show_cultist_altar_followup(index)
