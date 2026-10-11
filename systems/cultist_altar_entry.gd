@@ -62,7 +62,17 @@ static func completed(session) -> bool:
 	if state.status!="complete" or state.choice not in ["fight","pass"]: return false
 	if flags.get(SEEN_FLAG,false)!=true or flags.get(COMPLETE_FLAG,false)!=true: return false
 	if flags.get(RITUAL_CONFIRMED_FLAG,false)!=true: return false
-	if flags.get(TRACKING_FLAG,false)!=false or flags.get(RITUAL_TRACKING_FLAG,false)!=true: return false
+	if flags.get(TRACKING_FLAG,false)!=false: return false
+	# The altar's historical completion remains valid after the later portal
+	# FINISH consumes the active ritual-tracking quest. Previously this
+	# method incorrectly returned false as soon as the portal finished.
+	if flags.get(RITUAL_TRACKING_FLAG,false)!=true:
+		var portal: Dictionary=session.get_story_event("ritual_portal_trace_01")
+		if portal.status!="complete" or portal.choice!="intervene" or portal.battle_result not in ["won","lost"]: return false
+		if flags.get("event:ritual_portal_trace_01:complete",false)!=true: return false
+		if flags.get("quest:ritual_site_tracking:complete",false)!=true: return false
+		if flags.get("battle:ritual_portal_trace_01:won",false)!=(portal.battle_result=="won"): return false
+		if flags.get("battle:ritual_portal_trace_01:lost",false)!=(portal.battle_result=="lost"): return false
 	if flags.get(RESULT_PENDING_FLAG,false)==true: return false
 	if state.choice=="pass":
 		return state.battle_result=="" and flags.get(PASS_FLAG,false)==true and flags.get(FIGHT_FLAG,false)!=true and flags.get(BATTLE_WON_FLAG,false)!=true and flags.get(BATTLE_LOST_FLAG,false)!=true
