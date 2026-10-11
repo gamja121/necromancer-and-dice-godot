@@ -2,6 +2,7 @@ extends "res://systems/reward_ui.gd"
 signal closed
 const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
+const MapState = preload("res://systems/map_state.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅"}
 const LEGIONS = {"skeleton":"언데드","beast":"야수","corpse":"시체","plague":"역병","ice":"얼음","summon":"소환","demon":"악마","plant":"식물","insect":"벌레","element":"원소"}
@@ -215,6 +216,15 @@ func pray() -> void:
 	dice.rotation=0
 	status.text=result.reason
 	map.presentation.refresh()
+	if bool(result.get("boss_appeared",false)) and map.buttons.size() > MapState.BOSS_TILE_INDEX:
+		# A world-tree prayer can cross 19→20 mid-lap. Reveal the
+		# already-persisted boss tile in place, with a quiet short fade.
+		var boss_button: TextureButton = map.buttons[MapState.BOSS_TILE_INDEX]
+		boss_button.texture_normal = map.texture(map.tile_path(MapState.BOSS_TILE_INDEX))
+		boss_button.tooltip_text = "24번 · 보스"
+		boss_button.modulate.a = 0.35
+		map.create_tween().tween_property(boss_button,"modulate:a",1.0,0.30).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		status.text += " · 보스 타일 출현"
 	var popup = PrayerEffect.new()
 	popup.position = Vector2(556,315)
 	add_child(popup)
