@@ -114,7 +114,7 @@ jobs:
           }
           Write-Output "WINDOWS_NATIVE_REGRESSIONS_PASS 7 test suites; real speaker playback and user PC visual approval not checked"
 
-      - name: Attempt Windows GUI-rendered title map home and fortune screenshots
+      - name: Attempt 11 native Windows GUI-rendered scene screenshots
         shell: pwsh
         timeout-minutes: 5
         continue-on-error: true
@@ -125,12 +125,12 @@ jobs:
           & $env:GODOT_WINDOWS_CONSOLE --path . --script res://scripts/test_windows_gui_evidence.gd 2>&1 | Tee-Object -FilePath windows-gui-preview.log
           $exitCode = $LASTEXITCODE
           $log = Get-Content -Raw windows-gui-preview.log
-          if ($exitCode -ne 0 -or $log -notmatch "WINDOWS_GUI_PREVIEW: 4 captured, 0 failed") {
+          if ($exitCode -ne 0 -or $log -notmatch "WINDOWS_GUI_PREVIEW: 11 captured, 0 failed") {
             throw "Windows hosted graphical renderer not proven; headless native validation remains valid"
           }
           $files = @(Get-ChildItem $env:WINDOWS_GUI_EVIDENCE_DIR -Filter "*.png")
-          if ($files.Count -ne 4) { throw "Expected four native rendered PNG screenshots, found $($files.Count)" }
-          Write-Output "WINDOWS_GUI_SCREENSHOTS_CAPTURED 4; not an end-user visual/art/audio approval"
+          if ($files.Count -ne 11) { throw "Expected 11 native rendered PNG screenshots, found $($files.Count)" }
+          Write-Output "WINDOWS_GUI_SCREENSHOTS_CAPTURED 11; not an end-user visual/art/audio approval"
 
       - name: Upload native test traces and any captured graphical evidence
         if: always()
