@@ -4,6 +4,8 @@ const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
 const ROUTE_RESERVE_ART = "res://assets/map/ui/patrol-route-frame.webp"
 const ROUTE_CURRENT_ART = "res://assets/map/ui/patrol-route-current-frame.webp"
+const PATROL_ENTER_PARCHMENT = "res://assets/map/events/enter-parchment.png"
+const PATROL_EXIT_PARCHMENT = "res://assets/map/events/exit-parchment.png"
 const MapState = preload("res://systems/map_state.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅"}
@@ -16,6 +18,7 @@ var busy = false
 var status: Label
 var close_button: Button
 var action_button: Button
+var route_reset_button: Button
 var content: Control
 var dice: TextureButton
 var corpse_id = ""
@@ -86,8 +89,37 @@ func setup(map_scene, tile_index: int) -> void:
 		status.size=Vector2(722,42)
 		status.add_theme_font_size_override("font_size",13)
 		action_button=button(self,"경로 확정",Vector2(614,561),Vector2(160,36),confirm_route)
-		button(self,"기본값",Vector2(245,561),Vector2(148,36),func(): plan=RoutePlan.default_plan(); selected_current=-1; selected_reserve=-1; render_route())
+		action_button.name="PatrolRouteConfirm"
+		style_patrol_button(action_button)
+		route_reset_button=button(self,"기본값",Vector2(245,561),Vector2(148,36),reset_route)
+		route_reset_button.name="PatrolRouteReset"
+		style_patrol_button(route_reset_button)
+		close_button.name="PatrolRouteClose"
+		style_patrol_button(close_button,true)
 		render_route()
+
+# These two *exact* source PNGs are already in the Godot repository but
+# were never connected to the in-game patrol action buttons. The frozen
+# v2-map-practice.css assigns enter parchment to reset/confirm and exit
+# parchment to close; keep each original button's callback and position.
+func style_patrol_button(control: Button, is_exit: bool = false) -> void:
+	var path: String = PATROL_EXIT_PARCHMENT if is_exit else PATROL_ENTER_PARCHMENT
+	var background = StyleBoxTexture.new()
+	background.texture = load(path)
+	for state in ["normal","hover","pressed","focus","disabled"]:
+		control.add_theme_stylebox_override(state,background)
+	control.add_theme_color_override("font_color",Color("49301d"))
+	control.add_theme_color_override("font_hover_color",Color("49301d"))
+	control.add_theme_color_override("font_pressed_color",Color("49301d"))
+	control.add_theme_color_override("font_disabled_color",Color("857668"))
+	control.add_theme_color_override("font_focus_color",Color("49301d"))
+	control.add_theme_font_size_override("font_size",13)
+
+func reset_route() -> void:
+	plan=RoutePlan.default_plan()
+	selected_current=-1
+	selected_reserve=-1
+	render_route()
 
 func clear_content() -> void:
 	for child in content.get_children(): content.remove_child(child); child.queue_free()
