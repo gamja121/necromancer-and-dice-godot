@@ -51,7 +51,7 @@ func battle(s, winner: String) -> bool:
 
 func registry_and_presentation() -> void:
 	var spec: Dictionary = Registry.definition(Registry.GRAVEYARD_ID)
-	check(Registry.registered_ids().size()==2 and Registry.registered_ids().has(Registry.GRAVEYARD_ID) and Registry.registered_ids().has(Registry.CULTIST_ALTAR_ID),"graveyard and cultist altar are the registered story battles")
+	check(Registry.registered_ids().size()==3 and Registry.registered_ids().has(Registry.GRAVEYARD_ID) and Registry.registered_ids().has(Registry.CULTIST_ALTAR_ID) and Registry.registered_ids().has(Registry.RITUAL_PORTAL_ID),"graveyard altar and portal are registered story battles")
 	check(Registry.valid_definition(spec),"declarative outcome policy validates")
 	check(spec.outcomes.won.flags["event:graveyard_child_ambush_01:rescued"]==true,"victory policy rescues")
 	check(spec.outcomes.lost.flags["battle:graveyard_child_ambush_01:lost"]==true,"defeat policy records loss")

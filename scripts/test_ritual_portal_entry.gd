@@ -56,7 +56,7 @@ func fixture(tag: String, tile: String="forest"):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==4,"first four canonical portal beats exist")
+	check(Beats.count()==5,"first four canonical portal beats preserved with fifth intervention")
 	check(Beats.beat(0).id=="arrival","original beat id")
 	check(Beats.beat(0).effect=="제단에서 이어진 흔적을 따라가자 숲 깊은 폐허에서 거대한 전이문을 발견한다.","exact original arrival narration")
 	check(Beats.beat(0).dialogue=="","no invented dialogue")
@@ -65,12 +65,13 @@ func original_contract() -> void:
 	check(Beats.beat(1).id=="portal_reveal","second original portal beat exists, first unchanged")
 	check(Beats.beat(2).id=="final_ritual","third original ritual beat exists without changing arrival")
 	check(Beats.beat(3).id=="omen","fourth canonical omen introduced without changing arrival")
-	check(Beats.beat(4).is_empty(),"intervention scene still locked")
+	check(Beats.beat(4).id=="intervene","fifth intervention now exists after original arrival")
+	check(Beats.beat(5).is_empty(),"no sixth portal story")
 	check(Beats.BASE_ART=="res://assets/map/events/ritual-portal-ruins-base.webp","original ruin art path reused")
 	check(Portal.BASE_ART==Beats.BASE_ART,"UI entry uses same original art")
 	check(Portal.FIRST_BEAT==Beats.beat(0),"entry and canonical scene data match")
 	check(ResourceLoader.exists(Beats.BASE_ART),"existing art resource loads")
-	check(Registry.definition(Portal.EVENT_ID).is_empty(),"ritual-portal battle still unregistered")
+	check(Registry.valid_definition(Registry.definition(Portal.EVENT_ID)),"registered ritual battle remains gated by fifth choice")
 	var src: String=FileAccess.get_file_as_string("res://map.gd")
 	check(src.contains('const RitualPortalEntry = preload("res://systems/ritual_portal_entry.gd")'),"story entry connected")
 	check(src.contains('if type in ["forest","event"] and RitualPortalEntry.can_enter(session,index):'),"only designated forest or wildcard event tiles fire")
@@ -82,7 +83,7 @@ func original_contract() -> void:
 	check(src.contains('사건 · 마물의 왕 부활 의식'),"original story heading")
 	check(src.contains('location_button(panel,"숲 기능"'),"existing forest actions accessible")
 	check(src.contains('location_button(panel,"돌아가기"'),"return to board available")
-	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status=="seen"'),"restart resumes only previously discovered portal")
+	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]'),"restart resumes saved portal choice without automatic combat")
 	check(not src.contains("start_ritual_portal_battle("),"no hidden or premature portal fight handler")
 	check(not src.contains("finish_ritual_portal("),"no premature portal completion handler")
 

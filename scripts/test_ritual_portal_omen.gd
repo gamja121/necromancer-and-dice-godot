@@ -53,7 +53,7 @@ func fixture(tag: String, tile: String):
 	return s
 
 func source_and_visual_contract() -> void:
-	check(Beats.count()==4,"four canonical portal beats, no intervention")
+	check(Beats.count()==5,"four canonical portal beats and original fifth intervention")
 	check(Beats.beat(0)==Portal.FIRST_BEAT,"original arrival unchanged")
 	check(Beats.beat(1).id=="portal_reveal","original energy reveal unchanged")
 	check(Beats.beat(2).id=="final_ritual","original cultist scene unchanged")
@@ -61,7 +61,8 @@ func source_and_visual_contract() -> void:
 	check(Beats.beat(3).effect=="문 너머에서 거대한 형체가 몸을 일으킨다. 마물의 왕의 존재가 이미 현세와 맞닿기 시작했다.","exact original fourth narration")
 	check(Beats.beat(3).visual=="omen","fourth source visual is omen")
 	check(Beats.beat(3).dialogue=="" and Beats.beat(3).speaker=="","no fabricated fourth dialogue or speaker")
-	check(Beats.beat(4).is_empty(),"intervention scene not yet unlocked")
+	check(Beats.beat(4).id=="intervene","fifth original intervention now available")
+	check(Beats.beat(5).is_empty(),"sixth scene not introduced")
 	check(Beats.beat(-1).is_empty(),"negative scene unavailable")
 	check(Beats.OMEN_ART=="res://assets/map/events/ritual-portal-omen-layer.webp","original omen overlay path")
 	check(Beats.layer_for("omen")==Beats.OMEN_ART,"fourth scene selects omen layer")
@@ -71,11 +72,12 @@ func source_and_visual_contract() -> void:
 	check(Beats.layer_for("intervene").is_empty(),"fifth intervention has no visual unlock")
 	check(ResourceLoader.exists(Beats.BASE_ART),"ruin background exists")
 	check(ResourceLoader.exists(Beats.OMEN_ART),"original omen layer resource exists")
-	check(Registry.definition(Portal.EVENT_ID).is_empty(),"portal ritual combat remains disabled")
+	check(Registry.valid_definition(Registry.definition(Portal.EVENT_ID)),"portal ritual combat registration gated by fifth beat")
 	check(Portal.progress_flag(1)=="event:ritual_portal_trace_01:beat:1","energy receipt unchanged")
 	check(Portal.progress_flag(2)=="event:ritual_portal_trace_01:beat:2","cultist receipt unchanged")
 	check(Portal.progress_flag(3)=="event:ritual_portal_trace_01:beat:3","omen receives distinct save checkpoint")
-	check(Portal.progress_flag(4).is_empty(),"intervention cannot be checkpointed")
+	check(Portal.progress_flag(4)=="event:ritual_portal_trace_01:beat:4","fifth scene checkpoint now available")
+	check(Portal.progress_flag(5).is_empty(),"later checkpoint still unavailable")
 	var copied: Dictionary=Beats.beat(3)
 	copied.effect="tampered"
 	check(Beats.beat(3).effect.begins_with("문 너머에서 거대한 형체"),"canonical scene cannot be overwritten")
@@ -85,10 +87,10 @@ func source_and_visual_contract() -> void:
 	check(src.contains("InkSceneReveal.play(ritual_art)"),"omen overlay reveals with existing ink animation")
 	check(src.contains("RitualPortalEntry.current_beat(session)"),"UI uses persisted scene index")
 	check(src.contains("RitualPortalEntry.advance(session,index,shown_beat)"),"Continue uses guarded persistence")
-	check(src.contains("if beat_index<3:"),"Continue only for arrival, energy and cultists")
+	check(src.contains("if beat_index<4:"),"Continue on arrival, energy, cultists and omen")
 	check(src.contains('location_button(panel,"숲 기능"'),"existing forest action retained")
 	check(src.contains('location_button(panel,"돌아가기"'),"board return retained")
-	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status=="seen"'),"restart resumes previously discovered scenes")
+	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]'),"restart resumes omen or committed fifth choice")
 	check(not src.contains("start_ritual_portal_battle("),"no premature portal combat handler")
 	check(not src.contains("complete_ritual_portal("),"no premature king revival handler")
 
@@ -114,7 +116,7 @@ func show_fourth(tile: String) -> void:
 	check(s.get_story_event(Portal.EVENT_ID).choice=="","intervention choice still locked")
 	check(s.get_story_event(Portal.EVENT_ID).battle_result=="","no battle outcome invented")
 	var snapshot: Dictionary=s.world.snapshot().duplicate(true)
-	for stale in [0,1,2,3]:
+	for stale in [0,1,2]:
 		check(not Portal.advance(s,at,stale),"duplicate or future Continue %d blocked" % stale)
 	check(Portal.begin(s,at),"reopening scene remains idempotent")
 	check(s.world.snapshot()==snapshot,"duplicate reads do not change saved world")
