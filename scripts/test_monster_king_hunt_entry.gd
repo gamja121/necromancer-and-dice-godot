@@ -75,14 +75,16 @@ func fixture(tag: String, winner: String, destination: String):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==2,"source first and second beats enabled")
+	check(Beats.count()==3,"source first two beats preserved with third revival dialogue")
 	check(Beats.beat(0).id=="arrival","source hunt first beat ID")
 	check(Beats.beat(0).effect=="세계수의 뿌리 부근. 의식이 끝난 뒤에도 검은 흔적이 땅을 타고 뻗어 있다.","exact original world-tree narration")
 	check(Beats.beat(0).dialogue=="","source first beat has no dialogue")
 	check(Beats.beat(0).speaker=="","source first beat has no speaker")
 	check(Beats.beat(0).visual=="base","source first beat has only original base art")
 	check(Beats.beat(1).id=="trace","source hunter trace second beat enabled")
-	check(Beats.beat(2).is_empty(),"revival-mode dialogue remains locked")
+	check(Beats.beat(2).is_empty(),"revival-mode beat cannot be shown without a valid mode")
+	check(Beats.beat(2,"weakened").id=="revival","source third scene now available for correct branch")
+	check(Beats.beat(3).is_empty(),"destination still locked")
 	check(Beats.beat(-1).is_empty(),"invalid beat rejected")
 	check(Beats.BASE_ART=="res://assets/map/events/monster-hunter-worldtree-base.webp","original world-tree illustration")
 	check(Hunt.BASE_ART==Beats.BASE_ART,"hunt entry uses original world-tree art")
@@ -97,7 +99,7 @@ func original_contract() -> void:
 	check(src.contains('if type in ["unknown","event"] and MonsterKingHuntEntry.can_enter(session,index):'),"only world-tree and event wildcard dispatch")
 	check(src.contains("if MonsterKingHuntEntry.begin(session,index):"),"save before showing first scene")
 	check(src.contains('func show_monster_king_hunt_intro(index: int) -> void:'),"dedicated first hunt view")
-	check(src.contains("MonsterKingHuntBeats.beat(beat_index)"),"scene uses persisted source beat index")
+	check(src.contains("MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))"),"scene uses saved beat and real revival mode")
 	check(src.contains('사건 · 왕의 흔적'),"original event title")
 	check(src.contains("InkSceneReveal.play(art)"),"first scene uses existing ink reveal")
 	check(src.contains('location_button(panel,"세계수 기능"'),"prior world-tree tile action retained")
