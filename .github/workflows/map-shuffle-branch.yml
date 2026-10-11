@@ -25,6 +25,8 @@ on:
       - "systems/cultist_altar_*.gd"
       - "systems/run_session.gd"
       - "systems/boss_roster.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_boss_roster_rules.gd"
       - "systems/encounter_generator.gd"
       - "systems/battle_rules.gd"
       - "systems/story_battle_registry.gd"
@@ -187,3 +189,25 @@ jobs:
           timeout 90s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss-threshold.log
           grep -E 'MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed' boss-threshold.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' boss-threshold.log; then exit 1; fi
+
+      - name: Latest main P4 title-to-first-map integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_run_entry_integration.gd 2>&1 | tee p4-title-run.log
+          grep -E 'P4_RUN_ENTRY_INTEGRATION: [0-9]+ passed, 0 failed' p4-title-run.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-' p4-title-run.log; then exit 1; fi
+      - name: Latest main P4 map movement and locations integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee p4-map-move.log
+          grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' p4-map-move.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-' p4-map-move.log; then exit 1; fi
+      - name: Latest main P4 embedded combat and map-return integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee p4-combat-return.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' p4-combat-return.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-' p4-combat-return.log; then exit 1; fi
