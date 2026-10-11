@@ -44,7 +44,15 @@ func panel_button(map: Control, button_text: String) -> Button:
 ## The genuine map RNG still chooses the die; change only two tile positions
 ## in the disposable test board so its first landing is a treasure tile.
 func prepare_treasure_landing(world) -> int:
+	# A real chest has a 10% mimic roll. Choose a predictable ordinary chest
+	# seed in this disposable test only, without overriding reward behavior.
 	var preview = RandomNumberGenerator.new()
+	for seed_value in range(1,200):
+		preview.seed = seed_value
+		preview.randi_range(1,6)
+		if preview.randf() >= 0.10:
+			world.rng.seed = seed_value
+			break
 	preview.state = world.rng.state
 	var destination: int = (MapState.HOME+preview.randi_range(1,6))%24
 	var chest: int = world.tiles.find("gem")
