@@ -23,7 +23,7 @@ FORBIDDEN = (
     ("web-only engine bridge", re.compile(r"\b(?:HTTPRequest|HTTPClient|JavaScriptBridge|OS\.shell_open)\b")),
     ("project-local excluded originals", re.compile(r"\bres://(?:source_assets|raw_assets)/", re.I)),
     ("remote file scheme", re.compile(r"\b(?:file|javascript|data)://", re.I)),
-    ("absolute Windows resource path", re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/](?:Users|Workspace|Dev|Games|Projects)[\\/]", re.I)),
+    ("absolute Windows resource path", re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]+(?:Users|Workspace|Dev|Games|Projects)[\\/]+", re.I)),
 )
 LITERAL_RESOURCE = re.compile(r"""(?:"|')(?P<path>res://[^"'\r\n]+)(?:"|')""")
 ASSET_ENDINGS = {
