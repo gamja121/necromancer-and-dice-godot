@@ -107,11 +107,19 @@ func _run() -> void:
 	if deck.hand.get_child_count()==8:
 		assert_decorations(deck.hand.get_child(1),"pre-battle deck hand")
 	deck.toggle_unit(str(owned[1].id))
-	check(deck.lineup.get_child_count()==1,"selected formation slot generated")
-	if deck.lineup.get_child_count()==1:
-		assert_decorations(deck.lineup.get_child(0),"pre-battle selected formation")
+	# The current source-style battle board retains four fixed visible anchors.
+	# Only selected anchors have card art; the rest are intentional empty slots.
+	check(deck.lineup.get_child_count()==4 and deck.lineup.has_node("SelectedUnit_1"),
+		"selected formation slot generated among four fixed anchors")
+	check(deck.lineup.has_node("EmptySlot_2") and deck.lineup.has_node("EmptySlot_3")
+		and deck.lineup.has_node("EmptySlot_4"),"unfilled formation anchors remain visible")
+	if deck.lineup.has_node("SelectedUnit_1"):
+		assert_decorations(deck.lineup.get_node("SelectedUnit_1"),"pre-battle selected formation")
 	deck.toggle_unit(str(owned[1].id))
-	check(deck.lineup.get_child_count()==0,"deselection redraw succeeds")
+	check(deck.lineup.get_child_count()==4 and deck.lineup.has_node("EmptySlot_1")
+		and deck.lineup.has_node("EmptySlot_2") and deck.lineup.has_node("EmptySlot_3")
+		and deck.lineup.has_node("EmptySlot_4") and not deck.lineup.has_node("SelectedUnit_1"),
+		"deselection redraw clears selected card and restores all four empty anchors")
 
 	# 4: actual altar refresh with independent preview cards and real saved unit dictionary.
 	var place = PlaceActions.new()
