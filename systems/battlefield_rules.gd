@@ -29,9 +29,11 @@ func begin_round(forced_face: int = 0) -> void:
 			brand.bless = brand.bless.filter(func(n): return not n in base_curse)
 			if not brand.bless.is_empty() or not brand.curse.is_empty(): normalized.append(brand)
 		u.brands = normalized
-		for brand in normalized:
-			if face in brand.curse: u.curse[brand.type] = u.curse.get(brand.type,0)+1
-			elif not face in base_curse and face in brand.bless: u.bless[brand.type] = u.bless.get(brand.type,0)+1
+		# Use the same per-unit, per-face curse-first rule as the V2
+		# source and the shared headless BattleRules implementation.
+		var applied: Dictionary=resolve_brand_face(normalized,face)
+		u.bless=applied.bless
+		u.curse=applied.curse
 		u.shields = 0 if u.curse.get("guard",0)>0 else u.bless.get("guard",0)
 	refresh()
 	var support_order = units.filter(func(u): return u.alive)
