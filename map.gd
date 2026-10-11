@@ -1,5 +1,6 @@
 extends Control
 const MapPresentation = preload("res://systems/map_presentation.gd")
+const MapShuffleGather = preload("res://systems/map_shuffle_gather.gd")
 var presentation
 var map_audio: Control
 var map_music: AudioStreamPlayer
@@ -389,7 +390,7 @@ func show_tile(index: int) -> void:
 			show_cultist_rumor_intro(index)
 			return
 		status.text = session.notice
-	# P1-05I-1: only the night altar arrival is enabled here. Choices and battle stay off.
+	# P1-05I-5: original altar fight/pass both require explicit tracking confirmation.
 	if type in ["altar","event"] and CultistAltarEntry.can_enter(session,index):
 		if CultistAltarEntry.begin(session,index):
 			show_cultist_altar_intro(index)
@@ -734,9 +735,10 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistRumorEntry.EVENT_ID).status=="seen":
 			show_cultist_rumor_intro(index)
 			return
-	# On reconnect, never generate an unseen altar story: reopen saved arrivals only.
+	# On reconnect, never create an unseen altar story. Restore saved
+	# arrivals, ritual reveals, unresolved pass and acknowledged outcomes.
 	if CultistAltarEntry.can_enter(session,index):
-		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen":
+		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
@@ -919,42 +921,127 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	else:
 		show_cultist_rumor_beat(index)
 
-## P1-05I-2: introduction and original ritual layer, with saved progress.
-## No fight/pass button or battle is enabled at the ritual reveal step.
+## P1-05I-5: selected fight, pass follow-up and deliberate tracking completion.
 func show_cultist_altar_intro(index: int) -> void:
-	show_cultist_altar_beat(index)
+	if CultistAltarEntry.followup_ready(session,index):
+		show_cultist_altar_followup(index)
+	else:
+		show_cultist_altar_beat(index)
 
 func show_cultist_altar_beat(index: int) -> void:
+	if CultistAltarEntry.followup_ready(session,index):
+		show_cultist_altar_followup(index)
+		return
 	if not CultistAltarEntry.can_enter(session,index): return
 	var beat_index: int=CultistAltarEntry.current_beat(session)
 	var beat: Dictionary=CultistAltarBeats.beat(beat_index)
 	if beat.is_empty(): return
+	var altar_state: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
+	var fighting: bool=altar_state.status=="active" and altar_state.choice=="fight"
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var artwork=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
-	var layer_path: String=CultistAltarBeats.layer_for(str(beat.visual))
+	var layer_path: String=CultistAltarBeats.SUMMON if fighting else CultistAltarBeats.layer_for(str(beat.visual))
 	if not layer_path.is_empty():
 		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
 		InkSceneReveal.play(ritual_art)
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
+	var narration: String=CultistAltarBeats.SUMMON_EFFECT if fighting else str(beat.effect)
+	var effect=label_at(panel,narration,Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	# Only arrival can advance in this phase. Ritual reveal waits for 2-5I-3.
-	if beat_index==0:
+	if beat_index<2:
 		if world.tiles[index]=="altar":
 			location_button(panel,"계속",Vector2(463,653),Vector2(171,48),func(): advance_cultist_altar(index,beat_index),1)
 		else:
 			location_button(panel,"계속",Vector2(651,653),Vector2(194,48),func(): advance_cultist_altar(index,beat_index),1)
+	elif altar_state.status=="seen" and beat.get("choice",false)==true:
+		location_button(panel,"싸운다",Vector2(320,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"fight"),1)
+		location_button(panel,"지나간다",Vector2(504,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"pass"),1)
+	elif fighting:
+		if altar_state.battle_result=="won":
+			var won_note=label_at(panel,"소환 마물 격퇴 기록 저장됨 · 후속 사건 연결 대기",Vector2(315,613),Vector2(715,33),16)
+			won_note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		elif altar_state.battle_result=="lost":
+			var lost_note=label_at(panel,"전투 패배 기록 저장됨 · 남은 마물로 재도전 가능",Vector2(315,613),Vector2(715,33),16)
+			lost_note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		if altar_state.battle_result!="won" and not world.roster.is_empty():
+			location_button(panel,"출전 마물 선택",Vector2(319,653),Vector2(225,48),func(): show_story_battle_deck(CultistAltarEntry.EVENT_ID,index),1)
+		if altar_state.battle_result=="":
+			location_button(panel,"선택 변경",Vector2(557,653),Vector2(126,48),func(): reconsider_cultist_altar(index),4)
+	elif altar_state.status=="active":
+		var receipt=label_at(panel,"‘지나간다’ 선택 저장됨 · 후속 처리는 다음 단계에서 연결됩니다.",Vector2(300,613),Vector2(730,35),16)
+		receipt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		location_button(panel,"선택 변경",Vector2(463,653),Vector2(171,48),func(): reconsider_cultist_altar(index),1)
 	if world.tiles[index]=="altar":
-		location_button(panel,"제단 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+		location_button(panel,"제단 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+## Original final narration is shown only after a pass was saved or a battle
+## result was acknowledged. Closing/reloading never consumes the quest handoff.
+func show_cultist_altar_followup(index: int) -> void:
+	if not CultistAltarEntry.followup_ready(session,index): return
+	var story: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
+	var narration: String=CultistAltarBeats.followup_effect(str(story.choice),str(story.battle_result))
+	if narration.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var art=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(art)
+	var overlay_path: String=CultistAltarBeats.RITUAL if story.choice=="pass" else CultistAltarBeats.SUMMON
+	image(panel,overlay_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,narration,Vector2(285,548),Vector2(710,62),17)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var speech=label_at(panel,"%s: %s" % [CultistAltarBeats.FOLLOWUP_SPEAKER,CultistAltarBeats.FOLLOWUP_DIALOGUE],Vector2(285,610),Vector2(710,34),16)
+	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if story.choice=="pass":
+		location_button(panel,"선택 변경",Vector2(320,653),Vector2(164,48),func(): reconsider_cultist_altar(index),4)
+		location_button(panel,"마치기",Vector2(504,653),Vector2(164,48),func(): finish_cultist_altar(index),1)
+	else:
+		location_button(panel,"마치기",Vector2(463,653),Vector2(171,48),func(): finish_cultist_altar(index),1)
+	if world.tiles[index]=="altar":
+		location_button(panel,"제단 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func finish_cultist_altar(index: int) -> void:
+	if not CultistAltarEntry.finish(session,index):
+		status.text="광신도 제단 추적 기록 저장 실패 · 다시 시도하세요."
+		return
+	close_overlay()
+	if world.tiles[index]=="altar":
+		show_location(index)
+	else:
+		render()
+	status.text="광신도의 의식 확인 · 마물의 왕 부활 의식의 흔적 추적 시작"
 
 func advance_cultist_altar(index: int, shown_beat: int) -> void:
 	if not CultistAltarEntry.advance(session,index,shown_beat):
 		status.text="광신도 제단 장면 저장 실패 · 다시 시도하세요."
+		return
+	show_cultist_altar_beat(index)
+
+func choose_cultist_altar(index: int, shown_beat: int, decision: String) -> void:
+	if not CultistAltarEntry.choose(session,index,shown_beat,decision):
+		status.text="광신도 제단 선택 저장 실패 · 다시 시도하세요."
+		return
+	show_cultist_altar_beat(index)
+	if decision=="fight":
+		# Show the original summoned-monsters layer before deck selection.
+		# Reconnecting opens the same saved summon scene, not an automatic fight.
+		var choice_overlay=overlay
+		await get_tree().create_timer(0.76).timeout
+		if is_instance_valid(choice_overlay) and overlay==choice_overlay and CultistAltarEntry.can_enter(session,index):
+			if session.get_story_event(CultistAltarEntry.EVENT_ID).choice=="fight":
+				show_story_battle_deck(CultistAltarEntry.EVENT_ID,index)
+
+func reconsider_cultist_altar(index: int) -> void:
+	if not CultistAltarEntry.reconsider(session,index):
+		status.text="광신도 제단 선택 변경 실패 · 다시 시도하세요."
 		return
 	show_cultist_altar_beat(index)
 
@@ -1049,7 +1136,7 @@ func show_story_battle_result(event_id: String) -> void:
 		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if view.retry and not world.roster.is_empty():
 		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_story_battle_result_ui(event_id,true),1)
-	location_button(panel,"맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_story_battle_result_ui(event_id,false),4)
+	location_button(panel,"흔적 확인" if event_id==CultistAltarEntry.EVENT_ID else "맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_story_battle_result_ui(event_id,false),4)
 
 func acknowledge_graveyard_result(retry: bool) -> void:
 	acknowledge_story_battle_result_ui(StoryEventEntry.EVENT_ID,retry)
@@ -1064,6 +1151,10 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 	close_overlay()
 	if retry and not world.roster.is_empty():
 		show_story_battle_deck(event_id,index)
+	elif event_id==CultistAltarEntry.EVENT_ID and CultistAltarEntry.followup_ready(session,index):
+		# The battle receipt is acknowledged, but story completion waits for
+		# the separate original narration and explicit '마치기' press.
+		show_cultist_altar_followup(index)
 	else:
 		render()
 		status.text = session.notice
@@ -1119,14 +1210,37 @@ func exit_home() -> void:
 	if moving: return
 	moving = true
 	close_overlay()
-	var ok: bool = await presentation.cloud_refresh(func():
-		if not session.leave_home(): return false
-		world = session.world
+	# Block the entire board, including inventory/options, during the shuffle.
+	var input_lock: Control = presentation.effect(true)
+	dice.disabled = true
+	var shuffle = MapShuffleGather.new()
+	stage.add_child(shuffle)
+	var prepared: bool = shuffle.prepare(buttons)
+	if prepared:
+		await shuffle.play_gather()
+		await shuffle.play_rotation()
+	# The authoritative map and save are updated exactly once, only after
+	# the old visuals have finished shuffling. No visual code writes game state.
+	var ok: bool = session.leave_home()
+	world = session.world
+	if ok:
+		if prepared:
+			var next_tile_textures: Array = []
+			for i in range(MapState.centers().size()):
+				next_tile_textures.append(texture(tile_path(i)))
+			await shuffle.play_scatter(next_tile_textures,true)
+		# Rebuild metadata, HUD, cleared flags and interaction targets from
+		# the saved board; even a failed visual effect must never hide it.
 		render()
-		return true)
+	else:
+		# persist_change() has already restored the old world snapshot.
+		shuffle.restore_tiles()
+	shuffle.queue_free()
+	input_lock.queue_free()
 	moving = false
 	dice.disabled = false
 	if not ok:
 		status.text = session.notice if not session.notice.is_empty() else "맵 교체 저장 실패 · 다시 시도하세요"
 		show_home()
-	else: status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
+	else:
+		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
