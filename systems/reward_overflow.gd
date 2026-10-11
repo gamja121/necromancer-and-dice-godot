@@ -35,6 +35,19 @@ func setup(run_session) -> void:
 	style.shadow_size = 20
 	background.add_theme_stylebox_override("panel",style)
 	add_child(background)
+	# Keep the original immutable web parchment as a real Godot runtime texture.
+	# Native panel colors remain as an asset-loading fallback.
+	if is_capture_overflow:
+		var source_art = load("res://assets/map/ui/capture-overflow-panel-bg.jpg")
+		if source_art is Texture2D:
+			var parchment = TextureRect.new()
+			parchment.name = "CaptureOverflowBackgroundArt"
+			parchment.texture = source_art
+			parchment.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			parchment.stretch_mode = TextureRect.STRETCH_SCALE
+			parchment.size = background.size
+			parchment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			background.add_child(parchment)
 
 	var reward: Dictionary = session.world.pending_reward.reward
 	var items: Array = session.world.roster if reward.kind=="unit" else session.world.dice_cards

@@ -22,5 +22,5 @@
 ## 통합 자동검사
 - `.github/workflows/ui-deck-overflow-stage5g.yml`: Godot 4.7.2 import, G 편성/초과 UI, F 보물상자, E 영혼 수확, 실제 보물→집→다음 바퀴, 전투→맵 복귀, 단일 원정 전체 흐름.
 - 검사 성공과 별개로 Windows/Android 1280×720 실제 터치, 겹침, 가로 스크롤, 긴 이름은 **시각 검사 미완료**.
-- 포획 초과용 원본 JPEG가 아직 미이식되어 네이티브 양피지색 대체 상태. 이 항목은 **원본 아트 동등 판정 보류**.
+- 포획 초과용 원본 `art/v2-style/ui/capture-overflow-panel-bg.jpg`는 원본 JPEG Git blob SHA `14db9bd2b130b6ed05679c268c7e40b3ba67ee5f` 그대로 `assets/map/ui/capture-overflow-panel-bg.jpg`에 이식. Godot TextureRect가 1120×360 전체를 덮고 실패 시 네이티브 색상을 유지한다. 텍스처 실제 로드 자동검사 추가; Windows/Android 화면 픽셀과 스크롤 실기 검증은 여전히 **미완료**.
 - `main` 병합·Pages 배포·PC 동기화는 별도이며 이 브랜치 생성으로 자동 완료 처리하지 않는다.

@@ -95,6 +95,8 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	check(panel.card_scroll != null and panel.card_scroll.size==(Vector2(970,172) if capture else Vector2(690,260)),"original inventory row or eleven-card capture row for "+kind)
 	check(panel.choices.size()==items.size()+1 and panel.choices.has("__new__"),"all old cards plus new candidate available for "+kind)
 	if capture:
+		var capture_art = original_panel.get_node_or_null("CaptureOverflowBackgroundArt") as TextureRect
+		check(capture_art!=null and capture_art.texture!=null and capture_art.texture.get_width()>0,"original frozen-web capture parchment JPEG is a valid imported runtime texture")
 		check(panel.card_scroll.get_child(0).get_child_count()==11,"all eleven capture cards fit one row without horizontal clipping")
 		check(panel.status.text.contains("마물 카드") and panel.title_label.get_theme_color("font_color")==Color("3a281c"),"capture uses original dedicated light parchment text")
 	check(panel.confirm.disabled and near(panel.confirm.modulate.a,0.45),"confirmation disabled until deliberate discard choice for "+kind)
