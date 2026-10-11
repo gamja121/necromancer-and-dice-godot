@@ -24,6 +24,7 @@ on:
       - "systems/permanent_death.gd"
       - "assets/battle/frames/**"
       - "scripts/test_battle_motion_parity.gd"
+      - "scripts/test_p4_all_monster_presentation.gd"
       - "systems/encounter_generator.gd"
       - "scripts/test_web_unit_catalog_parity.gd"
       - "scripts/fixtures/web_v2_units_46.json"
@@ -117,6 +118,7 @@ on:
       - "systems/permanent_death.gd"
       - "assets/battle/frames/**"
       - "scripts/test_battle_motion_parity.gd"
+      - "scripts/test_p4_all_monster_presentation.gd"
       - "systems/encounter_generator.gd"
       - "scripts/test_web_unit_catalog_parity.gd"
       - "scripts/fixtures/web_v2_units_46.json"
@@ -358,6 +360,16 @@ jobs:
           timeout --signal=TERM --kill-after=5s 120s godot --headless --path . --script res://scripts/test_battle_motion_parity.gd 2>&1 | tee battle-motion-parity.log
           grep -E 'BATTLE_MOTION_PARITY_REGRESSION: [0-9]+ passed, 0 failed' battle-motion-parity.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL battle-motion:' battle-motion-parity.log; then
+            exit 1
+          fi
+
+      - name: P4-04A all 46 source monsters plus Dracula real card info animation attack hit death
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 300s godot --headless --path . --script res://scripts/test_p4_all_monster_presentation.gd 2>&1 | tee p4-all-monsters.log
+          grep -E 'P4_ALL_MONSTER_PRESENTATION: [0-9]+ passed, 0 failed' p4-all-monsters.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-all-monsters:' p4-all-monsters.log; then
             exit 1
           fi
 
