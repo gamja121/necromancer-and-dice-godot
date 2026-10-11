@@ -74,7 +74,7 @@ func test_deck() -> void:
 	deck.queue_free()
 	await process_frame
 
-func test_overflow(kind: String) -> void:
+func test_overflow(kind: String, capture: bool = false) -> void:
 	var items: Array = []
 	if kind=="unit":
 		for i in range(10): items.append(make_unit(i))
@@ -83,7 +83,7 @@ func test_overflow(kind: String) -> void:
 			items.append({"id":"dice-%d" % i,"image":"1","label":"주사위 %d" % i})
 	var new_item: Dictionary = make_unit(11) if kind=="unit" else {"id":"dice-new","image":"1","label":"신규 주사위"}
 	var fake = FakeSession.new()
-	fake.world = {"roster":items if kind=="unit" else [],"dice_cards":items if kind=="dice" else [],"pending_reward":{"reward":{"kind":kind,"item":new_item}}}
+	fake.world = {"roster":items if kind=="unit" else [],"dice_cards":items if kind=="dice" else [],"pending_reward":{"kind":"capture" if capture else "treasure","reward":{"kind":kind,"item":new_item}}}
 	var original = JSON.stringify(fake.world)
 	var panel = Overflow.new()
 	root.add_child(panel)
@@ -91,16 +91,19 @@ func test_overflow(kind: String) -> void:
 	await process_frame
 	var original_panel = panel.get_node_or_null("RewardOverflowPanel") as Panel
 	print("MEASURE overflow.",kind," size=",original_panel.size if original_panel else "missing")
-	check(original_panel!=null and near(original_panel.size.x,760) and near(original_panel.size.y,496),"original narrow parchment panel replaces wide dark placeholder for "+kind)
-	check(panel.card_scroll != null and panel.card_scroll.size==Vector2(690,260),"original horizontal touch-scroll inventory for "+kind)
+	check(original_panel!=null and near(original_panel.size.x,1120 if capture else 760) and near(original_panel.size.y,360 if capture else 496),"source panel uses correct map/reaping proportions for "+kind)
+	check(panel.card_scroll != null and panel.card_scroll.size==(Vector2(970,172) if capture else Vector2(690,260)),"original inventory row or eleven-card capture row for "+kind)
 	check(panel.choices.size()==items.size()+1 and panel.choices.has("__new__"),"all old cards plus new candidate available for "+kind)
+	if capture:
+		check(panel.card_scroll.get_child(0).get_child_count()==11,"all eleven capture cards fit one row without horizontal clipping")
+		check(panel.status.text.contains("마물 카드") and panel.title_label.get_theme_color("font_color")==Color("3a281c"),"capture uses original dedicated light parchment text")
 	check(panel.confirm.disabled and near(panel.confirm.modulate.a,0.45),"confirmation disabled until deliberate discard choice for "+kind)
 	check(panel.title_label.text.contains("10/10" if kind=="unit" else "5/5"),"overflow shows correct capacity for "+kind)
 	check(panel.choices["__new__"].get_parent().get_node_or_null("NewRewardBadge")!=null,"new card marked with source red badge for "+kind)
 	panel.select_card(str(items[0].id))
 	check(panel.selected==str(items[0].id) and not panel.confirm.disabled,"existing card discard selection enables confirmation for "+kind)
 	check(panel.choices[str(items[0].id)].get_node("OverflowSelectedOutline").visible,"only chosen card receives gold glow for "+kind)
-	check(near(panel.choices[str(items[0].id)].position.y,7.0) and near(panel.choices[str(items[1].id)].position.y,16.0),"chosen candidate lifts while other cards remain seated for "+kind)
+	check(near(panel.choices[str(items[0].id)].position.y,0.0 if capture else 7.0) and near(panel.choices[str(items[1].id)].position.y,7.0 if capture else 16.0),"chosen candidate lifts while other cards remain seated for "+kind)
 	check(fake.discarded.is_empty() and JSON.stringify(fake.world)==original,"UI-only selection does not spend reward or edit save for "+kind)
 	panel.select_card("__new__")
 	check(panel.selected=="__new__" and not panel.choices[str(items[0].id)].get_node("OverflowSelectedOutline").visible,"new reward can itself be discarded for "+kind)
@@ -116,5 +119,6 @@ func _run() -> void:
 	await test_deck()
 	await test_overflow("unit")
 	await test_overflow("dice")
+	await test_overflow("unit",true)
 	print("UI_DECK_OVERFLOW_PARITY: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
