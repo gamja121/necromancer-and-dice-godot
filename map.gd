@@ -750,10 +750,10 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 			return
-	# A saved arrival, portal energy, cultist ritual or king omen scene
-	# resumes on its actual tile; loading never starts a new encounter.
+	# A saved portal scene or committed intervention resumes at its tile;
+	# reconnect never starts combat without a new deck confirmation.
 	if RitualPortalEntry.can_enter(session,index):
-		if session.get_story_event(RitualPortalEntry.EVENT_ID).status=="seen":
+		if session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]:
 			show_ritual_portal_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
@@ -949,6 +949,8 @@ func show_ritual_portal_beat(index: int) -> void:
 	var beat_index: int=RitualPortalEntry.current_beat(session)
 	var beat: Dictionary=RitualPortalBeats.beat(beat_index)
 	if beat.is_empty(): return
+	var scene_state: Dictionary=session.get_story_event(RitualPortalEntry.EVENT_ID)
+	var intervening: bool=scene_state.status=="active" and scene_state.choice=="intervene"
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
@@ -959,11 +961,23 @@ func show_ritual_portal_beat(index: int) -> void:
 		InkSceneReveal.play(ritual_art)
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
+	var narration: String=RitualPortalBeats.INTERVENTION_EFFECT if intervening and scene_state.battle_result=="" else str(beat.effect)
+	var effect=label_at(panel,narration,Vector2(285,558),Vector2(710,59),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	if beat_index<3:
+	if not str(beat.dialogue).is_empty() and not intervening:
+		var dialogue=label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,619),Vector2(710,29),16)
+		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if beat_index<4:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="forest" else Vector2(651,653),Vector2(171,48),func(): advance_ritual_portal(index,beat_index),1)
+	elif scene_state.status=="seen" and beat.get("battleReady",false)==true:
+		location_button(panel,"저지한다",Vector2(455,653),Vector2(183,48),func(): choose_ritual_portal_intervention(index,beat_index),1)
+	elif intervening and scene_state.battle_result=="":
+		if not world.roster.is_empty():
+			location_button(panel,"출전 마물 선택",Vector2(455,653),Vector2(183,48),func(): show_story_battle_deck(RitualPortalEntry.EVENT_ID,index),1)
+	elif intervening:
+		var saved=label_at(panel,"전투 승패 기록 저장됨 · 부활 결과는 다음 장면에서 확정됩니다.",Vector2(285,619),Vector2(710,32),16)
+		saved.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	if world.tiles[index]=="forest":
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
@@ -973,6 +987,19 @@ func advance_ritual_portal(index: int, shown_beat: int) -> void:
 		status.text="전이문 장면 저장 실패 · 다시 시도하세요."
 		return
 	show_ritual_portal_beat(index)
+
+func choose_ritual_portal_intervention(index: int, shown_beat: int) -> void:
+	if not RitualPortalEntry.choose_intervention(session,index,shown_beat):
+		status.text="전이문 저지 선언 저장 실패 · 다시 시도하세요."
+		return
+	show_ritual_portal_beat(index)
+	# The omen remains visible briefly before the existing 1–4 owned-unit
+	# deck selector appears. Reconnecting never auto-starts a combat.
+	var declaration_overlay=overlay
+	await get_tree().create_timer(0.76).timeout
+	if is_instance_valid(declaration_overlay) and overlay==declaration_overlay and RitualPortalEntry.can_enter(session,index):
+		if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="intervene":
+			show_story_battle_deck(RitualPortalEntry.EVENT_ID,index)
 
 func show_cultist_altar_intro(index: int) -> void:
 	if CultistAltarEntry.followup_ready(session,index):
