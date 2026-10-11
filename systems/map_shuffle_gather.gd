@@ -31,6 +31,12 @@ const FLIP_STAGGER = 0.008
 const FLIP_EXPAND_DURATION = 0.135
 const LANDING_LIFT = 4.0
 const LANDING_DURATION = 0.14 # Heavy slab: accelerate downward, then stop without rebound.
+# One lightweight canvas draw for 21 tiny impact puffs; no sprites, physics
+# bodies, textures or per-grain nodes (suitable for mobile Web).
+const DUST_GRAINS_PER_TILE = 4
+const DUST_LIFETIME = 0.19
+const DUST_IMPACT_OFFSET = FLIP_HALF_DURATION + LANDING_DURATION
+const DUST_TOTAL_DURATION = DUST_IMPACT_OFFSET + (Layout.INNER_COUNT + Layout.OUTER_COUNT - 1) * FLIP_STAGGER + DUST_LIFETIME
 const SHADOW_OFFSET = Vector2(4.0, 7.0)
 const SHADOW_TINT = Color(0.035, 0.022, 0.045, 0.31)
 # Faint magical focus only. The die face and position never animate.
@@ -50,6 +56,9 @@ var predeparture_tween: Tween
 var rotation_tween: Tween
 var scatter_tween: Tween
 var reveal_tween: Tween
+var dust_tween: Tween
+var dust_elapsed: float = -1.0
+var dust_centers: Array[Vector2] = []
 var gathered := false
 var rotated := false
 var aura_strength: float = 0.0
@@ -111,13 +120,49 @@ func _stop_sounds() -> void:
 
 
 func _draw() -> void:
-	if aura_strength <= 0.0:
+	if aura_strength > 0.0:
+		# Draw behind the real die (z19). Two narrow arcs and a soft center glow.
+		draw_circle(Layout.DICE_CENTER, AURA_OUTER_RADIUS + 3.0, Color(0.47, 0.26, 0.75, 0.035 * aura_strength))
+		draw_arc(Layout.DICE_CENTER, AURA_INNER_RADIUS, 0.0, TAU, 72, Color(0.76, 0.60, 1.0, 0.28 * aura_strength), 2.0, true)
+		draw_arc(Layout.DICE_CENTER, AURA_OUTER_RADIUS, 0.0, TAU, 88, Color(0.59, 0.39, 0.89, 0.17 * aura_strength), 1.5, true)
+	_draw_stone_dust()
+
+
+## -1 means no burst is active. Tiles land in the existing index stagger.
+static func dust_burst_fraction(elapsed: float, tile_index: int) -> float:
+	if tile_index < 0 or tile_index >= Layout.INNER_COUNT + Layout.OUTER_COUNT:
+		return -1.0
+	var since_impact: float = elapsed - DUST_IMPACT_OFFSET - float(tile_index) * FLIP_STAGGER
+	if since_impact < 0.0 or since_impact >= DUST_LIFETIME - 0.00001:
+		return -1.0
+	return since_impact / DUST_LIFETIME
+
+
+func _set_dust_elapsed(elapsed: float) -> void:
+	dust_elapsed = elapsed
+	queue_redraw()
+
+
+func _draw_stone_dust() -> void:
+	if dust_elapsed < 0.0:
 		return
-	# Draw behind the real die (z19). Two narrow arcs and a soft center glow
-	# communicate "map reshuffling", never a new dice roll.
-	draw_circle(Layout.DICE_CENTER, AURA_OUTER_RADIUS + 3.0, Color(0.47, 0.26, 0.75, 0.035 * aura_strength))
-	draw_arc(Layout.DICE_CENTER, AURA_INNER_RADIUS, 0.0, TAU, 72, Color(0.76, 0.60, 1.0, 0.28 * aura_strength), 2.0, true)
-	draw_arc(Layout.DICE_CENTER, AURA_OUTER_RADIUS, 0.0, TAU, 88, Color(0.59, 0.39, 0.89, 0.17 * aura_strength), 1.5, true)
+	for i in range(dust_centers.size()):
+		var fraction: float = dust_burst_fraction(dust_elapsed, i)
+		if fraction < 0.0:
+			continue
+		# A low-opacity stone-grey puff pushes outward from both bottom
+		# corners, then quickly fades. Avoid bright arcs and camera shake.
+		var opacity: float = 0.23 * (1.0 - fraction) * minf(1.0, fraction * 12.0)
+		var center: Vector2 = dust_centers[i]
+		for grain in range(DUST_GRAINS_PER_TILE):
+			var side: float = -1.0 if grain % 2 == 0 else 1.0
+			var depth: float = float(grain / 2)
+			var offset: Vector2 = Vector2(side * (55.0 + 7.0 * fraction + 3.0 * depth), -2.0 - 8.0 * fraction - depth * 2.0)
+			draw_circle(center + offset, 1.5 * (1.0 - 0.45 * fraction), Color(0.53, 0.50, 0.46, opacity))
+		# The short low ground kick suggests stone meeting solid ground.
+		var impact_opacity: float = opacity * 0.55
+		draw_line(center + Vector2(-48.0 - 5.0 * fraction, 2.0), center + Vector2(-40.0, 2.0), Color(0.43, 0.40, 0.37, impact_opacity), 1.0)
+		draw_line(center + Vector2(40.0, 2.0), center + Vector2(48.0 + 5.0 * fraction, 2.0), Color(0.43, 0.40, 0.37, impact_opacity), 1.0)
 
 
 func _set_aura_strength(value: float) -> void:
@@ -323,6 +368,14 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		scatter_tween.tween_property(visual, "position", destination, SCATTER_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await scatter_tween.finished
 	_play_sound("land")
+	# Dust is strictly visual, only after persistence has succeeded. All
+	# 21 puffs are drawn in this one Control with a single time tween.
+	dust_centers.clear()
+	for i in range(tile_visuals.size()):
+		var destination_index: int = int(Layout.SCATTER_DESTINATIONS[i])
+		dust_centers.append(board_buttons[destination_index].position + Vector2(Layout.TILE_SIZE.x * 0.5, Layout.TILE_SIZE.y))
+	dust_tween = create_tween()
+	dust_tween.tween_method(_set_dust_elapsed, 0.0, DUST_TOTAL_DURATION, DUST_TOTAL_DURATION).set_trans(Tween.TRANS_LINEAR)
 
 	# Stone slab landing: fall the final four pixels with accelerating
 	# weight and stop firmly at the board. Neither position nor flip may
@@ -349,6 +402,10 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		reveal_tween.tween_property(shadow, "position:y", SHADOW_OFFSET.y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		reveal_tween.tween_property(shadow, "modulate:a", 0.0, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await reveal_tween.finished
+	# Allow the final small puff to dissolve before removing temporary
+	# visuals. The world is already saved; gameplay is still input-locked.
+	if dust_tween != null and dust_tween.is_running():
+		await dust_tween.finished
 
 	# Commit the already saved images to the formerly hidden buttons, then
 	# remove the temporary cards. A later map.render() refreshes metadata.
@@ -379,6 +436,12 @@ func _valid_next_tiles(next_tile_textures: Array) -> bool:
 
 func restore_tiles() -> void:
 	_stop_sounds()
+	if dust_tween != null and dust_tween.is_running():
+		dust_tween.kill()
+	dust_tween = null
+	dust_elapsed = -1.0
+	dust_centers.clear()
+	queue_redraw()
 	if aura_tween != null and aura_tween.is_running():
 		aura_tween.kill()
 	aura_tween = null
@@ -416,6 +479,9 @@ func restore_tiles() -> void:
 
 func _exit_tree() -> void:
 	_stop_sounds()
+	if dust_tween != null and dust_tween.is_running():
+		dust_tween.kill()
+	dust_centers.clear()
 	# If a transition is aborted, never leave the original board invisible.
 	for i in range(tile_sources.size()):
 		if is_instance_valid(tile_sources[i]):
