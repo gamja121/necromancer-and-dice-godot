@@ -58,7 +58,7 @@ func source_and_visual_contract() -> void:
 	check(Beats.layer_for("summon").is_empty(),"summoning layer stays disabled")
 	check(ResourceLoader.exists(Beats.BASE),"original night altar background exists")
 	check(ResourceLoader.exists(Beats.RITUAL),"original ritual artwork exists")
-	check(Registry.definition(Altar.EVENT_ID).is_empty(),"no altar combat contract enabled")
+	check(Registry.valid_definition(Registry.definition(Altar.EVENT_ID)),"later altar battle contract registered without starting at arrival")
 	var copied: Dictionary=Beats.beat(1)
 	copied.effect="tampered"
 	check(Beats.beat(1).effect.begins_with("광신도들이"),"canonical scene data cannot be overwritten")
