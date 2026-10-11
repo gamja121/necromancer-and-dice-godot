@@ -85,9 +85,9 @@ func _scenario(session: Node, victor: String) -> void:
 	check(is_instance_valid(deck) and deck.get_script()!=null and deck.get_script().resource_path.ends_with("battle_deck.gd"),label+": actual monster tile opens deck selector")
 	if not is_instance_valid(deck): map.queue_free(); return
 	check(deck.confirm_button.disabled,label+": cannot start without selecting a monster")
-	var selected_id: String = str(world.roster[0].id)
-	deck.toggle_unit(selected_id)
-	check(deck.selected_ids == [selected_id] and not deck.confirm_button.disabled,label+": owned monster selected and battle button enabled")
+	var selected_ids: Array = [str(world.roster[0].id),str(world.roster[1].id)]
+	for id in selected_ids: deck.toggle_unit(id)
+	check(deck.selected_ids == selected_ids and not deck.confirm_button.disabled,label+": two owned monsters selected and battle button enabled")
 	deck.confirm_button.pressed.emit()
 	var entered: bool = await until_ready(func(): return is_instance_valid(map.embedded_battle) and not map.embedded_battle.rules.units.is_empty(),12000)
 	check(entered,label+": confirmed deck starts the real embedded Battlefield scene")
@@ -96,7 +96,7 @@ func _scenario(session: Node, victor: String) -> void:
 		return
 	var battle: Control = map.embedded_battle
 	check(battle.embedded and battle.map_mode and battle.session == session,label+": battlefield is connected to current RunSession")
-	check(session.encounter.type=="monster" and session.encounter.allies.size()==1,label+": generated normal encounter has selected owned unit")
+	check(session.encounter.type=="monster" and session.encounter.allies.size()==2,label+": generated normal encounter has selected owned unit")
 	check(session.encounter.enemies.size()>=1 and session.encounter.enemies.size()<=4,label+": original encounter generator produced enemies")
 	check(battle.map_return.disabled and battle.rules.winner().is_empty(),label+": cannot leave unfinished combat")
 	var receipt_before: int = world.reward_receipts.size()
