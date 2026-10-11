@@ -74,7 +74,7 @@ func fixture(tag: String, side: String, tile: String):
 	return s
 
 func source_contract() -> void:
-	check(Beats.count()==3,"only first three canonical hunt scenes")
+	check(Beats.count()==4,"fourth destination clue added after canonical first three scenes")
 	check(Beats.beat(0)==Hunt.FIRST_BEAT,"original arrival identical")
 	check(Beats.beat(1).id=="trace","second beast scene preserved")
 	var weak: Dictionary=Beats.beat(2,"weakened")
@@ -88,7 +88,7 @@ func source_contract() -> void:
 	check(weak.visual=="portrait" and full.visual=="portrait","both third scenes use the original hunter portrait")
 	check(Beats.beat(2).is_empty(),"missing revival mode never defaults to a branch")
 	check(Beats.beat(2,"invalid").is_empty(),"invalid revival mode cannot present a story")
-	check(Beats.beat(3,"weakened").is_empty(),"destination is locked")
+	check(Beats.beat(3,"weakened").id=="destination","next destination data available but gated by progress")
 	check(Beats.visual_art("portrait")==Beats.PORTRAIT_ART,"source portrait asset mapping")
 	check(Beats.PORTRAIT_ART=="res://assets/map/events/monster-hunter-pen-clean.webp","reuses unmodified original hunter portrait")
 	check(Beats.visual_art("scene")==Beats.SCENE_ART,"original corrupted scene artwork unchanged")
@@ -98,13 +98,13 @@ func source_contract() -> void:
 	changed.effect="wrong"
 	check(Beats.beat(2,"full").effect.begins_with("세계수의 뿌리"),"getter returns immutable source copy")
 	check(Hunt.progress_flag(2)=="event:monster_king_hunt_trace_01:beat:2","third scene durable receipt")
-	check(Hunt.progress_flag(3).is_empty(),"next destination never checkpointed")
+	check(Hunt.progress_flag(3)=="event:monster_king_hunt_trace_01:beat:3","next destination checkpoint is sequential")
 	var src: String=FileAccess.get_file_as_string("res://map.gd")
 	check(src.contains("MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))"),"mode derived from saved portal outcome, never guessed")
 	check(src.contains("MonsterKingHuntBeats.visual_art(str(beat.visual))"),"original portrait layer chosen by scene visual")
 	check(src.contains("InkSceneReveal.play(scene_art)"),"portrait reveals with same original ink effect")
 	check(src.contains('"%s: %s" % [str(beat.speaker),str(beat.dialogue)]'),"narrator and dialogue shown in UI")
-	check(src.contains("if beat_index<2:"),"Continue only on first two scenes")
+	check(src.contains("if beat_index<3:"),"Continue also offered after hunter dialogue")
 	check(src.contains('location_button(panel,"세계수 기능"'),"world-tree feature remains accessible")
 	check(src.contains('location_button(panel,"돌아가기"'),"map return stays accessible")
 	check(not src.contains("finish_monster_king_hunt("),"hunt quest completion is not implemented")

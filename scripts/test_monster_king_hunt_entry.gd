@@ -75,7 +75,7 @@ func fixture(tag: String, winner: String, destination: String):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==3,"source first two beats preserved with third revival dialogue")
+	check(Beats.count()==4,"first four source beats present including destination clue")
 	check(Beats.beat(0).id=="arrival","source hunt first beat ID")
 	check(Beats.beat(0).effect=="세계수의 뿌리 부근. 의식이 끝난 뒤에도 검은 흔적이 땅을 타고 뻗어 있다.","exact original world-tree narration")
 	check(Beats.beat(0).dialogue=="","source first beat has no dialogue")
@@ -84,7 +84,7 @@ func original_contract() -> void:
 	check(Beats.beat(1).id=="trace","source hunter trace second beat enabled")
 	check(Beats.beat(2).is_empty(),"revival-mode beat cannot be shown without a valid mode")
 	check(Beats.beat(2,"weakened").id=="revival","source third scene now available for correct branch")
-	check(Beats.beat(3).is_empty(),"destination still locked")
+	check(Beats.beat(3).id=="destination","fourth destination clue available after third scene")
 	check(Beats.beat(-1).is_empty(),"invalid beat rejected")
 	check(Beats.BASE_ART=="res://assets/map/events/monster-hunter-worldtree-base.webp","original world-tree illustration")
 	check(Hunt.BASE_ART==Beats.BASE_ART,"hunt entry uses original world-tree art")
