@@ -133,7 +133,7 @@ static func dust_burst_fraction(elapsed: float, tile_index: int) -> float:
 	if tile_index < 0 or tile_index >= Layout.INNER_COUNT + Layout.OUTER_COUNT:
 		return -1.0
 	var since_impact: float = elapsed - DUST_IMPACT_OFFSET - float(tile_index) * FLIP_STAGGER
-	if since_impact < 0.0 or since_impact >= DUST_LIFETIME:
+	if since_impact < 0.0 or since_impact >= DUST_LIFETIME - 0.00001:
 		return -1.0
 	return since_impact / DUST_LIFETIME
 
