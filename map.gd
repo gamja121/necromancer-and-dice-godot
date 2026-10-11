@@ -26,6 +26,13 @@ const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
+# Frozen web v2-map-practice.js fitTileEventScene() and CSS event controls.
+# The 1280x720 board uses the 62%-wide 16:9 scene and a separate 18%-wide right button rail.
+const TILE_EVENT_SCENE_RECT = Rect2(243.2,136.8,793.6,446.4)
+const TILE_EVENT_ACTION_RECT = Rect2(1036.8,434.4,230.4,76.8) # right 1%, bottom 29%
+const TILE_EVENT_EXIT_RECT = Rect2(1036.8,592.8,230.4,76.8) # right 1%, bottom 7%
+const TILE_EVENT_INHERITANCE_RECT = Rect2(1036.8,391.2,230.4,76.8) # bottom 35%
+const TILE_EVENT_PATROL_RECT = Rect2(1036.8,492.0,230.4,76.8) # bottom 21%
 const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
 const GRAVEYARD_DIALOGUE_RECT = Rect2(102.4,489.6,1075.2,216.0)
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -341,13 +348,13 @@ func select_tile(index: int) -> void:
 	status.text = "%d번 · %s%s" % [index+1,MapState.NAMES[world.tiles[index]]," · 처치 완료" if index in world.cleared else ""]
 	show_tile(index)
 
-func modal() -> Control:
+func modal(dim_board: bool = true) -> Control:
 	var node = Control.new()
 	node.size = Vector2(1280,720)
 	node.z_index = 80
 	stage.add_child(node)
 	var backdrop = ColorRect.new()
-	backdrop.color = Color("030201c4")
+	backdrop.color = Color("030201c4") if dim_board else Color.TRANSPARENT
 	backdrop.size = node.size
 	backdrop.set_meta("ui_backdrop",true)
 	node.add_child(backdrop)
@@ -676,16 +683,16 @@ func show_dice_hand() -> void:
 		roll_move(id))
 
 func show_home(interior: bool = false) -> void:
-	var panel = modal()
-	var home_art = image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",Vector2(256,120),Vector2(768,432))
+	var panel = modal(false)
+	var home_art = image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
 	# The home exterior opens with ink; entering the house shows interior art instantly.
 	if not interior:
 		InkSceneReveal.play(home_art)
 	var title = label_at(panel,"우리집 · 실내" if interior else "우리집",Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	location_button(panel,"나가기",Vector2(865,492),Vector2(150,50),exit_home,4)
+	location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
 	if not interior:
-		location_button(panel,"들어가기",Vector2(865,397),Vector2(150,50),func():
+		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			var injured = world.roster.any(func(u): return u.current_hp<u.max_hp)
 			if not session.enter_home():
 				status.text = session.notice
@@ -696,9 +703,9 @@ func show_home(interior: bool = false) -> void:
 			if injured: await presentation.full_heal())
 	else:
 		var allowed: Dictionary = session.home_action_allowed()
-		var action = location_button(panel,"낙인 계승",Vector2(865,343),Vector2(150,50),show_home_inheritance,3)
+		var action = location_button(panel,"낙인 계승",TILE_EVENT_INHERITANCE_RECT.position,TILE_EVENT_INHERITANCE_RECT.size,show_home_inheritance,3)
 		action.disabled = not allowed.ok
-		var patrol = location_button(panel,"순찰경로",Vector2(865,397),Vector2(150,50),func():
+		var patrol = location_button(panel,"순찰경로",TILE_EVENT_PATROL_RECT.position,TILE_EVENT_PATROL_RECT.size,func():
 			close_overlay()
 			show_exploration_actions(MapState.HOME))
 		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
@@ -1423,14 +1430,14 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
-	var panel = modal()
-	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var panel = modal(false)
+	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
 	InkSceneReveal.play(scene_art)
-	var exit = location_button(panel,"나가기",Vector2(886,504),Vector2(143,48),func(): dismiss_overlay(render),4)
+	var exit = location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func(): dismiss_overlay(render),4)
 	if type=="rest":
 		var allowed = session.rest_allowed(index)
-		var heal = location_button(panel,"전체 회복",Vector2(886,406),Vector2(143,48),func():
+		var heal = location_button(panel,"전체 회복",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			var result = session.heal_at_rest(index)
 			status.text = result.reason
 			if not result.ok: return
@@ -1443,13 +1450,13 @@ func show_location(index: int) -> void:
 	elif type in ["village","altar","fortune-teller-camp"]:
 		var names = {"village":"마물 상점","altar":"의식","fortune-teller-camp":"예언"}
 		var variant = {"village":1,"altar":2,"fortune-teller-camp":4}[type]
-		var action = location_button(panel,names[type],Vector2(886,406),Vector2(143,48),func(): close_overlay(); show_place_actions(index),variant)
+		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func(): close_overlay(); show_place_actions(index),variant)
 		var key = "ritual" if type=="altar" else "prophecy"
 		if type!="village": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
 	elif type in ["unknown","graveyard","forest"]:
 		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"정찰 정보" if world.scout.scouted else "정찰"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]
-		var action = location_button(panel,names[type],Vector2(876,406),Vector2(153,48),func(): close_overlay(); show_exploration_actions(index),variant)
+		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func(): close_overlay(); show_exploration_actions(index),variant)
 		if type=="unknown": action.disabled = session.place_visit_id("purify",index) in world.reward_receipts
 		if type=="graveyard": action.disabled = world.graveyard_corpses.is_empty() or session.place_visit_id("grave-extract",index) in world.reward_receipts
 
