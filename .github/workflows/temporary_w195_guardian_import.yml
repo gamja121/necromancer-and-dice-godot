@@ -1,0 +1,36 @@
+name: Temporary W195 guardian-seed source frame import
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/temporary_w195_guardian_import.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-guardian-seed:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/w195-guardian-seed-and-motion-checks'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout writable branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/w195-guardian-seed-and-motion-checks
+          persist-credentials: true
+      - name: Rebuild exactly original guardian-seed attack hit death PNGs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/w195-source
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://raw.githubusercontent.com/gamja121/necromancer-dice-board/e13d5149fcecc802e5d626f3bef6e5daecd3d66c/art/v2-style/animation-sheets/green-raw/guardian-seed-animation-sheet.jpg" \
+            --output /tmp/w195-source/guardian-seed.jpg
+          test "$(git hash-object /tmp/w195-source/guardian-seed.jpg)" = "4d128a8a843ec4b56767be96f0d84facc1d92b37"
+          python3 -m venv /tmp/w195-pillow-venv
+          /tmp/w195-pillow-venv/bin/pip install --quiet pillow
+          /tmp/w195-pillow-venv/bin/python scripts/port_guardian_seed_frames.py /tmp/w195-source/guardian-seed.jpg
+          test "$(find assets/battle/frames/guardian-seed -type f -name '*.png' | wc -l)" -eq 12
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- assets/battle/frames/guardian-seed
+          git commit -m "assets(battle): restore source-equivalent guardian-seed frames"
+          git push origin HEAD:fix/w195-guardian-seed-and-motion-checks
