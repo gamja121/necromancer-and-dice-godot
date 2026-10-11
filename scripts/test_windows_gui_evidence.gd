@@ -77,6 +77,14 @@ func capture_settled_art(map: Control, expected_path: String, label: String, fil
 			label + ": art bounds remain inside the native 1280x720 window")
 	await capture_frame(filename)
 
+func visible_button(panel: Control, label: String) -> bool:
+	if not is_instance_valid(panel):
+		return false
+	for node in panel.get_children():
+		if node is Button and node.text == label and node.visible:
+			return true
+	return false
+
 func _run() -> void:
 	outdir = OS.get_environment("WINDOWS_GUI_EVIDENCE_DIR")
 	check(OS.get_name() == "Windows", "running a native Windows Godot executable")
@@ -149,8 +157,88 @@ func _run() -> void:
 		var art_path: String = "res://assets/map/events/%s.jpg" % str(map.EVENT_IMAGES[tile_type])
 		await capture_settled_art(map, art_path, tile_type, str(entry["filename"]))
 		map.close_overlay()
+	# Test-only preview states use a disposable save. These screenshots are
+	# NOT proof of naturally playing the story, defeating enemies, or collecting cards.
+	var grave_index: int = session.world.tiles.find("graveyard")
+	check(grave_index >= 0, "graveyard story preview: original generated tile found")
+	if grave_index >= 0:
+		session.world.position = grave_index
+		check(session.save_world(), "graveyard story preview: disposable save checkpoint")
+		map.show_graveyard_child_beat(grave_index, 0)
+		check(visible_button(map.overlay, "계속"), "graveyard first scene: Continue button visible")
+		await capture_settled_art(map,
+			"res://assets/map/events/graveyard-child-base-v3.webp",
+			"graveyard child scene", "12_graveyard_child_story_native_windows.png")
+		map.show_graveyard_child_beat(grave_index, 3)
+		check(visible_button(map.overlay, "아이를 구한다")
+			and visible_button(map.overlay, "지나친다"),
+			"graveyard story choice: both original choices visible")
+		await capture_frame("13_graveyard_story_choice_native_windows.png")
+		map.close_overlay()
+	var monster_index: int = session.world.tiles.find("monster")
+	check(monster_index >= 0, "battle preview: ordinary monster tile found")
+	if monster_index >= 0:
+		session.world.position = monster_index
+		check(session.save_world(), "battle preview: disposable save checkpoint")
+		map.show_battle_deck(monster_index)
+		await create_timer(1.0).timeout
+		var deck: Control = map.overlay
+		var is_deck: bool = is_instance_valid(deck) and deck.get_script() != null 			and deck.get_script().resource_path.ends_with("battle_deck.gd")
+		check(is_deck, "battle deck: real selection panel opened")
+		if is_deck:
+			var first_id: String = str(session.world.roster[0].id)
+			deck.toggle_unit(first_id)
+			check(deck.selected_ids.size() == 1 and not deck.confirm_button.disabled,
+				"battle deck: one owned monster selected and start button enabled")
+			await capture_frame("14_battle_deck_native_windows.png")
+			map.close_overlay()
+			var started: bool = session.start_encounter(monster_index, [first_id])
+			check(started, "battle preview: original RunSession encounter starts with owned monster")
+			if started:
+				map.open_embedded_battle(false)
+				await create_timer(0.8).timeout
+				var battle: Control = map.embedded_battle
+				check(is_instance_valid(battle) and battle.rules != null
+					and battle.rules.units.size() >= 2,
+					"embedded battlefield: original active allies and enemies visible")
+				await capture_frame("15_embedded_battle_native_windows.png")
 	current_scene = null
 	root.remove_child(map)
+	map.queue_free()
+	await process_frame
+	# An entirely new disposable run isolates the chest from the battle.
+	session.start_new_world()
+	var chest_index: int = session.world.tiles.find("gem")
+	check(chest_index >= 0, "reward preview: genuine treasure tile found")
+	var sample_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var normal_chest_seed_found: bool = false
+	for seed_value in range(1, 250):
+		sample_rng.seed = seed_value
+		if sample_rng.randf() >= 0.10:
+			session.world.rng.seed = seed_value
+			normal_chest_seed_found = true
+			break
+	check(normal_chest_seed_found, "reward preview: reproducible regular chest seed found")
+	if chest_index >= 0 and normal_chest_seed_found:
+		session.world.position = chest_index
+		check(session.save_world(), "reward preview: disposable checkpoint saved")
+		var reward_map: Control = MAP.instantiate()
+		root.add_child(reward_map)
+		current_scene = reward_map
+		reward_map.show_treasure(chest_index)
+		await create_timer(2.0).timeout
+		var reward_panel: Control = reward_map.overlay
+		var is_reward: bool = is_instance_valid(reward_panel) and reward_panel.get_script() != null 			and reward_panel.get_script().resource_path.ends_with("treasure_reward.gd")
+		check(is_reward, "reward preview: original TreasureReward panel opened")
+		if is_reward:
+			check(session.world.pending_reward.get("kind", "") == "treasure"
+				and reward_panel.options.size() == 3 and not reward_panel.busy,
+				"reward preview: exactly three selectable reward cards shown")
+			await capture_frame("16_treasure_card_choice_native_windows.png")
+		current_scene = null
+		root.remove_child(reward_map)
+		reward_map.queue_free()
+		await process_frame
 	map.queue_free()
 	session.save_file_path = old_path
 	if created:
@@ -161,4 +249,4 @@ func _run() -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	check(not FileAccess.file_exists(temp_save), "disposable CI save removed; no player save changed")
 	print("WINDOWS_GUI_PREVIEW: %d captured, %d failed; manual review remains required" % [shots, failures])
-	quit(0 if shots == 11 and failures == 0 else 1)
+	quit(0 if shots == 16 and failures == 0 else 1)
