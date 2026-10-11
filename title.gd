@@ -206,7 +206,9 @@ func _show_options() -> void:
 	options_dialog.popup_centered()
 
 func _save_audio() -> void:
-	AudioSettings.new().save_settings("",audio_save_path)
+	var settings = AudioSettings.new()
+	settings.save_settings("",audio_save_path)
+	settings.free()
 
 func _update_volume(value: float) -> void:
 	AudioServer.set_bus_mute(0,value<=0)
