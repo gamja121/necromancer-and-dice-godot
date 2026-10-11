@@ -6,6 +6,38 @@ const EVENT_ID = "graveyard_child_ambush_01"
 const SEEN_FLAG = "event:graveyard_child_ambush_01:seen"
 const COMPLETE_FLAG = "event:graveyard_child_ambush_01:complete"
 
+
+## The source child encounter has three Continue clicks before its fourth
+## choice scene. Keep the same original 4 beats, but checkpoint each click
+## so a restart does not silently return a seen player to the first scene.
+## Legacy saves without checkpoints correctly start at beat zero.
+static func progress_flag(index: int) -> String:
+	if index not in [1,2,3]: return ""
+	return "event:%s:beat:%d" % [EVENT_ID,index]
+
+static func current_beat(session) -> int:
+	if session == null or session.world == null: return -1
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	if state.status=="active" and state.choice=="protect_child": return 3
+	if state.status!="seen" or not state.choice.is_empty(): return -1
+	if session.world.event_flags.get(SEEN_FLAG,false)!=true: return -1
+	if session.world.event_flags.get(COMPLETE_FLAG,false)==true: return -1
+	var beat: int=0
+	var missing: bool=false
+	for index in [1,2,3]:
+		var present: bool=session.world.event_flags.get(progress_flag(index),false)==true
+		if present and missing: return -1
+		if present: beat=index
+		else: missing=true
+	return beat
+
+static func advance(session, index: int, shown_beat: int) -> bool:
+	if not can_enter(session,index): return false
+	if shown_beat not in [0,1,2] or current_beat(session)!=shown_beat: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.event_flags[progress_flag(shown_beat+1)]=true
+	return session.persist_change(before)
+
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var world = session.world
