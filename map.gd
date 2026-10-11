@@ -765,8 +765,8 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]:
 			show_ritual_portal_intro(index)
 			return
-	# A restarted run reopens only an already-saved hunt discovery.
-	# Never trigger a new world-tree story solely by reading a save.
+	# A restarted run reopens the saved king-hunt arrival or trace beat.
+	# Never create a new world-tree event solely by reading a save.
 	if MonsterKingHuntEntry.can_enter(session,index):
 		if session.get_story_event(MonsterKingHuntEntry.EVENT_ID).status=="seen":
 			show_monster_king_hunt_intro(index)
@@ -958,23 +958,40 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 ## Final intervention, combat and actual revival stay locked.
 ## P1-05K-1: original king-hunt first world-tree scene only.
 ## The hunter's portrait, later clues and final king fight remain locked.
+## P1-05K-2: first arrival → saved corrupted beast + hunter reveal.
+## No revival-mode speech, location clues or final fight in this stage.
 func show_monster_king_hunt_intro(index: int) -> void:
+	show_monster_king_hunt_beat(index)
+
+func show_monster_king_hunt_beat(index: int) -> void:
 	if not MonsterKingHuntEntry.can_enter(session,index): return
-	if MonsterKingHuntEntry.current_beat(session)!=0: return
-	var beat: Dictionary=MonsterKingHuntBeats.beat(0)
+	var beat_index: int=MonsterKingHuntEntry.current_beat(session)
+	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index)
 	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	InkSceneReveal.play(art)
+	if beat_index==0: InkSceneReveal.play(art)
+	var layer_path: String=MonsterKingHuntBeats.visual_art(str(beat.visual))
+	if not layer_path.is_empty():
+		var scene_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		InkSceneReveal.play(scene_art)
 	var heading=label_at(panel,"사건 · 왕의 흔적",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if beat_index==0:
+		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="unknown" else Vector2(651,653),Vector2(171,48),func(): advance_monster_king_hunt(index,beat_index),1)
 	if world.tiles[index]=="unknown":
 		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func advance_monster_king_hunt(index: int, shown_beat: int) -> void:
+	if not MonsterKingHuntEntry.advance(session,index,shown_beat):
+		status.text="마물의 왕 추적 장면 저장 실패 · 다시 시도하세요."
+		return
+	show_monster_king_hunt_beat(index)
 
 func show_ritual_portal_intro(index: int) -> void:
 	if RitualPortalEntry.aftermath_ready(session,index):
