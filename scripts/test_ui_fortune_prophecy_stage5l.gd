@@ -107,6 +107,9 @@ func _run() -> void:
 			if reloaded_snapshot.get(key)!=serialized[key]:
 				print("DIAG fortune snapshot key=",key," before=",JSON.stringify(serialized[key]).substr(0,450)," after=",JSON.stringify(reloaded_snapshot.get(key)).substr(0,450))
 	check(reloaded_snapshot==serialized,"full fortune result, visit receipt and stack survive reload")
+	check(typeof(session.world.last_prophecy.get("face"))==TYPE_INT,"persisted fortune face reloads as an integer")
+	check(typeof(session.world.prophecy.get("ally_hp"))==TYPE_INT,"persisted blessing bonus reloads as integer count")
+	check(typeof(session.world.prophecy.rolls[0])==TYPE_INT,"persisted prophecy roll history reloads as integer faces")
 	map=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
