@@ -5,6 +5,7 @@ on:
     branches:
       - feature/map-tile-counter-rotation-20261011
       - feature/map-shuffle-depth-landing-20261011
+      - feature/map-shuffle-mobile-polish-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -77,3 +78,10 @@ jobs:
           timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_depth.gd 2>&1 | tee depth.log
           grep -E 'MAP_SHUFFLE_DEPTH: [0-9]+ passed, 0 failed' depth.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' depth.log; then exit 1; fi
+      - name: Mobile landscape tile and shadow geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_mobile.gd 2>&1 | tee mobile.log
+          grep -E 'MAP_SHUFFLE_MOBILE: [0-9]+ passed, 0 failed' mobile.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' mobile.log; then exit 1; fi
