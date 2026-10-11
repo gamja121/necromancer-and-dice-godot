@@ -178,9 +178,9 @@ $manifest = [ordered]@{
     CreatedUtc = [DateTime]::UtcNow.ToString('o')
     SameVolumeOverride = [bool]$AllowSameVolume
     Roots = @($script:sources | ForEach-Object { [pscustomobject]@{ Label=$_.Label; Path=$_.Path } })
-    Files = @($written)
+    Files = $written.ToArray()
     Bytes = $total
-    Excluded = @($script:excluded)
+    Excluded = $script:excluded.ToArray()
     Note = 'PC-only originals: local offline copy. Never commit this manifest or asset folder to public GitHub. Review excluded paths; another physically separate copy is required.'
 }
 $manifestPath = Join-Path $dest 'manifest.json'
