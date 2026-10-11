@@ -63,6 +63,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee home-exit.log
+          timeout 65s godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee home-exit.log
           grep -E 'MAP_SHUFFLE_HOME_EXIT: [0-9]+ passed, 0 failed' home-exit.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' home-exit.log; then exit 1; fi
