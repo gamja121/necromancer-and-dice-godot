@@ -1,0 +1,55 @@
+name: Diagnostic Corrupt Frozen Web Graveyard Dialogue WebP
+on:
+  push:
+    branches: [feature/ui-parity-graveyard-dialogue-frame-stage5p-20261011]
+    paths: [.github/workflows/ui-graveyard-webp-diagnostic.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  decode-webp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install decoding tools
+        run: |
+          python3 -m pip install --quiet pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq webp ffmpeg >/dev/null
+      - name: Inspect original VP8 truncation and attempt recovery
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from PIL import Image, ImageFile
+          import io, base64, hashlib, struct, pathlib, subprocess
+          raw=pathlib.Path("assets/map/ui/intro-dialogue-box.webp").read_bytes()
+          riff=struct.unpack_from("<I",raw,4)[0]+8
+          chunk=struct.unpack_from("<I",raw,16)[0]+20
+          print("WEBP_DIAG_BYTES",len(raw),"RIFF_EXPECTED",riff,"VP8_EXPECTED",chunk,"MISSING",chunk-len(raw),flush=True)
+          def variant(label, data):
+            print("WEBP_DIAG_VARIANT",label,"BYTES",len(data),flush=True)
+            for trunc in [False,True]:
+              ImageFile.LOAD_TRUNCATED_IMAGES=trunc
+              try:
+                image=Image.open(io.BytesIO(data)); image.load(); rgba=image.convert("RGBA")
+                out=io.BytesIO(); rgba.save(out,format="PNG",optimize=True)
+                print("WEBP_DIAG_OK",label,"tolerant",trunc,"size",rgba.size,"alpha",rgba.getchannel("A").getbbox(),"colors",len(rgba.getcolors(maxcolors=1000000) or []),"pixelsha",hashlib.sha256(rgba.tobytes()).hexdigest(),"PNG_BASE64",base64.b64encode(out.getvalue()).decode("ascii"),flush=True)
+              except Exception as e: print("WEBP_DIAG_FAIL",label,"tolerant",trunc,str(e),flush=True)
+            p=pathlib.Path("/tmp/webp-"+label+".webp");p.write_bytes(data)
+            for codec in ["dwebp","ffmpeg"]:
+              out=pathlib.Path("/tmp/"+label+"-"+codec+".png")
+              cmd=["dwebp",str(p),"-o",str(out)] if codec=="dwebp" else ["ffmpeg","-hide_banner","-loglevel","error","-err_detect","ignore_err","-i",str(p),"-frames:v","1","-y",str(out)]
+              x=subprocess.run(cmd,capture_output=True,text=True)
+              print("WEBP_DIAG_CODEC",label,codec,x.returncode,(x.stderr or "")[:250],flush=True)
+              if out.exists() and out.stat().st_size>10:
+                try:
+                  rgba=Image.open(out).convert("RGBA")
+                  buffer=io.BytesIO(); rgba.save(buffer,format="PNG",optimize=True)
+                  print("WEBP_DIAG_CODEC_OK",label,codec,"size",rgba.size,"pixelsha",hashlib.sha256(rgba.tobytes()).hexdigest(),"PNG_BASE64",base64.b64encode(buffer.getvalue()).decode("ascii"),flush=True)
+                except Exception as e: print("WEBP_DIAG_CODEC_ERR",repr(e),flush=True)
+          variant("original",raw)
+          variant("zero_pad",raw+b"\x00"*max(0,riff-len(raw)))
+          trimmed=bytearray(raw);struct.pack_into("<I",trimmed,4,len(trimmed)-8);struct.pack_into("<I",trimmed,16,len(trimmed)-20)
+          variant("length_fixed",bytes(trimmed))
+          PY
