@@ -26,3 +26,14 @@
 - Before publication, inspect intended staged paths and scan for secrets. Keep .env, credentials, personal data, .godot, machine-local user saves, builds, source_assets and unapproved candidate art out of Git. Preserve existing working changes and publish only stable, tested work units; do not use a filesystem watcher to push half-written files.
 - Public visibility allows reading and cloning; connected GPT/Codex still needs authenticated write permission for edits. Use this repository for .gd, .tscn, .tres, project.godot, runtime assets and port documentation.
 - Read docs/development_policy.md and docs/godot_port_status.md for synchronization and port scope. Full port completion requires functional and visual parity checks, not just a working title or battle scene.
+
+## Bidirectional shared source synchronization (2026-10-11)
+
+- The user requires PC → GitHub and GitHub → PC synchronization: completed Godot work from either workspace must be integrated frequently so every development workspace uses the same published gameplay source and runtime assets.
+- Fetch canonical origin/main and inspect local changes at task start, before integration, and after publishing a verified work unit. Preserve both local work and remote commits while merging.
+- Publish stable, tested work to public main, then update the active PC project to that exact published revision and verify the gameplay files/assets. Use the current remote revision rather than an old task snapshot.
+- Treat synchronization as part of completing each work unit. Report the shared revision and whether the PC has received it. A GitHub push alone or a one-time PC download alone does not confirm both workspaces are synchronized.
+- If a workspace cannot access the PC, explicitly record the published revision and the pending PC integration; have the authorized local task complete it before claiming shared synchronization is complete.
+- Keep unfinished local edits backed up and visible as pending work. Commit intended approved files only, preserve other branches and authors' changes, and resolve overlapping edits instead of discarding them.
+- Runtime gameplay source and approved assets form the shared result. Personal game progress/settings, engine caches and unapproved art originals remain workspace-local.
+- See docs/shared_source_sync.md for the normal workflow. This is a synchronization rule at task/work-unit boundaries; no background timer is installed by this policy.
