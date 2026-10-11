@@ -778,6 +778,67 @@ func resume_village_rumor_if_unfinished() -> void:
 	if MonsterKingHuntEntry.can_resume_completion(session,index):
 		show_monster_king_hunt_beat(index)
 
+
+## Stage 4B: all remaining story beats share the HTML event-lab scene/copy
+## composition without altering scene choice progression or callbacks.
+## The childhood graveyard scene retains its dedicated presentation.
+func style_standard_story_panel(panel: Control) -> void:
+	var info=Panel.new()
+	info.name="StoryInfoPanel"
+	info.position=Vector2(816,86)
+	info.size=Vector2(384,532)
+	info.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var paper=StyleBoxFlat.new()
+	paper.bg_color=Color("c8a873")
+	paper.border_color=Color("765336")
+	paper.set_border_width_all(2)
+	paper.set_corner_radius_all(4)
+	info.add_theme_stylebox_override("panel",paper)
+	panel.add_child(info)
+	panel.move_child(info,1)
+	var buttons: Array[Button]=[]
+	for item in panel.get_children():
+		if item is TextureRect:
+			if item.position.distance_to(Vector2(243.2,136.8)) < 3.0:
+				item.position=Vector2(88,86)
+				item.size=Vector2(715,532)
+				item.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			elif item.position.distance_to(Vector2(692,179)) < 3.0:
+				# The commander portrait must stay inside the left illustrated area.
+				item.position=Vector2(486,173)
+				item.size=Vector2(278,335)
+		elif item is Label:
+			if item.position.y >= 78 and item.position.y < 136:
+				item.position=Vector2(839,154)
+				item.size=Vector2(330,57)
+				item.add_theme_color_override("font_color",Color("291b13"))
+				item.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+				item.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+				item.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			elif item.position.y >= 500 and item.position.y < 595:
+				item.position=Vector2(839,233)
+				item.size=Vector2(330,157)
+				item.add_theme_color_override("font_color",Color("312117"))
+				item.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+				item.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+				item.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			elif item.position.y >= 595 and item.position.y <= 649:
+				item.position=Vector2(839,382)
+				item.size=Vector2(330,56)
+				item.add_theme_color_override("font_color",Color("5a351c"))
+				item.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+				item.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+				item.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		elif item is Button and item.position.y >= 620:
+			buttons.append(item)
+	# Preserve every bound action and its visible order, only move its surface.
+	buttons.sort_custom(func(a: Button,b: Button): return a.position.x < b.position.x)
+	var count: int=buttons.size()
+	var beginning: float=605.0-float(count)*43.0-float(maxi(0,count-1))*6.0
+	for i in range(count):
+		buttons[i].position=Vector2(840,beginning+float(i)*49.0)
+		buttons[i].size=Vector2(328,43)
+
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
 
@@ -809,6 +870,7 @@ func show_village_rumor_beat(index: int, event_id: String) -> void:
 	else:
 		location_button(panel,"계속" if not final_scene else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_village_rumor(index,event_id,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	style_standard_story_panel(panel)
 
 func advance_village_rumor(index: int, event_id: String, shown_beat: int) -> void:
 	var finishing: bool=VillageRumorBeats.is_final(event_id,shown_beat)
@@ -853,6 +915,7 @@ func show_knight_commander_beat(index: int) -> void:
 	else:
 		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_knight_commander(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	style_standard_story_panel(panel)
 
 func advance_knight_commander(index: int, shown_beat: int) -> void:
 	var finishing: bool=KnightCommanderBeats.is_final(shown_beat)
@@ -899,6 +962,7 @@ func show_monster_hunter_beat(index: int) -> void:
 	else:
 		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_monster_hunter(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	style_standard_story_panel(panel)
 
 func advance_monster_hunter(index: int, shown_beat: int) -> void:
 	var finishing: bool=MonsterHunterBeats.is_final(shown_beat)
@@ -945,6 +1009,7 @@ func show_cultist_rumor_beat(index: int) -> void:
 	else:
 		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_cultist_rumor(index,beat_index),1)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	style_standard_story_panel(panel)
 
 func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	var finishing: bool=CultistRumorBeats.is_final(shown_beat)
@@ -1000,6 +1065,7 @@ func show_monster_king_hunt_beat(index: int) -> void:
 	if world.tiles[index]=="unknown":
 		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	style_standard_story_panel(panel)
 
 func advance_monster_king_hunt(index: int, shown_beat: int) -> void:
 	var saved: bool=MonsterKingHuntEntry.finish(session,index) if shown_beat==3 else MonsterKingHuntEntry.advance(session,index,shown_beat)
@@ -1062,6 +1128,7 @@ func show_ritual_portal_beat(index: int) -> void:
 	if world.tiles[index]=="forest":
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	style_standard_story_panel(panel)
 
 func advance_ritual_portal(index: int, shown_beat: int) -> void:
 	if not RitualPortalEntry.advance(session,index,shown_beat):
@@ -1176,6 +1243,8 @@ func show_cultist_altar_beat(index: int) -> void:
 
 ## Original final narration is shown only after a pass was saved or a battle
 ## result was acknowledged. Closing/reloading never consumes the quest handoff.
+	style_standard_story_panel(panel)
+
 func show_cultist_altar_followup(index: int) -> void:
 	if not CultistAltarEntry.followup_ready(session,index): return
 	var story: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
