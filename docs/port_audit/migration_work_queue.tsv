@@ -15,7 +15,7 @@ P1-11	P1	story-chain	DONE	마물의 왕 추적 사건 구현 및 두 부활 상�
 P1-12	P1	story-presentation	DONE	사건 원화 레이어, 대사 비트, 선택 UI, 탭 진행을 Godot에 연결	P1-01;P1-03	W184 완료
 P2-01	P2	battle-rule	DONE	같은 주사위 눈금에서 저주가 축복보다 우선하는 웹 규칙을 Godot에 동일하게 적용	P0-02	W094 완료 + 회귀검증
 P2-02	P2	battle-rule	DONE	속도/슬롯 완전 동률 시 웹과 동일한 저장 가능한 RNG tie-break로 맞출지 확정하고 구현	P0-02	W086가 완료 또는 승인된 의도 변경
-P2-03	P2	unit-data	TODO	Godot 추가 dracula를 정식 콘텐츠로 유지할지 웹 기준 밖 확장으로 분리할지 확정	P0-02	W080 상태 확정, 46종 웹 데이터는 유지
+P2-03	P2	unit-data	DONE	Godot 추가 dracula를 정식 콘텐츠로 유지할지 웹 기준 밖 확장으로 분리할지 확정	P0-02	W080 완료: 원본 46종 데이터 전 필드 일치; 43종 생성/보상만 사용, 추가 Dracula 데이터/에셋과 기존 저장 읽기 보존
 P2-04	P2	save-policy	DONE	Godot user:// 단일 프로세스 저장에서 revision 대체 정책을 확정하고 강제종료/재실행/중복처리 테스트	P0-02	W153 단일 작성자 정책 문서화 및 별도 Godot 프로세스 강제 종료 전/후·재실행·중복 방지 CI 통과 (동시 인스턴스 및 P4 통합 검증 별도)
 P3-01	P3	title	DONE	웹 title-theme.mp3를 이관할지 새 Godot 타이틀 음악을 확정하고 타이틀 BGM 동작 구현	P0-02	title-theme.mp3 원본 SHA 이관, Godot TitleBgm/공용 Music 버스 반복 재생과 테스트
 P3-02	P3	title	DONE	타이틀 옵션에서 Music/SFX 설정 접근 가능하게 연결	P3-01	W006 완료: 타이틀 Music/SFX 토글·Master 음량, 공용 audio_settings.cfg 저장/복원 테스트
