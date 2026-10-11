@@ -389,7 +389,7 @@ func show_tile(index: int) -> void:
 			show_cultist_rumor_intro(index)
 			return
 		status.text = session.notice
-	# P1-05I-4: altar fight has deck selection and original summon overlay; pass stays separate.
+	# P1-05I-5: original altar fight/pass both require explicit tracking confirmation.
 	if type in ["altar","event"] and CultistAltarEntry.can_enter(session,index):
 		if CultistAltarEntry.begin(session,index):
 			show_cultist_altar_intro(index)
@@ -735,7 +735,7 @@ func resume_village_rumor_if_unfinished() -> void:
 			show_cultist_rumor_intro(index)
 			return
 	# On reconnect, never create an unseen altar story. Restore saved
-	# arrivals, ritual reveals, choice screens and unresolved choices.
+	# arrivals, ritual reveals, unresolved pass and acknowledged outcomes.
 	if CultistAltarEntry.can_enter(session,index):
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
@@ -920,12 +920,17 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	else:
 		show_cultist_rumor_beat(index)
 
-## P1-05I-4: original summon scene and selected-monster battle.
-## Pass and the post-battle tracking resolution remain separate.
+## P1-05I-5: selected fight, pass follow-up and deliberate tracking completion.
 func show_cultist_altar_intro(index: int) -> void:
-	show_cultist_altar_beat(index)
+	if CultistAltarEntry.followup_ready(session,index):
+		show_cultist_altar_followup(index)
+	else:
+		show_cultist_altar_beat(index)
 
 func show_cultist_altar_beat(index: int) -> void:
+	if CultistAltarEntry.followup_ready(session,index):
+		show_cultist_altar_followup(index)
+		return
 	if not CultistAltarEntry.can_enter(session,index): return
 	var beat_index: int=CultistAltarEntry.current_beat(session)
 	var beat: Dictionary=CultistAltarBeats.beat(beat_index)
@@ -972,6 +977,46 @@ func show_cultist_altar_beat(index: int) -> void:
 	if world.tiles[index]=="altar":
 		location_button(panel,"제단 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+## Original final narration is shown only after a pass was saved or a battle
+## result was acknowledged. Closing/reloading never consumes the quest handoff.
+func show_cultist_altar_followup(index: int) -> void:
+	if not CultistAltarEntry.followup_ready(session,index): return
+	var story: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
+	var narration: String=CultistAltarBeats.followup_effect(str(story.choice),str(story.battle_result))
+	if narration.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var art=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(art)
+	var overlay_path: String=CultistAltarBeats.RITUAL if story.choice=="pass" else CultistAltarBeats.SUMMON
+	image(panel,overlay_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,narration,Vector2(285,548),Vector2(710,62),17)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var speech=label_at(panel,"%s: %s" % [CultistAltarBeats.FOLLOWUP_SPEAKER,CultistAltarBeats.FOLLOWUP_DIALOGUE],Vector2(285,610),Vector2(710,34),16)
+	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if story.choice=="pass":
+		location_button(panel,"선택 변경",Vector2(320,653),Vector2(164,48),func(): reconsider_cultist_altar(index),4)
+		location_button(panel,"마치기",Vector2(504,653),Vector2(164,48),func(): finish_cultist_altar(index),1)
+	else:
+		location_button(panel,"마치기",Vector2(463,653),Vector2(171,48),func(): finish_cultist_altar(index),1)
+	if world.tiles[index]=="altar":
+		location_button(panel,"제단 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func finish_cultist_altar(index: int) -> void:
+	if not CultistAltarEntry.finish(session,index):
+		status.text="광신도 제단 추적 기록 저장 실패 · 다시 시도하세요."
+		return
+	close_overlay()
+	if world.tiles[index]=="altar":
+		show_location(index)
+	else:
+		render()
+	status.text="광신도의 의식 확인 · 마물의 왕 부활 의식의 흔적 추적 시작"
 
 func advance_cultist_altar(index: int, shown_beat: int) -> void:
 	if not CultistAltarEntry.advance(session,index,shown_beat):
@@ -1090,7 +1135,7 @@ func show_story_battle_result(event_id: String) -> void:
 		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if view.retry and not world.roster.is_empty():
 		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_story_battle_result_ui(event_id,true),1)
-	location_button(panel,"맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_story_battle_result_ui(event_id,false),4)
+	location_button(panel,"흔적 확인" if event_id==CultistAltarEntry.EVENT_ID else "맵으로",Vector2(870,653),Vector2(165,48),func(): acknowledge_story_battle_result_ui(event_id,false),4)
 
 func acknowledge_graveyard_result(retry: bool) -> void:
 	acknowledge_story_battle_result_ui(StoryEventEntry.EVENT_ID,retry)
@@ -1105,6 +1150,10 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 	close_overlay()
 	if retry and not world.roster.is_empty():
 		show_story_battle_deck(event_id,index)
+	elif event_id==CultistAltarEntry.EVENT_ID and CultistAltarEntry.followup_ready(session,index):
+		# The battle receipt is acknowledged, but story completion waits for
+		# the separate original narration and explicit '마치기' press.
+		show_cultist_altar_followup(index)
 	else:
 		render()
 		status.text = session.notice
