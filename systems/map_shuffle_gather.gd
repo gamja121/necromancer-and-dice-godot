@@ -3,6 +3,16 @@ extends Control
 ## All changes here are temporary visuals; gameplay/save state stays authoritative.
 
 const Layout = preload("res://systems/map_shuffle_layout.gd")
+const AudioSettings = preload("res://systems/audio_settings.gd")
+# Reuse existing CC0 assets; the sound obeys the SFX and Master mute/volume.
+const GATHER_SFX = preload("res://assets/battle/sfx/move.ogg")
+const ROTATION_SFX = preload("res://assets/battle/sfx/magic.ogg")
+const LANDING_SFX = preload("res://assets/battle/sfx/ui.ogg")
+const SOUND_PRESETS = {
+	"gather": {"volume_db": -23.0, "pitch": 0.92},
+	"rotate": {"volume_db": -25.0, "pitch": 0.90},
+	"land": {"volume_db": -20.0, "pitch": 0.88}
+}
 const SHRINK_DURATION = 0.12
 const TRAVEL_DURATION = 0.43
 const ROTATE_DURATION = 0.85
@@ -34,12 +44,49 @@ var gathered := false
 var rotated := false
 var aura_strength: float = 0.0
 var aura_tween: Tween
+var cue_players: Dictionary = {}
+var played_audio_cues: Array[String] = []
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 3 # Static tiles (4), hero (16), and dice (19) remain visible above.
 	size = Vector2(1280.0, 720.0)
+	# Map._ready normally creates the buses. Ensure the same bus in
+	# standalone scenes/tests without changing stored user preferences.
+	AudioSettings.ensure_buses()
+	for cue in SOUND_PRESETS.keys():
+		var player := AudioStreamPlayer.new()
+		player.name = "ShuffleSfx_%s" % cue
+		player.bus = "SFX"
+		player.volume_db = float(SOUND_PRESETS[cue]["volume_db"])
+		player.pitch_scale = float(SOUND_PRESETS[cue]["pitch"])
+		match cue:
+			"gather": player.stream = GATHER_SFX
+			"rotate": player.stream = ROTATION_SFX
+			"land": player.stream = LANDING_SFX
+		add_child(player)
+		cue_players[cue] = player
+
+
+func _play_sound(cue: String) -> void:
+	if not cue_players.has(cue):
+		return
+	# Never call once for each tile. One cue per stage, no sound on
+	# save failure, and SFX mute is handled by Godot's audio bus.
+	played_audio_cues.append(cue)
+	if DisplayServer.get_name() == "headless":
+		return
+	var player: AudioStreamPlayer = cue_players[cue]
+	player.stop()
+	player.play()
+
+
+func _stop_sounds() -> void:
+	for player in cue_players.values():
+		if is_instance_valid(player):
+			player.stop()
+	played_audio_cues.clear()
 
 
 func _draw() -> void:
@@ -143,6 +190,7 @@ func play_gather() -> void:
 	if gathered or (gathering != null and gathering.is_running()):
 		return
 	_aura_fade_in()
+	_play_sound("gather")
 	# Shrink in place first. Keeping the tiles small during travel avoids
 	# crossing/stacking that would occur if 21 full-size tiles moved at once.
 	gathering = create_tween().set_parallel(true)
@@ -169,6 +217,7 @@ func play_rotation() -> void:
 	if rotation_tween != null and rotation_tween.is_running():
 		return
 	_aura_during_rotation()
+	_play_sound("rotate")
 	rotation_tween = create_tween()
 	rotation_tween.tween_method(_apply_rotation_progress, 0.0, 1.0, ROTATE_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await rotation_tween.finished
@@ -207,6 +256,7 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		var destination: Vector2 = board_buttons[destination_index].position
 		scatter_tween.tween_property(visual, "position", destination, SCATTER_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await scatter_tween.finished
+	_play_sound("land")
 
 	# Short 2.5D landing: the face rises four pixels, falls with a soft
 	# bounce, and its contact shadow fades as the full-size tile settles.
@@ -261,6 +311,7 @@ func _valid_next_tiles(next_tile_textures: Array) -> bool:
 	return true
 
 func restore_tiles() -> void:
+	_stop_sounds()
 	if aura_tween != null and aura_tween.is_running():
 		aura_tween.kill()
 	aura_tween = null
@@ -294,6 +345,7 @@ func restore_tiles() -> void:
 
 
 func _exit_tree() -> void:
+	_stop_sounds()
 	# If a transition is aborted, never leave the original board invisible.
 	for i in range(tile_sources.size()):
 		if is_instance_valid(tile_sources[i]):
