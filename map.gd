@@ -11,6 +11,7 @@ const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
+const GraveyardStoryEntryMotion = preload("res://systems/graveyard_story_entry_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
@@ -1296,7 +1297,9 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	var panel = modal()
 	var artwork = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	artwork.name="StorySceneImage"
-	if beat_index == 0: InkSceneReveal.play(artwork)
+	if beat_index == 0:
+		InkSceneReveal.play(artwork)
+		GraveyardStoryEntryMotion.play_board_drop(artwork)
 	if beat.ghoul:
 		# The stationary direct-child frame receives the common modal entrance.
 		# Animate only its nested image to avoid competing position tweens.
@@ -1339,6 +1342,7 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 		if not beat.choice:
 			var advance_hint=label_at(panel,"▼",Vector2(1052,653),Vector2(38,30),19)
 			advance_hint.name="StoryDialogueNext"
+			GraveyardStoryEntryMotion.play_next_hint(advance_hint)
 			advance_hint.add_theme_color_override("font_color",Color("5e4329"))
 			advance_hint.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	# The original location actions remain available on graveyard tiles.
