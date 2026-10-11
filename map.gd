@@ -389,7 +389,7 @@ func show_tile(index: int) -> void:
 			show_cultist_rumor_intro(index)
 			return
 		status.text = session.notice
-	# P1-05I-1: only the night altar arrival is enabled here. Choices and battle stay off.
+	# P1-05I-3: altar arrival through saved choice, but no combat/pass outcome yet.
 	if type in ["altar","event"] and CultistAltarEntry.can_enter(session,index):
 		if CultistAltarEntry.begin(session,index):
 			show_cultist_altar_intro(index)
@@ -734,9 +734,10 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistRumorEntry.EVENT_ID).status=="seen":
 			show_cultist_rumor_intro(index)
 			return
-	# On reconnect, never generate an unseen altar story: reopen saved arrivals only.
+	# On reconnect, never create an unseen altar story. Restore saved
+	# arrivals, ritual reveals, choice screens and unresolved choices.
 	if CultistAltarEntry.can_enter(session,index):
-		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen":
+		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
@@ -919,8 +920,8 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	else:
 		show_cultist_rumor_beat(index)
 
-## P1-05I-2: introduction and original ritual layer, with saved progress.
-## No fight/pass button or battle is enabled at the ritual reveal step.
+## P1-05I-3: three original beats and saved fight/pass intent.
+## Neither option launches battle or produces a passage result yet.
 func show_cultist_altar_intro(index: int) -> void:
 	show_cultist_altar_beat(index)
 
@@ -942,19 +943,41 @@ func show_cultist_altar_beat(index: int) -> void:
 	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	# Only arrival can advance in this phase. Ritual reveal waits for 2-5I-3.
-	if beat_index==0:
+	# P1-05I-3: choose on the third source beat, but never start battle
+	# or resolve passing in this phase. All steps are explicit and durable.
+	var altar_state: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
+	if beat_index<2:
 		if world.tiles[index]=="altar":
 			location_button(panel,"계속",Vector2(463,653),Vector2(171,48),func(): advance_cultist_altar(index,beat_index),1)
 		else:
 			location_button(panel,"계속",Vector2(651,653),Vector2(194,48),func(): advance_cultist_altar(index,beat_index),1)
+	elif altar_state.status=="seen" and beat.get("choice",false)==true:
+		location_button(panel,"싸운다",Vector2(320,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"fight"),1)
+		location_button(panel,"지나간다",Vector2(504,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"pass"),1)
+	elif altar_state.status=="active":
+		var selected_label: String="싸운다" if altar_state.choice=="fight" else "지나간다"
+		var receipt=label_at(panel,"‘%s’ 선택 저장됨 · 후속 처리는 다음 단계에서 연결됩니다." % selected_label,Vector2(320,613),Vector2(710,35),16)
+		receipt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		location_button(panel,"선택 변경",Vector2(463,653),Vector2(171,48),func(): reconsider_cultist_altar(index),1)
 	if world.tiles[index]=="altar":
-		location_button(panel,"제단 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+		location_button(panel,"제단 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func advance_cultist_altar(index: int, shown_beat: int) -> void:
 	if not CultistAltarEntry.advance(session,index,shown_beat):
 		status.text="광신도 제단 장면 저장 실패 · 다시 시도하세요."
+		return
+	show_cultist_altar_beat(index)
+
+func choose_cultist_altar(index: int, shown_beat: int, decision: String) -> void:
+	if not CultistAltarEntry.choose(session,index,shown_beat,decision):
+		status.text="광신도 제단 선택 저장 실패 · 다시 시도하세요."
+		return
+	show_cultist_altar_beat(index)
+
+func reconsider_cultist_altar(index: int) -> void:
+	if not CultistAltarEntry.reconsider(session,index):
+		status.text="광신도 제단 선택 변경 실패 · 다시 시도하세요."
 		return
 	show_cultist_altar_beat(index)
 
