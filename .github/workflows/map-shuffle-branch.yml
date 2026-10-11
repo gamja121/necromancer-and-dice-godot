@@ -1,0 +1,46 @@
+name: Map Shuffle Branch Checks
+
+on:
+  push:
+    branches:
+      - feature/map-tile-counter-rotation-20261011
+    paths:
+      - "systems/map_shuffle_*.gd"
+      - "scripts/test_map_shuffle_*.gd"
+      - ".github/workflows/map-shuffle-branch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  map-shuffle-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Ring geometry regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_layout.gd 2>&1 | tee layout.log
+          grep -E 'MAP_SHUFFLE_LAYOUT: [0-9]+ passed, 0 failed' layout.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' layout.log; then exit 1; fi
+      - name: Gather animation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_gather.gd 2>&1 | tee gather.log
+          grep -E 'MAP_SHUFFLE_GATHER: [0-9]+ passed, 0 failed' gather.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' gather.log; then exit 1; fi
