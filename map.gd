@@ -10,6 +10,7 @@ const BookBattleLock = preload("res://systems/book_battle_lock.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
+const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
@@ -33,6 +34,9 @@ const TILE_EVENT_ACTION_RECT = Rect2(1036.8,434.4,230.4,76.8) # right 1%, bottom
 const TILE_EVENT_EXIT_RECT = Rect2(1036.8,592.8,230.4,76.8) # right 1%, bottom 7%
 const TILE_EVENT_INHERITANCE_RECT = Rect2(1036.8,391.2,230.4,76.8) # bottom 35%
 const TILE_EVENT_PATROL_RECT = Rect2(1036.8,492.0,230.4,76.8) # bottom 21%
+# Frozen CSS places the ghoul at 55%/18% of the event art frame,
+# sized to 30%/64% (not stretched across the whole scene).
+const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
 const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
 const GRAVEYARD_DIALOGUE_RECT = Rect2(102.4,489.6,1075.2,216.0)
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -1294,8 +1298,17 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	artwork.name="StorySceneImage"
 	if beat_index == 0: InkSceneReveal.play(artwork)
 	if beat.ghoul:
-		var ghoul_art=image(panel,GraveyardStoryBeats.GHOUL_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		ghoul_art.name="StoryCharacterLayer"
+		# The stationary direct-child frame receives the common modal entrance.
+		# Animate only its nested image to avoid competing position tweens.
+		var ghoul_frame = TextureRect.new()
+		ghoul_frame.name = "StoryCharacterLayer"
+		ghoul_frame.position = TILE_EVENT_SCENE_RECT.position + TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position
+		ghoul_frame.size = TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size
+		ghoul_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(ghoul_frame)
+		var ghoul_art = image(ghoul_frame,GraveyardStoryBeats.GHOUL_ART,Vector2.ZERO,ghoul_frame.size)
+		ghoul_art.name = "GhoulSprite"
+		GraveyardGhoulMotion.play(ghoul_art,beat_index == 1)
 	var heading = label_at(panel,"습격받는 아이",Vector2(352,84),Vector2(575,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
