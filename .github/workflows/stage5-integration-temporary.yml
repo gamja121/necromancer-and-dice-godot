@@ -1,0 +1,320 @@
+name: Stage 5 Full Parity Main Synchronization Gate
+on:
+  push:
+    branches:
+      - integration/ui-parity-stage5-all-20261012
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  king-hunt-layer-motion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and visual resource parsing
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 155s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Source world tree king hunt in both weakened and full modes
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 320s godot --headless --path . --script res://scripts/test_ui_king_hunt_layers_stage5z.gd 2>&1 | tee hunt-visual.log
+          grep -E 'UI_KING_HUNT_STAGE5Z: [0-9]+ passed, 0 failed' hunt-visual.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-king-hunt:' hunt-visual.log; then exit 1; fi
+      - name: Frozen source portal energy cultists and king omen
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 290s godot --headless --path . --script res://scripts/test_ui_ritual_portal_layers_stage5y.gd 2>&1 | tee portal-ui.log
+          grep -E 'UI_PORTAL_LAYERS_STAGE5Y: [0-9]+ passed, 0 failed' portal-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-portal-layer:' portal-ui.log; then exit 1; fi
+      - name: Source cultist procession and altar ritual plus summon layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_ui_cultist_layers_stage5x.gd 2>&1 | tee cultist.log
+          grep -E 'UI_CULTIST_LAYERS_STAGE5X: [0-9]+ passed, 0 failed' cultist.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-cultist-layer:' cultist.log; then exit 1; fi
+      - name: Frozen hunter layers and eleven real saved story beats
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 245s godot --headless --path . --script res://scripts/test_ui_hunter_layers_stage5w.gd 2>&1 | tee hunter.log
+          grep -E 'UI_HUNTER_LAYERS_STAGE5W: [0-9]+ passed, 0 failed' hunter.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-hunter-layers:' hunter.log; then exit 1; fi
+      - name: Frozen source commander and player portraits across seven saved beats
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 220s godot --headless --path . --script res://scripts/test_ui_commander_portraits_stage5v.gd 2>&1 | tee portraits.log
+          grep -E 'UI_COMMANDER_PORTRAITS_STAGE5V: [0-9]+ passed, 0 failed' portraits.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-commander-portrait:' portraits.log; then exit 1; fi
+      - name: Original 660ms story board drop and 900ms dialogue cue
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 205s godot --headless --path . --script res://scripts/test_ui_graveyard_story_entry_stage5u.gd 2>&1 | tee entry.log
+          grep -E 'UI_STORY_ENTRY_STAGE5U: [0-9]+ passed, 0 failed' entry.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-story-entry:' entry.log; then exit 1; fi
+      - name: Source ghoul placement and first-reveal to idle animation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210s godot --headless --path . --script res://scripts/test_ui_graveyard_ghoul_motion_stage5t.gd 2>&1 | tee ghoul.log
+          grep -E 'UI_GHOUL_MOTION_STAGE5T: [0-9]+ passed, 0 failed' ghoul.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-ghoul-motion:' ghoul.log; then exit 1; fi
+      - name: Prior graveyard event and extraction panel integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_graveyard_event_parity.gd 2>&1 | tee stage4.log
+          grep -E 'UI_STAGE4_PARITY: [0-9]+ passed, 0 failed' stage4.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage4:' stage4.log; then exit 1; fi
+      - name: P4 interrupted story scene reload and battle safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 290s godot --headless --path . --script res://scripts/test_p4_story_ui_interruption.gd 2>&1 | tee story-restart.log
+          grep -E 'P4_STORY_UI_INTERRUPTION: [0-9]+ passed, 0 failed' story-restart.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-story-resume:' story-restart.log; then exit 1; fi
+      - name: Source location artwork and right-side buttons
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_location_layout_stage5s.gd 2>&1 | tee layout.log
+          grep -E 'UI_LOCATION_LAYOUT_STAGE5S: [0-9]+ passed, 0 failed' layout.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-location-layout:' layout.log; then exit 1; fi
+      - name: Actual map HUD and event art exclusivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_map_chrome_stage5r.gd 2>&1 | tee chrome.log
+          grep -E 'UI_MAP_CHROME_STAGE5R: [0-9]+ passed, 0 failed' chrome.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-chrome:' chrome.log; then exit 1; fi
+      - name: Actual map sounds and event overlay exclusivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 165s godot --headless --path . --script res://scripts/test_ui_map_overlay_audio_stage5q.gd 2>&1 | tee overlay.log
+          grep -E 'UI_MAP_OVERLAY_AUDIO_PARITY: [0-9]+ passed, 0 failed' overlay.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-overlay-audio:' overlay.log; then exit 1; fi
+      - name: Prior source audio switch persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 165s godot --headless --path . --script res://scripts/test_ui_map_audio_options_stage5m.gd 2>&1 | tee options.log
+          grep -E 'UI_MAP_AUDIO_OPTIONS_PARITY: [0-9]+ passed, 0 failed' options.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-audio:' options.log; then exit 1; fi
+      - name: Previous authentic graveyard dialogue and story continuation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --script res://scripts/test_ui_grave_dialogue_stage5p.gd 2>&1 | tee grave.log
+          grep -E 'UI_GRAVE_DIALOGUE_FRAME_PARITY: [0-9]+ passed, 0 failed' grave.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-grave-dialogue:' grave.log; then exit 1; fi
+      - name: Original altar ritual selection save and reload
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 175s godot --headless --path . --script res://scripts/test_ui_altar_ritual_stage5n.gd 2>&1 | tee altar.log
+          grep -E 'UI_ALTAR_RITUAL_PARITY: [0-9]+ passed, 0 failed' altar.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-altar:' altar.log; then exit 1; fi
+      - name: Original patrol route controls and save
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 175s godot --headless --path . --script res://scripts/test_ui_patrol_parchment_stage5o.gd 2>&1 | tee patrol.log
+          grep -E 'UI_PATROL_PARCHMENT_PARITY: [0-9]+ passed, 0 failed' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-patrol-parchment:' patrol.log; then exit 1; fi
+      - name: Real map movement location save and restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 310s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee location.log
+          grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' location.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-map-location:' location.log; then exit 1; fi
+      - name: P5 changed four images real-scene wiring no regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210s godot --headless --path . --script res://scripts/test_p5_changed_visual_runtime.gd 2>&1 | tee visual.log
+          grep -E 'P5_03B_VISUAL_RUNTIME: [0-9]+ passed, 0 failed, 4 changed illustrations checked' visual.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p5-changed-visual:' visual.log; then exit 1; fi
+      - name: Single run end-to-end no regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 310s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' e2e.log; then exit 1; fi
+      - name: Full early visual parity 5A-5R and shop/story regression
+        shell: bash
+        timeout-minutes: 16
+        run: |
+          set -euo pipefail
+          tests=(
+            "test_shop_ui_parity.gd:SHOP_UI_PARITY"
+            "test_ui_all_story_event_parity.gd:UI_ALL_STORY_EVENT_PARITY"
+            "test_ui_route_inheritance_parity.gd:UI_STAGE3_PARITY"
+            "test_ui_battle_brand_parity.gd:UI_BATTLE_BRAND_PARITY"
+            "test_ui_battle_hud_parity.gd:UI_BATTLE_HUD_PARITY"
+            "test_ui_battle_card_dock_parity.gd:UI_BATTLE_CARD_DOCK_PARITY"
+            "test_ui_dice_fan_unit_info_parity.gd:UI_DICE_FAN_UNIT_INFO_PARITY"
+            "test_ui_corpse_capture_parity.gd:UI_CAPTURE_PARITY"
+            "test_ui_deck_overflow_parity.gd:UI_DECK_OVERFLOW_PARITY"
+            "test_ui_treasure_reward_parity.gd:UI_TREASURE_REWARD_PARITY"
+            "test_ui_map_cloud_parity.gd:UI_MAP_CLOUD_PARITY"
+            "test_ui_map_cloud_layout_stage5i.gd:UI_CLOUD_LAYOUT_PARITY"
+            "test_ui_map_cloud_fog_stage5j.gd:UI_CLOUD_FOG_PARITY"
+            "test_ui_rare_cleared_tile_stage5k.gd:UI_RARE_CLEARED_TILE_PARITY"
+            "test_ui_fortune_prophecy_stage5l.gd:UI_FORTUNE_PROPHECY_PARITY"
+          )
+          for pair in "${tests[@]}"; do
+            script="${pair%%:*}"
+            summary="${pair#*:}"
+            log="earlier-${script%.gd}.log"
+            echo "::group::Extra parity ${summary}"
+            timeout --signal=TERM --kill-after=5s 220s godot --headless --path . --script "res://scripts/${script}" 2>&1 | tee "${log}"
+            grep -E "^${summary}: [0-9]+ passed, 0 failed" "${log}"
+            if grep -E "SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|^FAIL " "${log}"; then exit 1; fi
+            echo "::endgroup::"
+          done
+          echo "EARLY_PARITY_INTEGRATION_PASS 15 suites"
+
+      - name: Main-side natural house lap genuine map travel
+        shell: bash
+        timeout-minutes: 9
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 450s godot --headless --path . --script res://scripts/test_p4_natural_home_lap.gd 2>&1 | tee p4-natural-home-lap.log
+          grep -E '^P4_NATURAL_HOME_LAP: [0-9]+ passed, 0 failed$' p4-natural-home-lap.log
+          grep -E '^P4_NATURAL_HOME_ROUTE: seed [0-9]+, [0-9]+ genuine first-lap rolls, [0-9]+ encountered tile types$' p4-natural-home-lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural-home:' p4-natural-home-lap.log; then exit 1; fi
+
+      - name: Main-side natural commander hunter and saved story reload
+        shell: bash
+        timeout-minutes: 14
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 730s godot --headless --path . --script res://scripts/test_p4_natural_commander_hunter.gd 2>&1 | tee p4-natural-commander.log
+          grep -E '^P4_NATURAL_COMMANDER_HUNTER: [0-9]+ passed, 0 failed$' p4-natural-commander.log
+          grep -E '^P4_NATURAL_COMMANDER_HUNTER_ROUTE: [0-9]+ commander rolls, [0-9]+ hunter rolls, [0-9]+ original house shuffles$' p4-natural-commander.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-commander.log; then exit 1; fi
+
+      - name: Main-side entire natural die-route story through king
+        shell: bash
+        timeout-minutes: 19
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 970s godot --headless --path . --script res://scripts/test_p4_natural_full_story.gd 2>&1 | tee p4-natural-full.log
+          grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full.log
+          grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full.log; then exit 1; fi
+
+      - name: Verify integration branch contains no caches secrets or local saves
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! git ls-files | grep -E '(^|/)(\.godot|\.env|\.git|source_assets|raw_assets)/|(^|/)(\.env$|id_rsa$|credentials\.json$)|\.json\.tmp$|\.pck$|\.exe$'
+          git diff --check HEAD~1 HEAD
+          echo "INTEGRATION_FILE_HYGIENE_PASS"
+  windows-native:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout canonical Godot repo
+        uses: actions/checkout@v4
+
+      - name: Install actual Windows Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          cache: false  # Cached Windows package omits the _console.exe required for reliable exit codes
+
+      - name: Verify Windows executable and import native runtime assets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Output "Native runner OS: $env:RUNNER_OS"
+          if ($env:RUNNER_OS -ne "Windows") { throw "Not a native Windows runner" }
+          $exe = @(Get-ChildItem -Path (Join-Path $env:USERPROFILE "godot") -Filter "*win64_console.exe" -File | Select-Object -First 1 -ExpandProperty FullName)[0]
+          if (-not $exe) { throw "Windows console Godot binary missing after setup" }
+          Write-Output "Using native Windows console Godot: $exe"
+          Add-Content -Path $env:GITHUB_ENV -Value "GODOT_WINDOWS_CONSOLE=$exe"
+          & $exe --headless --version
+          if ($LASTEXITCODE -ne 0) { throw "Windows Godot console --version failed" }
+          & $exe --headless --path . --editor --quit 2>&1 | Tee-Object -FilePath windows-godot-import.log
+          if ($LASTEXITCODE -ne 0) { throw "Godot Windows editor import failed" }
+          $log = Get-Content -Raw windows-godot-import.log
+          if ($log -match "SCRIPT ERROR|Parse Error|Failed loading resource|Cannot open") { throw "Windows import reports a resource or script error" }
+          Write-Output "WINDOWS_NATIVE_IMPORT_PASS"
+
+      - name: Run native Windows new-game audio story art monster and natural-play regressions
+        shell: pwsh
+        timeout-minutes: 22
+        run: |
+          $ErrorActionPreference = "Stop"
+          $checks = @(
+            @{ id="title-audio"; file="test_title_audio_parity.gd"; summary="TITLE_AUDIO_PARITY_REGRESSION" },
+            @{ id="new-run"; file="test_p4_run_entry_integration.gd"; summary="P4_RUN_ENTRY_INTEGRATION" },
+            @{ id="changed-art"; file="test_p5_changed_visual_runtime.gd"; summary="P5_03B_VISUAL_RUNTIME" },
+            @{ id="all-monsters"; file="test_p4_all_monster_presentation.gd"; summary="P4_ALL_MONSTER_PRESENTATION" },
+            @{ id="full-story"; file="test_p4_full_source_story_chain.gd"; summary="P4_FULL_SOURCE_STORY_CHAIN" },
+            @{ id="natural-house"; file="test_p4_natural_home_lap.gd"; summary="P4_NATURAL_HOME_LAP" },
+            @{ id="natural-commander-hunter"; file="test_p4_natural_commander_hunter.gd"; summary="P4_NATURAL_COMMANDER_HUNTER" }
+          )
+          New-Item -ItemType Directory -Force windows-native-logs | Out-Null
+          foreach ($check in $checks) {
+            Write-Output "::group::Windows Godot $($check.id)"
+            $logPath = Join-Path "windows-native-logs" "$($check.id).log"
+            & $env:GODOT_WINDOWS_CONSOLE --headless --path . --script "res://scripts/$($check.file)" 2>&1 | Tee-Object -FilePath $logPath
+            $exitCode = $LASTEXITCODE
+            $log = Get-Content -Raw $logPath
+            if ($exitCode -ne 0) { throw "$($check.id) native Godot process returned $exitCode" }
+            $expected = "(?m)^$([regex]::Escape($check.summary)): [0-9]+ passed, 0 failed"
+            if (-not [regex]::IsMatch($log, $expected)) { throw "$($check.id) has no verified zero-failure summary" }
+            if ($log -match "SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|GDScript Error|(?m)^FAIL ") { throw "$($check.id) contains a script/resource/test error" }
+            Write-Output "WINDOWS_NATIVE_TEST_PASS $($check.id)"
+            Write-Output "::endgroup::"
+          }
+          Write-Output "WINDOWS_NATIVE_REGRESSIONS_PASS 7 test suites; real speaker playback and user PC visual approval not checked"
+
+      - name: Attempt 11 native Windows GUI-rendered scene screenshots
+        shell: pwsh
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          WINDOWS_GUI_EVIDENCE_DIR: ${{ runner.temp }}/windows-godot-visual-evidence
+        run: |
+          $ErrorActionPreference = "Stop"
+          & $env:GODOT_WINDOWS_CONSOLE --path . --script res://scripts/test_windows_gui_evidence.gd 2>&1 | Tee-Object -FilePath windows-gui-preview.log
+          $exitCode = $LASTEXITCODE
+          $log = Get-Content -Raw windows-gui-preview.log
+          if ($exitCode -ne 0 -or $log -notmatch "WINDOWS_GUI_PREVIEW: 11 captured, 0 failed") {
+            throw "Windows hosted graphical renderer not proven; headless native validation remains valid"
+          }
+          $files = @(Get-ChildItem $env:WINDOWS_GUI_EVIDENCE_DIR -Filter "*.png")
+          if ($files.Count -ne 11) { throw "Expected 11 native rendered PNG screenshots, found $($files.Count)" }
+          Write-Output "WINDOWS_GUI_SCREENSHOTS_CAPTURED 11; not an end-user visual/art/audio approval"
+
+      - name: Upload native test traces and any captured graphical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-native-godot-validation
+          path: |
+            windows-godot-import.log
+            windows-native-logs/
+            windows-gui-preview.log
+            ${{ runner.temp }}/windows-godot-visual-evidence/
+          if-no-files-found: warn
+          retention-days: 30
