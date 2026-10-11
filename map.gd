@@ -14,6 +14,7 @@ const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
 const GraveyardStoryEntryMotion = preload("res://systems/graveyard_story_entry_motion.gd")
 const CommanderPortraitMotion = preload("res://systems/knight_commander_portrait_motion.gd")
 const MonsterHunterLayerMotion = preload("res://systems/monster_hunter_layer_motion.gd")
+const CultistStoryLayerMotion = preload("res://systems/cultist_story_layer_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
@@ -993,7 +994,10 @@ func show_cultist_rumor_beat(index: int) -> void:
 	if beat_index==0: InkSceneReveal.play(art)
 	var layer: String=CultistRumorBeats.layer_for(str(beat.visual))
 	if not layer.is_empty():
-		image(panel,layer,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		var bounds: Rect2=CultistStoryLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,false)
+		var procession=image(panel,layer,bounds.position,bounds.size)
+		procession.name="CultistProcessionLayer"
+		CultistStoryLayerMotion.play(procession,false,beat.id=="procession")
 	var heading=label_at(panel,"사건 · 같은 문양",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
@@ -1204,8 +1208,10 @@ func show_cultist_altar_beat(index: int) -> void:
 	if beat_index==0: InkSceneReveal.play(artwork)
 	var layer_path: String=CultistAltarBeats.SUMMON if fighting else CultistAltarBeats.layer_for(str(beat.visual))
 	if not layer_path.is_empty():
-		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		InkSceneReveal.play(ritual_art)
+		var bounds: Rect2=CultistStoryLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,true)
+		var ritual_art=image(panel,layer_path,bounds.position,bounds.size)
+		ritual_art.name="CultistSummonLayer" if fighting else "CultistRitualLayer"
+		CultistStoryLayerMotion.play(ritual_art,true,beat.id=="ritual_reveal" or (fighting and altar_state.battle_result==""))
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narration: String=CultistAltarBeats.SUMMON_EFFECT if fighting else str(beat.effect)
@@ -1251,7 +1257,10 @@ func show_cultist_altar_followup(index: int) -> void:
 	var art=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
 	var overlay_path: String=CultistAltarBeats.RITUAL if story.choice=="pass" else CultistAltarBeats.SUMMON
-	image(panel,overlay_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var bounds: Rect2=CultistStoryLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,true)
+	var overlay_layer=image(panel,overlay_path,bounds.position,bounds.size)
+	overlay_layer.name="CultistRitualLayer" if story.choice=="pass" else "CultistSummonLayer"
+	CultistStoryLayerMotion.play(overlay_layer,true,false)
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,narration,Vector2(285,548),Vector2(710,62),17)
