@@ -7,7 +7,7 @@
 - Godot 현재 브랜치에 `assets/map/tiles/rare-monster-cleared.png.import` 메타데이터는 있으나 실제 PNG는 없음. `map.gd:tile_path()`는 희귀 처치 상태를 일반 마물 타일로 강제 변환함. 원본과 달리 희귀 전용 돌 외형이 소실됨.
 
 ## 최소 변경
-1. 원본 PNG의 Git blob SHA를 감사 근거로 보존. PNG 내부 손상된 청크 정보(PLTE 실제 길이 117 vs 기록 96, tRNS 실제 길이 32 vs 기록 48, PLTE·IDAT CRC 불일치)를 확인하여 **원본 IDAT 압축 픽셀 내용은 그대로** 유지한 채 해당 길이/CRC만 바로잡은 Godot 런타임용 파일로 `assets/map/tiles/rare-monster-cleared.png` 복원. 복원 Git blob SHA: `829a5e814b5c0d2bad2143db8133191fa28419f9`. 원본 SHA `219f359b3be64bcbf20b3f51c1e9d45361f4705b`는 변하지 않으며 웹 저장소 변경 없음.
+1. 원본 PNG의 Git blob SHA를 감사 근거로 보존. PNG 내부 손상된 청크 정보(PLTE 실제 길이 117 vs 기록 96, tRNS 실제 길이 32 vs 기록 48, PLTE·IDAT CRC 불일치)를 확인했다. 먼저 청크 정보만 보정했으나 원본 압축 IDAT도 손상된 것으로 판명돼 Godot 런타임 이미지 로딩이 실패했다. 독립 이미지 디코더 Pillow에서 손상 허용 모드로 픽셀을 추출하여 `assets/map/tiles/rare-monster-cleared.png`를 유효한 RGBA PNG로 재인코딩했다. 복원 Git blob SHA: `f0932e6246c650613c00284262e33904f6bd57c2` (Pillow 손상 허용 픽셀 디코딩 뒤 RGBA PNG 재인코딩). 원본 SHA `219f359b3be64bcbf20b3f51c1e9d45361f4705b`는 변하지 않으며 웹 저장소 변경 없음.
 2. `map.gd`의 희귀 완료→일반 완료 강제 치환 한 줄 제거. 기존 공통 `cleared` 분기에서 `rare-monster-cleared` 파일명 자동 선택.
 3. 실전 `MapScene`에서 일반/희귀 2종 완료의 서로 다른 Texture2D 리소스, JSON 저장·재로드, 다음 바퀴의 완료 초기화, 보상·전투/저장 무변경 회귀 검사.
 
@@ -25,3 +25,10 @@
 ## 복구 진단
 - 최초 CI에서 기본 PNG 파일 import 경로만 검사하는 것은 실제 실맵 텍스처 디코딩/표시를 입증하지 못하므로, 런타임 `Texture2D.get_width()`와 Map 버튼의 실텍스처까지 확인한다.
 - 손상된 IDAT CRC를 보정해도 압축 데이터 자체 손상이 남아 있는지 여부는 런타임 테스트 결과로 최종 판단한다. 이미지 내용의 임의 리터칭 또는 웹 원본 덮어쓰기는 금지.
+
+## 원본 압축 픽셀 손상·복구 제약
+- Pillow 정상 디코딩: `OSError('broken data stream when reading image file')`.
+- 손상 허용 복구: 크기 128×99, 알파 유효 영역 `(0,1,128,99)`, alpha 0–253, RGBA 고유색 32종, 픽셀 SHA256 `8f25a452d645992c46a3cd1217e4253264fd97691dfe96e9c0396357870c00d4`.
+- 복구 파일 Git blob `f0932e6246c650613c00284262e33904f6bd57c2`; 손상된 웹 원본 blob `219f359b3be64bcbf20b3f51c1e9d45361f4705b`는 변경하지 않음.
+- **주의:** 손상 허용 디코딩은 원본의 정확한 모든 픽셀 복원을 보장하지 않는다. 카드/타일 실루엣의 시각적 원본 승인 및 정상 PC 원화 수색이 필요하다. 헤드리스 텍스처 로딩 정상은 원본 100% 복원 판정이 아니다.
+- 조사 전용 임시 워크플로 파일은 진단 로그가 GitHub Actions에 남으므로 최종 기능 브랜치에서 제거.
