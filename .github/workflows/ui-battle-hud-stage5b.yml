@@ -1,0 +1,52 @@
+name: Battle HUD HTML Port Stage 5B
+on:
+  push:
+    branches:
+      - feature/ui-parity-battle-hud-stage5b-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  battle-hud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot script import
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: First dice face and HUD button layout visual structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 95s godot --headless --path . --script res://scripts/test_ui_battle_hud_parity.gd 2>&1 | tee hud.log
+          grep -E 'UI_BATTLE_HUD_PARITY: [0-9]+ passed, 0 failed' hud.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-battle-hud:' hud.log; then exit 1; fi
+      - name: Previous 8-unit dice-icon brand matrix remains intact
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 105s godot --headless --path . --script res://scripts/test_ui_battle_brand_parity.gd 2>&1 | tee brand.log
+          grep -E 'UI_BATTLE_BRAND_PARITY: [0-9]+ passed, 0 failed' brand.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-brand-reference:' brand.log; then exit 1; fi
+      - name: Battle rules curse precedence regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 100s godot --headless --path . --script res://scripts/test_battle_source_parity.gd 2>&1 | tee rules.log
+          grep -E 'BATTLE_SOURCE_PARITY_REGRESSION: [0-9]+ passed, 0 failed' rules.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL battle-parity:' rules.log; then exit 1; fi
+      - name: P4 real battle conclusion and return to map
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 250s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee map-return.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' map-return.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat:' map-return.log; then exit 1; fi

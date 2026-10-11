@@ -1,0 +1,66 @@
+name: Original Map Three-Layer Fog Transition Stage 5J
+on:
+  push:
+    branches:
+      - feature/ui-parity-map-cloud-fog-stage5j-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-cloud-motion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Three web fog overlays, opacity timing, tile swap and interaction restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_map_cloud_fog_stage5j.gd 2>&1 | tee fog.log
+          grep -E 'UI_CLOUD_FOG_PARITY: [0-9]+ passed, 0 failed' fog.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL ui-cloud-fog:' fog.log; then exit 1; fi
+      - name: CSS lane position, anchors, rotation, scaling, timing contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 110s godot --headless --path . --script res://scripts/test_ui_map_cloud_layout_stage5i.gd 2>&1 | tee layout.log
+          grep -E 'UI_CLOUD_LAYOUT_PARITY: [0-9]+ passed, 0 failed' layout.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-cloud-layout:' layout.log; then exit 1; fi
+      - name: Eight cloud effect and one-time board mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 110s godot --headless --path . --script res://scripts/test_ui_map_cloud_parity.gd 2>&1 | tee clouds.log
+          grep -E 'UI_MAP_CLOUD_PARITY: [0-9]+ passed, 0 failed' clouds.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-cloud:' clouds.log; then exit 1; fi
+      - name: Original treasure to home, heal, tile shuffle and lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee reward.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' reward.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' reward.log; then exit 1; fi
+      - name: Full single expedition, battle, capture, reward and next lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' e2e.log; then exit 1; fi
+      - name: Stage G treasure and overflow regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_ui_deck_overflow_parity.gd 2>&1 | tee overflow.log
+          grep -E 'UI_DECK_OVERFLOW_PARITY: [0-9]+ passed, 0 failed' overflow.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-deck-overflow:' overflow.log; then exit 1; fi

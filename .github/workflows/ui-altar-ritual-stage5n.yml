@@ -1,0 +1,59 @@
+name: Frozen Web Altar Ritual Board and Info Stage 5N
+on:
+  push:
+    branches:
+      - feature/ui-parity-altar-ritual-stage5n-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  altar-ritual-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import with existing source PNG assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Real altar panel, donor sacrifice, target upgrade and JSON restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_ui_altar_ritual_stage5n.gd 2>&1 | tee altar.log
+          grep -E 'UI_ALTAR_RITUAL_PARITY: [0-9]+ passed, 0 failed' altar.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-altar:' altar.log; then exit 1; fi
+      - name: Prior music and SFX options roundtrip
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 135s godot --headless --path . --script res://scripts/test_ui_map_audio_options_stage5m.gd 2>&1 | tee audio.log
+          grep -E 'UI_MAP_AUDIO_OPTIONS_PARITY: [0-9]+ passed, 0 failed' audio.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-audio:' audio.log; then exit 1; fi
+      - name: Map locations and persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee map.log
+          grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' map.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-map-location:' map.log; then exit 1; fi
+      - name: Reward house return and next map lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 275s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee home.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' home.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' home.log; then exit 1; fi
+      - name: Single full run end-to-end
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 310s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' e2e.log; then exit 1; fi

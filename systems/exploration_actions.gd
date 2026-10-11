@@ -2,6 +2,10 @@ extends "res://systems/reward_ui.gd"
 signal closed
 const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
+const ROUTE_RESERVE_ART = "res://assets/map/ui/patrol-route-frame.webp"
+const ROUTE_CURRENT_ART = "res://assets/map/ui/patrol-route-current-frame.webp"
+const PATROL_ENTER_PARCHMENT = "res://assets/map/events/enter-parchment.png"
+const PATROL_EXIT_PARCHMENT = "res://assets/map/events/exit-parchment.png"
 const MapState = preload("res://systems/map_state.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅"}
@@ -14,10 +18,14 @@ var busy = false
 var status: Label
 var close_button: Button
 var action_button: Button
+var route_reset_button: Button
 var content: Control
 var dice: TextureButton
 var corpse_id = ""
 var corpse_options: Dictionary = {}
+var graveyard_columns: Array = []
+var graveyard_corpses_grid: GridContainer
+var graveyard_brands_grid: GridContainer
 var brand_options: Array = []
 var plan: Dictionary = {}
 var selected_current = -1
@@ -57,7 +65,16 @@ func setup(map_scene, tile_index: int) -> void:
 			dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png" % int(saved.face))
 			status.text="기도 결과 %d · 오염도 %+d · 현재 %d/100" % [int(saved.face),int(saved.delta),session.world.contamination]
 	elif type=="graveyard":
-		status.position.y=605
+		close_button.text="닫기"
+		close_button.position=Vector2(911,148)
+		close_button.size=Vector2(109,35)
+		var close_style=StyleBoxTexture.new()
+		close_style.texture=load("res://assets/map/ui/parchment_button_variant_04.png")
+		for state in ["normal","hover","pressed","focus","disabled"]: close_button.add_theme_stylebox_override(state,close_style)
+		close_button.add_theme_color_override("font_color",Color("3f2818"))
+		status.position=Vector2(302,555)
+		status.size=Vector2(674,39)
+		status.add_theme_font_size_override("font_size",13)
 		render_graveyard()
 	elif type=="forest":
 		action_button=button(self,"전역 정찰",Vector2(525,465),Vector2(230,42),scout)
@@ -65,44 +82,130 @@ func setup(map_scene, tile_index: int) -> void:
 		else: status.text="남은 마물 타일의 적 수·등급·군단을 확인합니다 · 정확한 종류는 전투 진입 시 결정"
 	else:
 		plan=session.world.patrol_plan.duplicate(true)
-		action_button=button(self,"경로 확정",Vector2(655,465),Vector2(210,42),confirm_route)
-		button(self,"기본 경로",Vector2(414,465),Vector2(210,42),func(): plan=RoutePlan.default_plan(); selected_current=-1; selected_reserve=-1; render_route())
+		close_button.text="닫기"
+		close_button.position=Vector2(430,561)
+		close_button.size=Vector2(128,36)
+		status.position=Vector2(145,515)
+		status.size=Vector2(722,42)
+		status.add_theme_font_size_override("font_size",13)
+		action_button=button(self,"경로 확정",Vector2(614,561),Vector2(160,36),confirm_route)
+		action_button.name="PatrolRouteConfirm"
+		style_patrol_button(action_button)
+		route_reset_button=button(self,"기본값",Vector2(245,561),Vector2(148,36),reset_route)
+		route_reset_button.name="PatrolRouteReset"
+		style_patrol_button(route_reset_button)
+		close_button.name="PatrolRouteClose"
+		style_patrol_button(close_button,true)
 		render_route()
+
+# These two *exact* source PNGs are already in the Godot repository but
+# were never connected to the in-game patrol action buttons. The frozen
+# v2-map-practice.css assigns enter parchment to reset/confirm and exit
+# parchment to close; keep each original button's callback and position.
+func style_patrol_button(control: Button, is_exit: bool = false) -> void:
+	var path: String = PATROL_EXIT_PARCHMENT if is_exit else PATROL_ENTER_PARCHMENT
+	var background = StyleBoxTexture.new()
+	background.texture = load(path)
+	for state in ["normal","hover","pressed","focus","disabled"]:
+		control.add_theme_stylebox_override(state,background)
+	control.add_theme_color_override("font_color",Color("49301d"))
+	control.add_theme_color_override("font_hover_color",Color("49301d"))
+	control.add_theme_color_override("font_pressed_color",Color("49301d"))
+	control.add_theme_color_override("font_disabled_color",Color("857668"))
+	control.add_theme_color_override("font_focus_color",Color("49301d"))
+	control.add_theme_font_size_override("font_size",13)
+
+func reset_route() -> void:
+	plan=RoutePlan.default_plan()
+	selected_current=-1
+	selected_reserve=-1
+	render_route()
 
 func clear_content() -> void:
 	for child in content.get_children(): content.remove_child(child); child.queue_free()
 
+# Original map-practice extraction overlay: dark framed two-column panel,
+# three-column corpse/brand card grids; game exchange rules remain unchanged.
 func render_graveyard() -> void:
 	clear_content()
 	corpse_options={}
 	brand_options=[]
-	label_at(content,"전투에서 죽은 마물의 시체",Vector2(200,105),Vector2(880,32),18)
-	var scroll=ScrollContainer.new()
-	scroll.position=Vector2(150,150)
-	scroll.size=Vector2(980,207)
-	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	content.add_child(scroll)
-	var row=HBoxContainer.new()
-	row.custom_minimum_size.x=950
-	row.alignment=BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation",16)
-	scroll.add_child(row)
+	graveyard_columns=[]
+	var frame=Panel.new()
+	frame.name="GraveyardExtractFrame"
+	frame.position=Vector2(256,135)
+	frame.size=Vector2(768,470)
+	frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var outer=StyleBoxFlat.new()
+	outer.bg_color=Color("191818")
+	outer.border_color=Color("66584c")
+	outer.set_border_width_all(2)
+	outer.set_corner_radius_all(8)
+	frame.add_theme_stylebox_override("panel",outer)
+	content.add_child(frame)
+	var heading=label_at(content,"공동묘지 · 낙인 추출",Vector2(287,160),Vector2(566,37),23)
+	heading.add_theme_color_override("font_color",Color("ddd0be"))
+	var guide=label_at(content,"전투에서 죽은 내 마물 시체를 선택한 뒤 낙인 1개를 추출하면 시체가 사라집니다.",Vector2(287,205),Vector2(710,37),13)
+	guide.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	guide.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+	guide.add_theme_color_override("font_color",Color("b8ada0"))
+	for k in range(2):
+		var column=Panel.new()
+		column.name="CorpseColumn" if k==0 else "BrandColumn"
+		column.position=Vector2(280,264) if k==0 else Vector2(670,264)
+		column.size=Vector2(371,267) if k==0 else Vector2(329,267)
+		var boxed=StyleBoxFlat.new()
+		boxed.bg_color=Color("171615")
+		boxed.border_color=Color("514a43")
+		boxed.set_border_width_all(1)
+		boxed.set_corner_radius_all(5)
+		column.add_theme_stylebox_override("panel",boxed)
+		content.add_child(column)
+		graveyard_columns.append(column)
+		var txt=label_at(content,"전투에서 죽은 마물" if k==0 else "추출할 낙인",Vector2(288,277) if k==0 else Vector2(675,277),Vector2(351,30) if k==0 else Vector2(316,30),17)
+		txt.add_theme_color_override("font_color",Color("d1c2af"))
+	var corpses_scroll=ScrollContainer.new()
+	corpses_scroll.position=Vector2(293,319)
+	corpses_scroll.size=Vector2(346,199)
+	corpses_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(corpses_scroll)
+	graveyard_corpses_grid=GridContainer.new()
+	graveyard_corpses_grid.columns=3
+	graveyard_corpses_grid.add_theme_constant_override("h_separation",8)
+	graveyard_corpses_grid.add_theme_constant_override("v_separation",8)
+	corpses_scroll.add_child(graveyard_corpses_grid)
 	var used=session.place_visit_id("grave-extract",index) in session.world.reward_receipts
 	for corpse in session.world.graveyard_corpses:
 		var box=Control.new()
-		box.custom_minimum_size=Vector2(108,188)
-		row.add_child(box)
-		var id=str(corpse.id)
-		var option=card(box,"unit",corpse,Vector2(4,0),Vector2(100,146),func(): if not busy: corpse_id=id; render_graveyard())
+		box.custom_minimum_size=Vector2(104,165)
+		graveyard_corpses_grid.add_child(box)
+		var id: String=str(corpse.id)
+		var option=card(box,"unit",corpse,Vector2(5,2),Vector2(94,134),func(): if not busy: corpse_id=id; render_graveyard())
 		option.disabled=used or busy
-		option.modulate=Color.WHITE if id==corpse_id else Color(0.73,0.67,0.60)
+		option.tooltip_text="%s · 시체" % str(corpse.name)
+		option.modulate=Color(0.93,0.90,0.83) if id==corpse_id else Color(0.61,0.59,0.57)
 		corpse_options[id]=option
-	var choices=session.graveyard_choices(corpse_id)
-	for i in range(choices.size()):
-		var choice=choices[i]
-		var option=card(content,"brand",choice.item,Vector2((1280.0-(choices.size()*155-43))/2+i*155,367),Vector2(112,163),func(): extract(int(choice.index)))
+	var brands_scroll=ScrollContainer.new()
+	brands_scroll.position=Vector2(683,319)
+	brands_scroll.size=Vector2(304,199)
+	brands_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(brands_scroll)
+	graveyard_brands_grid=GridContainer.new()
+	graveyard_brands_grid.columns=3
+	graveyard_brands_grid.add_theme_constant_override("h_separation",7)
+	graveyard_brands_grid.add_theme_constant_override("v_separation",7)
+	brands_scroll.add_child(graveyard_brands_grid)
+	var choices: Array=session.graveyard_choices(corpse_id)
+	for choice in choices:
+		var slot=Control.new()
+		slot.custom_minimum_size=Vector2(94,169)
+		graveyard_brands_grid.add_child(slot)
+		var option=card(slot,"brand",choice.item,Vector2(2,2),Vector2(90,134),func(): extract(int(choice.index)))
 		option.disabled=used or busy
 		brand_options.append(option)
+	if choices.is_empty():
+		var placeholder=label_at(content,"시체를 선택하세요" if corpse_id.is_empty() else "추출 가능한 낙인이 없습니다",Vector2(687,378),Vector2(293,59),14)
+		placeholder.add_theme_color_override("font_color",Color("8f857b"))
 	status.text="이번 방문의 추출은 완료했습니다" if used else ("전투에서 죽은 마물의 시체가 없습니다" if session.world.graveyard_corpses.is_empty() else ("시체를 선택하세요 · 낙인 하나를 추출하면 시체가 소모됩니다" if corpse_id.is_empty() else ("추출할 축복 낙인이 없습니다" if choices.is_empty() else "추출할 낙인을 누르세요 · 선택한 시체는 영구 소모됩니다")))
 
 func extract(brand_index: int) -> void:
@@ -157,28 +260,64 @@ func render_route() -> void:
 	current_options=[]
 	reserve_options=[]
 	var used=session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts
-	label_at(content,"현재 경로 6칸",Vector2(300,98),Vector2(680,32),19)
-	label_at(content,"교체판 5칸",Vector2(300,270),Vector2(680,32),19)
+	# Original reference: two real parchment panels, not two flattened rows.
+	if ResourceLoader.exists(ROUTE_RESERVE_ART):
+		var large=art(content,ROUTE_RESERVE_ART,Vector2(74,92),Vector2(829,541))
+		large.stretch_mode=TextureRect.STRETCH_SCALE
+	else:
+		var backup=ColorRect.new()
+		backup.position=Vector2(74,92)
+		backup.size=Vector2(829,541)
+		backup.color=Color("c6a77c")
+		content.add_child(backup)
+	if ResourceLoader.exists(ROUTE_CURRENT_ART):
+		var small=art(content,ROUTE_CURRENT_ART,Vector2(925,65),Vector2(284,590))
+		small.stretch_mode=TextureRect.STRETCH_SCALE
+	else:
+		var backup=ColorRect.new()
+		backup.position=Vector2(925,65)
+		backup.size=Vector2(284,590)
+		backup.color=Color("c6a77c")
+		content.add_child(backup)
+	var title=label_at(content,"교체 타일",Vector2(250,164),Vector2(450,36),23)
+	title.add_theme_color_override("font_color",Color("382416"))
+	title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	var guide=label_at(content,"현재 경로를 고른 뒤 이쪽 타일을 눌러 교체하세요",Vector2(168,207),Vector2(640,27),13)
+	guide.add_theme_color_override("font_color",Color("6a4a31"))
+	guide.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	var current_title=label_at(content,"현재 경로",Vector2(951,151),Vector2(235,33),19)
+	current_title.add_theme_color_override("font_color",Color("382416"))
+	current_title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	for area in ["current","reserve"]:
 		for i in range(plan[area].size()):
-			var id=plan[area][i]
+			var id: String=str(plan[area][i])
 			var option=TextureButton.new()
 			option.texture_normal=map.texture("res://assets/map/tiles/%s.png" % id)
 			option.ignore_texture_size=true
 			option.stretch_mode=TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			option.position=Vector2((173 if area=="current" else 250)+i*155,140 if area=="current" else 315)
-			option.size=Vector2(132,98)
+			if area=="reserve":
+				option.position=Vector2(163+i*134,289)
+				option.size=Vector2(88,88)
+			else:
+				option.position=Vector2(1034,201+i*62)
+				option.size=Vector2(56,52)
 			option.disabled=used
+			option.tooltip_text="%s · %s" % [session.world.NAMES[id],"교체 타일" if area=="reserve" else "현재 경로"]
 			add_button_effect(option)
 			option.pressed.connect(func(): choose_route(area,i))
 			content.add_child(option)
-			label_at(option,session.world.NAMES[id],Vector2(0,98),Vector2(132,26),13)
-			var selected=(selected_current if area=="current" else selected_reserve)==i
-			option.modulate=Color.WHITE if selected else Color(0.78,0.71,0.61)
+			if area=="reserve":
+				var label=label_at(content,session.world.NAMES[id],option.position+Vector2(-10,87),Vector2(108,24),11)
+				label.add_theme_color_override("font_color",Color("f2ddb7"))
+			var selected: bool=(selected_current if area=="current" else selected_reserve)==i
+			option.modulate=Color("fff0c8") if selected else Color.WHITE
+			if selected:
+				option.scale=Vector2(1.08,1.08)
+				option.pivot_offset=option.size*0.5
 			if area=="current": current_options.append(option)
 			else: reserve_options.append(option)
 	action_button.disabled=used
-	status.text="이번 방문의 경로는 확정했습니다 · 다음 맵 배치에 적용" if used else ("교체판에서 바꿀 타일을 선택하세요" if selected_current>=0 else ("현재 경로에서 바꿀 타일을 선택하세요" if selected_reserve>=0 else "현재 경로와 교체판 타일을 하나씩 눌러 교환하세요 · 현재 맵은 유지"))
+	status.text="이번 방문의 경로는 확정했습니다 · 다음 맵 배치에 적용" if used else ("교체판에서 바꿀 타일을 선택하세요" if selected_current>=0 else ("현재 경로에서 바꿀 타일을 선택하세요" if selected_reserve>=0 else "현재 경로와 교체판에서 하나씩 눌러 교환하세요 · 현재 맵은 유지"))
 
 func choose_route(area: String, i: int) -> void:
 	if session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return

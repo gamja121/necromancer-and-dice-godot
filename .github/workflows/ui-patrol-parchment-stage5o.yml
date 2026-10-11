@@ -1,0 +1,73 @@
+name: Frozen Web Patrol Route Parchment Stage 5O
+on:
+  push:
+    branches:
+      - feature/ui-parity-patrol-parchment-stage5o-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  patrol-parchment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse project and original parchment art
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual patrol parchment reset confirm save and reopen
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_patrol_parchment_stage5o.gd 2>&1 | tee patrol.log
+          grep -E 'UI_PATROL_PARCHMENT_PARITY: [0-9]+ passed, 0 failed' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-patrol-parchment:' patrol.log; then exit 1; fi
+      - name: Existing route and inheritance parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee route.log
+          grep -E 'UI_STAGE3_PARITY: [0-9]+ passed, 0 failed' route.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage3:' route.log; then exit 1; fi
+      - name: Original altar ritual with permanent sacrifice and JSON reload
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_altar_ritual_stage5n.gd 2>&1 | tee altar.log
+          grep -E 'UI_ALTAR_RITUAL_PARITY: [0-9]+ passed, 0 failed' altar.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-altar:' altar.log; then exit 1; fi
+      - name: Source audio options and settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_map_audio_options_stage5m.gd 2>&1 | tee audio.log
+          grep -E 'UI_MAP_AUDIO_OPTIONS_PARITY: [0-9]+ passed, 0 failed' audio.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-audio:' audio.log; then exit 1; fi
+      - name: Real map location movement and persistent return
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee map.log
+          grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' map.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-map-location:' map.log; then exit 1; fi
+      - name: Reward home and next lap persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee home.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' home.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' home.log; then exit 1; fi
+      - name: Entire expedition end to end
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' e2e.log; then exit 1; fi
