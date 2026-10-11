@@ -1,6 +1,6 @@
 extends RefCounted
-## P1-05K-4: source-canonical fourth destination clue after saved hunter dialogue.
-## Exact ruins location, hunt completion and final king battle remain locked.
+## P1-05K-5: fifth original location scene. Completion unlocks the final
+## battle quest flag, but the actual king battle is a later system.
 const BASE_ART = "res://assets/map/events/monster-hunter-worldtree-base.webp"
 const SCENE_ART = "res://assets/map/events/monster-hunter-corrupted-beast-scene.webp"
 const PORTRAIT_ART = "res://assets/map/events/monster-hunter-pen-clean.webp"
@@ -22,15 +22,24 @@ const DESTINATION_BEAT = {
 	"speaker":"마물 사냥꾼",
 	"visual":"portrait"
 }
+const LOCATED_BEAT = {
+	"id":"located",
+	"effect":"숲속 봉인 폐허의 위치를 파악했다. 추적은 끝났지만 왕과의 싸움은 아직 시작되지 않았다.",
+	"dialogue":"[마물의 왕이 향한 봉인 폐허의 위치를 알아냈습니다.]",
+	"speaker":"시스템",
+	"visual":"scene",
+	"locationKnown":true
+}
 const REVIVAL = {
 	"weakened":{"id":"revival","effect":"마물 사냥꾼이 끊겼다 이어진 흔적을 가리킨다.","dialogue":"몸이 아직 온전하지 않아. 하지만 멀리 가진 못했어.","speaker":"마물 사냥꾼","visual":"portrait"},
 	"full":{"id":"revival","effect":"세계수의 뿌리까지 죽어 가고 있다. 사냥꾼은 주변의 오염을 살핀다.","dialogue":"뿌리 깊은 곳까지 죽었군. 저 힘으로 놈을 상대해야 한다니.","speaker":"마물 사냥꾼","visual":"portrait"}
 }
 
 static func count() -> int:
-	return 4
+	return 5
 
 static func beat(index: int, revival_mode: String = "") -> Dictionary:
+	if index==4: return LOCATED_BEAT.duplicate(true)
 	if index==3: return DESTINATION_BEAT.duplicate(true)
 	if index==2:
 		if not REVIVAL.has(revival_mode): return {}
