@@ -44,7 +44,16 @@ func ensure_world() -> void:
 	world = MapState.new(definitions,Time.get_ticks_usec())
 	if FileAccess.file_exists(save_file_path):
 		var parsed = JSON.parse_string(FileAccess.get_file_as_string(save_file_path))
-		if not parsed is Dictionary or not world.restore(parsed): notice = "저장된 맵을 읽지 못해 새 원정을 시작했습니다."
+		if not parsed is Dictionary or not world.restore(parsed):
+			notice = "저장된 맵을 읽지 못해 새 원정을 시작했습니다."
+		else:
+			# Older saves between contamination 20 and 79 predate the new
+			# boss threshold. Upgrade the existing 24th tile in place without
+			# rerolling the board or changing other saved progress.
+			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
+			if world.reveal_boss_at_threshold() and not save_world():
+				world.restore(before_upgrade)
+				notice = "보스 타일 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
 
 func save_world() -> bool:
@@ -383,6 +392,11 @@ func finish_encounter(battle) -> bool:
 	return true
 
 func persist_change(before: Dictionary) -> bool:
+	# Any system that raises contamination across 20 (not only leaving
+	# home) must persist the first boss tile in the SAME save transaction.
+	# A failed write rolls the boss reveal back with the rest of the state.
+	if int(before.get("contamination",0)) < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
+		world.reveal_boss_at_threshold()
 	if save_world(): return true
 	world.restore(before)
 	encounter = world.active_encounter.duplicate(true)
@@ -754,10 +768,11 @@ func pray_world_tree(index: int) -> Dictionary:
 	var face = world.rng.randi_range(1,6)
 	var delta = -5 if face==6 else (-3 if face>=4 else 1)
 	world.contamination = clampi(world.contamination+delta,0,100)
+	var boss_appeared: bool = before.contamination < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION
 	world.reward_receipts.append(visit)
 	world.prayer_result = {"visit":visit,"face":face,"delta":delta}
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"face":face,"reason":"%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ("축복" if face>=4 else "실패"),delta,world.contamination]}
+	return {"ok":true,"face":face,"boss_appeared":boss_appeared,"reason":"%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ( "축복" if face>=4 else "실패"),delta,world.contamination]}
 
 func graveyard_choices(corpse_id: String) -> Array:
 	var choices: Array = []
