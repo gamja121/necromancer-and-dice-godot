@@ -6,6 +6,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_story_ui_interruption.gd"
       - "scripts/test_p4_natural_story_arrival.gd"
       - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_p4_ritual_portal_live_integration.gd"
@@ -95,6 +96,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_story_ui_interruption.gd"
       - "scripts/test_p4_natural_story_arrival.gd"
       - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_p4_ritual_portal_live_integration.gd"
@@ -203,6 +205,16 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: P4-03A restart every saved child and portal narrative beat
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_story_ui_interruption.gd 2>&1 | tee p4-story-ui-interruption.log
+          grep -E 'P4_STORY_UI_INTERRUPTION: [0-9]+ passed, 0 failed' p4-story-ui-interruption.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-story-resume:' p4-story-ui-interruption.log; then
+            exit 1
+          fi
+
       - name: P4-02E-A natural untouched map die graveyard rescue and village rumor
         shell: bash
         run: |
