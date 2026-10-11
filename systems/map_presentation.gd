@@ -7,8 +7,13 @@ var corruption: ColorRect
 var textures: Dictionary = {}
 func setup(scene) -> void:
 	map = scene
-	for name in ["map-cloud-transition.png","map-cloud-transition-2.png","map-cloud-transition-3.png","map-cloud-transition-4.png","swamp_damage_minus1.png"]:
-		textures[name] = load("res://assets/map/ui/"+("swamp_damage_minus1.png" if name=="swamp_damage_minus1.png" else "map_cloud_transition.png"))
+	# The frozen web effect uses four different cloud silhouettes. Keep each imported
+	# texture distinct; the earlier placeholder accidentally reused variant 3 four times.
+	for variant in range(1,5):
+		var suffix: String = "" if variant==1 else "_%d" % variant
+		var cloud_name: String = "map_cloud_transition%s.png" % suffix
+		textures[cloud_name] = load("res://assets/map/ui/"+cloud_name)
+	textures["swamp_damage_minus1.png"] = load("res://assets/map/ui/swamp_damage_minus1.png")
 	textures["heal"] = load("res://assets/battle/effects/heal-cross.png")
 
 func install(stage: Control) -> void:
@@ -149,7 +154,7 @@ func cloud_refresh(change_board: Callable) -> bool:
 	var speeds = [0.72,1.12,0.98,0.85,1.12,0.72,0.85,0.98]
 	var delays = [0.0,0.165,0.115,0.065,0.165,0.0,0.065,0.115]
 	for i in range(8):
-		var key = "map-cloud-transition"+("-"+str(variants[i]+1) if variants[i]>0 else "")+".png"
+		var key: String = "map_cloud_transition"+("_"+str(variants[i]+1) if variants[i]>0 else "")+".png"
 		var texture: Texture2D = textures[key]
 		var width: float = 1280.0*widths[i]
 		var dimensions = Vector2(width,width*texture.get_height()/texture.get_width())
