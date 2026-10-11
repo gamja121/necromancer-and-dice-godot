@@ -1,0 +1,58 @@
+name: P4 Natural Home Lap Regression (Godot)
+
+on:
+  pull_request:
+    paths:
+      - "scripts/test_p4_natural_home_lap.gd"
+      - ".github/workflows/p4-natural-home-lap.yml"
+      - "map.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_p4_natural_home_lap.gd"
+      - ".github/workflows/p4-natural-home-lap.yml"
+      - "map.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "docs/port_audit/migration_work_queue.tsv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  natural-home-lap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout canonical Godot source
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+
+      - name: Import native Godot resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee p4-natural-home-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' p4-natural-home-import.log; then
+            exit 1
+          fi
+
+      - name: Real unswapped die travel through house full heal shuffle save and next lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 420s godot --headless --path . --script res://scripts/test_p4_natural_home_lap.gd 2>&1 | tee p4-natural-home-lap.log
+          grep -E '^P4_NATURAL_HOME_LAP: [0-9]+ passed, 0 failed$' p4-natural-home-lap.log
+          grep -E '^P4_NATURAL_HOME_ROUTE: seed [0-9]+, [0-9]+ genuine first-lap rolls, [0-9]+ encountered tile types$' p4-natural-home-lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural-home:' p4-natural-home-lap.log; then
+            exit 1
+          fi
