@@ -808,11 +808,11 @@ func pray_world_tree(index: int) -> Dictionary:
 	var delta = -5 if face==6 else (-3 if face>=4 else 1)
 	world.contamination = clampi(world.contamination+delta,0,100)
 	var previous_boss_tier: int = world.current_boss_tier()
-	var threshold_crossed: bool = previous_boss_tier == 0 and world.contamination >= (40 if 20 in world.boss_defeated else 20)
 	var had_boss: bool = world.tiles[MapState.BOSS_TILE_INDEX] == "boss"
 	world.reward_receipts.append(visit)
 	world.prayer_result = {"visit":visit,"face":face,"delta":delta}
 	if not persist_change(before): return {"ok":false,"reason":notice}
+	var threshold_crossed: bool = previous_boss_tier == 0 and world.current_boss_tier()>0
 	var boss_appeared: bool = not had_boss and world.tiles[MapState.BOSS_TILE_INDEX] == "boss"
 	var reason: String = "%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ("축복" if face>=4 else "실패"),delta,world.contamination]
 	if threshold_crossed and not boss_appeared and not had_boss:

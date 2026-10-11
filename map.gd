@@ -614,9 +614,13 @@ func finish_embedded_battle() -> void:
 	overlay = null
 	battle_returning = false
 	world = session.world
+	var unlocked_next_boss: bool = session.notice.begins_with("보스 격퇴") and world.current_boss_tier()>0 and world.tiles[MapState.BOSS_TILE_INDEX]=="boss"
 	render()
 	status.text = session.notice
 	session.notice = ""
+	if unlocked_next_boss:
+		status.text += " · 다음 보스 %s 출현" % str(world.definitions[world.current_boss_id()].name)
+		play_boss_tile_reveal()
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
 	if not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
 		show_story_battle_result(completed_story_event_id)
