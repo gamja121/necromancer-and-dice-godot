@@ -83,6 +83,7 @@ func _run() -> void:
 	if frame!=null:
 		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame references verified recovered source image")
 		check(frame.stretch_mode==TextureRect.STRETCH_SCALE,"source frame stretches to map dialogue window without letterboxing")
+		print("DIAG GRAVEYARD FRAME POS ",frame.position," SIZE ",frame.size," STRETCH ",frame.stretch_mode)
 		check(frame.position.distance_to(Vector2(102.4,489.6))<0.5 and frame.size==Vector2(1075.2,216.0),"8%-margins/2%-bottom/30%-height source footprint")
 		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE,"visual-only dialogue frame cannot consume touch or mouse input")
 	var name=panel.get_node_or_null("StoryDialogueName") as Label
