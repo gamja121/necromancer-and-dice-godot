@@ -36,7 +36,7 @@ func check_primary() -> void:
 	var data=JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	check(data is Dictionary and data.get("version",-1)==1,"committed primary save is valid JSON")
 
-func seed() -> void:
+func prepare_initial_run() -> void:
 	erase_test_files()
 	var s=session()
 	s.start_new_world()
@@ -128,7 +128,7 @@ func _run() -> void:
 	var args: PackedStringArray=OS.get_cmdline_user_args()
 	var phase: String=args[0] if args.size()>0 else ""
 	match phase:
-		"seed": seed()
+		"seed": prepare_initial_run()
 		"crash_before_replace": crash_before_replace()
 		"verify_old_commit": verify_old_commit()
 		"crash_after_commit": crash_after_commit()
