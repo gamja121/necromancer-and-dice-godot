@@ -6,6 +6,7 @@ on:
       - feature/map-tile-counter-rotation-20261011
     paths:
       - "systems/map_shuffle_*.gd"
+      - "map.gd"
       - "scripts/test_map_shuffle_*.gd"
       - ".github/workflows/map-shuffle-branch.yml"
   workflow_dispatch:
@@ -58,3 +59,10 @@ jobs:
           godot --headless --path . --script res://scripts/test_map_shuffle_scatter.gd 2>&1 | tee scatter.log
           grep -E 'MAP_SHUFFLE_SCATTER: [0-9]+ passed, 0 failed' scatter.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' scatter.log; then exit 1; fi
+      - name: Real home exit transition and failed disk save
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee home-exit.log
+          grep -E 'MAP_SHUFFLE_HOME_EXIT: [0-9]+ passed, 0 failed' home-exit.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' home-exit.log; then exit 1; fi
