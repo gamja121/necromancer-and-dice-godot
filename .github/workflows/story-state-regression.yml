@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "systems/run_session.gd"
+      - "scripts/test_p4_run_entry_integration.gd"
       - "data/battle_visual_metrics.json"
       - "systems/battle_presentation_layout.gd"
       - "systems/battle_visuals.gd"
@@ -83,6 +84,7 @@ on:
     branches: [main]
     paths:
       - "systems/run_session.gd"
+      - "scripts/test_p4_run_entry_integration.gd"
       - "data/battle_visual_metrics.json"
       - "systems/battle_presentation_layout.gd"
       - "systems/battle_visuals.gd"
@@ -183,6 +185,16 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: P4-01 step 1 full Title New Run Intro 12 beats Map and isolated save integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 60s godot --headless --path . --script res://scripts/test_p4_run_entry_integration.gd 2>&1 | tee p4-run-entry.log
+          grep -E 'P4_RUN_ENTRY_INTEGRATION: [0-9]+ passed, 0 failed' p4-run-entry.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-entry:' p4-run-entry.log; then
+            exit 1
+          fi
+
       - name: All species real battle attack hit death motion and restored guardian-seed regression
         shell: bash
         run: |
