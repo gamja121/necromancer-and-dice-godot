@@ -18,15 +18,16 @@ static func ensure_buses() -> void:
 			AudioServer.set_bus_name(AudioServer.bus_count-1,name)
 			AudioServer.set_bus_send(AudioServer.bus_count-1,"Master")
 
-static func apply_saved() -> void:
+static func apply_saved(save_path: String = SAVE) -> void:
 	ensure_buses()
-	var preferences = ConfigFile.new()
-	preferences.load(SAVE)
-	for name in ["Music","SFX"]:
-		AudioServer.set_bus_mute(AudioServer.get_bus_index(name),not bool(preferences.get_value("audio",name.to_lower()+"_enabled",true)))
-	if DisplayServer.get_name()=="headless": return
 	var settings = ConfigFile.new()
-	settings.load(SAVE)
+	settings.load(save_path)
+	for name in ["Music","SFX"]:
+		AudioServer.set_bus_mute(AudioServer.get_bus_index(name),not bool(settings.get_value("audio",name.to_lower()+"_enabled",true)))
+	var volume: float = clampf(float(settings.get_value("audio","volume",1.0)),0.0,1.0)
+	AudioServer.set_bus_volume_db(0,linear_to_db(maxf(0.001,volume)))
+	AudioServer.set_bus_mute(0,volume<=0)
+	if DisplayServer.get_name()=="headless": return
 	var desired: String = settings.get_value("audio","output","Default")
 	var devices = outputs()
 	var chosen = "Default"
@@ -36,8 +37,6 @@ static func apply_saved() -> void:
 			break
 	# Re-selecting the same WASAPI device can stall each battle transition.
 	if AudioServer.output_device != chosen: AudioServer.output_device = chosen
-	AudioServer.set_bus_volume_db(0,linear_to_db(maxf(0.001,float(settings.get_value("audio","volume",1.0)))))
-	AudioServer.set_bus_mute(0,float(settings.get_value("audio","volume",1.0))<=0)
 	print("Game audio requested: ",AudioServer.get_driver_name()," / ",chosen)
 
 func setup(parent: Control) -> void:
@@ -112,14 +111,14 @@ func setup(parent: Control) -> void:
 			save_settings())
 	panel.hide()
 
-func save_settings(output_name: String = "") -> void:
+func save_settings(output_name: String = "", save_path: String = SAVE) -> void:
 	var settings = ConfigFile.new()
-	settings.load(SAVE)
+	settings.load(save_path)
 	settings.set_value("audio","output",AudioServer.output_device if output_name.is_empty() else output_name)
 	settings.set_value("audio","volume",0.0 if AudioServer.is_bus_mute(0) else db_to_linear(AudioServer.get_bus_volume_db(0)))
 	for category in ["Music","SFX"]:
 		settings.set_value("audio",category.to_lower()+"_enabled",not AudioServer.is_bus_mute(AudioServer.get_bus_index(category)))
-	settings.save(SAVE)
+	settings.save(save_path)
 
 func _ready() -> void:
 	await get_tree().process_frame

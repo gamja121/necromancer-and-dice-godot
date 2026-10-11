@@ -3,6 +3,8 @@ extends Control
 const MAP_SCENE := "res://map.tscn"
 const INTRO_SCENE := "res://intro.tscn"
 const BASE_SIZE := Vector2(1280.0, 720.0)
+const AudioSettings = preload("res://systems/audio_settings.gd")
+const TITLE_MUSIC := "res://assets/title/music/title-theme.mp3"
 # 큰 패럴랙스 이동에도 빈 가장자리가 보이지 않도록 넉넉하게 확보.
 # 1672x941 원화를 1520x860 정도로 축소 표시하므로 업스케일 없이 선명도를 유지한다.
 const OVERSCAN := Vector2(120.0, 70.0)
@@ -20,24 +22,35 @@ const OVERSCAN := Vector2(120.0, 70.0)
 @onready var options_button: Button = $TitleUI/MenuPanel/Menu/Options
 @onready var options_dialog: AcceptDialog = $TitleUI/OptionsDialog
 @onready var volume_slider: HSlider = $TitleUI/OptionsDialog/OptionsContent/Volume
+@onready var music_enabled: CheckButton = $TitleUI/OptionsDialog/OptionsContent/MusicEnabled
+@onready var sfx_enabled: CheckButton = $TitleUI/OptionsDialog/OptionsContent/SfxEnabled
+@onready var title_music: AudioStreamPlayer = $TitleBgm
 
 var pointer_normalized := Vector2.ZERO
 var touch_active := false
 var pointer_seen := false
 var idle_time := 0.0
 var base_positions: Dictionary = {}
+# Production uses the same ConfigFile as map and battlefield. A test may
+# assign an isolated save path before adding this scene to the tree.
+var audio_save_path: String = AudioSettings.SAVE
 
 func _ready() -> void:
+	# Match the same persistent Music/SFX bus preferences used on map and battlefield.
+	AudioSettings.apply_saved(audio_save_path)
 	get_viewport().size_changed.connect(_layout_layers)
 	new_run_button.pressed.connect(_start_new_run)
 	continue_button.pressed.connect(_continue_run)
 	exit_button.pressed.connect(_exit_game)
 	options_button.pressed.connect(_show_options)
+	_sync_audio_controls()
 	volume_slider.value_changed.connect(_update_volume)
-	volume_slider.value = db_to_linear(AudioServer.get_bus_volume_db(0))
-	continue_button.disabled = not RunSession.has_save()
+	music_enabled.toggled.connect(_set_music_enabled)
+	sfx_enabled.toggled.connect(_set_sfx_enabled)
+	continue_button.disabled = not get_node("/root/RunSession").has_save()
 	_load_menu_art()
 	_layout_layers()
+	_start_title_music()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
@@ -171,21 +184,52 @@ func _wiggle_menu_button(button: Button) -> void:
 	wiggle.tween_property(button, "rotation_degrees", -0.8, 0.070)
 	wiggle.tween_property(button, "rotation_degrees", 0.0, 0.090)
 
+func _sync_audio_controls() -> void:
+	volume_slider.set_value_no_signal(0.0 if AudioServer.is_bus_mute(0) else db_to_linear(AudioServer.get_bus_volume_db(0)))
+	music_enabled.set_pressed_no_signal(not AudioServer.is_bus_mute(AudioServer.get_bus_index("Music")))
+	sfx_enabled.set_pressed_no_signal(not AudioServer.is_bus_mute(AudioServer.get_bus_index("SFX")))
+
+func _start_title_music() -> void:
+	# Only local imported assets are allowed; never stream music from the old web repo.
+	if not ResourceLoader.exists(TITLE_MUSIC):
+		push_warning("Title BGM asset is missing: " + TITLE_MUSIC)
+		return
+	title_music.bus = "Music"
+	title_music.stream = load(TITLE_MUSIC)
+	title_music.volume_db = linear_to_db(0.34)
+	title_music.finished.connect(title_music.play)
+	if DisplayServer.get_name() != "headless":
+		title_music.play()
+
 func _show_options() -> void:
+	_sync_audio_controls()
 	options_dialog.popup_centered()
 
+func _save_audio() -> void:
+	AudioSettings.new().save_settings("",audio_save_path)
+
 func _update_volume(value: float) -> void:
-	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(value, 0.0001)))
+	AudioServer.set_bus_mute(0,value<=0)
+	AudioServer.set_bus_volume_db(0,linear_to_db(maxf(value,0.001)))
+	_save_audio()
+
+func _set_music_enabled(enabled: bool) -> void:
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"),not enabled)
+	_save_audio()
+
+func _set_sfx_enabled(enabled: bool) -> void:
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"),not enabled)
+	_save_audio()
 
 func _start_new_run() -> void:
-	RunSession.start_new_world()
+	get_node("/root/RunSession").start_new_world()
 	get_tree().change_scene_to_file(INTRO_SCENE)
 
 func _continue_run() -> void:
-	if not RunSession.has_save():
+	if not get_node("/root/RunSession").has_save():
 		continue_button.disabled = true
 		return
-	RunSession.reload_world()
+	get_node("/root/RunSession").reload_world()
 	get_tree().change_scene_to_file(MAP_SCENE)
 
 func _exit_game() -> void:
