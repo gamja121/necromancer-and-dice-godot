@@ -37,6 +37,7 @@ on:
       - "scripts/test_ritual_portal_revival.gd"
       - "scripts/test_monster_king_hunt_entry.gd"
       - "scripts/test_monster_king_hunt_trace.gd"
+      - "scripts/test_monster_king_hunt_revival_dialogue.gd"
       - "systems/monster_king_hunt_entry.gd"
       - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
@@ -95,6 +96,7 @@ on:
       - "scripts/test_ritual_portal_revival.gd"
       - "scripts/test_monster_king_hunt_entry.gd"
       - "scripts/test_monster_king_hunt_trace.gd"
+      - "scripts/test_monster_king_hunt_revival_dialogue.gd"
       - "systems/monster_king_hunt_entry.gd"
       - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
@@ -463,5 +465,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_monster_king_hunt_trace.gd 2>&1 | tee monster-king-hunt-trace.log
           grep -E 'MONSTER_KING_HUNT_TRACE_REGRESSION: [0-9]+ passed, 0 failed' monster-king-hunt-trace.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-king-hunt-trace.log; then
+            exit 1
+          fi
+
+      - name: Monster king hunt weakened and full revival hunter dialogue with durable third scene regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_monster_king_hunt_revival_dialogue.gd 2>&1 | tee monster-king-hunt-revival-dialogue.log
+          grep -E 'MONSTER_KING_HUNT_REVIVAL_DIALOGUE_REGRESSION: [0-9]+ passed, 0 failed' monster-king-hunt-revival-dialogue.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-king-hunt-revival-dialogue.log; then
             exit 1
           fi
