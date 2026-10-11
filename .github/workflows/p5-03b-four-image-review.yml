@@ -1,0 +1,91 @@
+name: P5-03B Four Changed Image Review Kit
+
+on:
+  pull_request:
+    paths:
+      - "scripts/build_p5_03b_visual_review.py"
+      - ".github/workflows/p5-03b-four-image-review.yml"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_p5_03b_visual_review.py"
+      - ".github/workflows/p5-03b-four-image-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-previews:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout canonical Godot images and audit baseline
+        uses: actions/checkout@v4
+
+      - name: Install image decoder/renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet "Pillow==11.3.0"
+          python3 -m py_compile scripts/build_p5_03b_visual_review.py scripts/audit_p5_03_parity.py
+
+      - name: Check image metadata and contact sheet generator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/build_p5_03b_visual_review.py --self-test | tee image-self-test.log
+          grep -F 'P5_03B_SELF_TEST_PASS:' image-self-test.log
+
+      - name: Download only four pinned original image bytes (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixed="e13d5149fcecc802e5d626f3bef6e5daecd3d66c"
+          for original in \
+            "art/v2-style/map-test/events/fortune-teller.jpg" \
+            "art/v2-style/map-test/events/home-interior.jpg" \
+            "art/v2-style/event-portraits/knight-commander-upperbody-hd.webp" \
+            "art/v2-style/event-portraits/necromancer-upperbody-hd.webp"; do
+            destination="$RUNNER_TEMP/p5-03b-frozen/$original"
+            mkdir -p "$(dirname "$destination")"
+            curl --fail --retry 3 --location --silent --show-error \
+              "https://raw.githubusercontent.com/gamja121/necromancer-dice-board/$fixed/$original" \
+              -o "$destination"
+            test -s "$destination"
+          done
+
+      - name: Compare exact Git blob SHA and decode four original/current pairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p5-03b-results"
+          python3 scripts/build_p5_03b_visual_review.py \
+            --root . --frozen-root "$RUNNER_TEMP/p5-03b-frozen" \
+            --output "$RUNNER_TEMP/p5-03b-results" 2>&1 | tee p5-03b-preview.log
+          grep -F 'P5_03B_PREVIEW_PASS: 4 pinned original/current image pairs' p5-03b-preview.log
+          grep -F 'P5_03B_DELETION_BLOCKED:' p5-03b-preview.log
+          python3 - "$RUNNER_TEMP/p5-03b-results" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from PIL import Image
+          root = Path(sys.argv[1])
+          info = json.loads((root / "review-manifest.json").read_text(encoding="utf-8"))
+          assert len(info["images"]) == 4
+          assert all(item["visual_approval"] == "PENDING" for item in info["images"])
+          assert all(item["runtime_scene_acceptance"] == "NOT_CHECKED" for item in info["images"])
+          for name in [i["comparison"] for i in info["images"]] + [info["comparison_sheet"]]:
+              with Image.open(root / name) as im:
+                  im.verify()
+          assert len(list(root.glob("*-comparison.png"))) == 4
+          print("P5_03B_PREVIEW_ARTIFACT_VERIFIED: four full previews, one contact sheet, provenance JSON")
+          PY
+
+      - name: Preserve review previews as CI artifact, not an art approval
+        uses: actions/upload-artifact@v4
+        with:
+          name: p5-03b-four-original-vs-godot-preview
+          path: ${{ runner.temp }}/p5-03b-results/
+          retention-days: 30
