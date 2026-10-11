@@ -7,6 +7,7 @@ on:
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
       - "scripts/test_p4_story_ui_interruption.gd"
+      - "scripts/test_p4_combat_process_restart.gd"
       - "docs/port_audit/migration_work_queue.tsv"
       - "scripts/test_p4_natural_story_arrival.gd"
       - "scripts/test_p4_full_source_story_chain.gd"
@@ -98,6 +99,7 @@ on:
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
       - "scripts/test_p4_story_ui_interruption.gd"
+      - "scripts/test_p4_combat_process_restart.gd"
       - "docs/port_audit/migration_work_queue.tsv"
       - "scripts/test_p4_natural_story_arrival.gd"
       - "scripts/test_p4_full_source_story_chain.gd"
@@ -216,6 +218,21 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-story-resume:' p4-story-ui-interruption.log; then
             exit 1
           fi
+
+      - name: P4-03B separate-process battle die action result permadeath and harvest restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          phases=(win_seed win_actions win_settle win_capture win_claim win_verify loss_seed loss_actions loss_terminal loss_finish loss_verify cleanup)
+          for phase in "${phases[@]}"; do
+            echo "::group::P4-03B process phase ${phase}"
+            timeout --signal=TERM --kill-after=5s 90s godot --headless --path . --script res://scripts/test_p4_combat_process_restart.gd -- "${phase}" 2>&1 | tee "p4-combat-restart-${phase}.log"
+            grep -E "P4_COMBAT_PROCESS_RESTART_${phase}: [0-9]+ passed, 0 failed" "p4-combat-restart-${phase}.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-combat-restart:' "p4-combat-restart-${phase}.log"; then
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
 
       - name: P4-02E-A natural untouched map die graveyard rescue and village rumor
         shell: bash
