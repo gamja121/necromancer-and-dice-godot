@@ -1,0 +1,84 @@
+name: P5-02B Offline Windows Originals Backup Safety
+
+on:
+  pull_request:
+    paths:
+      - "scripts/p5_02b_local_originals_backup.ps1"
+      - ".github/workflows/p5-02b-originals-backup-safety.yml"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/p5_02b_local_originals_backup.ps1"
+      - ".github/workflows/p5-02b-originals-backup-safety.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exercise original art inventory backup and independent restore verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          export BASE="$RUNNER_TEMP/p5-02b-fixture"
+          mkdir -p "$BASE/raw_assets/subfolder" "$BASE/source_assets"
+          printf 'original transparent png binary fixture\n' > "$BASE/raw_assets/subfolder/art.png"
+          printf 'original PSD fixture\n' > "$BASE/raw_assets/source.psd"
+          printf 'different candidate drawing fixture\n' > "$BASE/source_assets/new-original.kra"
+          printf 'fake credential must never be copied\n' > "$BASE/raw_assets/.env"
+          printf 'fake key must never be copied\n' > "$BASE/source_assets/credentials.json"
+          ln -s "$BASE/raw_assets/source.psd" "$BASE/source_assets/linked-art.psd"
+          checksum="$(sha256sum "$BASE/raw_assets/source.psd" | cut -d' ' -f1)"
+          script="scripts/p5_02b_local_originals_backup.ps1"
+
+          pwsh -NoProfile -File "$script" -Mode Audit \
+            -RawAssetsPath "$BASE/raw_assets" -SourceAssetsPath "$BASE/source_assets" \
+            | tee "$BASE/audit.log"
+          grep -E 'P5_02B_INVENTORY: 2 roots, 3 files, [0-9]+ bytes, 3 excluded/symlink entries' "$BASE/audit.log"
+
+          # The default must refuse same-volume storage, no directory created.
+          if pwsh -NoProfile -File "$script" -Mode Backup \
+            -RawAssetsPath "$BASE/raw_assets" -SourceAssetsPath "$BASE/source_assets" \
+            -DestinationRoot "$BASE/blocked"; then
+            echo "::error::unsafe same-volume backup was accepted"; exit 1
+          fi
+          test ! -e "$BASE/blocked"
+
+          pwsh -NoProfile -File "$script" -Mode Backup \
+            -RawAssetsPath "$BASE/raw_assets" -SourceAssetsPath "$BASE/source_assets" \
+            -DestinationRoot "$BASE/verified-backup" -AllowSameVolume \
+            | tee "$BASE/backup.log"
+          grep -E 'P5_02B_BACKUP_COMPLETE:' "$BASE/backup.log"
+          test -s "$BASE/verified-backup/manifest.json"
+          test -s "$BASE/verified-backup/manifest.sha256"
+          test -s "$BASE/verified-backup/BACKUP_COMPLETE"
+          test ! -e "$BASE/verified-backup/BACKUP_INCOMPLETE"
+          test ! -e "$BASE/verified-backup/files/raw_assets/.env"
+          test ! -e "$BASE/verified-backup/files/source_assets/credentials.json"
+          test ! -e "$BASE/verified-backup/files/source_assets/linked-art.psd"
+
+          pwsh -NoProfile -File "$script" -Mode Verify \
+            -DestinationRoot "$BASE/verified-backup" | tee "$BASE/verify.log"
+          grep -E 'P5_02B_VERIFIED: 3 files, [0-9]+ bytes, SHA256 all matched' "$BASE/verify.log"
+
+          # Never overwrite an existing completed backup.
+          if pwsh -NoProfile -File "$script" -Mode Backup \
+            -RawAssetsPath "$BASE/raw_assets" -SourceAssetsPath "$BASE/source_assets" \
+            -DestinationRoot "$BASE/verified-backup" -AllowSameVolume; then
+            echo "::error::backup unexpectedly overwrote an archive"; exit 1
+          fi
+          test "$(sha256sum "$BASE/raw_assets/source.psd" | cut -d' ' -f1)" = "$checksum"
+
+          # A corrupted backup must not pass its restore verifier.
+          printf 'tamper\n' >> "$BASE/verified-backup/files/raw_assets/source.psd"
+          if pwsh -NoProfile -File "$script" -Mode Verify -DestinationRoot "$BASE/verified-backup"; then
+            echo "::error::corrupt restored art unexpectedly passed SHA256"; exit 1
+          fi
+          echo "P5_02B_BACKUP_SAFETY: 8 scenarios passed, 0 failed"
