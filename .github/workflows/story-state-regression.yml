@@ -6,6 +6,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_cultist_altar_branch_integration.gd"
       - "scripts/test_p4_graveyard_branch_integration.gd"
       - "scripts/test_p4_single_run_end_to_end.gd"
       - "scripts/test_p4_reward_home_lap_integration.gd"
@@ -91,6 +92,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_cultist_altar_branch_integration.gd"
       - "scripts/test_p4_graveyard_branch_integration.gd"
       - "scripts/test_p4_single_run_end_to_end.gd"
       - "scripts/test_p4_reward_home_lap_integration.gd"
@@ -195,6 +197,16 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: P4-02B real cultist altar pass fight victory defeat retry and quest handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 240s godot --headless --path . --script res://scripts/test_p4_cultist_altar_branch_integration.gd 2>&1 | tee p4-altar-branches.log
+          grep -E 'P4_CULTIST_ALTAR_BRANCH_INTEGRATION: [0-9]+ passed, 0 failed' p4-altar-branches.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-altar:' p4-altar-branches.log; then
+            exit 1
+          fi
+
       - name: P4-02A real graveyard child leave rescue loss and retry UI integration
         shell: bash
         run: |
