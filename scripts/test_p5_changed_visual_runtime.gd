@@ -124,7 +124,12 @@ func _run() -> void:
 			check(RUMOR.advance(s, village_idx, RUMOR.RESCUED_ID, beat_idx),
 				"village rumor beat %d persisted" % beat_idx)
 		check(COMMANDER.begin(s, village_idx), "commander encounter unlocked and saved")
+		check(map.session == s, "real Map refers to same event RunSession")
+		check(COMMANDER.can_enter(s, village_idx), "commander gate remains open after first saved beat")
+		check(COMMANDER.current_beat(s) == 0, "commander first beat restored at zero")
 		for beat_idx in range(BEATS.count()):
+			check(COMMANDER.can_enter(s, village_idx), "commander gate open before beat %d" % beat_idx)
+			check(COMMANDER.current_beat(s) == beat_idx, "saved beat matches visible event beat %d" % beat_idx)
 			var beat: Dictionary = BEATS.beat(beat_idx)
 			map.show_knight_commander_beat(village_idx)
 			check(is_instance_valid(map.overlay), "commander UI opens for beat %d" % beat_idx)
