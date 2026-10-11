@@ -4,7 +4,7 @@
 
 - Godot 공개 `main` 기준: `8d6261fbbcf15f8e529a421fe2b038b217474021` (P4-01E 병합, PR #77).
 - P4-01A/B/C/D/E는 **자동 통합검사 DONE**. 같은 원정에 대한 E2E 검사: `scripts/test_p4_single_run_end_to_end.gd`.
-- PR #77 브랜치 Story State Regression CI `38122140934`: PASS. `main`의 Web Artifact CI `38122320076`: PASS. `main`의 Story State Regression CI `38122320055`: 실행 중인 상태로 조사 시작했으므로 완료 결과를 별도로 확인해야 한다.
+- PR #77 브랜치 Story State Regression CI `38122140934`: PASS. `main`의 Web Artifact CI `38122320076`: PASS. `main`의 Story State Regression CI `38122320055`: **PASS** (최종 재조회).
 - **P4-01 / P4-01F = TODO.** 실제 Windows PC 원정의 화면, 입력, 가청 오디오, 사용자 경험, 저장 재시작 검사를 실행했다고 주장하지 않는다. Headless 테스트 및 Web export 성공은 실기 승인이 아니다.
 - PC 작업 폴더: `C:/Dev/necromancer_and_dice`. Godot 4.7.2 Standard, Compatibility renderer.
 - 사용자 승인 없이 기존 원정 저장·개인 오디오 설정·로컬 미완료 작업 및 원본 에셋을 덮어쓰거나 삭제하지 않는다.
