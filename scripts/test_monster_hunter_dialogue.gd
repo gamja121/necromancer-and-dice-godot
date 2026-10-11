@@ -231,7 +231,7 @@ func test_ui() -> void:
 	check(ui.contains('func show_monster_hunter_beat(index: int) -> void:'),"new saved hunter visual handler")
 	check(ui.contains('MonsterHunterEntry.current_beat(session)'),"UI reads stored scene position")
 	check(ui.contains('MonsterHunterBeats.beat(beat_index)'),"UI fetches canonical beat")
-	check(ui.contains('MonsterHunterBeats.visual_art(str(beat.visual))'),"UI resolves correct overlay art")
+	check(ui.contains('MonsterHunterBeats.visual_art(visual)') and ui.contains('image(panel,visual_art,art_rect.position,art_rect.size)'),"UI resolves correct overlay art through source layer")
 	check(ui.contains('str(beat.effect)'),"UI renders beat narrative")
 	check(ui.contains('str(beat.dialogue)'),"UI renders hunter dialogue")
 	check(ui.contains('MonsterHunterEntry.advance(session,index,shown_beat)'),"UI persists explicit advance")
