@@ -26,8 +26,8 @@ jobs:
     timeout-minutes: 90
     env:
       ARCHIVE_TAG: p5-02-frozen-html-final-e13d5149-20261011
-      ARCHIVE_DIR: ${{ runner.temp }}/p5-02-release
-      LEGACY_MIRROR: ${{ runner.temp }}/legacy-source.git
+      ARCHIVE_DIR: /tmp/p5-02-release
+      LEGACY_MIRROR: /tmp/p5-02-legacy-source.git
     steps:
       - name: Checkout Godot archive verifier
         uses: actions/checkout@v4
