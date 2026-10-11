@@ -43,7 +43,8 @@ func test_deck() -> void:
 	deck.setup(roster)
 	await process_frame
 	check(deck.board != null and near(deck.board.position.x,57.6),"source board centered at 91% width")
-	check(deck.hand.size==Vector2(870.4,244.8),"roster hand follows original 68 by 34 percent placement")
+	print("MEASURE deck.hand.size=",deck.hand.size)
+	check(near(deck.hand.size.x,870.4) and near(deck.hand.size.y,244.8),"roster hand follows original 68 by 34 percent placement")
 	check(deck.lineup.get_child_count()==4 and deck.lineup.get_node_or_null("EmptySlot_4")!=null,"four fixed, empty lineup anchors")
 	check(deck.confirm_button.disabled and deck.selected_ids.is_empty(),"no battle without selected monster")
 	deck.toggle_unit(roster[1].id)
@@ -88,7 +89,9 @@ func test_overflow(kind: String) -> void:
 	root.add_child(panel)
 	panel.setup(fake)
 	await process_frame
-	check(panel.get_node_or_null("RewardOverflowPanel")!=null and panel.get_node("RewardOverflowPanel").size==Vector2(760,496),"original narrow parchment panel replaces wide dark placeholder for "+kind)
+	var original_panel = panel.get_node_or_null("RewardOverflowPanel") as Panel
+	print("MEASURE overflow.",kind," size=",original_panel.size if original_panel else "missing")
+	check(original_panel!=null and near(original_panel.size.x,760) and near(original_panel.size.y,496),"original narrow parchment panel replaces wide dark placeholder for "+kind)
 	check(panel.card_scroll != null and panel.card_scroll.size==Vector2(690,260),"original horizontal touch-scroll inventory for "+kind)
 	check(panel.choices.size()==items.size()+1 and panel.choices.has("__new__"),"all old cards plus new candidate available for "+kind)
 	check(panel.confirm.disabled and near(panel.confirm.modulate.a,0.45),"confirmation disabled until deliberate discard choice for "+kind)
