@@ -8,6 +8,7 @@ static var output_devices: PackedStringArray
 
 var save_file_path: String = SAVE
 var panel: PanelContainer
+var modal_blocked: bool = false
 var options_button: Button
 var close_button: Button
 var music_toggle: Button
@@ -201,7 +202,18 @@ func refresh_controls() -> void:
 	if volume_slider!=null:
 		volume_slider.set_value_no_signal(0 if AudioServer.is_bus_mute(0) else db_to_linear(AudioServer.get_bus_volume_db(0))*100.0)
 
+# The frozen map CSS hides both the option icon and open popup while a
+# location/story overlay owns the board. Do not change audio buses or the
+# user's persistent config merely because a modal opens.
+func set_modal_blocked(blocked: bool) -> void:
+	if modal_blocked == blocked: return
+	modal_blocked = blocked
+	if blocked and is_instance_valid(panel): panel.hide()
+	if is_instance_valid(options_button): options_button.disabled = blocked
+	visible = not blocked
+
 func toggle_panel() -> void:
+	if modal_blocked or not visible: return
 	panel.visible = not panel.visible
 	if panel.visible:
 		refresh_controls()

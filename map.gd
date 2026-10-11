@@ -55,7 +55,13 @@ var hero: TextureRect
 var dice: TextureButton
 var status: Label
 var hud: Label
-var overlay: Control
+# Route *all* overlay assignments through the map's audio visibility guard.
+# An explicit setter also handles direct scene creation (story/battle/treasure),
+# avoiding a one-frame popup overlapping the original location art.
+var overlay: Control:
+	set(value):
+		overlay = value
+		if is_instance_valid(map_audio): map_audio.set_modal_blocked(is_instance_valid(value))
 var selected = -1
 var moving = false
 var textures: Dictionary = {}
@@ -236,6 +242,7 @@ func render() -> void:
 	dice_count_label.z_index = 51
 	map_audio = AudioSettings.new()
 	map_audio.setup(stage)
+	map_audio.set_modal_blocked(is_instance_valid(overlay))
 	var options: Button = map_audio.get_child(0)
 	options.text = ""
 	options.position = Vector2(1053,133)
