@@ -3,6 +3,9 @@ extends RefCounted
 const RoutePlan = preload("res://systems/route_plan.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
+const BOSS_CONTAMINATION = 20
+# Preserve the existing boss art and encounter path at the 24th slot.
+const BOSS_TILE_INDEX = 23
 const COUNTS = {"basic":2,"graveyard":1,"altar":1,"unknown":1,"forest":1,"rest":2,"monster":5,"rare-monster":1,"gem":1,"event":2,"swamp":2,"warp":2}
 const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
 var definitions: Dictionary
@@ -71,7 +74,7 @@ func generate() -> void:
 	var conversion = mini(requested_conversion,counts.basic)
 	counts.basic -= conversion
 	counts.monster += conversion
-	if contamination>=80: counts.monster -= 1
+	if contamination>=BOSS_CONTAMINATION: counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
 		for i in range(counts[key]): pool.append(key)
@@ -85,11 +88,29 @@ func generate() -> void:
 		if i==0: tiles.append("fortune-teller-camp")
 		elif i==8: tiles.append("village")
 		elif i==HOME: tiles.append("home")
-		elif i==23 and contamination>=80: tiles.append("boss")
+		elif i==BOSS_TILE_INDEX and contamination>=BOSS_CONTAMINATION: tiles.append("boss")
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
 	lap_ready = false
+
+
+## If contamination reaches 20 during an existing lap (e.g. a failed
+## world-tree prayer), reveal the boss without waiting for another lap.
+## The caller persists this along with the change in one transaction.
+func reveal_boss_at_threshold() -> bool:
+	if contamination < BOSS_CONTAMINATION or tiles.size() != 24:
+		return false
+	if tiles[BOSS_TILE_INDEX] == "boss":
+		return false
+	tiles[BOSS_TILE_INDEX] = "boss"
+	# A previously cleared or scouted ordinary tile cannot carry those
+	# semantics into a fresh boss encounter at the same board slot.
+	cleared.erase(BOSS_TILE_INDEX)
+	if scout.get("intel",[]) is Array:
+		scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
+	return true
+
 
 func move_path(face: int) -> Array:
 	move_serial += 1

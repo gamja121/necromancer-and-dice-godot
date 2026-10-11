@@ -1420,6 +1420,7 @@ func exit_home() -> void:
 		await shuffle.play_rotation()
 	# The authoritative map and save are updated exactly once, only after
 	# the old visuals have finished shuffling. No visual code writes game state.
+	var contamination_before_exit: int = world.contamination
 	var ok: bool = session.leave_home()
 	world = session.world
 	if ok:
@@ -1443,3 +1444,5 @@ func exit_home() -> void:
 		show_home()
 	else:
 		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
+		if contamination_before_exit < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
+			status.text += " · 보스 타일 출현"
