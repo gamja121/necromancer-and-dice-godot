@@ -1,6 +1,6 @@
 extends RefCounted
-## P1-05K-1: first saved world-tree visit after an actual portal outcome.
-## Only "seen" can be recorded; the king hunt and final fight remain open.
+## P1-05K-2: atomic second-scene trace after the source-canonical arrival.
+## Revival dialogue and final king hunt resolution remain locked.
 const Portal = preload("res://systems/ritual_portal_entry.gd")
 const HuntBeats = preload("res://systems/monster_king_hunt_beats.gd")
 
@@ -38,7 +38,9 @@ static func can_enter(session, index: int) -> bool:
 	var state: Dictionary=session.get_story_event(EVENT_ID)
 	if state.status not in ["unseen","seen"]: return false
 	if state.choice!="" or state.battle_result!="": return false
-	return (state.status=="seen")==(w.event_flags.get(SEEN_FLAG,false)==true)
+	if (state.status=="seen")!=(w.event_flags.get(SEEN_FLAG,false)==true): return false
+	if w.event_flags.get(progress_flag(1),false)==true and state.status!="seen": return false
+	return true
 
 ## Only record first discovery in a single world transaction. A replay of
 ## a previously saved first scene must never rewrite or advance the quest.
@@ -50,7 +52,22 @@ static func begin(session, index: int) -> bool:
 	session.world.event_flags[SEEN_FLAG]=true
 	return session.persist_change(before)
 
+static func progress_flag(index: int) -> String:
+	if index!=1: return ""
+	return "event:%s:beat:1" % EVENT_ID
+
 static func current_beat(session) -> int:
 	if session == null or session.world == null: return -1
 	if not can_enter(session,session.world.position): return -1
-	return 0 if session.get_story_event(EVENT_ID).status=="seen" else -1
+	if session.get_story_event(EVENT_ID).status!="seen": return -1
+	return 1 if session.world.event_flags.get(progress_flag(1),false)==true else 0
+
+## Deliberate Continue is the only route to the corrupted-beast scene.
+## Wrong tile, busy state, stale click or interrupted write is fail-closed.
+static func advance(session, index: int, shown_index: int) -> bool:
+	if not can_enter(session,index): return false
+	if session.get_story_event(EVENT_ID).status!="seen": return false
+	if shown_index!=0 or current_beat(session)!=shown_index: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.event_flags[progress_flag(1)]=true
+	return session.persist_change(before)
