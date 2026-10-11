@@ -52,3 +52,11 @@ godot --headless --path . --script res://scripts/test_p4_natural_commander_hunte
 - 원화 품질 승인, PC 파일 SHA 동기화, 실제 모니터·오디오, Windows 사용자의 원본 백업은 **미확인**이다. `P4-01H`라는 별도 자동검사만 DONE; P4/P5 상위/실기 항목은 변함없이 TODO.
 
 CI artifact `windows-native-godot-validation`에 Windows 전용 테스트 7개 로그, 임포트 로그, 스크린샷 PNG 4개를 보존한다(30일). 검수용으로만 사용하며 원본 이미지 파일은 수정하지 않았다.
+
+## 최종 Windows GUI 재캡처 결과
+
+- 최종 PR 커밋 Windows CI: https://github.com/gamja121/necromancer-and-dice-godot/actions/runs/38179186050
+- Windows 네이티브 전체 7개 테스트를 **1,621 PASS / 0 FAIL**로 재확인. Windows GUI 렌더링 캡처는 **4 captured / 0 failed**.
+- 점술가 장면은 `InkSceneReveal` 효과 0.65초가 끝날 때까지 1.1초 대기하고 `TextureRect.material == null`을 검증한 뒤 PNG를 촬영하여, 최초의 애니메이션 중간 프레임 오인을 방지했다.
+- PNG 4장(타이틀, 맵, 집 실내, 점술가)은 모두 **실제 Windows/ANGLE 드라이버의 1280×720 렌더 결과**로, 이미지 내 주요 요소가 표시됨을 검토했다. 스냅샷만으로 모든 UI 모달·전투·애니메이션 프레임의 미술적 승인이나 사용자 PC 상호작용을 대신하지 않는다.
+- 별도 원본 파일/저장소 삭제·조작 없음. GitHub-hosted 가상 머신은 실제 사용자 PC·오디오 장치·그래픽 드라이버와 다르므로, **PC 동기화·오디오 가청·235개 마물 화면 실기 승인/4개 변경 이미지 예술적 승인 = 미확인** 상태를 유지한다.
