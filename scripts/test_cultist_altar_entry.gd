@@ -1,5 +1,5 @@
 extends SceneTree
-## P1-05I-1: first altar arrival only; no ritual, selection or battle.
+## P1-05I-1: first altar arrival remains correct after adding the second beat.
 const SessionScript = preload("res://systems/run_session.gd")
 const CultistRumor = preload("res://systems/cultist_rumor_entry.gd")
 const Altar = preload("res://systems/cultist_altar_entry.gd")
@@ -137,7 +137,7 @@ func original_content() -> void:
 	check(source.contains("CultistAltarEntry.can_enter(session,index)"),"map guards altar entrance")
 	check(source.contains("CultistAltarEntry.begin(session,index)"),"map commits first receipt")
 	check(source.contains('func show_cultist_altar_intro(index: int) -> void:'),"first altar UI exists")
-	check(source.contains('str(CultistAltarEntry.FIRST_BEAT.effect)'),"original text rendered")
+	check(source.contains('str(beat.effect)'),"canonical source text rendered")
 	check(source.contains("CultistAltarEntry.BASE_ART"),"original background rendered")
 	check(source.contains('session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen"'),"reload only reopens saved first event")
 	check(source.contains('"제단 기능"'),"altar controls kept")
@@ -145,7 +145,8 @@ func original_content() -> void:
 	var old_index: int=source.find("CultistRumorEntry.can_enter(session,index)")
 	var next_index: int=source.find("CultistAltarEntry.can_enter(session,index)")
 	check(old_index>=0 and next_index>old_index,"altar comes after the cultist rumor")
-	check(not source.contains("CultistAltarEntry.advance("),"later ritual choice not accidentally activated")
+	check(source.contains("CultistAltarEntry.advance(session,index,shown_beat)"),"only saved advance from arrival is wired")
+	check(not source.contains("start_cultist_altar_battle("),"altar fight is not enabled")
 
 func _run() -> void:
 	original_content()
