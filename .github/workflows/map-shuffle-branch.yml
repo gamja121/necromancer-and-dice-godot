@@ -8,6 +8,7 @@ on:
       - feature/map-shuffle-mobile-polish-20261011
       - feature/map-shuffle-dice-aura-20261011
       - feature/map-shuffle-audio-20261011
+      - feature/map-shuffle-audio-timing-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
