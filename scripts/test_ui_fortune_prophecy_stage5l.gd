@@ -101,7 +101,12 @@ func _run() -> void:
 	map.queue_free()
 	await process_frame
 	session.reload_world()
-	check(session.world.snapshot()==serialized,"full fortune result, visit receipt and stack survive reload")
+	var reloaded_snapshot: Dictionary=session.world.snapshot()
+	if reloaded_snapshot!=serialized:
+		for key in serialized.keys():
+			if reloaded_snapshot.get(key)!=serialized[key]:
+				print("DIAG fortune snapshot key=",key," before=",JSON.stringify(serialized[key]).substr(0,450)," after=",JSON.stringify(reloaded_snapshot.get(key)).substr(0,450))
+	check(reloaded_snapshot==serialized,"full fortune result, visit receipt and stack survive reload")
 	map=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
