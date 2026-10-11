@@ -1,6 +1,6 @@
 extends RefCounted
-## P1-05K-2: atomic second-scene trace after the source-canonical arrival.
-## Revival dialogue and final king hunt resolution remain locked.
+## P1-05K-3: source third-scene hunter dialogue after saved trace.
+## Weakened/full revival never mix; destination and final battle stay locked.
 const Portal = preload("res://systems/ritual_portal_entry.gd")
 const HuntBeats = preload("res://systems/monster_king_hunt_beats.gd")
 
@@ -40,6 +40,7 @@ static func can_enter(session, index: int) -> bool:
 	if state.choice!="" or state.battle_result!="": return false
 	if (state.status=="seen")!=(w.event_flags.get(SEEN_FLAG,false)==true): return false
 	if w.event_flags.get(progress_flag(1),false)==true and state.status!="seen": return false
+	if w.event_flags.get(progress_flag(2),false)==true and w.event_flags.get(progress_flag(1),false)!=true: return false
 	return true
 
 ## Only record first discovery in a single world transaction. A replay of
@@ -53,21 +54,28 @@ static func begin(session, index: int) -> bool:
 	return session.persist_change(before)
 
 static func progress_flag(index: int) -> String:
-	if index!=1: return ""
-	return "event:%s:beat:1" % EVENT_ID
+	if index not in [1,2]: return ""
+	return "event:%s:beat:%d" % [EVENT_ID,index]
+
+static func revival_mode(session) -> String:
+	if session == null or session.world == null: return ""
+	if not can_enter(session,session.world.position): return ""
+	return "weakened" if session.world.event_flags.get(WEAKENED_FLAG,false)==true else "full"
 
 static func current_beat(session) -> int:
 	if session == null or session.world == null: return -1
 	if not can_enter(session,session.world.position): return -1
 	if session.get_story_event(EVENT_ID).status!="seen": return -1
+	if session.world.event_flags.get(progress_flag(2),false)==true: return 2
 	return 1 if session.world.event_flags.get(progress_flag(1),false)==true else 0
 
-## Deliberate Continue is the only route to the corrupted-beast scene.
-## Wrong tile, busy state, stale click or interrupted write is fail-closed.
+## Each explicit Continue saves exactly one source beat. Invalid revival
+## state, stale click, wrong tile or failed storage never creates dialogue.
 static func advance(session, index: int, shown_index: int) -> bool:
 	if not can_enter(session,index): return false
 	if session.get_story_event(EVENT_ID).status!="seen": return false
-	if shown_index!=0 or current_beat(session)!=shown_index: return false
+	if shown_index not in [0,1] or current_beat(session)!=shown_index: return false
+	if revival_mode(session) not in ["weakened","full"]: return false
 	var before: Dictionary=session.world.snapshot().duplicate(true)
-	session.world.event_flags[progress_flag(1)]=true
+	session.world.event_flags[progress_flag(shown_index+1)]=true
 	return session.persist_change(before)
