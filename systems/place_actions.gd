@@ -2,6 +2,7 @@ extends "res://systems/reward_ui.gd"
 signal closed
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const SHOP_COUNTER_PATH = "res://assets/map/ui/monster-shop-counter.png"
+const FORTUNE_ART_PATH = "res://assets/map/events/fortune-prophecy-ui.png"
 const SHOP_STAGE = Rect2(115.2,10.13,1049.6,699.73)
 var session
 var map
@@ -23,6 +24,9 @@ var receiver_art: TextureRect
 var donor_hint: Label
 var receiver_hint: Label
 var dice: TextureButton
+var fortune_stone: TextureRect
+var fortune_aura: ColorRect
+var fortune_result: Label
 var unit_options: Dictionary = {}
 var offer_options: Array = []
 var shop_counter: TextureRect
@@ -45,6 +49,7 @@ func setup(map_scene, tile_index: int) -> void:
 		status=label_at(self,"",Vector2(130,435),Vector2(1020,58),15)
 		status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if type=="fortune-teller-camp":
+		setup_fortune_visual()
 		dice=TextureButton.new()
 		dice.ignore_texture_size=true
 		dice.stretch_mode=TextureButton.STRETCH_KEEP_ASPECT_CENTERED
@@ -60,6 +65,8 @@ func setup(map_scene, tile_index: int) -> void:
 		if used and session.world.last_prophecy.get("visit","")==session.place_visit_id("prophecy",index):
 			dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png" % int(session.world.last_prophecy.face))
 			status.text=session.world.last_prophecy.detail+"\n누적: "+session.prophecy_label()
+			show_fortune_stone(false)
+			show_fortune_result()
 		return
 	if type=="altar":
 		donor_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",Vector2(178,95),Vector2(144,210))
@@ -253,6 +260,62 @@ func perform_ritual() -> void:
 		refresh()
 	status.text=result.reason
 
+# CSS source: fortune-prophecy-ui (~210px) sits left of the result notice,
+# with a violet radial halo; it does not replace the central rolling dice.
+func setup_fortune_visual() -> void:
+	fortune_aura=ColorRect.new()
+	fortune_aura.name="FortuneCrystalAura"
+	fortune_aura.position=Vector2(304,186)
+	fortune_aura.size=Vector2(290,290)
+	fortune_aura.pivot_offset=fortune_aura.size/2.0
+	fortune_aura.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	fortune_aura.color=Color.WHITE
+	var shader=Shader.new()
+	shader.code="""shader_type canvas_item;
+void fragment() {
+	float r=length(UV-vec2(0.5))*2.0;
+	float alpha=(1.0-smoothstep(0.25,0.72,r))*0.38;
+	vec3 tint=mix(vec3(0.36,0.16,0.59),vec3(0.60,0.34,0.86),1.0-smoothstep(0.0,0.62,r));
+	COLOR=vec4(tint,alpha);
+}
+"""
+	var mat=ShaderMaterial.new()
+	mat.shader=shader
+	fortune_aura.material=mat
+	fortune_aura.visible=false
+	add_child(fortune_aura)
+	fortune_stone=art(self,FORTUNE_ART_PATH,Vector2(345,226),Vector2(210,204))
+	fortune_stone.name="FortuneProphecyCrystal"
+	fortune_stone.pivot_offset=fortune_stone.size/2.0
+	fortune_stone.visible=false
+	fortune_result=label_at(self,"",Vector2(742,152),Vector2(392,174),19)
+	fortune_result.name="FortuneProphecyOutcome"
+	fortune_result.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	fortune_result.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	fortune_result.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	fortune_result.add_theme_color_override("font_color",Color("ead7fc"))
+	fortune_result.visible=false
+
+func show_fortune_stone(animated: bool) -> void:
+	if not is_instance_valid(fortune_stone) or not is_instance_valid(fortune_aura): return
+	fortune_stone.visible=true
+	fortune_aura.visible=true
+	fortune_stone.scale=Vector2.ONE*(0.78 if animated else 1.0)
+	fortune_stone.modulate.a=0.0 if animated else 1.0
+	fortune_aura.modulate.a=0.0 if animated else 1.0
+	if animated:
+		var reveal=create_tween().set_parallel(true)
+		reveal.tween_property(fortune_stone,"scale",Vector2.ONE,0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		reveal.tween_property(fortune_stone,"modulate:a",1.0,0.26)
+		reveal.tween_property(fortune_aura,"modulate:a",1.0,0.26)
+
+func show_fortune_result() -> void:
+	if not is_instance_valid(fortune_result): return
+	var value: Dictionary=session.world.last_prophecy
+	if value.is_empty(): return
+	fortune_result.text=str(value.get("detail",""))+"\n누적: "+session.prophecy_label()
+	fortune_result.visible=true
+
 func roll_prophecy() -> void:
 	if busy: return
 	var result=session.fortune_prophecy(index)
@@ -260,11 +323,13 @@ func roll_prophecy() -> void:
 	busy=true
 	close_button.disabled=true
 	confirm_button.disabled=true
+	show_fortune_stone(true)
 	status.text="예언의 주사위를 굴리는 중…"
 	await DiceAnimation.new().roll_map(dice,int(result.face),Rect2(300,140,680,245),map.texture,map.sound)
 	dice.position=Vector2(610,245)
 	dice.rotation=0
 	status.text=result.reason
+	show_fortune_result()
 	if int(result.face)==2: await map.presentation.full_heal()
 	close_button.disabled=false
 	busy=false
