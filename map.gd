@@ -15,6 +15,7 @@ const GraveyardStoryEntryMotion = preload("res://systems/graveyard_story_entry_m
 const CommanderPortraitMotion = preload("res://systems/knight_commander_portrait_motion.gd")
 const MonsterHunterLayerMotion = preload("res://systems/monster_hunter_layer_motion.gd")
 const CultistStoryLayerMotion = preload("res://systems/cultist_story_layer_motion.gd")
+const RitualPortalLayerMotion = preload("res://systems/ritual_portal_layer_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
@@ -1105,10 +1106,15 @@ func show_ritual_portal_beat(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
-	var layer_path: String=RitualPortalBeats.layer_for(str(beat.visual))
+	var visual: String=str(beat.visual)
+	var layer_path: String=RitualPortalBeats.layer_for(visual)
 	if not layer_path.is_empty():
-		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		InkSceneReveal.play(ritual_art)
+		var bounds: Rect2=RitualPortalLayerMotion.source_rect(TILE_EVENT_SCENE_RECT)
+		var ritual_art=image(panel,layer_path,bounds.position,bounds.size)
+		ritual_art.name="PortalEnergyLayer" if visual=="energy" else ("PortalCultistsLayer" if visual=="cultists" else "PortalOmenLayer")
+		# Frozen web JS animates portal_reveal and omen; its crossing ID
+		# is absent from the canonical five beats, so cultists stay still.
+		RitualPortalLayerMotion.play(ritual_art,beat.id in ["portal_reveal","omen"])
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narration: String=RitualPortalBeats.INTERVENTION_EFFECT if intervening and scene_state.battle_result=="" else str(beat.effect)
@@ -1162,7 +1168,10 @@ func show_ritual_portal_aftermath(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
-	image(panel,RitualPortalBeats.OMEN_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var bounds: Rect2=RitualPortalLayerMotion.source_rect(TILE_EVENT_SCENE_RECT)
+	var omen=image(panel,RitualPortalBeats.OMEN_ART,bounds.position,bounds.size)
+	omen.name="PortalOmenLayer"
+	RitualPortalLayerMotion.play(omen,false)
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,65),17)
