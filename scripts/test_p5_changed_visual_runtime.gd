@@ -81,9 +81,14 @@ func _run() -> void:
 
 	var save_path: String = "user://p5_changed_art_%d.json" % OS.get_process_id()
 	clean(save_path)
-	var s = SESSION.new()
-	s.name = "RunSession"
-	root.add_child(s)
+	# --script keeps configured production autoloads in /root on some runners.
+	# Never spawn a second RunSession: the production Map reads /root/RunSession.
+	var s = root.get_node_or_null("RunSession")
+	var created_session: bool = s == null
+	if created_session:
+		s = SESSION.new()
+		s.name = "RunSession"
+		root.add_child(s)
 	var previous_path: String = s.save_file_path
 	s.save_file_path = save_path
 	s.start_new_world()
@@ -151,8 +156,9 @@ func _run() -> void:
 	root.remove_child(map)
 	map.queue_free()
 	s.save_file_path = previous_path
-	root.remove_child(s)
-	s.queue_free()
+	if created_session:
+		root.remove_child(s)
+		s.queue_free()
 	clean(save_path)
 	print("P5_03B_VISUAL_RUNTIME: %d passed, %d failed, 4 changed illustrations checked; PC/user visual approval remains REQUIRED" % [passed, failures])
 	if failures > 0:
