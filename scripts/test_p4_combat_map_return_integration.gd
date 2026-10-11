@@ -143,7 +143,14 @@ func _scenario(session: Node, victor: String) -> void:
 	map.queue_free()
 	await process_frame
 	session.reload_world()
-	check(session.world.snapshot()==committed,label+": result and player units persist across full reload")
+	var loaded: Dictionary = session.world.snapshot()
+	if loaded != committed:
+		for key in committed:
+			if committed[key] != loaded.get(key):
+				var before_text: String = JSON.stringify(committed[key])
+				var after_text: String = JSON.stringify(loaded.get(key))
+				print("P4_DIAG ",label," field=",key," before=",before_text.substr(0,480)," after=",after_text.substr(0,480))
+	check(loaded==committed,label+": result and player units persist across full reload")
 	check(session.world.reward_receipts.size()==expected_receipts,label+": reopening map cannot duplicate capture receipt")
 	check(session.world.cleared.has(target)==(victor=="ally"),label+": win/loss tile state survives reload")
 	check(session.world.contamination==(2 if victor=="ally" else 3),label+": original once-only contamination result survives reload")
