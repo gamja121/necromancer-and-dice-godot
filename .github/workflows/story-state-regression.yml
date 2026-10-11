@@ -6,6 +6,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_natural_story_arrival.gd"
       - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_p4_ritual_portal_live_integration.gd"
       - "scripts/test_p4_cultist_altar_branch_integration.gd"
@@ -94,6 +95,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_natural_story_arrival.gd"
       - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_p4_ritual_portal_live_integration.gd"
       - "scripts/test_p4_cultist_altar_branch_integration.gd"
@@ -201,6 +203,16 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: P4-02E-A natural untouched map die graveyard rescue and village rumor
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 300s godot --headless --path . --script res://scripts/test_p4_natural_story_arrival.gd 2>&1 | tee p4-natural-story.log
+          grep -E 'P4_NATURAL_STORY_ARRIVAL: [0-9]+ passed, 0 failed' p4-natural-story.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-natural:' p4-natural-story.log; then
+            exit 1
+          fi
+
       - name: P4-02D entire original child-rescue-to-king storyline and abandonment gate
         shell: bash
         run: |
