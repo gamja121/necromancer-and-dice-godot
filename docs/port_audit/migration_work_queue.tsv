@@ -17,8 +17,8 @@ P2-01	P2	battle-rule	DONE	같은 주사위 눈금에서 저주가 축복보다 �
 P2-02	P2	battle-rule	DONE	속도/슬롯 완전 동률 시 웹과 동일한 저장 가능한 RNG tie-break로 맞출지 확정하고 구현	P0-02	W086가 완료 또는 승인된 의도 변경
 P2-03	P2	unit-data	TODO	Godot 추가 dracula를 정식 콘텐츠로 유지할지 웹 기준 밖 확장으로 분리할지 확정	P0-02	W080 상태 확정, 46종 웹 데이터는 유지
 P2-04	P2	save-policy	DONE	Godot user:// 단일 프로세스 저장에서 revision 대체 정책을 확정하고 강제종료/재실행/중복처리 테스트	P0-02	W153 단일 작성자 정책 문서화 및 별도 Godot 프로세스 강제 종료 전/후·재실행·중복 방지 CI 통과 (동시 인스턴스 및 P4 통합 검증 별도)
-P3-01	P3	title	TODO	웹 title-theme.mp3를 이관할지 새 Godot 타이틀 음악을 확정하고 타이틀 BGM 동작 구현	P0-02	W005 오디오 부분 완료
-P3-02	P3	title	TODO	타이틀 옵션에서 Music/SFX 설정 접근 가능하게 연결	P3-01	W006 완료
+P3-01	P3	title	DONE	웹 title-theme.mp3를 이관할지 새 Godot 타이틀 음악을 확정하고 타이틀 BGM 동작 구현	P0-02	title-theme.mp3 원본 SHA 이관, Godot TitleBgm/공용 Music 버스 반복 재생과 테스트
+P3-02	P3	title	DONE	타이틀 옵션에서 Music/SFX 설정 접근 가능하게 연결	P3-01	W006 완료: 타이틀 Music/SFX 토글·Master 음량, 공용 audio_settings.cfg 저장/복원 테스트
 P3-03	P3	title	TODO	웹 영상/로고/버튼 대신 cemetery 레이어형 Godot 타이틀을 최종 기준으로 문서 확정	P0-02	타이틀 시각 차이가 승인된 의도 변경으로 고정
 P3-04	P3	visual	TODO	goblin-commoner 15개 + soul-reaper 16개 갱신 전투 프레임 실제 재생 확인	P0-02	W195 에셋/재생 검증 완료
 P3-05	P3	visual	TODO	장소 배경 7종 Godot 갱신본과 구름/상점/순찰/포획 UI 대체 연출 실제 화면 승인	P0-02	시각 대체 항목 승인 기록
