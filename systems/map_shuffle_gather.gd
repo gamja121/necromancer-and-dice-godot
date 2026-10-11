@@ -21,7 +21,7 @@ const FLIP_HALF_DURATION = 0.105
 const FLIP_STAGGER = 0.008
 const FLIP_EXPAND_DURATION = 0.135
 const LANDING_LIFT = 4.0
-const LANDING_DURATION = 0.17
+const LANDING_DURATION = 0.14 # Heavy slab: accelerate downward, then stop without rebound.
 const SHADOW_OFFSET = Vector2(4.0, 7.0)
 const SHADOW_TINT = Color(0.035, 0.022, 0.045, 0.31)
 # Faint magical focus only. The die face and position never animate.
@@ -269,8 +269,9 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 	await scatter_tween.finished
 	_play_sound("land")
 
-	# Short 2.5D landing: the face rises four pixels, falls with a soft
-	# bounce, and its contact shadow fades as the full-size tile settles.
+	# Stone slab landing: fall the final four pixels with accelerating
+	# weight and stop firmly at the board. Neither position nor flip may
+	# overshoot or bounce, as stone would feel rubbery.
 	# Delay by tile index to preserve the existing staggered reveal.
 	reveal_tween = create_tween().set_parallel(true)
 	for i in range(tile_visuals.size()):
@@ -286,11 +287,11 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		shadow.position.y = SHADOW_OFFSET.y + LANDING_LIFT
 		reveal_tween.tween_property(visual, "scale:x", 0.04, FLIP_HALF_DURATION).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		reveal_tween.tween_callback(_reveal_tile_face.bind(visual, shadow, next_texture)).set_delay(delay + FLIP_HALF_DURATION)
-		reveal_tween.tween_property(visual, "scale", Vector2.ONE, FLIP_EXPAND_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		reveal_tween.tween_property(visual, "position:y", landing_y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
-		# Mirror the same bounce on the child offset so the shadow stays
-		# fixed to the board rather than floating upward with the tile.
-		reveal_tween.tween_property(shadow, "position:y", SHADOW_OFFSET.y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		reveal_tween.tween_property(visual, "scale", Vector2.ONE, FLIP_EXPAND_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		reveal_tween.tween_property(visual, "position:y", landing_y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		# Match the falling tile offset so its shadow stays anchored on
+		# the board, instead of lifting and bouncing with the stone.
+		reveal_tween.tween_property(shadow, "position:y", SHADOW_OFFSET.y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		reveal_tween.tween_property(shadow, "modulate:a", 0.0, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await reveal_tween.finished
 
