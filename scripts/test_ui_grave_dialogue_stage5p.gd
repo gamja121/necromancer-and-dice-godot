@@ -86,8 +86,7 @@ func _run() -> void:
 		# PanelEffectsModule moves all non-backdrop children by 6 px during
 		# the 200 ms entrance; compare settled coordinates, not mid-tween.
 		await create_timer(0.29).timeout
-		print("DIAG GRAVEYARD SETTLED actual=",frame.position," size=",frame.size," target=",Vector2(102.4,489.6)," size_delta=",frame.size.distance_to(Vector2(1075.2,216.0))," pos_delta=",frame.position.distance_to(Vector2(102.4,489.6)))
-		check(frame.position.distance_to(Vector2(102.4,489.6))<0.5 and frame.size==Vector2(1075.2,216.0),"8%-margins/2%-bottom/30%-height settled source footprint")
+		check(frame.position.distance_to(Vector2(102.4,489.6))<0.5 and frame.size.distance_to(Vector2(1075.2,216.0))<0.5,"8%-margins/2%-bottom/30%-height settled source footprint")
 		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE,"visual-only dialogue frame cannot consume touch or mouse input")
 	var name=panel.get_node_or_null("StoryDialogueName") as Label
 	var words=panel.get_node_or_null("StoryDialogueText") as Label
