@@ -765,8 +765,8 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]:
 			show_ritual_portal_intro(index)
 			return
-	# A restarted run reopens the saved king-hunt arrival or trace beat.
-	# Never create a new world-tree event solely by reading a save.
+	# Reload resumes an already-saved arrival, trace or revival-mode dialogue.
+	# No world-tree scene begins solely by loading a save.
 	if MonsterKingHuntEntry.can_enter(session,index):
 		if session.get_story_event(MonsterKingHuntEntry.EVENT_ID).status=="seen":
 			show_monster_king_hunt_intro(index)
@@ -966,7 +966,7 @@ func show_monster_king_hunt_intro(index: int) -> void:
 func show_monster_king_hunt_beat(index: int) -> void:
 	if not MonsterKingHuntEntry.can_enter(session,index): return
 	var beat_index: int=MonsterKingHuntEntry.current_beat(session)
-	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index)
+	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))
 	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
@@ -978,10 +978,14 @@ func show_monster_king_hunt_beat(index: int) -> void:
 		InkSceneReveal.play(scene_art)
 	var heading=label_at(panel,"사건 · 왕의 흔적",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
+	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,61),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	if beat_index==0:
+	if not str(beat.dialogue).is_empty():
+		var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(285,616),Vector2(710,34),16)
+		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if beat_index<2:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="unknown" else Vector2(651,653),Vector2(171,48),func(): advance_monster_king_hunt(index,beat_index),1)
 	if world.tiles[index]=="unknown":
 		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
