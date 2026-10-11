@@ -1,6 +1,9 @@
 extends RefCounted
 
-const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","skeleton-cavalry","grave-worm","flesh-golem","ghoul","boulder-ogre","plague-doctor","plague-frog","hydra","minotaur","yeti","ice-lord","sea-wolf","spider-knight","spiderling","goblin-chief","goblin-commoner","goblin-soldier","grave-priest","doom-executor","abyss-eye","hell-mantis","abyss-claw-hunter","corpse-slime","scorpion-knight","ancient-treant","stone-golem","kraken","crystal-devourer","raging-treant","cerberus","mushroom-soldier","goblin-rider","abyss-harpy","orc-warrior","bone-golem","forest-fairy","mummy-guardian","soul-reaper","bone-hound","mimic","ice-princess","siren","dracula"]
+const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","skeleton-cavalry","grave-worm","flesh-golem","ghoul","boulder-ogre","plague-doctor","plague-frog","hydra","minotaur","yeti","ice-lord","sea-wolf","spider-knight","spiderling","goblin-chief","goblin-commoner","goblin-soldier","grave-priest","doom-executor","abyss-eye","hell-mantis","abyss-claw-hunter","corpse-slime","scorpion-knight","ancient-treant","stone-golem","kraken","crystal-devourer","raging-treant","cerberus","mushroom-soldier","goblin-rider","abyss-harpy","orc-warrior","bone-golem","forest-fairy","mummy-guardian","soul-reaper","bone-hound","mimic","ice-princess","siren"]
+# Only the original fixed HTML V2 combat catalog may enter normal
+# encounters or random rewards. Extra Godot catalog entries stay readable
+# for existing saves, but do not silently change web-equivalent runs.
 const GRADES = ["normal","advanced","hero"]
 const STAGES = [
 	{"min":0,"counts":[1,2],"weights":[0.65,0.35],"grades":[0.90,0.10,0.0]},
@@ -9,6 +12,9 @@ const STAGES = [
 	{"min":60,"counts":[3],"weights":[1.0],"grades":[0.35,0.50,0.15]},
 	{"min":80,"counts":[3,4],"weights":[0.55,0.45],"grades":[0.20,0.55,0.25]}
 ]
+
+static func eligible_roster(definitions: Dictionary) -> Array:
+	return ROSTER.filter(func(slug): return definitions.has(slug) and definitions[slug].grade in GRADES)
 
 static func stage(contamination: int) -> Dictionary:
 	for index in range(STAGES.size()-1,-1,-1):
@@ -35,7 +41,7 @@ static func slugs(definitions: Dictionary, contamination: int, loop: int, rng: R
 	var current = stage(contamination)
 	var requested = int(intel.count) if not intel.is_empty() else int(weighted(current.counts,current.weights,rng))
 	var count = constrained_count(requested,loop)
-	var available: Array = ROSTER.filter(func(slug): return definitions.has(slug) and definitions[slug].grade in GRADES)
+	var available: Array = eligible_roster(definitions)
 	var result: Array = []
 	if not intel.is_empty():
 		var anchors = available.filter(func(slug): return definitions[slug].grade==intel.grade and intel.legion in definitions[slug].legions)
@@ -56,7 +62,7 @@ static func scout_intel(definitions: Dictionary, contamination: int, loop: int, 
 	var current = stage(contamination)
 	var count = constrained_count(int(weighted(current.counts,current.weights,rng)),loop)
 	var grade: String = weighted(GRADES,current.grades,rng)
-	var pool: Array = ROSTER.filter(func(slug): return definitions.has(slug) and definitions[slug].grade in GRADES and not definitions[slug].legions.is_empty())
+	var pool: Array = eligible_roster(definitions).filter(func(slug): return not definitions[slug].legions.is_empty())
 	var candidates = pool.filter(func(slug): return definitions[slug].grade==grade)
 	if candidates.is_empty():
 		grade = definitions[pool[rng.randi_range(0,pool.size()-1)]].grade
