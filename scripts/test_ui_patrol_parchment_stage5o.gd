@@ -104,7 +104,8 @@ func _run() -> void:
 	route.queue_free()
 	await process_frame
 	var snapshot: Dictionary=world.snapshot().duplicate(true)
-	check(session.reload_world(),"new scene reads saved patrol route from JSON")
+	session.reload_world()
+	check(session.world!=null and session.notice.is_empty(),"new scene reads saved patrol route from JSON")
 	check(session.world.patrol_plan==actual_changed and session.world.reward_receipts.size()==receipts_before+1,"selected route and single receipt survive process-style reload")
 	var route2=RouteUI.new()
 	map.stage.add_child(route2)
