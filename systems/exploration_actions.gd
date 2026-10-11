@@ -2,6 +2,8 @@ extends "res://systems/reward_ui.gd"
 signal closed
 const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
+const ROUTE_RESERVE_ART = "res://assets/map/ui/patrol-route-frame.webp"
+const ROUTE_CURRENT_ART = "res://assets/map/ui/patrol-route-current-frame.webp"
 const MapState = preload("res://systems/map_state.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅"}
@@ -65,8 +67,14 @@ func setup(map_scene, tile_index: int) -> void:
 		else: status.text="남은 마물 타일의 적 수·등급·군단을 확인합니다 · 정확한 종류는 전투 진입 시 결정"
 	else:
 		plan=session.world.patrol_plan.duplicate(true)
-		action_button=button(self,"경로 확정",Vector2(655,465),Vector2(210,42),confirm_route)
-		button(self,"기본 경로",Vector2(414,465),Vector2(210,42),func(): plan=RoutePlan.default_plan(); selected_current=-1; selected_reserve=-1; render_route())
+		close_button.text="닫기"
+		close_button.position=Vector2(430,561)
+		close_button.size=Vector2(128,36)
+		status.position=Vector2(145,515)
+		status.size=Vector2(722,42)
+		status.add_theme_font_size_override("font_size",13)
+		action_button=button(self,"경로 확정",Vector2(614,561),Vector2(160,36),confirm_route)
+		button(self,"기본값",Vector2(245,561),Vector2(148,36),func(): plan=RoutePlan.default_plan(); selected_current=-1; selected_reserve=-1; render_route())
 		render_route()
 
 func clear_content() -> void:
@@ -157,28 +165,64 @@ func render_route() -> void:
 	current_options=[]
 	reserve_options=[]
 	var used=session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts
-	label_at(content,"현재 경로 6칸",Vector2(300,98),Vector2(680,32),19)
-	label_at(content,"교체판 5칸",Vector2(300,270),Vector2(680,32),19)
+	# Original reference: two real parchment panels, not two flattened rows.
+	if ResourceLoader.exists(ROUTE_RESERVE_ART):
+		var large=art(content,ROUTE_RESERVE_ART,Vector2(74,92),Vector2(829,541))
+		large.stretch_mode=TextureRect.STRETCH_SCALE
+	else:
+		var backup=ColorRect.new()
+		backup.position=Vector2(74,92)
+		backup.size=Vector2(829,541)
+		backup.color=Color("c6a77c")
+		content.add_child(backup)
+	if ResourceLoader.exists(ROUTE_CURRENT_ART):
+		var small=art(content,ROUTE_CURRENT_ART,Vector2(925,65),Vector2(284,590))
+		small.stretch_mode=TextureRect.STRETCH_SCALE
+	else:
+		var backup=ColorRect.new()
+		backup.position=Vector2(925,65)
+		backup.size=Vector2(284,590)
+		backup.color=Color("c6a77c")
+		content.add_child(backup)
+	var title=label_at(content,"교체 타일",Vector2(250,164),Vector2(450,36),23)
+	title.add_theme_color_override("font_color",Color("382416"))
+	title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	var guide=label_at(content,"현재 경로를 고른 뒤 이쪽 타일을 눌러 교체하세요",Vector2(168,207),Vector2(640,27),13)
+	guide.add_theme_color_override("font_color",Color("6a4a31"))
+	guide.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	var current_title=label_at(content,"현재 경로",Vector2(951,151),Vector2(235,33),19)
+	current_title.add_theme_color_override("font_color",Color("382416"))
+	current_title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	for area in ["current","reserve"]:
 		for i in range(plan[area].size()):
-			var id=plan[area][i]
+			var id: String=str(plan[area][i])
 			var option=TextureButton.new()
 			option.texture_normal=map.texture("res://assets/map/tiles/%s.png" % id)
 			option.ignore_texture_size=true
 			option.stretch_mode=TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			option.position=Vector2((173 if area=="current" else 250)+i*155,140 if area=="current" else 315)
-			option.size=Vector2(132,98)
+			if area=="reserve":
+				option.position=Vector2(163+i*134,289)
+				option.size=Vector2(88,88)
+			else:
+				option.position=Vector2(1034,201+i*62)
+				option.size=Vector2(56,52)
 			option.disabled=used
+			option.tooltip_text="%s · %s" % [session.world.NAMES[id],"교체 타일" if area=="reserve" else "현재 경로"]
 			add_button_effect(option)
 			option.pressed.connect(func(): choose_route(area,i))
 			content.add_child(option)
-			label_at(option,session.world.NAMES[id],Vector2(0,98),Vector2(132,26),13)
-			var selected=(selected_current if area=="current" else selected_reserve)==i
-			option.modulate=Color.WHITE if selected else Color(0.78,0.71,0.61)
+			if area=="reserve":
+				var label=label_at(content,session.world.NAMES[id],option.position+Vector2(-10,87),Vector2(108,24),11)
+				label.add_theme_color_override("font_color",Color("f2ddb7"))
+			var selected: bool=(selected_current if area=="current" else selected_reserve)==i
+			option.modulate=Color("fff0c8") if selected else Color.WHITE
+			if selected:
+				option.scale=Vector2(1.08,1.08)
+				option.pivot_offset=option.size*0.5
 			if area=="current": current_options.append(option)
 			else: reserve_options.append(option)
 	action_button.disabled=used
-	status.text="이번 방문의 경로는 확정했습니다 · 다음 맵 배치에 적용" if used else ("교체판에서 바꿀 타일을 선택하세요" if selected_current>=0 else ("현재 경로에서 바꿀 타일을 선택하세요" if selected_reserve>=0 else "현재 경로와 교체판 타일을 하나씩 눌러 교환하세요 · 현재 맵은 유지"))
+	status.text="이번 방문의 경로는 확정했습니다 · 다음 맵 배치에 적용" if used else ("교체판에서 바꿀 타일을 선택하세요" if selected_current>=0 else ("현재 경로에서 바꿀 타일을 선택하세요" if selected_reserve>=0 else "현재 경로와 교체판에서 하나씩 눌러 교환하세요 · 현재 맵은 유지"))
 
 func choose_route(area: String, i: int) -> void:
 	if session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
