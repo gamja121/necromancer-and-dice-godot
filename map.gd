@@ -1049,10 +1049,16 @@ func show_monster_king_hunt_beat(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
-	var layer_path: String=MonsterKingHuntBeats.visual_art(str(beat.visual))
+	# Frozen web reuses the already ported hunter scene and hunter portrait
+	# layer CSS, but only trace and revival play their source animations.
+	var visual: String=str(beat.visual)
+	var layer_path: String=MonsterKingHuntBeats.visual_art(visual)
 	if not layer_path.is_empty():
-		var scene_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		InkSceneReveal.play(scene_art)
+		var is_portrait: bool=visual=="portrait"
+		var bounds: Rect2=MonsterHunterLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,is_portrait)
+		var hunt_layer=image(panel,layer_path,bounds.position,bounds.size)
+		hunt_layer.name="KingHuntPortrait" if is_portrait else "KingHuntSceneLayer"
+		MonsterHunterLayerMotion.play(hunt_layer,is_portrait,beat.id==("revival" if is_portrait else "trace"))
 	var heading=label_at(panel,"사건 · 왕의 흔적",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,61),18)
