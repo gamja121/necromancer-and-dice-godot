@@ -1246,7 +1246,7 @@ func show_graveyard_child_intro(index: int) -> void:
 
 # Source v2-event-lab: illustrated left scene, right parchment story and
 # choices, separate bottom speech frame over artwork. Presentation only.
-const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
+const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.png"
 func graveyard_story_chrome(panel: Control, background: String, overlay_art: String, title: String, narrative: String, speaker: String = "", speech: String = "", animate_art: bool = false) -> void:
 	var scene_back=ColorRect.new()
 	scene_back.name="StorySceneBackdrop"

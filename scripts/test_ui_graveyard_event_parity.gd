@@ -51,7 +51,7 @@ func _run() -> void:
 	map.show_graveyard_child_beat(grave,2)
 	check(child_named(map.overlay,"StoryCharacterLayer")!=null,"ghoul visible on its own image layer")
 	check(ResourceLoader.exists(map.GRAVEYARD_DIALOGUE_FRAME),"pinned original dialogue frame imported")
-	check(child_named(map.overlay,"StoryDialogueFrame")!=null,"bottom speech frame overlay rendered")
+	check(child_named(map.overlay,"StoryDialogueFrame") is TextureRect and child_named(map.overlay,"StoryDialogueFrame").texture!=null,"bottom dialogue frame actually decodes and renders")
 	var speech=child_named(map.overlay,"StoryDialogueText")
 	check(speech is Label and speech.text.contains("도와주세요"),"original child dialogue appears in speech frame")
 	map.show_graveyard_child_beat(grave,3)
