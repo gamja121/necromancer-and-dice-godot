@@ -1,0 +1,40 @@
+name: Diagnose Rare Cleared PNG Pixel Integrity
+on:
+  push:
+    branches:
+      - feature/ui-parity-rare-cleared-tile-stage5k-20261011
+    paths:
+      - .github/workflows/ui-rare-tile-image-diagnostic.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check-pixel-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+      - name: Inspect repaired source and recover intact pixel rows if needed
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from PIL import Image, ImageFile
+          import io, hashlib, base64
+          path="assets/map/tiles/rare-monster-cleared.png"
+          for allow in [False, True]:
+            ImageFile.LOAD_TRUNCATED_IMAGES=allow
+            try:
+              im=Image.open(path)
+              im.load()
+              rgba=im.convert("RGBA")
+              alpha=rgba.getchannel("A")
+              colors=rgba.getcolors(maxcolors=1000000) or []
+              print("RARE_DECODE allow_truncated="+str(allow)+" size="+str(rgba.size)+" bbox="+str(alpha.getbbox())+" alpha_range="+str(alpha.getextrema())+" colors="+str(len(colors))+" pixel_sha256="+hashlib.sha256(rgba.tobytes()).hexdigest(),flush=True)
+              raw=io.BytesIO()
+              rgba.save(raw,format="PNG",optimize=True)
+              print("RARE_REENCODED_PNG_BASE64="+base64.b64encode(raw.getvalue()).decode("ascii"),flush=True)
+            except Exception as ex:
+              print("RARE_DECODE_FAILED allow_truncated="+str(allow)+" error="+repr(ex),flush=True)
+          PY
