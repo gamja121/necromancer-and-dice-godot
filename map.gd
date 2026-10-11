@@ -18,6 +18,8 @@ const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
 const CultistAltarEntry = preload("res://systems/cultist_altar_entry.gd")
 const RitualPortalEntry = preload("res://systems/ritual_portal_entry.gd")
 const RitualPortalBeats = preload("res://systems/ritual_portal_beats.gd")
+const MonsterKingHuntEntry = preload("res://systems/monster_king_hunt_entry.gd")
+const MonsterKingHuntBeats = preload("res://systems/monster_king_hunt_beats.gd")
 const CultistAltarBeats = preload("res://systems/cultist_altar_beats.gd")
 const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
 const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
@@ -405,6 +407,13 @@ func show_tile(index: int) -> void:
 			show_ritual_portal_intro(index)
 			return
 		status.text = session.notice
+	# P1-05K-1: completed portal revival unlocks a *new* first visit
+	# to the world tree (or canonical wildcard event), never a boss fight.
+	if type in ["unknown","event"] and MonsterKingHuntEntry.can_enter(session,index):
+		if MonsterKingHuntEntry.begin(session,index):
+			show_monster_king_hunt_intro(index)
+			return
+		status.text = session.notice
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -755,6 +764,12 @@ func resume_village_rumor_if_unfinished() -> void:
 	if RitualPortalEntry.can_enter(session,index):
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]:
 			show_ritual_portal_intro(index)
+			return
+	# A restarted run reopens only an already-saved hunt discovery.
+	# Never trigger a new world-tree story solely by reading a save.
+	if MonsterKingHuntEntry.can_enter(session,index):
+		if session.get_story_event(MonsterKingHuntEntry.EVENT_ID).status=="seen":
+			show_monster_king_hunt_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
@@ -941,6 +956,26 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 ## is read-only; do not enable energy layers, final battle or revival.
 ## P1-05J-4: the source-canonical fourth scene reveals the king omen.
 ## Final intervention, combat and actual revival stay locked.
+## P1-05K-1: original king-hunt first world-tree scene only.
+## The hunter's portrait, later clues and final king fight remain locked.
+func show_monster_king_hunt_intro(index: int) -> void:
+	if not MonsterKingHuntEntry.can_enter(session,index): return
+	if MonsterKingHuntEntry.current_beat(session)!=0: return
+	var beat: Dictionary=MonsterKingHuntBeats.beat(0)
+	if beat.is_empty(): return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(art)
+	var heading=label_at(panel,"사건 · 왕의 흔적",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if world.tiles[index]=="unknown":
+		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
 func show_ritual_portal_intro(index: int) -> void:
 	if RitualPortalEntry.aftermath_ready(session,index):
 		show_ritual_portal_aftermath(index)
