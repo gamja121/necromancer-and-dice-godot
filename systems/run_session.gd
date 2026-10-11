@@ -399,9 +399,17 @@ func finish_encounter(battle) -> bool:
 				encounter = world.active_encounter.duplicate(true)
 				return false
 			world.boss_defeated.append(beaten_tier)
+			# Previously scouted intel describes the defeated boss. Never let
+			# a queued new boss inherit its predecessor's unit count/legion.
+			if world.scout.get("intel",[]) is Array:
+				world.scout["intel"]=world.scout.get("intel",[]).filter(func(info): return int(info.get("index",-1))!=MapState.BOSS_TILE_INDEX)
 			if world.current_boss_tier()>0:
 				world.tiles[MapState.BOSS_TILE_INDEX]="boss"
 				world.cleared.erase(MapState.BOSS_TILE_INDEX)
+				if bool(world.scout.get("scouted",false)):
+					var successor: String = world.current_boss_id()
+					var group: Array = BossRoster.formation(successor,world.current_boss_tier())
+					world.scout["intel"].append({"index":MapState.BOSS_TILE_INDEX,"type":"boss","count":group.size(),"grade":"hero","legion":world.definitions[successor].legions[0]})
 			else:
 				world.tiles[MapState.BOSS_TILE_INDEX]="monster"
 				if not MapState.BOSS_TILE_INDEX in world.cleared: world.cleared.append(MapState.BOSS_TILE_INDEX)
