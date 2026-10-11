@@ -12,6 +12,7 @@ const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
 const GraveyardStoryEntryMotion = preload("res://systems/graveyard_story_entry_motion.gd")
+const CommanderPortraitMotion = preload("res://systems/knight_commander_portrait_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
@@ -881,8 +882,13 @@ func show_knight_commander_beat(index: int) -> void:
 	var panel=modal()
 	var artwork=image(panel,KnightCommanderEntry.ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
-	# Commander speaks in six beats; the silent player reply swaps portraits.
-	image(panel,str(beat.portrait),Vector2(692,179),Vector2(265,338))
+	# The frozen web uses distinct right/mirrored commander and left player
+	# portrait footprints, with entrance animation only at beats 0, 2 and 3.
+	var player_reply: bool = str(beat.id)=="player_reply"
+	var portrait_bounds: Rect2 = CommanderPortraitMotion.source_rect(TILE_EVENT_SCENE_RECT,player_reply)
+	var portrait = image(panel,str(beat.portrait),portrait_bounds.position,portrait_bounds.size)
+	portrait.name = "PlayerStoryPortrait" if player_reply else "CommanderStoryPortrait"
+	CommanderPortraitMotion.play(portrait,player_reply,beat.id in ["arrival","recognition","player_reply"])
 	var heading=label_at(panel,"사건 · 기사단장",Vector2(348,84),Vector2(584,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narrative=label_at(panel,str(beat.effect),Vector2(285,530),Vector2(710,63),17)
