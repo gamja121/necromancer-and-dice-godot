@@ -221,9 +221,8 @@ func pray() -> void:
 		# already-persisted boss tile in place, with a quiet short fade.
 		var boss_button: TextureButton = map.buttons[MapState.BOSS_TILE_INDEX]
 		boss_button.texture_normal = map.texture(map.tile_path(MapState.BOSS_TILE_INDEX))
-		boss_button.tooltip_text = "24번 · 보스"
-		boss_button.modulate.a = 0.35
-		map.create_tween().tween_property(boss_button,"modulate:a",1.0,0.30).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		boss_button.tooltip_text = "24번 · 보스 · "+str(session.world.definitions[session.world.current_boss_id()].name)
+		map.play_boss_tile_reveal()
 		status.text += " · 보스 타일 출현"
 	var popup = PrayerEffect.new()
 	popup.position = Vector2(556,315)

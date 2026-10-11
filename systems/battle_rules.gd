@@ -9,6 +9,8 @@ var legions: Dictionary = {}
 var round_number = 0
 var last_id = ""
 var events: Array = []
+# Assigned boss species are exclusive to the boss tier in this run.
+var forbidden_species: Array = []
 const NEED = {"skeleton":3,"beast":3,"corpse":2,"plague":3,"ice":3,"summon":2,"demon":3,"plant":2,"insect":2,"element":2}
 const COUNTS = {"critical":1,"vampire":0,"combo":1,"freeze":1,"poison":0,"guard":0,"summon":2,"counter":1,"healing":0,"lightspeed":2}
 const POOLS = {"spider-knight":["spiderling"],"goblin-chief":["goblin-commoner"],"grave-priest":["skeleton-spear","skeleton-archer","skeleton-cavalry"],"crystal-devourer":["guardian-seed"]}
@@ -197,8 +199,9 @@ func summon_round() -> void:
 		events.append("%s → %s 소환" % [owner.name,pet.name])
 	for seed_unit in units.duplicate():
 		if seed_unit.alive and seed_unit.slug == "guardian-seed" and round_number >= seed_unit.born_round+2:
-			var d = definitions["crystal-devourer"]
-			seed_unit.slug = "crystal-devourer"
+			var growth: String = "raging-treant" if "crystal-devourer" in forbidden_species else "crystal-devourer"
+			var d = definitions[growth]
+			seed_unit.slug = growth
 			seed_unit.name = d.name
 			seed_unit.legions = d.legions.duplicate()
 			seed_unit.max_hp = int(d.hp)
@@ -381,7 +384,7 @@ func step(forced_face: int = 0) -> Dictionary:
 	return {"face":face,"events":events.duplicate(),"winner":winner(),"round":round_number,"order":order}
 
 func snapshot() -> Dictionary:
-	return {"version":1,"units":units.duplicate(true),"legions":legions.duplicate(true),"round":round_number,"last_id":last_id,"rng_seed":str(rng.seed),"rng_state":str(rng.state)}
+	return {"version":1,"units":units.duplicate(true),"legions":legions.duplicate(true),"round":round_number,"last_id":last_id,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"forbidden_species":forbidden_species.duplicate()}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("units") is Array or not saved.get("legions") is Dictionary:
@@ -417,6 +420,7 @@ func restore(saved: Dictionary) -> bool:
 		for p in u.poison: p.remaining = int(p.remaining)
 		for key in u.bless: u.bless[key] = int(u.bless[key])
 		for key in u.curse: u.curse[key] = int(u.curse[key])
+	forbidden_species = saved.get("forbidden_species",[]).duplicate()
 	legions = saved.legions.duplicate(true)
 	round_number = int(saved.round)
 	last_id = saved.last_id

@@ -175,7 +175,10 @@ func render() -> void:
 		node.size = TILE_SIZE
 		node.position = center(i)-node.size/2
 		node.pivot_offset = node.size/2
-		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
+		var tile_label: String = MapState.NAMES[world.tiles[i]]
+		if world.tiles[i]=="boss" and world.definitions.has(world.current_boss_id()):
+			tile_label += " · "+str(world.definitions[world.current_boss_id()].name)
+		node.tooltip_text = "%d번 · %s%s" % [i+1,tile_label," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
 		if world.scout.scouted and not i in world.cleared and world.scout.intel.any(func(entry): return int(entry.index)==i):
@@ -1444,5 +1447,18 @@ func exit_home() -> void:
 		show_home()
 	else:
 		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
-		if contamination_before_exit < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
-			status.text += " · 보스 타일 출현"
+		if world.tiles[MapState.BOSS_TILE_INDEX]=="boss" and (contamination_before_exit < MapState.BOSS_CONTAMINATION or world.boss_peak in [40,60]):
+			status.text += " · %s 출현" % str(world.definitions[world.current_boss_id()].name)
+			play_boss_tile_reveal()
+
+func play_boss_tile_reveal() -> void:
+	if buttons.size()<=MapState.BOSS_TILE_INDEX: return
+	if world.tiles[MapState.BOSS_TILE_INDEX]!="boss": return
+	var tile: TextureButton = buttons[MapState.BOSS_TILE_INDEX]
+	tile.pivot_offset = tile.size*0.5
+	tile.modulate = Color("f75a51")
+	var tween = tile.create_tween()
+	tween.tween_property(tile,"scale",Vector2.ONE*1.09,0.16).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(tile,"scale",Vector2.ONE,0.22).set_trans(Tween.TRANS_CUBIC)
+	tween.parallel().tween_property(tile,"modulate",Color.WHITE,0.38)
+

@@ -18,11 +18,15 @@ on:
       - feature/stone-shuffle-final-qa-20261011
       - feature/boss-tile-contamination-20-20261011
       - feature/boss-tile-preserve-step3-20261011
+      - feature/boss-roster-tiers-tile-grades-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
       - "systems/cultist_altar_*.gd"
       - "systems/run_session.gd"
+      - "systems/boss_roster.gd"
+      - "systems/encounter_generator.gd"
+      - "systems/battle_rules.gd"
       - "systems/story_battle_registry.gd"
       - "scripts/test_map_shuffle_*.gd"
       - ".github/workflows/map-shuffle-branch.yml"
