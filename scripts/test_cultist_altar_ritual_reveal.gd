@@ -43,7 +43,7 @@ func fixture(suffix: String, on_event_tile: bool = false):
 	return s
 
 func source_and_visual_contract() -> void:
-	check(Beats.count()==2,"only original arrival and ritual revelation present")
+	check(Beats.count()==3,"arrival, ritual and original choice beats present")
 	check(Beats.beat(0)==Altar.FIRST_BEAT,"P1-05I-1 arrival unchanged")
 	check(Beats.beat(1).id=="ritual_reveal","original second scene id")
 	check(Beats.beat(1).effect=="광신도들이 제단을 둘러싸고 마물의 왕을 위한 의식을 준비하고 있다.","original second narration exactly")
@@ -51,7 +51,8 @@ func source_and_visual_contract() -> void:
 	check(Beats.beat(1).dialogue.is_empty(),"second scene is silent")
 	check(Beats.beat(1).speaker.is_empty(),"no speaker before choice")
 	check(Beats.beat(-1).is_empty(),"negative scene does not exist")
-	check(Beats.beat(2).is_empty(),"fight/pass choice is not added")
+	check(Beats.beat(2).id=="choice","third choice beat added without changing ritual scene")
+	check(Beats.beat(2).visual=="ritual","choice keeps original ritual artwork")
 	check(Beats.layer_for("base").is_empty(),"arrival is background-only")
 	check(Beats.layer_for("ritual")==Beats.RITUAL,"second stage uses original ritual layer")
 	check(Beats.layer_for("summon").is_empty(),"summoning layer stays disabled")
@@ -64,7 +65,8 @@ func source_and_visual_contract() -> void:
 	check(Altar.progress_flag(-1).is_empty(),"negative progress marker rejected")
 	check(Altar.progress_flag(0).is_empty(),"first scene remains implicit")
 	check(Altar.progress_flag(1)=="event:cultist_altar_encounter_01:beat:1","original save schema reused")
-	check(Altar.progress_flag(2).is_empty(),"third choice stage is not writable yet")
+	check(Altar.progress_flag(2)=="event:cultist_altar_encounter_01:beat:2","third choice stage has durable progress receipt")
+	check(Altar.progress_flag(3).is_empty(),"later stages cannot be written")
 	var source: String=FileAccess.get_file_as_string("res://map.gd")
 	check(source.contains('func show_cultist_altar_intro(index: int) -> void:'),"old first-scene API retained")
 	check(source.contains('func show_cultist_altar_beat(index: int) -> void:'),"new scene renderer present")
@@ -74,12 +76,12 @@ func source_and_visual_contract() -> void:
 	check(source.contains("InkSceneReveal.play(ritual_art)"),"ritual layer reveals over static base")
 	check(source.contains("str(beat.effect)"),"source narration displayed")
 	check(source.contains("CultistAltarEntry.advance(session,index,shown_beat)"),"continue button saves exact beat")
-	check(source.contains('if beat_index==0:'),"only first scene offers Continue")
+	check(source.contains('if beat_index<2:'),"first two scenes offer Continue")
 	check(source.contains('"제단 기능"'),"existing altar actions remain")
 	check(source.contains('"돌아가기"'),"back action remains")
 	check(not source.contains("start_cultist_altar_battle("),"altar battle not connected")
-	check(not source.contains('"지나간다"'),"pass choice not connected")
-	check(not source.contains('"싸운다"'),"fight choice not connected")
+	check(source.contains('"지나간다"'),"pass choice displayed only at original choice beat")
+	check(source.contains('"싸운다"'),"fight choice displayed only at original choice beat")
 
 func play_two_scenes(on_event_tile: bool) -> void:
 	var s=fixture("event" if on_event_tile else "altar",on_event_tile)
@@ -101,14 +103,16 @@ func play_two_scenes(on_event_tile: bool) -> void:
 	check(s.get_story_event(Altar.EVENT_ID).status=="seen","story remains in progress")
 	var saved: Dictionary=s.world.snapshot().duplicate(true)
 	check(not Altar.advance(s,index,0),"stale previous button is blocked")
-	check(not Altar.advance(s,index,1),"second scene cannot advance to future choice")
-	check(s.world.snapshot()==saved,"invalid or duplicate clicks do not mutate state")
+	check(s.world.snapshot()==saved,"invalid prior beat does not mutate state")
 	s.reload_world()
 	check(s.world.position==index,"reload restores story location")
 	check(Altar.current_beat(s)==1,"reload restores the ritual overlay scene")
 	check(Altar.begin(s,index),"reopening does not erase revealed stage")
 	check(Altar.current_beat(s)==1,"reopen preserves second beat")
 	check(s.world.snapshot()==saved,"reopen made no unapproved mutations")
+	check(Altar.advance(s,index,1),"reveal continues to the canonical third choice scene")
+	check(Altar.current_beat(s)==2,"third scene selected independently of choice")
+	check(not Altar.advance(s,index,1),"stale reveal click cannot skip the choice")
 	s.free()
 
 func save_failure() -> void:
