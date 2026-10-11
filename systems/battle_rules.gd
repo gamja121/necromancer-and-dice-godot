@@ -312,6 +312,24 @@ func winner() -> String:
 		return "ally"
 	return ""
 
+## Source v2-rules.js roll(): one cursed brand on this unit/face
+## suppresses ALL other blessings on the same unit/face, not only its type.
+## A curse on another unit or another face has no effect here.
+static func resolve_brand_face(brands: Array, face: int) -> Dictionary:
+	var cursed_face: bool=false
+	for brand in brands:
+		if face in brand.curse:
+			cursed_face=true
+			break
+	var blessings: Dictionary={}
+	var curses: Dictionary={}
+	for brand in brands:
+		if face in brand.curse:
+			curses[brand.type]=curses.get(brand.type,0)+1
+		elif not cursed_face and face in brand.bless:
+			blessings[brand.type]=blessings.get(brand.type,0)+1
+	return {"bless":blessings,"curse":curses}
+
 func step(forced_face: int = 0) -> Dictionary:
 	if not winner().is_empty():
 		return {"face":0,"events":[],"winner":winner(),"round":round_number}
@@ -328,11 +346,9 @@ func step(forced_face: int = 0) -> Dictionary:
 	for u in units:
 		if not u.alive:
 			continue
-		for b in u.brands:
-			if face in b.bless:
-				u.bless[b.type] = u.bless.get(b.type,0)+1
-			if face in b.curse:
-				u.curse[b.type] = u.curse.get(b.type,0)+1
+		var applied: Dictionary=resolve_brand_face(u.brands,face)
+		u.bless=applied.bless
+		u.curse=applied.curse
 		u.shields = 0 if u.curse.get("guard",0)>0 else u.bless.get("guard",0)
 	refresh()
 	var support_order = units.filter(func(u): return u.alive)

@@ -10,6 +10,13 @@
 - Commit only intended, tested changes when authorized. Push only to an explicitly authorized remote/branch. Never force-push, rewrite history, or delete source assets without authorization.
 - Never commit credentials, personal assistant data, or machine-specific secrets. Do not disable antivirus, the sandbox, or AnyDesk to speed up development.
 
+## Primary objective — finish migration, then retire the web prototype (2026-10-11)
+
+- The user's overriding development priority is to **finish migrating the fixed HTML/JS web prototype to Godot as quickly as safely possible, verify complete feature/rule/art/save parity, archive its source, then delete the obsolete web prototype repository**. This is not a request to invent additional story, boss combat or features that were not in the frozen source.
+- Use `docs/port_audit/feature_parity_audit.tsv`, `docs/port_audit/migration_work_queue.tsv` and `docs/port_audit/08_current_migration_reconciliation_20261011.md` to select the next actual missing/partial functionality. Implement and verify the smallest complete missing behavior first, updating the queue. The previous 2026-10-10 audit is a preserved historical snapshot.
+- A green headless CI test or zero code-missing audit rows does **not** authorize deletion. Require end-to-end gameplay and visual/regression checks, zero unapproved partial items, independence from web runtime URLs/files, a verified complete archive of code/art/design materials, a plan to relocate/retire Pages preview currently hosted by the web repo, and the user's explicit final deletion approval. Never delete the web repository automatically or destroy source art.
+- Preserve others' Godot branches and map stone-shuffle improvements during parallel work. The web version remains read-only throughout migration.
+
 ## Public Godot development policy (2026-10-10)
 
 - Canonical development repository: https://github.com/gamja121/necromancer-and-dice-godot (public). The local active project remains C:/Dev/necromancer_and_dice.
