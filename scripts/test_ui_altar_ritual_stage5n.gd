@@ -95,6 +95,10 @@ func _run() -> void:
 	await process_frame
 	session.reload_world()
 	var fresh: Dictionary=session.world.snapshot()
+	if fresh!=serial:
+		for key in serial.keys():
+			if fresh.get(key)!=serial[key]:
+				print("DIAG altar key=",key," before=",JSON.stringify(serial[key]).substr(0,900)," after=",JSON.stringify(fresh.get(key)).substr(0,900))
 	check(fresh==serial,"ritual state and roster survive JSON reload")
 	map=MapScene.instantiate()
 	root.add_child(map)
