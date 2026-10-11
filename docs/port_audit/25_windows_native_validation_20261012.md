@@ -33,3 +33,22 @@ godot --headless --path . --script res://scripts/test_p4_natural_commander_hunte
 ```
 
 테스트는 GitHub-hosted Windows의 실패/통과 여부를 각각 기록한다. 검증 결과와 실행 ID는 CI 이후 문서에 추가한다.
+
+## 실측 결과 — Windows 네이티브 Godot 검증 (2026-10-12)
+
+- CI 실행: https://github.com/gamja121/necromancer-and-dice-godot/actions/runs/38178248371
+- **Windows용 Godot 4.7.2** 설치와 프로젝트 에디터 임포트 **PASS**.
+- 7개 Windows Godot headless 원본 런타임 스위트가 **총 1,621 PASS / 0 FAIL**:
+  - 타이틀 원본 음악/설정 저장: **22 PASS**
+  - 타이틀 새 게임→인트로→맵: **24 PASS**
+  - Godot 변경 그림 4개 Texture2D·실제 UI: **114 PASS**
+  - 47종 마물·애니메이션 연결: **912 PASS**
+  - 사건 전체 원본 진행 및 승패/방치 분기: **321 PASS**
+  - 완전한 자연 집 귀환과 타일 셔플: **65 PASS**
+  - 공동묘지→구조 마을→기사단장→사냥꾼 무단축 자연 이동: **163 PASS**
+- Windows 그래픽 드라이버는 **Windows / OpenGL ES 3.0 ANGLE / Microsoft Basic Render Driver (D3D11)**로 동작. 실제 Windows GPU 하드웨어와 동일한 환경이라고 해석하지 않는다.
+- 최초 Windows 그래픽 픽셀 버퍼에서 **1280×720 PNG 네 장** 생성 확인: 타이틀 2,091,198바이트, 맵 1,955,260바이트, 집 실내 1,691,557바이트, 점술가 막사 1,609,670바이트. `InkSceneReveal` 0.65초 연출 때문에 **최초 점술가 캡처는 애니메이션 중간 프레임**이었으며, 이후 검수본은 완결 프레임을 기다리도록 시험 코드를 개선했다.
+- 오디오: GitHub-hosted Windows에는 유효한 WASAPI 출력 장치가 없어 `audio_device_init`가 실패하고 Godot가 **dummy audio driver**로 대체되었음. 따라서 **가청 음질·사운드 ON/OFF 실기 승인은 절대 주장하지 않는다**.
+- 원화 품질 승인, PC 파일 SHA 동기화, 실제 모니터·오디오, Windows 사용자의 원본 백업은 **미확인**이다. `P4-01H`라는 별도 자동검사만 DONE; P4/P5 상위/실기 항목은 변함없이 TODO.
+
+CI artifact `windows-native-godot-validation`에 Windows 전용 테스트 7개 로그, 임포트 로그, 스크린샷 PNG 4개를 보존한다(30일). 검수용으로만 사용하며 원본 이미지 파일은 수정하지 않았다.
