@@ -245,6 +245,9 @@ func restore(saved: Dictionary) -> bool:
 	graveyard_corpses = saved.get("graveyard_corpses",[]).duplicate(true)
 	reward_receipts = saved.get("reward_receipts",[]).duplicate()
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
+	# A selected treasure card index must restore as int, not JSON float.
+	if pending_reward.get("kind","")=="treasure" and pending_reward.has("selected"):
+		pending_reward.selected = int(pending_reward.selected)
 	next_serial = maxi(2,int(saved.get("next_serial",2)))
 	move_serial = maxi(0,int(saved.get("move_serial",0)))
 	map_serial = maxi(0,int(saved.get("map_serial",0)))

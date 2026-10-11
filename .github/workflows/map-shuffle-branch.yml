@@ -214,6 +214,13 @@ jobs:
           timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee p4-map-move.log
           grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' p4-map-move.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-' p4-map-move.log; then exit 1; fi
+      - name: Latest main P4 actual treasure, home recovery and next lap integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee p4-reward-home-lap.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' p4-reward-home-lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-' p4-reward-home-lap.log; then exit 1; fi
       - name: Latest main P4 embedded combat and map-return integration
         shell: bash
         run: |
