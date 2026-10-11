@@ -98,6 +98,16 @@ func _run() -> void:
 	await capture_frame("03_home_interior_native_windows.png")
 	map.close_overlay()
 	map.show_location(0)
+	# The location art is intentionally revealed by a 0.65s pen-and-ink tween.
+	# Capture the settled final UI, not a misleading half-revealed frame.
+	await create_timer(1.1).timeout
+	var art: TextureRect = null
+	if is_instance_valid(map.overlay):
+		for node in map.overlay.get_children():
+			if node is TextureRect and node.texture == map.texture("res://assets/map/events/fortune-teller.jpg"):
+				art = node
+				break
+	check(art != null and art.material == null, "fortune teller final scene reveal completed before visual evidence")
 	await capture_frame("04_fortune_teller_native_windows.png")
 	map.close_overlay()
 	current_scene = null
