@@ -62,6 +62,7 @@ var overlay: Control:
 	set(value):
 		overlay = value
 		if is_instance_valid(map_audio): map_audio.set_modal_blocked(is_instance_valid(value))
+		_sync_map_chrome()
 var selected = -1
 var moving = false
 var textures: Dictionary = {}
@@ -72,6 +73,16 @@ var battle_returning = false
 var returning_story_event_id: String = ""
 var deck_button: TextureButton
 var dice_count_label: Label
+# Frozen web map hides board controls (not tiles/hero) behind an open event.
+# Track only chrome created by render(), so rebuilt boards cannot retain old nodes.
+var map_chrome: Array[Control] = []
+
+func _sync_map_chrome() -> void:
+	var show_board_controls: bool = not is_instance_valid(overlay)
+	for control in map_chrome:
+		if is_instance_valid(control): control.visible = show_board_controls
+	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
+		presentation.gauge.visible = show_board_controls
 
 func _ready() -> void:
 	DisplayServer.window_set_title("Necromancer and Dice")
@@ -169,6 +180,7 @@ func render() -> void:
 		remove_child(stage)
 		stage.queue_free()
 	buttons = []
+	map_chrome.clear()
 	stage = Control.new()
 	stage.size = Vector2(1280,720)
 	add_child(stage)
@@ -211,7 +223,8 @@ func render() -> void:
 	hud = label_at(stage,"%s · %d바퀴" % [{"default":"기본 지역","winter":"겨울 지역","hell":"지옥 지역"}[world.region],world.laps],Vector2(420,16),Vector2(440,30),14)
 	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.z_index = 25
-	button(stage,"새 원정",Vector2(12,12),Vector2(94,30),confirm_new_run).z_index = 25
+	var restart_button = button(stage,"새 원정",Vector2(12,12),Vector2(94,30),confirm_new_run)
+	restart_button.z_index = 25
 	var book = TextureButton.new()
 	book.ignore_texture_size = true
 	book.texture_normal = texture("res://assets/map/ui/map-book-closed.png")
@@ -226,7 +239,8 @@ func render() -> void:
 	add_button_effect(book)
 	book_lock = BookBattleLock.new()
 	book.add_child(book_lock)
-	label_at(stage,"보유 마물 %d" % world.roster.size(),Vector2(20,684),Vector2(130,26),12).z_index = 51
+	var roster_count = label_at(stage,"보유 마물 %d" % world.roster.size(),Vector2(20,684),Vector2(130,26),12)
+	roster_count.z_index = 51
 	deck_button = TextureButton.new()
 	deck_button.ignore_texture_size = true
 	deck_button.texture_normal = texture("res://assets/map/ui/map-card-deck.png")
@@ -240,6 +254,7 @@ func render() -> void:
 	add_button_effect(deck_button)
 	dice_count_label = label_at(stage,"주사위 카드 %d/5" % world.dice_cards.size(),Vector2(1120,684),Vector2(150,26),12)
 	dice_count_label.z_index = 51
+	map_chrome.append_array([dice,status,hud,restart_button,book,roster_count,deck_button,dice_count_label])
 	map_audio = AudioSettings.new()
 	map_audio.setup(stage)
 	map_audio.set_modal_blocked(is_instance_valid(overlay))
@@ -252,6 +267,7 @@ func render() -> void:
 	image(options,"res://assets/map/ui/map_audio_options.webp",Vector2.ZERO,options.size)
 	add_button_effect(options)
 	dice.disabled = moving
+	_sync_map_chrome()
 	highlight(world.position)
 
 func hero_position(index: int) -> Vector2:
