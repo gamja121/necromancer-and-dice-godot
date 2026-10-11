@@ -14,6 +14,7 @@ on:
       - feature/stone-shuffle-departure-20261011
       - feature/stone-shuffle-rotation-inertia-20261011
       - feature/stone-shuffle-dust-impact-20261011
+      - feature/stone-shuffle-audio-weight-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -142,3 +143,10 @@ jobs:
           timeout 70s godot --headless --path . --script res://scripts/test_map_shuffle_stone_dust.gd 2>&1 | tee stone-dust.log
           grep -E 'MAP_SHUFFLE_STONE_DUST: [0-9]+ passed, 0 failed' stone-dust.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-dust.log; then exit 1; fi
+      - name: Weighted stone sound and physical impact sync regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 80s godot --headless --path . --script res://scripts/test_map_shuffle_stone_sfx.gd 2>&1 | tee stone-sfx.log
+          grep -E 'MAP_SHUFFLE_STONE_SFX: [0-9]+ passed, 0 failed' stone-sfx.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-sfx.log; then exit 1; fi
