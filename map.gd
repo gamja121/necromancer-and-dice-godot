@@ -26,6 +26,8 @@ const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
+const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
+const GRAVEYARD_DIALOGUE_RECT = Rect2(102.4,489.6,1075.2,216.0)
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
@@ -1259,20 +1261,43 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if is_instance_valid(overlay): close_overlay()
 	var panel = modal()
 	var artwork = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	artwork.name="StorySceneImage"
 	if beat_index == 0: InkSceneReveal.play(artwork)
 	if beat.ghoul:
-		image(panel,GraveyardStoryBeats.GHOUL_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		var ghoul_art=image(panel,GraveyardStoryBeats.GHOUL_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		ghoul_art.name="StoryCharacterLayer"
 	var heading = label_at(panel,"습격받는 아이",Vector2(352,84),Vector2(575,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
 	var chosen: bool = state.status == "active" and state.choice == "protect_child"
 	var description: String = "아이를 구하기 위해 구울 앞을 막아섰다. 출전할 마물을 선택해 구울과 싸우세요." if chosen else str(beat.effect)
-	var narration = label_at(panel,description,Vector2(275,552),Vector2(730,52),17)
+	var has_dialogue: bool=not str(beat.dialogue).is_empty() and not chosen
+	var narration = label_at(panel,description,Vector2(275,425) if has_dialogue else Vector2(275,552),Vector2(730,52),17)
+	narration.name="StoryInfoPanel"
 	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if not str(beat.dialogue).is_empty() and not chosen:
-		var dialogue = label_at(panel,"아이: %s" % beat.dialogue,Vector2(398,602),Vector2(485,28),17)
-		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if has_dialogue:
+		# Source v2-map-practice.css: dialogue left/right 8%, bottom 2%,
+		# height 30%, with a full-stretch original WebP and overlaid text.
+		# This is visual-only; existing Continue/choice buttons remain the
+		# sole story state transitions, never the decorative frame.
+		var frame=image(panel,GRAVEYARD_DIALOGUE_FRAME,GRAVEYARD_DIALOGUE_RECT.position,GRAVEYARD_DIALOGUE_RECT.size)
+		frame.name="StoryDialogueFrame"
+		frame.stretch_mode=TextureRect.STRETCH_SCALE
+		var speaker=label_at(panel,"아이",Vector2(210,526),Vector2(280,31),20)
+		speaker.name="StoryDialogueName"
+		speaker.add_theme_color_override("font_color",Color("3a2819"))
+		speaker.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		var dialogue=label_at(panel,str(beat.dialogue),Vector2(210,580),Vector2(830,45),24)
+		dialogue.name="StoryDialogueText"
+		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		dialogue.add_theme_color_override("font_color",Color("21150d"))
+		dialogue.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		if not beat.choice:
+			var advance_hint=label_at(panel,"▼",Vector2(1052,653),Vector2(38,30),19)
+			advance_hint.name="StoryDialogueNext"
+			advance_hint.add_theme_color_override("font_color",Color("5e4329"))
+			advance_hint.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	# The original location actions remain available on graveyard tiles.
 	if world.tiles[index] == "graveyard":
 		location_button(panel,"공동묘지 기능",Vector2(870,495),Vector2(167,48),func(): dismiss_overlay(func(): show_location(index)),4)
