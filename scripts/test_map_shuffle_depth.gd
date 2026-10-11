@@ -73,7 +73,7 @@ func _run() -> void:
 		fresh.append(old_face if i in Layout.FIXED_INDICES else texture_for(Color(float(i) / 24.0, 0.5, 0.6)))
 	# Observe the middle of the coroutine using a timer signal while
 	# awaiting play_scatter normally (Godot 4 requires explicit await).
-	var sample: Dictionary = {"ran":false, "faded":false, "synchronized":true}
+	var sample: Dictionary = {"ran":false, "faded":false, "synchronized":true, "anchored":true, "lifting":false}
 	var probe_timer := create_timer(Gather.SCATTER_DURATION + Gather.FLIP_HALF_DURATION + 0.075)
 	probe_timer.timeout.connect(func():
 		sample["ran"] = true
@@ -84,11 +84,22 @@ func _run() -> void:
 				sample["faded"] = true
 			if face.texture != shadow.texture:
 				sample["synchronized"] = false
+			var target_index: int = int(Layout.SCATTER_DESTINATIONS[i])
+			var board_y: float = buttons[target_index].position.y
+			# Local offsets cancel the lift, so contact shadows do not
+			# jump upward even while cards rebound in place.
+			var contact_y: float = face.position.y + shadow.position.y
+			if absf(contact_y - (board_y + Gather.SHADOW_OFFSET.y)) > 0.5:
+				sample["anchored"] = false
+			if face.position.y < board_y - 0.5:
+				sample["lifting"] = true
 	)
 	var saved_ok: bool = await shuffle.play_scatter(fresh, true)
 	check(bool(sample["ran"]), "landing motion sampled while active")
 	check(bool(sample["faded"]), "contact shadow fades during landing")
 	check(bool(sample["synchronized"]), "reveal texture and shadow silhouette stay in sync")
+	check(bool(sample["anchored"]), "all contact shadows stay anchored during lift and bounce")
+	check(bool(sample["lifting"]), "landing bounce produces visible upward displacement")
 	check(saved_ok, "scatter and landing complete")
 	check(shuffle.tile_shadows.is_empty() and shuffle.tile_visuals.is_empty(), "all temporary faces and shadows cleaned up")
 	check(buttons.all(func(tile): return tile.visible), "all gameplay tile buttons visible")
