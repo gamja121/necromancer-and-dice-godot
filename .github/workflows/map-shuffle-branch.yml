@@ -51,3 +51,10 @@ jobs:
           godot --headless --path . --script res://scripts/test_map_shuffle_rotation.gd 2>&1 | tee rotation.log
           grep -E 'MAP_SHUFFLE_ROTATION: [0-9]+ passed, 0 failed' rotation.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' rotation.log; then exit 1; fi
+      - name: Scatter, reveal and save-failure regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_scatter.gd 2>&1 | tee scatter.log
+          grep -E 'MAP_SHUFFLE_SCATTER: [0-9]+ passed, 0 failed' scatter.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' scatter.log; then exit 1; fi
