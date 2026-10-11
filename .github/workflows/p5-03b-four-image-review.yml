@@ -64,7 +64,7 @@ jobs:
           python3 scripts/build_p5_03b_visual_review.py \
             --root . --frozen-root "$RUNNER_TEMP/p5-03b-frozen" \
             --output "$RUNNER_TEMP/p5-03b-results" 2>&1 | tee p5-03b-preview.log
-          grep -F 'P5_03B_PREVIEW_PASS: 4 pinned original/current image pairs' p5-03b-preview.log
+          grep -F 'P5_03B_PREVIEW_PASS: 4 pinned image pairs, 2 decoded original backgrounds, 2 truncated original WebP portraits' p5-03b-preview.log
           grep -F 'P5_03B_DELETION_BLOCKED:' p5-03b-preview.log
           python3 - "$RUNNER_TEMP/p5-03b-results" <<'PY'
           import json
@@ -74,13 +74,16 @@ jobs:
           root = Path(sys.argv[1])
           info = json.loads((root / "review-manifest.json").read_text(encoding="utf-8"))
           assert len(info["images"]) == 4
+          assert info["original_images_decodable"] == 2
+          assert info["original_images_truncated"] == 2
+          assert sum(item["original_decodable"] for item in info["images"]) == 2
           assert all(item["visual_approval"] == "PENDING" for item in info["images"])
           assert all(item["runtime_scene_acceptance"] == "NOT_CHECKED" for item in info["images"])
           for name in [i["comparison"] for i in info["images"]] + [info["comparison_sheet"]]:
               with Image.open(root / name) as im:
                   im.verify()
           assert len(list(root.glob("*-comparison.png"))) == 4
-          print("P5_03B_PREVIEW_ARTIFACT_VERIFIED: four full previews, one contact sheet, provenance JSON")
+          print("P5_03B_PREVIEW_ARTIFACT_VERIFIED: two background before/after comparisons, two damaged-original warning panels, one contact sheet, provenance JSON")
           PY
 
       - name: Preserve review previews as CI artifact, not an art approval
