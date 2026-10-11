@@ -90,10 +90,6 @@ func test_treasure(session: Node) -> void:
 	await process_frame
 	session.reload_world()
 	world = session.world
-	if world.pending_reward != pending_at_interrupt:
-		print("P4_REWARD_DIAG before=",JSON.stringify(pending_at_interrupt))
-		print("P4_REWARD_DIAG after=",JSON.stringify(world.pending_reward))
-		print("P4_REWARD_DIAG selected_type=",typeof(pending_at_interrupt.get("selected")),":",typeof(world.pending_reward.get("selected")))
 	check(world.pending_reward==pending_at_interrupt,"half-selected treasure resumes from JSON without new random offers")
 	map = MapScene.instantiate()
 	root.add_child(map)
