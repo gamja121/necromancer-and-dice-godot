@@ -163,9 +163,13 @@ func fight_real(session: Node, map: Control, story_id: String, victor: String, l
 	check(is_deck(map),label+": actual 1-4 owned-unit selection displayed")
 	if not is_deck(map): return false
 	var deck: Control=map.overlay
-	var selected_id: String=str(session.world.roster[0].id)
-	deck.toggle_unit(selected_id)
-	check(deck.selected_ids.size()==1 and not deck.confirm_button.disabled,label+": player can select one truly owned monster")
+	var ids: Array=[str(session.world.roster[0].id)]
+	# Portal's four hero-led opponents require the two original owned units
+	# for deterministic test victory, as proven by the P4-02C battle fixture.
+	if story_id==PORTAL.EVENT_ID and victor=="ally":
+		ids.append(str(session.world.roster[1].id))
+	for id in ids: deck.toggle_unit(str(id))
+	check(deck.selected_ids.size()==ids.size() and not deck.confirm_button.disabled,label+": player selects truly owned monster cards")
 	deck.confirm_button.pressed.emit()
 	var started: bool=await until_ready(func(): return is_instance_valid(map.embedded_battle) and not map.embedded_battle.rules.units.is_empty(),18000)
 	check(started,label+": real embedded battlefield starts only after deck confirm")
@@ -333,6 +337,9 @@ func rescue_and_king(session: Node, victor: String) -> void:
 	ui_button(map,"마치기").pressed.emit()
 	var won: bool=victor=="ally"
 	check(PORTAL.completed(session) and session.event_flag_is_set(PORTAL.WEAKENED_FLAG)==won and session.event_flag_is_set(PORTAL.FULL_REVIVAL_FLAG)!=won,label+":portal actual Finish commits weakened win / full defeat")
+	check(ALTAR.completed(session),label+":portal handoff does not erase historical completed altar receipt")
+	var completed_world: Dictionary=session.world.snapshot().duplicate(true)
+	check(ALTAR.finish(session,session.world.position) and session.world.snapshot()==completed_world,label+":repeating finished altar is read-only even after portal handoff")
 	check(session.event_flag_is_set(PORTAL.HUNT_FLAG) and not session.event_flag_is_set(PORTAL.TRACKING_FLAG),label+":portal confirmation atomically transfers tracking quest to king hunt")
 	await close_and_reload(session,map,label+":portal")
 
