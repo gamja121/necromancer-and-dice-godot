@@ -47,9 +47,8 @@ func ensure_world() -> void:
 		if not parsed is Dictionary or not world.restore(parsed):
 			notice = "저장된 맵을 읽지 못해 새 원정을 시작했습니다."
 		else:
-			# Older saves between contamination 20 and 79 predate the new
-			# boss threshold. Upgrade the existing 24th tile in place without
-			# rerolling the board or changing other saved progress.
+			# Upgrade older 20+ saves only if the last slot is an ordinary
+			# monster. Other legacy tile types stay intact until next shuffle.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
 			if world.reveal_boss_at_threshold() and not save_world():
 				world.restore(before_upgrade)
@@ -770,11 +769,16 @@ func pray_world_tree(index: int) -> Dictionary:
 	var face = world.rng.randi_range(1,6)
 	var delta = -5 if face==6 else (-3 if face>=4 else 1)
 	world.contamination = clampi(world.contamination+delta,0,100)
-	var boss_appeared: bool = before.contamination < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION
+	var threshold_crossed: bool = before.contamination < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION
+	var had_boss: bool = world.tiles[MapState.BOSS_TILE_INDEX] == "boss"
 	world.reward_receipts.append(visit)
 	world.prayer_result = {"visit":visit,"face":face,"delta":delta}
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"face":face,"boss_appeared":boss_appeared,"reason":"%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ( "축복" if face>=4 else "실패"),delta,world.contamination]}
+	var boss_appeared: bool = not had_boss and world.tiles[MapState.BOSS_TILE_INDEX] == "boss"
+	var reason: String = "%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ("축복" if face>=4 else "실패"),delta,world.contamination]
+	if threshold_crossed and not boss_appeared and not had_boss:
+		reason += " · 보스는 다음 맵 재편성 때 출현"
+	return {"ok":true,"face":face,"boss_appeared":boss_appeared,"reason":reason}
 
 func graveyard_choices(corpse_id: String) -> Array:
 	var choices: Array = []

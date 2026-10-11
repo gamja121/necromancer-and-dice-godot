@@ -74,7 +74,9 @@ func generate() -> void:
 	var conversion = mini(requested_conversion,counts.basic)
 	counts.basic -= conversion
 	counts.monster += conversion
-	if contamination>=BOSS_CONTAMINATION: counts.monster -= 1
+	# Reserve the last slot as one ordinary monster before the boss unlocks.
+	# Only this slot changes at contamination 20; other tiles are preserved.
+	counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
 		for i in range(counts[key]): pool.append(key)
@@ -88,7 +90,7 @@ func generate() -> void:
 		if i==0: tiles.append("fortune-teller-camp")
 		elif i==8: tiles.append("village")
 		elif i==HOME: tiles.append("home")
-		elif i==BOSS_TILE_INDEX and contamination>=BOSS_CONTAMINATION: tiles.append("boss")
+		elif i==BOSS_TILE_INDEX: tiles.append("boss" if contamination>=BOSS_CONTAMINATION else "monster")
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
@@ -96,12 +98,15 @@ func generate() -> void:
 
 
 ## If contamination reaches 20 during an existing lap (e.g. a failed
-## world-tree prayer), reveal the boss without waiting for another lap.
+## world-tree prayer), reveal the reserved monster without waiting a lap.
+## Legacy boards with a different tile there defer until the next shuffle.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
 	if contamination < BOSS_CONTAMINATION or tiles.size() != 24:
 		return false
-	if tiles[BOSS_TILE_INDEX] == "boss":
+	if tiles[BOSS_TILE_INDEX] != "monster":
+		# Older saved boards may have events, warps, rewards or rare enemies
+		# in the final slot. Never erase or move them mid-lap.
 		return false
 	tiles[BOSS_TILE_INDEX] = "boss"
 	# A previously cleared or scouted ordinary tile cannot carry those

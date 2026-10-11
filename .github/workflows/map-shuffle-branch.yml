@@ -17,6 +17,7 @@ on:
       - feature/stone-shuffle-audio-weight-20261011
       - feature/stone-shuffle-final-qa-20261011
       - feature/boss-tile-contamination-20-20261011
+      - feature/boss-tile-preserve-step3-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"

@@ -36,6 +36,7 @@ func _run() -> void:
 		state.contamination = corruption
 		state.generate()
 		check(boss_count(state.tiles) == 0, "no premature boss at contamination %d" % corruption)
+		check(state.tiles[23] == "monster" and state.tiles.count("monster") == 5, "future boss slot reserves a normal monster below 20")
 		check(state.tiles[0] == "fortune-teller-camp" and state.tiles[8] == "village" and state.tiles[15] == "home", "fixed tile types retained below 20")
 	for corruption in [20,21,39,40,79,80,100]:
 		state.contamination = corruption
@@ -43,6 +44,7 @@ func _run() -> void:
 		check(state.tiles[23] == "boss" and boss_count(state.tiles) == 1, "exactly one boss tile at contamination %d" % corruption)
 		check(state.tiles.size() == 24 and state.tiles[0] == "fortune-teller-camp" and state.tiles[8] == "village" and state.tiles[15] == "home", "24-slot geometry unchanged at %d" % corruption)
 		check(state.tiles.count("monster") >= 4, "one existing monster slot replaced; no missing tiles at %d" % corruption)
+		check(state.tiles.count("monster") + boss_count(state.tiles) == (5 if corruption < 40 else (6 if corruption < 80 else 7)), "only an ordinary monster converts to boss at %d" % corruption)
 
 	state.contamination = 19
 	state.generate()
@@ -58,6 +60,16 @@ func _run() -> void:
 	var restored = MapState.new(definitions,999)
 	check(restored.restore(snapshot) and restored.tiles[23] == "boss", "boss reveal survives snapshot restore")
 	check(restored.rng.state == state.rng.state, "boss conversion does not reroll RNG")
+
+	# Historical boards can have special tiles in the last slot.
+	state.contamination = 19
+	state.generate()
+	state.tiles[23] = "event"
+	state.contamination = 20
+	var protected_tiles: Array = state.tiles.duplicate()
+	var protected_rng: int = state.rng.state
+	check(not state.reveal_boss_at_threshold(), "legacy special tile is not overwritten")
+	check(state.tiles == protected_tiles and state.rng.state == protected_rng, "deferred reveal preserves every saved position and RNG")
 
 	var session = root.get_node_or_null("RunSession")
 	if session == null:
@@ -89,16 +101,32 @@ func _run() -> void:
 	session.reload_world()
 	check(session.world.contamination == 20 and session.world.tiles[23] == "boss", "boss tile persists across full session reload")
 
-	# Old saves made while the threshold was 80: migrate without rerolling.
+	# Old 80-threshold saves can upgrade a normal monster without reroll.
 	session.world.contamination = 24
 	session.world.generate()
-	session.world.tiles[23] = "basic"
+	session.world.tiles[23] = "monster"
 	var last_map: Array = session.world.tiles.slice(0,23).duplicate(true)
 	var original_serial: int = session.world.map_serial
-	check(session.save_world(), "older pre-threshold snapshot stored")
+	check(session.save_world(), "older monster-slot snapshot stored")
 	session.reload_world()
-	check(session.world.tiles[23] == "boss" and session.world.tiles.slice(0,23) == last_map, "older 20-79 saves upgrade only the boss slot")
+	check(session.world.tiles[23] == "boss" and session.world.tiles.slice(0,23) == last_map, "safe old saves upgrade only the reserved monster slot")
 	check(session.world.map_serial == original_serial, "migration does not generate a new board")
+
+	# Protect the position and event state of legacy non-monster slot 24.
+	var event_index: int = session.world.tiles.find("event")
+	check(event_index >= 0, "legacy fixture contains an event")
+	if event_index >= 0:
+		session.world.tiles[event_index] = "monster"
+		session.world.tiles[23] = "event"
+	var legacy_tiles: Array = session.world.tiles.duplicate()
+	var legacy_serial: int = session.world.map_serial
+	check(session.save_world(), "legacy special-tile save prepared")
+	session.reload_world()
+	check(session.world.tiles == legacy_tiles and session.world.map_serial == legacy_serial, "reload keeps legacy event and all saved positions")
+	session.world.position = MapState.HOME
+	session.world.lap_ready = true
+	check(session.leave_home(), "next home shuffle is persisted")
+	check(session.world.tiles[23] == "boss" and boss_count(session.world.tiles) == 1, "legacy save reveals boss on next shuffle")
 
 	# A failed write must undo contamination AND boss appearance atomically.
 	session.world.contamination = 19
