@@ -122,7 +122,9 @@ jobs:
           WINDOWS_GUI_EVIDENCE_DIR: ${{ runner.temp }}/windows-godot-visual-evidence
         run: |
           $ErrorActionPreference = "Stop"
-          & $env:GODOT_WINDOWS_CONSOLE --path . --script res://scripts/test_windows_gui_evidence.gd 2>&1 | Tee-Object -FilePath windows-gui-preview.log
+          # GitHub-hosted Windows has no speaker output device. Keep its real GUI renderer,
+          # but select Godot's documented Dummy audio driver instead of failing WASAPI.
+          & $env:GODOT_WINDOWS_CONSOLE --audio-driver Dummy --path . --script res://scripts/test_windows_gui_evidence.gd 2>&1 | Tee-Object -FilePath windows-gui-preview.log
           $exitCode = $LASTEXITCODE
           $log = Get-Content -Raw windows-gui-preview.log
           if ($exitCode -ne 0 -or $log -notmatch "WINDOWS_GUI_PREVIEW: 16 captured, 0 failed") {
