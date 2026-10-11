@@ -1,19 +1,26 @@
 extends Control
-## Steps 2 and 3: gather the 21 movable map tiles, then counter-rotate
-## their two separate orbits. No game rules, dice results or saves change.
+## Steps 2-4: gather, counter-rotate, then reveal 21 refreshed map tiles.
+## Does not generate any new map, dice result or save state.
 ## This is not wired into the live home-exit transition until later steps.
 
 const Layout = preload("res://systems/map_shuffle_layout.gd")
 const SHRINK_DURATION = 0.12
 const TRAVEL_DURATION = 0.43
 const ROTATE_DURATION = 0.85
+const SCATTER_DURATION = 0.46
+const FLIP_HALF_DURATION = 0.105
+const FLIP_STAGGER = 0.008
+const FLIP_EXPAND_DURATION = 0.135
 
+var board_buttons: Array[TextureButton] = []
 var tile_sources: Array[TextureButton] = []
 var source_visibility: Array[bool] = []
 var tile_visuals: Array[TextureRect] = []
 var slots: Array[Dictionary] = []
 var gathering: Tween
 var rotation_tween: Tween
+var scatter_tween: Tween
+var reveal_tween: Tween
 var gathered := false
 var rotated := false
 
@@ -33,12 +40,20 @@ func prepare(tile_buttons: Array) -> bool:
 		return false
 	var target_slots: Array[Dictionary] = Layout.ring_slots()
 	# Validate the entire input before hiding or cloning anything.
+	for button in tile_buttons:
+		var item := button as TextureButton
+		if item == null or not is_instance_valid(item):
+			return false
+		if item.get_parent() != get_parent() or item.texture_normal == null:
+			return false
 	for slot in target_slots:
 		var source := tile_buttons[int(slot["tile_index"])] as TextureButton
 		if source == null or not is_instance_valid(source):
 			return false
 		if source.get_parent() != get_parent() or source.texture_normal == null:
 			return false
+	for button in tile_buttons:
+		board_buttons.append(button as TextureButton)
 	slots = target_slots
 	for slot in slots:
 		var source: TextureButton = tile_buttons[int(slot["tile_index"])]
@@ -59,11 +74,11 @@ func prepare(tile_buttons: Array) -> bool:
 
 
 ## At the end, cloned tiles remain at the beginning of their respective orbits.
-## Step 3 rotates the same temporary visuals; step 4 will redistribute them.
+## Rotation and scatter use these same temporary images.
 func play_gather() -> void:
 	if tile_visuals.size() != Layout.INNER_COUNT + Layout.OUTER_COUNT:
 		return
-	if gathering != null and gathering.is_running():
+	if gathered or (gathering != null and gathering.is_running()):
 		return
 	# Shrink in place first. Keeping the tiles small during travel avoids
 	# crossing/stacking that would occur if 21 full-size tiles moved at once.
@@ -105,23 +120,88 @@ func _apply_rotation_progress(progress: float) -> void:
 			visual.position = Layout.orbit_position(slots[i], progress) - visual.size * 0.5
 
 
+## Called only AFTER RunSession.leave_home() has saved the new board.
+## The caller must provide the saved board's 24 textures in tile-index order.
+## A false persistence result always restores the old visuals without changes.
+## This step does not yet replace map.gd's live cloud transition.
+func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
+	if not rotated or tile_visuals.size() != Layout.INNER_COUNT + Layout.OUTER_COUNT:
+		return false
+	if scatter_tween != null or reveal_tween != null:
+		return false
+	if not save_succeeded or not _valid_next_tiles(next_tile_textures):
+		restore_tiles()
+		return false
+
+	# The source art travels toward the closest available destination; a
+	# different tile image is chosen ONLY after arrival at that board slot.
+	scatter_tween = create_tween().set_parallel(true)
+	for i in range(tile_visuals.size()):
+		var visual: TextureRect = tile_visuals[i]
+		var destination_index: int = int(Layout.SCATTER_DESTINATIONS[i])
+		var destination: Vector2 = board_buttons[destination_index].position
+		scatter_tween.tween_property(visual, "position", destination, SCATTER_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await scatter_tween.finished
+
+	# Brief horizontal flip at each destination: shrink -> switch art ->
+	# expand to actual board tile size. The delay gives staggered landings.
+	reveal_tween = create_tween().set_parallel(true)
+	for i in range(tile_visuals.size()):
+		var visual: TextureRect = tile_visuals[i]
+		var destination_index: int = int(Layout.SCATTER_DESTINATIONS[i])
+		var next_texture: Texture2D = next_tile_textures[destination_index]
+		var delay: float = float(i) * FLIP_STAGGER
+		reveal_tween.tween_property(visual, "scale:x", 0.04, FLIP_HALF_DURATION).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		reveal_tween.tween_callback(func(): visual.texture = next_texture).set_delay(delay + FLIP_HALF_DURATION)
+		reveal_tween.tween_property(visual, "scale", Vector2.ONE, FLIP_EXPAND_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await reveal_tween.finished
+
+	# Commit the already saved images to the formerly hidden buttons, then
+	# remove the temporary cards. A later map.render() refreshes metadata.
+	for i in range(tile_visuals.size()):
+		var destination_index: int = int(Layout.SCATTER_DESTINATIONS[i])
+		board_buttons[destination_index].texture_normal = next_tile_textures[destination_index]
+	restore_tiles()
+	return true
+
+
+func _valid_next_tiles(next_tile_textures: Array) -> bool:
+	if next_tile_textures.size() != Layout.BOARD_TILE_COUNT:
+		return false
+	if board_buttons.size() != Layout.BOARD_TILE_COUNT:
+		return false
+	for i in range(next_tile_textures.size()):
+		if not next_tile_textures[i] is Texture2D:
+			return false
+	for fixed_index in Layout.FIXED_INDICES:
+		if next_tile_textures[fixed_index] != board_buttons[fixed_index].texture_normal:
+			return false
+	return true
+
 func restore_tiles() -> void:
 	if gathering != null and gathering.is_running():
 		gathering.kill()
 	if rotation_tween != null and rotation_tween.is_running():
 		rotation_tween.kill()
+	if scatter_tween != null and scatter_tween.is_running():
+		scatter_tween.kill()
+	if reveal_tween != null and reveal_tween.is_running():
+		reveal_tween.kill()
 	for i in range(tile_sources.size()):
 		if is_instance_valid(tile_sources[i]):
 			tile_sources[i].visible = source_visibility[i]
 	for visual in tile_visuals:
 		if is_instance_valid(visual):
 			visual.queue_free()
+	board_buttons.clear()
 	tile_sources.clear()
 	source_visibility.clear()
 	tile_visuals.clear()
 	slots.clear()
 	gathering = null
 	rotation_tween = null
+	scatter_tween = null
+	reveal_tween = null
 	gathered = false
 	rotated = false
 
