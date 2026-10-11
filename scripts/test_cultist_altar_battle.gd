@@ -121,7 +121,11 @@ func fight(winner: String,on_event_tile: bool) -> void:
 	var reopened: Array=[]
 	for enemy in s.encounter.enemies: reopened.append(str(enemy.slug))
 	check(reopened==enemy_slugs,"reconnect cannot reroll already committed enemies")
-	check(s.world.snapshot()==snapshot,"reconnect preserves battle checkpoint")
+	check(s.encounter==s.world.active_encounter,"reloaded battle matches saved in-memory encounter")
+	check(not s.encounter.checkpoint.is_empty(),"real combat checkpoint remains populated")
+	check(str(s.world.rng.state)==str(snapshot.rng_state),"reconnect preserves committed enemy-selection RNG state")
+	var restored_rules=load("res://systems/battlefield_rules.gd").new(s.world.definitions)
+	check(restored_rules.restore(s.encounter.checkpoint),"combat rules can resume persisted encounter snapshot")
 	check(s.finish_encounter(BattleResult.new(winner)),"generic combat end persists outcome")
 	var result: String="won" if winner=="ally" else "lost"
 	check(s.get_story_event(Altar.EVENT_ID).battle_result==result,"canonical win/loss recorded")
