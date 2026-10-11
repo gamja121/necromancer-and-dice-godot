@@ -28,6 +28,7 @@ P4-01B	P4	map-location-regression	DONE	2단계 실제 주사위 이동→7종 �
 P4-01C	P4	combat-return-regression	DONE	3단계 실제 마물 출전 덱→내장 전장 주사위/행동 승·패→전투 종료·맵 복귀 및 시체/수확 저장 검사	P4-01B	scripts/test_p4_combat_map_return_integration.gd; 실제 타일 UI/전장 승패 및 기본 수확 완료·맵 UI 복원 테스트, 패배 후 시체 정수/낙인 데이터 재로드 형식 보정 systems/map_state.gd. 후속 전체 보상·귀환·다음 바퀴는 TODO
 P4-01D	P4	reward-home-lap-regression	DONE	4단계 실제 맵 주사위→보물상자 카드 선택/중단 복구/1회 지급→집 도착·실내 완전 회복→돌 타일 셔플·다음 바퀴·저장 재실행 검증	P4-01C	scripts/test_p4_reward_home_lap_integration.gd Godot 4.7.2 PR #76 CI 38121137575: 31 PASS 0 FAIL, 전체 50 실행 단계 성공; pending_reward.selected JSON 복원 정수형 보정. P4-01 전체 end-to-end 및 PC 화면 검증은 별도 TODO
 P4-01E	P4	single-run-e2e-regression	DONE	5단계 하나의 저장된 원정에서 실제 타이틀→12장면 인트로→마물 타일 주사위·출전 덱→전투 승리·영혼 수확→보물 카드 선택·중단 후 복원·획득→집 귀환·회복·돌 셔플·다음 바퀴 이동 회귀	P4-01D	scripts/test_p4_single_run_end_to_end.gd; Godot 4.7.2 PR #77 CI 38121941291 52 PASS 0 FAIL, 전체 51개 CI 단계 성공. 테스트에서 일반 주사위 도착 타일 교환/원정 말미 집 앞 이동 지점 단축 사용. P4-01 상위 작업은 PC 실제 시각·조작 확인 및 나머지 실제 장소 흐름 검수가 남아 TODO
+P4-01F	P4	pc-visual-acceptance	TODO	6단계 Windows PC 실제 화면·조작·가청 오디오·단일 원정 중단 복원 및 7종 장소·전투·보상·집·다음 바퀴 최종 승인	P4-01E	docs/port_audit/14_p4_01_pc_visual_acceptance_20261011.md V01~V08 실기 PASS 증거/PC-GitHub SHA 동기화/최종 main CI 녹색 전 P4-01 상위 DONE 금지
 P4-02	P4	regression	TODO	사건 양 분기와 모든 사건 전투 승/패/지나감 경로 회귀	P1-12;P4-01	웹 구현 사건 체인 도달/분기 100%
 P4-03	P4	regression	TODO	전투/영혼수확/보상/이동/사건전투 각 중단 지점에서 저장 후 재실행 복원	P1-06;P2-04	중복/소실/결과변경 0
 P4-04	P4	regression	TODO	46종 기존 마물 및 dracula 정책 확정분의 카드/정보/공격/피격/사망 재생 검사	P2-03;P3-04	필수 런타임 에셋 누락 0
