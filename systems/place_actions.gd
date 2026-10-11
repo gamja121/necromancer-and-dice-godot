@@ -3,6 +3,10 @@ signal closed
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const SHOP_COUNTER_PATH = "res://assets/map/ui/monster-shop-counter.png"
 const FORTUNE_ART_PATH = "res://assets/map/events/fortune-prophecy-ui.png"
+const ALTAR_SLOTS_PATH = "res://assets/map/events/altar-ritual-slots.png"
+const ALTAR_INFO_PATH = "res://assets/map/events/altar-ritual-info.png"
+const ALTAR_SLOTS_RECT = Rect2(192.0,36.0,896.0,403.2)
+const ALTAR_INFO_RECT = Rect2(384.0,309.6,512.0,176.0)
 const SHOP_STAGE = Rect2(115.2,10.13,1049.6,699.73)
 var session
 var map
@@ -32,6 +36,10 @@ var offer_options: Array = []
 var shop_counter: TextureRect
 var shop_cancel_button: Button
 var shop_offer_scroll: ScrollContainer
+var altar_slots: TextureRect
+var altar_info: TextureRect
+var altar_scroll: ScrollContainer
+var altar_level: Label
 
 func setup(map_scene, tile_index: int) -> void:
 	map=map_scene
@@ -69,17 +77,81 @@ func setup(map_scene, tile_index: int) -> void:
 			show_fortune_result()
 		return
 	if type=="altar":
-		donor_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",Vector2(178,95),Vector2(144,210))
+		setup_altar_visual()
+		donor_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",Vector2(340,108),Vector2(190,254))
+		donor_art.name="AltarMaterialCard"
+		donor_art.z_index=3
 		donor_art.texture=null
-		donor_hint=label_at(self,"재물",Vector2(144,320),Vector2(210,35),16)
-	if type=="altar":
-		receiver_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",Vector2(952,95),Vector2(144,210))
+		donor_hint=label_at(self,"재물 먼저 선택",Vector2(320,379),Vector2(230,35),13)
+		donor_hint.name="AltarMaterialHint"
+		donor_hint.z_index=4
+		receiver_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",Vector2(752,108),Vector2(190,254))
+		receiver_art.name="AltarTargetCard"
+		receiver_art.z_index=3
 		receiver_art.texture=null
-		receiver_hint=label_at(self,"강화할 마물",Vector2(915,320),Vector2(230,35),16)
-		label_at(self,"공격력 +1 · 최대 체력 +2\n개체당 최대 3회 · 방문당 1회\n재물은 영구 소멸합니다",Vector2(385,180),Vector2(510,120),20)
-		confirm_button=button(self,"의식 실행",Vector2(525,380),Vector2(230,42),perform_ritual)
+		receiver_hint=label_at(self,"강화 대상 선택",Vector2(730,379),Vector2(235,35),13)
+		receiver_hint.name="AltarTargetHint"
+		receiver_hint.z_index=4
+		for label in [{"text":"재물","pos":Vector2(366,67)},{"text":"강화","pos":Vector2(776,67)}]:
+			var heading=label_at(self,label.text,label.pos,Vector2(148,29),17)
+			heading.z_index=4
+		confirm_button=button(self,"의식 실행",Vector2(746,435),Vector2(125,43),perform_ritual)
+		confirm_button.name="AltarRitualConfirm"
+		confirm_button.z_index=10
+		style_shop_button(confirm_button,2)
 	build_hand()
+	if type=="altar": animate_altar_open()
 	refresh()
+
+# The frozen web altar's two original images are already shipped with the
+# project but were not rendered. Their coordinates derive from source CSS
+# 15%/70% slots and 30%/40% info at the 1280x720 map design canvas.
+func setup_altar_visual() -> void:
+	altar_slots=art(self,ALTAR_SLOTS_PATH,ALTAR_SLOTS_RECT.position,ALTAR_SLOTS_RECT.size)
+	altar_slots.name="AltarRitualSlots"
+	altar_slots.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	altar_slots.z_index=2
+	altar_info=art(self,ALTAR_INFO_PATH,ALTAR_INFO_RECT.position,ALTAR_INFO_RECT.size)
+	altar_info.name="AltarRitualInfo"
+	altar_info.stretch_mode=TextureRect.STRETCH_SCALE
+	altar_info.z_index=8
+	var plaque_title=label_at(self,"피의 의식",Vector2(523,343),Vector2(238,25),18)
+	plaque_title.name="AltarRitualPlaqueTitle"
+	plaque_title.add_theme_color_override("font_color",Color("3a271b"))
+	plaque_title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	plaque_title.z_index=9
+	status.position=Vector2(445,373)
+	status.size=Vector2(390,55)
+	status.add_theme_font_size_override("font_size",12)
+	status.add_theme_color_override("font_color",Color("3a271b"))
+	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	status.z_index=9
+	altar_level=label_at(self,"강화 대상 선택 전",Vector2(474,423),Vector2(280,21),11)
+	altar_level.name="AltarRitualLevel"
+	altar_level.add_theme_color_override("font_color",Color("3a271b"))
+	altar_level.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	altar_level.z_index=9
+	close_button.position=Vector2(1114,29)
+	close_button.size=Vector2(112,39)
+	close_button.text="닫기"
+	close_button.z_index=10
+	style_shop_button(close_button,4)
+
+func animate_altar_open() -> void:
+	altar_slots.modulate.a=0.0
+	altar_info.modulate.a=0.0
+	altar_slots.position=ALTAR_SLOTS_RECT.position+Vector2(0,10)
+	altar_info.position=ALTAR_INFO_RECT.position+Vector2(0,10)
+	var enter=create_tween().set_parallel(true)
+	enter.tween_property(altar_slots,"modulate:a",1.0,0.26)
+	enter.tween_property(altar_slots,"position",ALTAR_SLOTS_RECT.position,0.26)
+	enter.tween_property(altar_info,"modulate:a",1.0,0.26)
+	enter.tween_property(altar_info,"position",ALTAR_INFO_RECT.position,0.26)
+	if is_instance_valid(hand):
+		hand.position=Vector2(0,170)
+		hand.modulate.a=0.0
+		enter.tween_property(hand,"position",Vector2.ZERO,0.68).set_delay(0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		enter.tween_property(hand,"modulate:a",1.0,0.68).set_delay(0.16)
 
 # The 1280x720 source uses a centered 82%-wide 3:2 trading counter.
 # This method ONLY runs on village tiles: altar/fortune presentation is unchanged.
@@ -151,20 +223,22 @@ func build_hand() -> void:
 	if is_instance_valid(hand): remove_child(hand); hand.queue_free()
 	unit_options={}
 	hand=Control.new()
+	hand.z_index=5 if type=="altar" else 0
 	add_child(hand)
 	var scroll=ScrollContainer.new()
-	scroll.position=Vector2(130,515)
-	scroll.size=Vector2(1020,190)
+	scroll.position=Vector2(192,532) if type=="altar" else Vector2(130,515)
+	scroll.size=Vector2(896,220) if type=="altar" else Vector2(1020,190)
 	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	if type=="altar": altar_scroll=scroll
 	hand.add_child(scroll)
 	var row=HBoxContainer.new()
-	row.custom_minimum_size.x=1000
+	row.custom_minimum_size.x=880 if type=="altar" else 1000
 	row.alignment=BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation",16)
 	scroll.add_child(row)
 	for unit in session.world.roster:
 		var box=Control.new()
-		box.custom_minimum_size=Vector2(105,182)
+		box.custom_minimum_size=Vector2(110,184) if type=="altar" else Vector2(105,182)
 		row.add_child(box)
 		var id=str(unit.id)
 		var option=card(box,"unit",unit,Vector2(4,0),Vector2(96,139),func(): select_unit(id))
@@ -201,6 +275,8 @@ func refresh() -> void:
 		AltarUpgradeBadge.sync(receiver_art,receiver)
 		var level=int(receiver.get("altar_enhancements",0))
 		receiver_hint.text="%s · 강화 %d/3" % [receiver.name,level] if not receiver.is_empty() else "강화 대상 선택"
+		if is_instance_valid(altar_level):
+			altar_level.text="강화 단계 %d/3" % level if not receiver.is_empty() else "강화 대상 선택 전"
 		var used=session.place_visit_id("ritual",index) in session.world.reward_receipts
 		confirm_button.disabled=busy or completed or used or donor.is_empty() or receiver.is_empty() or level>=3
 		if not completed: status.text="이번 방문의 의식은 완료했습니다" if used else ("강화 한도 3회에 도달했습니다" if level>=3 else "재물을 먼저 고른 뒤 강화할 마물을 선택하세요")
