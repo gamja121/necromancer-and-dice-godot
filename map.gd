@@ -750,8 +750,8 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 			return
-	# A saved arrival, portal energy or final ritual scene reopens on its
-	# actual tile. Loading never creates a previously unseen encounter.
+	# A saved arrival, portal energy, cultist ritual or king omen scene
+	# resumes on its actual tile; loading never starts a new encounter.
 	if RitualPortalEntry.can_enter(session,index):
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).status=="seen":
 			show_ritual_portal_intro(index)
@@ -939,8 +939,8 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 ## P1-05I-5: selected fight, pass follow-up and deliberate tracking completion.
 ## P1-05J-1: original first portal scene only. Reopening a saved arrival
 ## is read-only; do not enable energy layers, final battle or revival.
-## P1-05J-3: the source-canonical third scene presents the cultists
-## preparing their final ritual. Omen, final intervention and combat stay locked.
+## P1-05J-4: the source-canonical fourth scene reveals the king omen.
+## Final intervention, combat and actual revival stay locked.
 func show_ritual_portal_intro(index: int) -> void:
 	show_ritual_portal_beat(index)
 
@@ -962,7 +962,7 @@ func show_ritual_portal_beat(index: int) -> void:
 	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	if beat_index<2:
+	if beat_index<3:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="forest" else Vector2(651,653),Vector2(171,48),func(): advance_ritual_portal(index,beat_index),1)
 	if world.tiles[index]=="forest":
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
