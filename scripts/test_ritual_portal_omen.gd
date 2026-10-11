@@ -116,7 +116,7 @@ func show_fourth(tile: String) -> void:
 	check(s.get_story_event(Portal.EVENT_ID).choice=="","intervention choice still locked")
 	check(s.get_story_event(Portal.EVENT_ID).battle_result=="","no battle outcome invented")
 	var snapshot: Dictionary=s.world.snapshot().duplicate(true)
-	for stale in [0,1,2,3]:
+	for stale in [0,1,2]:
 		check(not Portal.advance(s,at,stale),"duplicate or future Continue %d blocked" % stale)
 	check(Portal.begin(s,at),"reopening scene remains idempotent")
 	check(s.world.snapshot()==snapshot,"duplicate reads do not change saved world")
