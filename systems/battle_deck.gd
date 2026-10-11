@@ -49,17 +49,21 @@ void fragment() {
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	board.add_child(art)
 	lineup = Control.new()
+	lineup.name = "SelectedLineup"
 	lineup.position = board.size*Vector2(0.204,0.272)
 	lineup.size = board.size*Vector2(0.611,0.472)
 	board.add_child(lineup)
 	hand = Control.new()
+	hand.name = "OwnedCardHand"
 	hand.position = Vector2(12.8,496.8)
 	hand.size = Vector2(870.4,244.8)
 	add_child(hand)
 	status = text_label(self,"",Vector2(610,560),Vector2(606,34),14)
+	status.name = "LineupStatus"
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	confirm_button = Button.new()
 	confirm_button.text = "전투 시작"
+	confirm_button.name = "DeckStartButton"
 	confirm_button.position = Vector2(1049.6,609.2)
 	confirm_button.size = Vector2(166.4,46)
 	var style = StyleBoxFlat.new()
@@ -120,6 +124,7 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	button.pivot_offset = dimensions/2
 	button.rotation_degrees = tilt
 	button.tooltip_text = unit.name
+	button.focus_mode = Control.FOCUS_ALL
 	var material = ShaderMaterial.new()
 	material.shader = card_shader
 	material.set_shader_parameter("highlight",0.75 if selected_ids.has(unit.id) else 0.15)
@@ -147,12 +152,23 @@ func render_selection() -> void:
 	var rates: Array = TARGET_RATES.get(selected_ids.size(),[])
 	var gap = lineup.size.x*0.028
 	var width = (lineup.size.x-gap*3)/4
-	for i in range(selected_ids.size()):
+	# The web board keeps four fixed slot anchors even when fewer units are selected.
+	for i in range(4):
+		if i >= selected_ids.size():
+			var empty = Control.new()
+			empty.name = "EmptySlot_%d" % (i+1)
+			empty.position = Vector2(i*(width+gap),0)
+			empty.size = Vector2(width,lineup.size.y)
+			empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			lineup.add_child(empty)
+			continue
 		var unit: Dictionary = {}
 		for entry in owned:
 			if entry.id==selected_ids[i]: unit = entry
 		var slot = card(lineup,unit,Vector2(i*(width+gap),0),Vector2(width,lineup.size.y),[-7.0,-1.0,1.0,7.0][i])
+		slot.name = "SelectedUnit_%d" % (i+1)
 		var badge = Panel.new()
+		badge.name = "TargetRate"
 		badge.position = Vector2(width*0.03,lineup.size.y*0.98-25)
 		badge.size = Vector2(width*0.94,25)
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -164,6 +180,7 @@ func render_selection() -> void:
 		badge.add_theme_stylebox_override("panel",style)
 		slot.add_child(badge)
 		var rate = text_label(badge,"피격 %d%%" % rates[i],Vector2.ZERO,badge.size,13)
+		rate.name = "TargetRateLabel"
 		rate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		rate.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	for i in range(owned.size()):
@@ -174,6 +191,25 @@ func render_selection() -> void:
 		button.z_index = 3 if is_selected else 0
 		button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE
 		var name_label = text_label(button,unit.name,Vector2(6,185),Vector2(110,24),11)
+		name_label.name = "OwnedCardName"
+		if is_selected:
+			# Numbered source-style marker makes the actual selection order visible.
+			var order = Panel.new()
+			order.name = "SelectionOrderBadge"
+			order.position = Vector2(10,12)
+			order.size = Vector2(24,24)
+			order.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var order_style = StyleBoxFlat.new()
+			order_style.bg_color = Color("e1a447")
+			order_style.border_color = Color("ffe2a1")
+			order_style.set_border_width_all(2)
+			order_style.set_corner_radius_all(12)
+			order.add_theme_stylebox_override("panel",order_style)
+			button.add_child(order)
+			var number = text_label(order,str(selected_ids.find(unit.id)+1),Vector2.ZERO,order.size,13)
+			number.add_theme_color_override("font_color",Color("1b0d04"))
+			number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.mouse_entered.connect(func():
@@ -181,6 +217,14 @@ func render_selection() -> void:
 			button.position.y = y if is_selected else 3.82
 			button.scale = Vector2.ONE*1.05)
 		button.mouse_exited.connect(func():
+			button.z_index = 3 if is_selected else 0
+			button.position.y = y
+			button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE)
+		button.focus_entered.connect(func():
+			button.z_index = 3 if is_selected else 2
+			button.position.y = y if is_selected else 3.82
+			button.scale = Vector2.ONE*1.05)
+		button.focus_exited.connect(func():
 			button.z_index = 3 if is_selected else 0
 			button.position.y = y
 			button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE)

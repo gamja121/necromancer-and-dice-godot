@@ -1,0 +1,66 @@
+name: Source Treasure + Deck Overflow UI Integration Stage 5G
+on:
+  push:
+    branches:
+      - feature/ui-parity-deck-overflow-stage5g-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integrated-ui-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse Godot 4.7.2 scripts and import runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Original deck and overflow UI, capacity, selection, persistence retries
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_ui_deck_overflow_parity.gd 2>&1 | tee overflow.log
+          grep -E 'UI_DECK_OVERFLOW_PARITY: [0-9]+ passed, 0 failed' overflow.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL ui-deck-overflow:' overflow.log; then exit 1; fi
+      - name: Latest treasure-card entrance, selection and claim still work
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_ui_treasure_reward_parity.gd 2>&1 | tee treasure.log
+          grep -E 'UI_TREASURE_REWARD_PARITY: [0-9]+ passed, 0 failed' treasure.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL ui-treasure:' treasure.log; then exit 1; fi
+      - name: Prior corpse-capture UI regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_ui_corpse_capture_parity.gd 2>&1 | tee capture.log
+          grep -E 'UI_CAPTURE_PARITY: [0-9]+ passed, 0 failed' capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL ui-capture:' capture.log; then exit 1; fi
+      - name: Genuine treasure save, return home and next lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee reward-lap.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' reward-lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL p4-reward-home:' reward-lap.log; then exit 1; fi
+      - name: Deck entry, battle victory and defeat, corpse-save map return
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee combat.log
+          grep -E 'P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed' combat.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL p4-combat:' combat.log; then exit 1; fi
+      - name: Complete single expedition, battle, soul, treasure, home and lap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|FAIL p4-single-run:' e2e.log; then exit 1; fi
