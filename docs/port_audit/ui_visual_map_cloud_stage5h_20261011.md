@@ -12,7 +12,13 @@
 | `assets/map/ui/map_cloud_transition_3.png` | `d10dcadffda9a4758314b54fc830011c1b9348d3` |
 | `assets/map/ui/map_cloud_transition_4.png` | `d2f8ba62c1e48306e5a2d37d6e18fe0a7f311518` |
 
-각 PNG는 원본 base64에서 별도 Git blob으로 저장하여 SHA 동일성을 확인했다. GitHub에 PNG 이름만 변경해서 저장하며 원본 저장소는 수정하지 않는다.
+원본 Git blob SHA는 위 표에 보존하였다. 원본 1·2·4번 이미지가 PNG 구조적으로 손상돼 Godot 4.7.2에서 `ERR_FILE_CORRUPT`가 발생함을 최초 CI에서 확인했다. **픽셀 데이터(압축 IDAT)는 변경하지 않고** 1·4번의 IDAT CRC만 정정하고, 2번의 틀린 tRNS/IDAT 길이와 해당 CRC를 정정해 Godot 임포트를 재검증한다. 정상인 3번은 원본 SHA 그대로 유지한다. 즉 Godot용 복원 PNG 3개의 Git SHA는 위 웹 원본 SHA와 다르다. 수정 원본을 웹 저장소에 덮어쓰지 않았다.
+
+Godot PNG 복원본 Git blob SHA:
+- 기본: `965ad8907f5cae15537a60f9bdbf0ef39ac18b4c`
+- 변형 2: `23308e4ee4634acb28484b5e6de0d04a913f2f26`
+- 변형 3: `d10dcadffda9a4758314b54fc830011c1b9348d3` (원본 동일)
+- 변형 4: `253c49f15dfece768db526d53a1dbc2e09309b70`
 
 ## 수정 범위
 - `systems/map_presentation.gd`: `setup()`에서 1~4번 서로 다른 이미지 로드, `cloud_refresh()`의 기존 8개 스프라이트 순서/속도/좌우 반전과 원본 콜백/잠금/페이드/보상 저장 호출은 그대로 유지.
