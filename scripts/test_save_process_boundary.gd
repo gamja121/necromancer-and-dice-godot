@@ -72,7 +72,9 @@ func crash_before_replace() -> void:
 	file.close()
 	check(FileAccess.file_exists(SAVE_PATH+".tmp"),"interrupted temporary save exists")
 	check_primary()
+	if failed>0: quit(1); return
 	print("W153_CRASH_BEFORE_RENAME: intentional process termination")
+	OS.delay_msec(100)
 	OS.kill(OS.get_process_id())
 	quit(33)
 
@@ -97,7 +99,9 @@ func crash_after_commit() -> void:
 	check(s.set_event_flag(AFTER_FLAG),"durable second transaction committed")
 	check_primary()
 	check(not FileAccess.file_exists(SAVE_PATH+".tmp"),"orphaned tmp overwritten during normal save")
+	if failed>0: quit(1); return
 	print("W153_CRASH_AFTER_COMMIT: intentional process termination")
+	OS.delay_msec(100)
 	OS.kill(OS.get_process_id())
 	quit(34)
 
