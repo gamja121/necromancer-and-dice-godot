@@ -795,3 +795,27 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL web-catalog:' web-unit-catalog.log; then
             exit 1
           fi
+
+  p5-02-preflight:
+    if: github.event_name == 'pull_request' && github.head_ref == 'archive/p5-02-frozen-web-source-preservation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout archive verifier
+        uses: actions/checkout@v4
+      - name: Clone frozen public source mirror read only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --mirror --quiet https://github.com/gamja121/necromancer-dice-board.git "$RUNNER_TEMP/p5-02-legacy.git"
+      - name: Verify exact source and offline restored Git history
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/archive_frozen_web.py
+          python3 scripts/archive_frozen_web.py --source "$RUNNER_TEMP/p5-02-legacy.git" --output "$RUNNER_TEMP/p5-02-verify" 2>&1 | tee p5-02-preflight.log
+          grep -E '^P5_ARCHIVE_VERIFIED: [0-9]+ source files, [0-9]+ bytes, [0-9]+ preserved refs, [0-9]+ bundle parts, tree a5042ff5d055ddb3c560b23f37ffb307fe74a523, bundle SHA256 [a-f0-9]{64}$' p5-02-preflight.log
+          (cd "$RUNNER_TEMP/p5-02-verify" && sha256sum -c SHA256SUMS)
+          echo "P5_FROZEN_ARCHIVE_PREFLIGHT_PASS"
