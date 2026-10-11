@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/map-tile-counter-rotation-20261011
+      - feature/map-shuffle-depth-landing-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -69,3 +70,10 @@ jobs:
           timeout 65s godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee home-exit.log
           grep -E 'MAP_SHUFFLE_HOME_EXIT: [0-9]+ passed, 0 failed' home-exit.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' home-exit.log; then exit 1; fi
+      - name: 2.5D shadow and landing regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_depth.gd 2>&1 | tee depth.log
+          grep -E 'MAP_SHUFFLE_DEPTH: [0-9]+ passed, 0 failed' depth.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' depth.log; then exit 1; fi
