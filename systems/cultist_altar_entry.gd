@@ -1,7 +1,7 @@
 extends RefCounted
 const AltarBeats = preload("res://systems/cultist_altar_beats.gd")
-## P1-05I-4: original altar fight can start and persist its battle result.
-## Passage resolution and ritual tracking/quest completion stay locked.
+## P1-05I-5: original fight, pass, battle outcome and ritual-tracking handoff.
+## The separate later ritual portal / monster-king revival remains locked.
 
 const EVENT_ID = "cultist_altar_encounter_01"
 const SEEN_FLAG = "event:cultist_altar_encounter_01:seen"
@@ -15,6 +15,7 @@ const RITUAL_CONFIRMED_FLAG = "story:monster_king:ritual_confirmed"
 const RITUAL_TRACKING_FLAG = "quest:ritual_site_tracking:active"
 const BATTLE_WON_FLAG = "battle:cultist_altar_encounter_01:won"
 const BATTLE_LOST_FLAG = "battle:cultist_altar_encounter_01:lost"
+const RESULT_PENDING_FLAG = "story:cultist_altar_encounter_01:result_pending"
 const BASE_ART = "res://assets/map/events/cultist-altar-night-base.webp"
 const FIRST_BEAT = {
 	"id":"arrival",
@@ -23,6 +24,49 @@ const FIRST_BEAT = {
 	"speaker":"",
 	"visual":"base"
 }
+
+## A saved choice and a concluded, acknowledged battle are the only
+## eligible handoff states. Merely selecting fight never completes the story.
+static func followup_ready(session, index: int) -> bool:
+	if not can_enter(session,index): return false
+	if current_beat(session)!=2: return false
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	if state.status!="active": return false
+	if session.world.event_flags.get(RESULT_PENDING_FLAG,false)==true: return false
+	if state.choice=="pass":
+		return state.battle_result=="" and not session.world.event_flags.get(BATTLE_WON_FLAG,false)==true and not session.world.event_flags.get(BATTLE_LOST_FLAG,false)==true
+	return state.choice=="fight" and state.battle_result in ["won","lost"]
+
+## The final confirmation is the only point that awards tracking progress.
+## The existing story state, completed marker, three quest flags and choice
+## receipt are persisted together; failure rolls the entire save back.
+static func finish(session, index: int) -> bool:
+	if session == null or session.world == null: return false
+	if completed(session): return true
+	if not followup_ready(session,index): return false
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.story_events[EVENT_ID]={"status":"complete","choice":str(state.choice),"battle_result":str(state.battle_result)}
+	session.world.event_flags[SEEN_FLAG]=true
+	session.world.event_flags[COMPLETE_FLAG]=true
+	session.world.event_flags[RITUAL_CONFIRMED_FLAG]=true
+	session.world.event_flags[TRACKING_FLAG]=false
+	session.world.event_flags[RITUAL_TRACKING_FLAG]=true
+	return session.persist_change(before)
+
+## Repeated completion never writes a new receipt or re-enters the event.
+static func completed(session) -> bool:
+	if session == null or session.world == null: return false
+	var state: Dictionary=session.get_story_event(EVENT_ID)
+	var flags: Dictionary=session.world.event_flags
+	if state.status!="complete" or state.choice not in ["fight","pass"]: return false
+	if flags.get(SEEN_FLAG,false)!=true or flags.get(COMPLETE_FLAG,false)!=true: return false
+	if flags.get(RITUAL_CONFIRMED_FLAG,false)!=true: return false
+	if flags.get(TRACKING_FLAG,false)!=false or flags.get(RITUAL_TRACKING_FLAG,false)!=true: return false
+	if flags.get(RESULT_PENDING_FLAG,false)==true: return false
+	if state.choice=="pass":
+		return state.battle_result=="" and flags.get(PASS_FLAG,false)==true and flags.get(FIGHT_FLAG,false)!=true and flags.get(BATTLE_WON_FLAG,false)!=true and flags.get(BATTLE_LOST_FLAG,false)!=true
+	return flags.get(FIGHT_FLAG,false)==true and flags.get(PASS_FLAG,false)!=true and state.battle_result in ["won","lost"] and flags.get(BATTLE_WON_FLAG,false)==(state.battle_result=="won") and flags.get(BATTLE_LOST_FLAG,false)==(state.battle_result=="lost")
 
 static func progress_flag(index: int) -> String:
 	if index not in [1,2]: return ""
@@ -91,7 +135,7 @@ static func advance(session, index: int, shown_index: int) -> bool:
 	session.world.event_flags[progress_flag(shown_index+1)]=true
 	return session.persist_change(before)
 
-## Save an INTENT only; do not launch combat or resolve a pass in this phase.
+## Save the intent first; resolution happens only on the separate final confirmation.
 static func choose(session, index: int, shown_index: int, decision: String) -> bool:
 	if not can_enter(session,index): return false
 	if current_beat(session)!=2 or shown_index!=2: return false
@@ -102,8 +146,8 @@ static func choose(session, index: int, shown_index: int, decision: String) -> b
 	session.world.event_flags[FIGHT_FLAG if decision=="fight" else PASS_FLAG]=true
 	return session.persist_change(before)
 
-## Until the actual battle/pass handlers are implemented, permit a deliberate
-## decision change without rewinding arrival or replaying the ritual reveal.
+## Before a battle has a committed result, allow deliberate decision changes
+## without rewinding arrival or replaying ritual reveal.
 static func reconsider(session, index: int) -> bool:
 	if not can_enter(session,index): return false
 	if current_beat(session)!=2: return false
