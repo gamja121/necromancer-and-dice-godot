@@ -750,8 +750,8 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 			return
-	# A previously saved portal discovery reopens only at its actual tile.
-	# Reading a save must never create a fresh portal event.
+	# A previously saved arrival or portal-energy reveal reopens at its actual
+	# tile. Reading a save never creates a new encounter.
 	if RitualPortalEntry.can_enter(session,index):
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).status=="seen":
 			show_ritual_portal_intro(index)
@@ -939,23 +939,40 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 ## P1-05I-5: selected fight, pass follow-up and deliberate tracking completion.
 ## P1-05J-1: original first portal scene only. Reopening a saved arrival
 ## is read-only; do not enable energy layers, final battle or revival.
+## P1-05J-2: a saved Continue reveals the portal's energy overlay over
+## the unchanged ruin base. The third and later beats are still disabled.
 func show_ritual_portal_intro(index: int) -> void:
+	show_ritual_portal_beat(index)
+
+func show_ritual_portal_beat(index: int) -> void:
 	if not RitualPortalEntry.can_enter(session,index): return
-	if RitualPortalEntry.current_beat(session)!=0: return
-	var beat: Dictionary=RitualPortalBeats.beat(0)
+	var beat_index: int=RitualPortalEntry.current_beat(session)
+	var beat: Dictionary=RitualPortalBeats.beat(beat_index)
 	if beat.is_empty(): return
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
-	InkSceneReveal.play(art)
+	if beat_index==0: InkSceneReveal.play(art)
+	var layer_path: String=RitualPortalBeats.layer_for(str(beat.visual))
+	if not layer_path.is_empty():
+		var energy_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		InkSceneReveal.play(energy_art)
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if beat_index==0:
+		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="forest" else Vector2(651,653),Vector2(171,48),func(): advance_ritual_portal(index,beat_index),1)
 	if world.tiles[index]=="forest":
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func advance_ritual_portal(index: int, shown_beat: int) -> void:
+	if not RitualPortalEntry.advance(session,index,shown_beat):
+		status.text="전이문 장면 저장 실패 · 다시 시도하세요."
+		return
+	show_ritual_portal_beat(index)
 
 func show_cultist_altar_intro(index: int) -> void:
 	if CultistAltarEntry.followup_ready(session,index):
