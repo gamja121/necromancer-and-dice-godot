@@ -47,7 +47,7 @@ func _ready() -> void:
 	volume_slider.value_changed.connect(_update_volume)
 	music_enabled.toggled.connect(_set_music_enabled)
 	sfx_enabled.toggled.connect(_set_sfx_enabled)
-	continue_button.disabled = not RunSession.has_save()
+	continue_button.disabled = not get_node("/root/RunSession").has_save()
 	_load_menu_art()
 	_layout_layers()
 	_start_title_music()
@@ -222,14 +222,14 @@ func _set_sfx_enabled(enabled: bool) -> void:
 	_save_audio()
 
 func _start_new_run() -> void:
-	RunSession.start_new_world()
+	get_node("/root/RunSession").start_new_world()
 	get_tree().change_scene_to_file(INTRO_SCENE)
 
 func _continue_run() -> void:
-	if not RunSession.has_save():
+	if not get_node("/root/RunSession").has_save():
 		continue_button.disabled = true
 		return
-	RunSession.reload_world()
+	get_node("/root/RunSession").reload_world()
 	get_tree().change_scene_to_file(MAP_SCENE)
 
 func _exit_game() -> void:
