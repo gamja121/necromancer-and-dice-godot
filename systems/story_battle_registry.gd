@@ -2,10 +2,55 @@ extends RefCounted
 ## P1-04A: explicit, fail-closed story battle contracts.
 ## Registering a definition does NOT launch an event; its story scene must first
 ## commit its own active stage and choice, then call start_story_encounter().
-## Only the fully implemented graveyard event is enabled here.
+## Graveyard and the altar fight share the same guarded story battle pipeline.
 
 const GRAVEYARD_ID = "graveyard_child_ambush_01"
+const CULTIST_ALTAR_ID = "cultist_altar_encounter_01"
 const DEFINITIONS = {
+	CULTIST_ALTAR_ID: {
+		"event_id":CULTIST_ALTAR_ID,
+		"encounter_type":"event-cultist-altar",
+		"tiles":["altar","event"],
+		"choice":"fight",
+		"enemies":["death-knight","plague-doctor","ghoul","skeleton-spear"],
+		"enemy_selection":"cultist_altar",
+		"complete_flag":"event:cultist_altar_encounter_01:complete",
+		"pending_flag":"story:cultist_altar_encounter_01:result_pending",
+		"outcomes":{
+			"won":{
+				"status":"active",
+				"notice":"광신도 소환 마물 격퇴 · 제단 사건 후속 확인 대기",
+				"flags":{
+					"battle:cultist_altar_encounter_01:won":true,
+					"battle:cultist_altar_encounter_01:lost":false
+				},
+				"presentation":{
+					"title":"광신도 소환 마물 격퇴",
+					"narration":"소환된 마물들을 쓰러뜨렸다. 흐트러진 의식 도구 사이에서 다음 의식 장소를 가리키는 흔적을 발견했다.",
+					"dialogue":"의식 추적 정보 확정은 다음 장면에서 진행됩니다.",
+					"background":"res://assets/map/events/cultist-altar-night-base.webp",
+					"overlay":"res://assets/map/events/cultist-altar-summon-layer.webp",
+					"retry":false
+				}
+			},
+			"lost":{
+				"status":"active",
+				"notice":"광신도 소환 마물에게 밀림 · 남은 마물로 다시 도전 가능",
+				"flags":{
+					"battle:cultist_altar_encounter_01:won":false,
+					"battle:cultist_altar_encounter_01:lost":true
+				},
+				"presentation":{
+					"title":"광신도 제단 전투 패배",
+					"narration":"소환된 마물들에게 밀려 물러났지만, 광신도들이 준비하던 부활 의식의 흔적은 확인했다.",
+					"dialogue":"의식 추적 정보 확정은 다음 장면에서 진행됩니다.",
+					"background":"res://assets/map/events/cultist-altar-night-base.webp",
+					"overlay":"res://assets/map/events/cultist-altar-summon-layer.webp",
+					"retry":true
+				}
+			}
+		}
+	},
 	GRAVEYARD_ID: {
 		"event_id":GRAVEYARD_ID,
 		"encounter_type":"event-graveyard-child",
