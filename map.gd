@@ -100,7 +100,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
-	elif world.tiles[world.position] in ["village","unknown","event"] or world.tiles[world.position]=="altar": call_deferred("resume_village_rumor_if_unfinished")
+	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -735,6 +735,14 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 func resume_village_rumor_if_unfinished() -> void:
 	if is_instance_valid(overlay): return
 	var index: int=world.position
+	# Restore an already-discovered child at the exact persisted scene, or
+	# restore its selected rescue deck before a battle has started. Reload
+	# alone must never discover a previously unseen child.
+	if StoryEventEntry.can_enter(session,index):
+		var child: Dictionary=session.get_story_event(StoryEventEntry.EVENT_ID)
+		if child.status in ["seen","active"] and world.event_flags.get(StoryEventEntry.SEEN_FLAG,false)==true:
+			show_graveyard_child_intro(index)
+			return
 	var event_id: String=VillageRumorEntry.eligible_event_id(session,index)
 	if not event_id.is_empty() and session.get_story_event(event_id).status=="seen":
 		if VillageRumorEntry.current_beat(session,event_id)>=0:
@@ -1242,7 +1250,7 @@ func reconsider_cultist_altar(index: int) -> void:
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
-	show_graveyard_child_beat(index,3 if state.status == "active" and state.choice == "protect_child" else 0)
+	show_graveyard_child_beat(index,3 if state.status == "active" and state.choice == "protect_child" else maxi(0,StoryEventEntry.current_beat(session)))
 
 func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if index != world.position or session.get_story_event(StoryEventEntry.EVENT_ID).status == "complete": return
@@ -1276,8 +1284,14 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 		location_button(panel,"지나친다",Vector2(590,643),Vector2(175,48),func(): choose_graveyard_child(index,"leave"),2)
 		location_button(panel,"나가기",Vector2(867,643),Vector2(170,48),func(): dismiss_overlay(render),4)
 	else:
-		location_button(panel,"계속",Vector2(688,643),Vector2(168,48),func(): show_graveyard_child_beat(index,beat_index+1),1)
+		location_button(panel,"계속",Vector2(688,643),Vector2(168,48),func(): advance_graveyard_child_beat(index,beat_index),1)
 		location_button(panel,"나가기",Vector2(867,643),Vector2(170,48),func(): dismiss_overlay(render),4)
+
+func advance_graveyard_child_beat(index: int, shown_beat: int) -> void:
+	if not StoryEventEntry.advance(session,index,shown_beat):
+		status.text="공동묘지 장면 저장 실패 · 다시 시도하세요."
+		return
+	show_graveyard_child_beat(index,shown_beat+1)
 
 func choose_graveyard_child(index: int, choice_id: String) -> void:
 	if not StoryEventEntry.choose(session,index,choice_id):
