@@ -14,6 +14,7 @@ const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
+const CultistAltarEntry = preload("res://systems/cultist_altar_entry.gd")
 const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
 const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
@@ -93,7 +94,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
-	elif world.tiles[world.position] in ["village","unknown","event"]: call_deferred("resume_village_rumor_if_unfinished")
+	elif world.tiles[world.position] in ["village","unknown","event"] or world.tiles[world.position]=="altar": call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -385,6 +386,12 @@ func show_tile(index: int) -> void:
 	if type in ["village","event"] and CultistRumorEntry.can_enter(session,index):
 		if CultistRumorEntry.begin(session,index):
 			show_cultist_rumor_intro(index)
+			return
+		status.text = session.notice
+	# P1-05I-1: only the night altar arrival is enabled here. Choices and battle stay off.
+	if type in ["altar","event"] and CultistAltarEntry.can_enter(session,index):
+		if CultistAltarEntry.begin(session,index):
+			show_cultist_altar_intro(index)
 			return
 		status.text = session.notice
 	if type=="basic": return
@@ -725,6 +732,11 @@ func resume_village_rumor_if_unfinished() -> void:
 	if CultistRumorEntry.can_enter(session,index):
 		if session.get_story_event(CultistRumorEntry.EVENT_ID).status=="seen":
 			show_cultist_rumor_intro(index)
+			return
+	# On reconnect, never generate an unseen altar story: reopen saved arrivals only.
+	if CultistAltarEntry.can_enter(session,index):
+		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen":
+			show_cultist_altar_intro(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
@@ -905,6 +917,24 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 		status.text="[광신도들의 흔적을 추적합니다.]"
 	else:
 		show_cultist_rumor_beat(index)
+
+## P1-05I-1: original night altar background only, no ritual/fight/pass yet.
+## Returning to altar features does not consume the saved first event.
+func show_cultist_altar_intro(index: int) -> void:
+	if not CultistAltarEntry.can_enter(session,index): return
+	if session.get_story_event(CultistAltarEntry.EVENT_ID).status!="seen": return
+	if is_instance_valid(overlay): close_overlay()
+	var panel=modal()
+	var artwork=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	InkSceneReveal.play(artwork)
+	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,str(CultistAltarEntry.FIRST_BEAT.effect),Vector2(285,573),Vector2(710,64),18)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if world.tiles[index]=="altar":
+		location_button(panel,"제단 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
