@@ -1,0 +1,141 @@
+name: Windows Native Godot Smoke and GUI Evidence
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-native-godot-validation.yml"
+      - "scripts/test_windows_gui_evidence.gd"
+      - "scripts/test_p4_run_entry_integration.gd"
+      - "scripts/test_p4_all_monster_presentation.gd"
+      - "scripts/test_p4_full_source_story_chain.gd"
+      - "scripts/test_p4_natural_home_lap.gd"
+      - "scripts/test_p4_natural_commander_hunter.gd"
+      - "scripts/test_p5_changed_visual_runtime.gd"
+      - "scripts/test_title_audio_parity.gd"
+      - "project.godot"
+      - "title.gd"
+      - "map.gd"
+      - "map.tscn"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "systems/audio_settings.gd"
+      - "assets/map/events/**"
+      - "assets/title/music/**"
+      - "assets/battle/frames/**"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/windows-native-godot-validation.yml"
+      - "scripts/test_windows_gui_evidence.gd"
+      - "scripts/test_p4_run_entry_integration.gd"
+      - "scripts/test_p4_all_monster_presentation.gd"
+      - "scripts/test_p4_full_source_story_chain.gd"
+      - "scripts/test_p4_natural_home_lap.gd"
+      - "scripts/test_p4_natural_commander_hunter.gd"
+      - "scripts/test_p5_changed_visual_runtime.gd"
+      - "scripts/test_title_audio_parity.gd"
+      - "project.godot"
+      - "title.gd"
+      - "map.gd"
+      - "map.tscn"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "systems/audio_settings.gd"
+      - "assets/map/events/**"
+      - "assets/title/music/**"
+      - "assets/battle/frames/**"
+      - "docs/port_audit/migration_work_queue.tsv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-native:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout canonical Godot repo
+        uses: actions/checkout@v4
+
+      - name: Install actual Windows Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+
+      - name: Verify Windows executable and import native runtime assets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Output "Native runner OS: $env:RUNNER_OS"
+          if ($env:RUNNER_OS -ne "Windows") { throw "Not a native Windows runner" }
+          & godot --version
+          if ($LASTEXITCODE -ne 0) { throw "Windows Godot --version failed" }
+          & godot --headless --path . --editor --quit 2>&1 | Tee-Object -FilePath windows-godot-import.log
+          if ($LASTEXITCODE -ne 0) { throw "Godot Windows editor import failed" }
+          $log = Get-Content -Raw windows-godot-import.log
+          if ($log -match "SCRIPT ERROR|Parse Error|Failed loading resource|Cannot open") { throw "Windows import reports a resource or script error" }
+          Write-Output "WINDOWS_NATIVE_IMPORT_PASS"
+
+      - name: Run native Windows new-game audio story art monster and natural-play regressions
+        shell: pwsh
+        timeout-minutes: 22
+        run: |
+          $ErrorActionPreference = "Stop"
+          $checks = @(
+            @{ id="title-audio"; file="test_title_audio_parity.gd"; summary="TITLE_AUDIO_PARITY_REGRESSION" },
+            @{ id="new-run"; file="test_p4_run_entry_integration.gd"; summary="P4_RUN_ENTRY_INTEGRATION" },
+            @{ id="changed-art"; file="test_p5_changed_visual_runtime.gd"; summary="P5_03B_VISUAL_RUNTIME" },
+            @{ id="all-monsters"; file="test_p4_all_monster_presentation.gd"; summary="P4_ALL_MONSTER_PRESENTATION" },
+            @{ id="full-story"; file="test_p4_full_source_story_chain.gd"; summary="P4_FULL_SOURCE_STORY_CHAIN" },
+            @{ id="natural-house"; file="test_p4_natural_home_lap.gd"; summary="P4_NATURAL_HOME_LAP" },
+            @{ id="natural-commander-hunter"; file="test_p4_natural_commander_hunter.gd"; summary="P4_NATURAL_COMMANDER_HUNTER" }
+          )
+          New-Item -ItemType Directory -Force windows-native-logs | Out-Null
+          foreach ($check in $checks) {
+            Write-Output "::group::Windows Godot $($check.id)"
+            $logPath = Join-Path "windows-native-logs" "$($check.id).log"
+            & godot --headless --path . --script "res://scripts/$($check.file)" 2>&1 | Tee-Object -FilePath $logPath
+            $exitCode = $LASTEXITCODE
+            $log = Get-Content -Raw $logPath
+            if ($exitCode -ne 0) { throw "$($check.id) native Godot process returned $exitCode" }
+            $expected = "(?m)^$([regex]::Escape($check.summary)): [0-9]+ passed, 0 failed"
+            if (-not [regex]::IsMatch($log, $expected)) { throw "$($check.id) has no verified zero-failure summary" }
+            if ($log -match "SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|GDScript Error|(?m)^FAIL ") { throw "$($check.id) contains a script/resource/test error" }
+            Write-Output "WINDOWS_NATIVE_TEST_PASS $($check.id)"
+            Write-Output "::endgroup::"
+          }
+          Write-Output "WINDOWS_NATIVE_REGRESSIONS_PASS 7 test suites; real speaker playback and user PC visual approval not checked"
+
+      - name: Attempt Windows GUI-rendered title map home and fortune screenshots
+        shell: pwsh
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          WINDOWS_GUI_EVIDENCE_DIR: ${{ runner.temp }}/windows-godot-visual-evidence
+        run: |
+          $ErrorActionPreference = "Stop"
+          & godot --path . --script res://scripts/test_windows_gui_evidence.gd 2>&1 | Tee-Object -FilePath windows-gui-preview.log
+          $exitCode = $LASTEXITCODE
+          $log = Get-Content -Raw windows-gui-preview.log
+          if ($exitCode -ne 0 -or $log -notmatch "WINDOWS_GUI_PREVIEW: 4 captured, 0 failed") {
+            throw "Windows hosted graphical renderer not proven; headless native validation remains valid"
+          }
+          $files = @(Get-ChildItem $env:WINDOWS_GUI_EVIDENCE_DIR -Filter "*.png")
+          if ($files.Count -ne 4) { throw "Expected four native rendered PNG screenshots, found $($files.Count)" }
+          Write-Output "WINDOWS_GUI_SCREENSHOTS_CAPTURED 4; not an end-user visual/art/audio approval"
+
+      - name: Upload native test traces and any captured graphical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-native-godot-validation
+          path: |
+            windows-godot-import.log
+            windows-native-logs/
+            windows-gui-preview.log
+            ${{ runner.temp }}/windows-godot-visual-evidence/
+          if-no-files-found: warn
+          retention-days: 30
