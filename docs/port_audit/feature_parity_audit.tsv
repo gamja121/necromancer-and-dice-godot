@@ -65,7 +65,7 @@ W082	전투	전투 편성 최대 4마리	REQUIRED_RULE	✅ 완료	battlefield.gd
 W083	전투	공용 5번 소환 슬롯	REQUIRED_RULE	✅ 완료	battlefield.gd; systems/battle_rules.gd; systems/battlefield_rules.gd	최대 4편성, 5번 소환 슬롯, 공용 눈금, 속도 행동순서 대응 코드 존재.
 W084	전투	라운드 공용 주사위 눈금	REQUIRED_RULE	✅ 완료	battlefield.gd; systems/battle_rules.gd; systems/battlefield_rules.gd	최대 4편성, 5번 소환 슬롯, 공용 눈금, 속도 행동순서 대응 코드 존재.
 W085	전투	속도 기반 행동 순서	REQUIRED_RULE	✅ 완료	battlefield.gd; systems/battle_rules.gd; systems/battlefield_rules.gd	최대 4편성, 5번 소환 슬롯, 공용 눈금, 속도 행동순서 대응 코드 존재.
-W086	전투	동률 행동 순서 RNG	REQUIRED_RULE	🟡 부분 이식	systems/battle_rules.gd	웹은 속도·슬롯까지 동률일 때 저장 가능한 RNG tie-break를 사용하지만 Godot는 stable ID 순서를 사용. 실제 규칙 차이.
+W086	전투	동률 행동 순서 RNG	REQUIRED_RULE	✅ 완료	systems/battlefield_rules.gd; scripts/test_battle_source_parity.gd	실제 전장 BattlefieldRules.begin_round()의 RNG tie-break는 원본과 같은 슬롯·속도 기준 난수 판정. snapshot rng_state 복원/동일 순서 검사. 구형 BattleRules.step()은 실제 전장 진입에 미사용
 W087	전투	대상 선택 가중치	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
 W088	전투	군단 10종	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
 W089	전투	군단 활성 인원 조건	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
@@ -73,7 +73,7 @@ W090	전투	원소 군단의 상대 군단 억제	REQUIRED_RULE	✅ 완료	syste
 W091	전투	낙인 10종	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
 W092	전투	낙인 축복/저주 눈금	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/interface.json; systems/brand_reference.gd	타겟 가중치, 군단 10종, 활성 조건, 원소 억제, 낙인 10종과 눈금 데이터 대응 후보 존재.
 W093	전투	태생 저주만 유지 정책	REQUIRED_RULE	✅ 완료	systems/brand_inheritance.gd; systems/home_inheritance.gd; systems/battle_rules.gd	계승 축복/태생 낙인 정책 대응 코드 후보 존재; 정확한 저장 정규화는 1-4에서 검증.
-W094	전투	같은 눈금 저주 전역 우선	REQUIRED_RULE	🟡 부분 이식	systems/battle_rules.gd	웹은 한 개체의 같은 눈금에서 어떤 낙인이 저주면 그 눈금의 다른 낙인 축복을 막는다. Godot는 현재 bless와 curse를 각각 누적해 동시 발동 가능성이 있어 수정 필요.
+W094	전투	같은 눈금 저주 전역 우선	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; systems/battlefield_rules.gd; scripts/test_battle_source_parity.gd	원본 v2-rules.js roll()의 같은 개체·같은 눈금 저주 우선 적용을 공용/실전 전장에서 공유하며 CI로 검증
 W095	전투	태생 고유 패시브 10종	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
 W096	전투	개체 생성 시 패시브/보너스 랜덤	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
 W097	전투	중독 스택/2회 지속/최대 3	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; data/units.json; data/interface.json	패시브/상태효과/낙인/소환/씨앗/15라운드 이후 공격 보정에 대응 코드 존재.
@@ -99,7 +99,7 @@ W116	전투	오염/바퀴 기반 적 숫자	REQUIRED_RULE	✅ 완료	systems/enc
 W117	전투	오염 기반 적 등급/편성	REQUIRED_RULE	✅ 완료	systems/encounter_generator.gd; systems/run_session.gd	웹과 동일한 0/20/40/60/80 단계의 적 수·등급 가중치와 1~2바퀴 적 1마리 제한이 Godot에 존재.
 W118	전투	전투 승리 시 오염도 변화	REQUIRED_RULE	✅ 완료	systems/run_session.gd	일반 전투 승리 시 contamination -1 반영 코드 존재.
 W119	전투	예언 효과 전투 적용	REQUIRED_RULE	✅ 완료	systems/run_session.gd; systems/unit_info.gd	예언을 아군/적 전투 스탯에 적용하는 코드 존재.
-W120	전투	사건 전투 후 사건으로 복귀	REQUIRED_RULE	🔴 미이식		사건 전투 완료 뒤 특정 사건 장면으로 돌아가는 eventId 기반 복귀 경로가 Godot에 없음.
+W120	전투	사건 전투 후 사건으로 복귀	REQUIRED_RULE	✅ 완료	systems/story_battle_outcomes.gd; scripts/test_graveyard_battle_return.gd	사건 ID 연결 복귀 화면·결과 확인/재시작 회귀검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
 W130	보상/인벤토리	전투 승리 후 영혼 수확	REQUIRED	✅ 완료	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
 W131	보상/인벤토리	영혼 수확 대상 선택	REQUIRED	✅ 완료	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
 W132	보상/인벤토리	필요 눈금 2~6	REQUIRED_RULE	✅ 완료	systems/corpse_capture.gd; systems/run_session.gd; systems/battle_rules.gd	영혼 수확 대상/필요 눈금/재시도/획득 개체 생성 대응 후보 존재.
@@ -127,24 +127,24 @@ W159	저장/복원	전투 중 체크포인트	REQUIRED_RULE	✅ 완료	systems/r
 W160	저장/복원	판정 RNG 직렬화/복원	REQUIRED_RULE	✅ 완료	systems/battle_rules.gd; systems/map_state.gd; systems/run_session.gd	RNG seed/state snapshot·restore 후보 존재.
 W161	저장/복원	영혼 수확 중단 복원	REQUIRED_RULE	✅ 완료	systems/run_session.gd; systems/corpse_capture.gd; systems/map_state.gd	pending_reward에 대상/시도/결과를 저장하는 수확 복원 구조 존재.
 W162	저장/복원	주사위 카드 소비/이동 중단 복원	REQUIRED_RULE	✅ 완료	systems/run_session.gd; systems/map_state.gd	pending_move 및 카드 판정 선저장 구조 존재.
-W163	저장/복원	사건 전투 덱 선택 중단 안전 복원	REQUIRED_RULE	🔴 미이식		사건 전투 자체가 미이식이라 사건전투 덱 선택/중단 복원 상태도 없음.
+W163	저장/복원	사건 전투 덱 선택 중단 안전 복원	REQUIRED_RULE	✅ 완료	systems/run_session.gd; scripts/test_story_battle_resume.gd	사건 덱 선택·전투 체크포인트·중단 복원과 결과 중복 차단 회귀검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
 W164	저장/복원	보상 receipt 중복 지급 방지	REQUIRED_RULE	✅ 완료	systems/run_session.gd; systems/map_state.gd	reward_receipts로 보상 중복 지급 방지 후보 존재.
 W165	저장/복원	오디오 설정 저장	REQUIRED	✅ 완료	systems/audio_settings.gd; map.gd; battlefield.gd	user://audio_settings.cfg 기반 출력/음량/Music/SFX 설정 저장 존재.
-W170	사건/퀘스트	공동묘지 습격받는 아이 사건	REQUIRED	🔴 미이식		공동묘지 아이 사건 런타임 없음.
-W171	사건/퀘스트	아이 구한다/지나친다 선택	REQUIRED_RULE	🔴 미이식		아이 구한다/지나친다 선택 및 rescued/abandoned 플래그 없음.
-W172	사건/퀘스트	아이 구조 선택의 사건 전투	REQUIRED	🔴 미이식		아이 구조 사건 전용 덱 선택→전투 연결 없음.
-W173	사건/퀘스트	아이 구조 후 마을 소문	REQUIRED	🔴 미이식		아이 구조 후 마을 소문 사건 없음.
-W174	사건/퀘스트	아이 방치 후 마을 소문	REQUIRED	🔴 미이식		아이 방치 후 마을 소문 사건 없음.
-W175	사건/퀘스트	기사단장 오염 조사 사건	REQUIRED	🔴 미이식		기사단장 오염 조사 사건 없음.
-W176	사건/퀘스트	마물사냥꾼 조우	REQUIRED	🔴 미이식		마물사냥꾼 조우 사건 없음.
-W177	사건/퀘스트	광신도 소문	REQUIRED	🔴 미이식		광신도 소문 사건 없음.
-W178	사건/퀘스트	광신도 제단 조우	REQUIRED	🔴 미이식		광신도 제단 조우 사건 없음.
-W179	사건/퀘스트	광신도 제단 싸운다/지나간다	REQUIRED_RULE	🔴 미이식		광신도 제단 싸운다/지나간다 분기 및 상태 저장 없음.
-W180	사건/퀘스트	마물의 왕 부활 의식 장소/전이문 사건	REQUIRED	🔴 미이식		마물의 왕 부활 의식/전이문 사건 없음.
-W181	사건/퀘스트	의식 저지 전투 승패에 따른 불완전/완전 부활	REQUIRED_RULE	🔴 미이식		저지 승패→불완전/완전 부활 상태 분기 없음.
-W182	사건/퀘스트	마물의 왕 추적 사건	REQUIRED	🔴 미이식		마물의 왕 추적 사건 없음.
-W183	사건/퀘스트	사건/퀘스트/스토리 플래그 상태기계	REQUIRED_RULE	🔴 미이식		웹 event/quest/story 플래그 상태기계에 대응하는 Godot 상태 구조 없음.
-W184	사건/퀘스트	사건별 원화 레이어/대사 비트	REQUIRED	🔴 미이식		사건 원화 레이어/대사 비트/탭 진행 런타임 없음.
+W170	사건/퀘스트	공동묘지 습격받는 아이 사건	REQUIRED	✅ 완료	systems/story_event_entry.gd; scripts/test_graveyard_event_entry.gd	공동묘지 아이 사건 진입·저장·복원 테스트 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W171	사건/퀘스트	아이 구한다/지나친다 선택	REQUIRED_RULE	✅ 완료	systems/story_event_entry.gd; scripts/test_graveyard_story_choice.gd	구조/방치 선택 및 플래그/저장 분기 테스트 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W172	사건/퀘스트	아이 구조 선택의 사건 전투	REQUIRED	✅ 완료	systems/story_battle_registry.gd; scripts/test_graveyard_story_combat.gd	아이 구조 덱 선택과 등록 사건 전투 테스트 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W173	사건/퀘스트	아이 구조 후 마을 소문	REQUIRED	✅ 완료	systems/village_rumor_entry.gd; scripts/test_village_rumor_beats.gd	구조 분기 마을 소문 비트·마무리·복원 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W174	사건/퀘스트	아이 방치 후 마을 소문	REQUIRED	✅ 완료	systems/village_rumor_entry.gd; scripts/test_village_rumor_beats.gd	방치 분기 마을 소문 비트·마무리·복원 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W175	사건/퀘스트	기사단장 오염 조사 사건	REQUIRED	✅ 완료	systems/knight_commander_entry.gd; scripts/test_knight_commander_dialogue.gd	기사단장 조사 원본 대화 및 퀘스트 인계 회귀검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W176	사건/퀘스트	마물사냥꾼 조우	REQUIRED	✅ 완료	systems/monster_hunter_entry.gd; scripts/test_monster_hunter_dialogue.gd	마물사냥꾼 세계수 대화·추적 플래그 회귀검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W177	사건/퀘스트	광신도 소문	REQUIRED	✅ 완료	systems/cultist_rumor_entry.gd; scripts/test_cultist_rumor_beats.gd	광신도 소문 전체 비트·체인·저장 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W178	사건/퀘스트	광신도 제단 조우	REQUIRED	✅ 완료	systems/cultist_altar_entry.gd; scripts/test_cultist_altar_ritual_reveal.gd	광신도 제단 조우·의식 원화 및 단계 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W179	사건/퀘스트	광신도 제단 싸운다/지나간다	REQUIRED_RULE	✅ 완료	systems/cultist_altar_entry.gd; scripts/test_cultist_altar_choice.gd; scripts/test_cultist_altar_battle.gd	싸운다/지나간다 및 실제 사건 전투·결과 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W180	사건/퀘스트	마물의 왕 부활 의식 장소/전이문 사건	REQUIRED	✅ 완료	systems/ritual_portal_entry.gd; scripts/test_ritual_portal_entry.gd	부활 의식 전이문 진입·원본 장면 회귀검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W181	사건/퀘스트	의식 저지 전투 승패에 따른 불완전/완전 부활	REQUIRED_RULE	✅ 완료	systems/ritual_portal_entry.gd; scripts/test_ritual_portal_revival.gd	전이문 승리/패배에서 불완전/완전 부활·저장 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W182	사건/퀘스트	마물의 왕 추적 사건	REQUIRED	✅ 완료	systems/monster_king_hunt_entry.gd; scripts/test_monster_king_hunt_location.gd	5개 원본 추적 장면·봉인 폐허 위치·추적 완료 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W183	사건/퀘스트	사건/퀘스트/스토리 플래그 상태기계	REQUIRED_RULE	✅ 완료	systems/run_session.gd; scripts/test_story_state_regression.gd	event/quest/story 단계·플래그·결과 원자적 저장 및 복원 검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
+W184	사건/퀘스트	사건별 원화 레이어/대사 비트	REQUIRED	✅ 완료	map.gd; systems/monster_king_hunt_beats.gd; scripts/test_monster_king_hunt_location.gd	원본 사건 원화·대사 단계/선택/마무리 UI 경로 회귀검사 구현 (코드/자동검사 판정; 전체 실제 플레이는 P4 별도)
 W190	연출/오디오	맵 BGM	REQUIRED	✅ 완료	map.gd; assets/map/music/map_board.mp3; systems/audio_settings.gd	맵 BGM 플레이어와 Music bus 연결 존재.
 W191	연출/오디오	전투 BGM	REQUIRED	✅ 완료	battlefield.gd; assets/battle/music/battle.mp3; systems/audio_settings.gd	전투 BGM 플레이어와 Music bus 연결 존재.
 W192	연출/오디오	효과음 시스템	REQUIRED	✅ 완료	battlefield.gd; map.gd; assets/battle/sfx; systems/audio_settings.gd	맵/전투 SFX 재생 경로와 SFX bus 존재.
