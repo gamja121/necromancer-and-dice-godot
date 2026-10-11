@@ -389,7 +389,7 @@ func show_tile(index: int) -> void:
 			show_cultist_rumor_intro(index)
 			return
 		status.text = session.notice
-	# P1-05I-3: altar arrival through saved choice, but no combat/pass outcome yet.
+	# P1-05I-4: altar fight has deck selection and original summon overlay; pass stays separate.
 	if type in ["altar","event"] and CultistAltarEntry.can_enter(session,index):
 		if CultistAltarEntry.begin(session,index):
 			show_cultist_altar_intro(index)
@@ -920,8 +920,8 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	else:
 		show_cultist_rumor_beat(index)
 
-## P1-05I-3: three original beats and saved fight/pass intent.
-## Neither option launches battle or produces a passage result yet.
+## P1-05I-4: original summon scene and selected-monster battle.
+## Pass and the post-battle tracking resolution remain separate.
 func show_cultist_altar_intro(index: int) -> void:
 	show_cultist_altar_beat(index)
 
@@ -930,22 +930,22 @@ func show_cultist_altar_beat(index: int) -> void:
 	var beat_index: int=CultistAltarEntry.current_beat(session)
 	var beat: Dictionary=CultistAltarBeats.beat(beat_index)
 	if beat.is_empty(): return
+	var altar_state: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
+	var fighting: bool=altar_state.status=="active" and altar_state.choice=="fight"
 	if is_instance_valid(overlay): close_overlay()
 	var panel=modal()
 	var artwork=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
-	var layer_path: String=CultistAltarBeats.layer_for(str(beat.visual))
+	var layer_path: String=CultistAltarBeats.SUMMON if fighting else CultistAltarBeats.layer_for(str(beat.visual))
 	if not layer_path.is_empty():
 		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
 		InkSceneReveal.play(ritual_art)
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
+	var narration: String=CultistAltarBeats.SUMMON_EFFECT if fighting else str(beat.effect)
+	var effect=label_at(panel,narration,Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	# P1-05I-3: choose on the third source beat, but never start battle
-	# or resolve passing in this phase. All steps are explicit and durable.
-	var altar_state: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
 	if beat_index<2:
 		if world.tiles[index]=="altar":
 			location_button(panel,"계속",Vector2(463,653),Vector2(171,48),func(): advance_cultist_altar(index,beat_index),1)
@@ -954,9 +954,19 @@ func show_cultist_altar_beat(index: int) -> void:
 	elif altar_state.status=="seen" and beat.get("choice",false)==true:
 		location_button(panel,"싸운다",Vector2(320,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"fight"),1)
 		location_button(panel,"지나간다",Vector2(504,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"pass"),1)
+	elif fighting:
+		if altar_state.battle_result=="won":
+			var won_note=label_at(panel,"소환 마물 격퇴 기록 저장됨 · 후속 사건 연결 대기",Vector2(315,613),Vector2(715,33),16)
+			won_note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		elif altar_state.battle_result=="lost":
+			var lost_note=label_at(panel,"전투 패배 기록 저장됨 · 남은 마물로 재도전 가능",Vector2(315,613),Vector2(715,33),16)
+			lost_note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		if altar_state.battle_result!="won" and not world.roster.is_empty():
+			location_button(panel,"출전 마물 선택",Vector2(319,653),Vector2(225,48),func(): show_story_battle_deck(CultistAltarEntry.EVENT_ID,index),1)
+		if altar_state.battle_result=="":
+			location_button(panel,"선택 변경",Vector2(557,653),Vector2(126,48),func(): reconsider_cultist_altar(index),4)
 	elif altar_state.status=="active":
-		var selected_label: String="싸운다" if altar_state.choice=="fight" else "지나간다"
-		var receipt=label_at(panel,"‘%s’ 선택 저장됨 · 후속 처리는 다음 단계에서 연결됩니다." % selected_label,Vector2(320,613),Vector2(710,35),16)
+		var receipt=label_at(panel,"‘지나간다’ 선택 저장됨 · 후속 처리는 다음 단계에서 연결됩니다.",Vector2(300,613),Vector2(730,35),16)
 		receipt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		location_button(panel,"선택 변경",Vector2(463,653),Vector2(171,48),func(): reconsider_cultist_altar(index),1)
 	if world.tiles[index]=="altar":
@@ -974,6 +984,14 @@ func choose_cultist_altar(index: int, shown_beat: int, decision: String) -> void
 		status.text="광신도 제단 선택 저장 실패 · 다시 시도하세요."
 		return
 	show_cultist_altar_beat(index)
+	if decision=="fight":
+		# Show the original summoned-monsters layer before deck selection.
+		# Reconnecting opens the same saved summon scene, not an automatic fight.
+		var choice_overlay=overlay
+		await get_tree().create_timer(0.76).timeout
+		if is_instance_valid(choice_overlay) and overlay==choice_overlay and CultistAltarEntry.can_enter(session,index):
+			if session.get_story_event(CultistAltarEntry.EVENT_ID).choice=="fight":
+				show_story_battle_deck(CultistAltarEntry.EVENT_ID,index)
 
 func reconsider_cultist_altar(index: int) -> void:
 	if not CultistAltarEntry.reconsider(session,index):
