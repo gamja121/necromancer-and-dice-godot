@@ -1,0 +1,57 @@
+name: P4 Natural Full Story Chain (Godot)
+
+on:
+  pull_request:
+    paths:
+      - "scripts/test_p4_natural_full_story.gd"
+      - "scripts/test_p4_natural_commander_hunter.gd"
+      - "scripts/test_p4_natural_story_arrival.gd"
+      - ".github/workflows/p4-natural-full-story.yml"
+      - "map.gd"
+      - "systems/**"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_p4_natural_full_story.gd"
+      - "scripts/test_p4_natural_commander_hunter.gd"
+      - "scripts/test_p4_natural_story_arrival.gd"
+      - ".github/workflows/p4-natural-full-story.yml"
+      - "map.gd"
+      - "systems/**"
+      - "docs/port_audit/migration_work_queue.tsv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  natural-full-story:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout canonical Godot source
+        uses: actions/checkout@v4
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project and check native script inheritance
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee p4-natural-full-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' p4-natural-full-import.log; then
+            exit 1
+          fi
+      - name: Genuine die and map UI rescue-to-king story chain with checkpoint reloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 960s godot --headless --path . --script res://scripts/test_p4_natural_full_story.gd 2>&1 | tee p4-natural-full-story.log
+          grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full-story.log
+          grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full-story.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
