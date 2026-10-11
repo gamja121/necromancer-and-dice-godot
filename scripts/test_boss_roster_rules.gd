@@ -129,6 +129,23 @@ func _run() -> void:
 		var before=session.world.snapshot().duplicate(true)
 		check(session.persist_change(before),"next unlocked tier persisted")
 		check(session.world.current_boss_tier()==40 and session.world.tiles[23]=="boss","queued 40 boss replaces green stone immediately")
+		# An already reached tier 60 must wait while 40 is alive, then take
+		# over on the very same red stone without stale tier-40 scout intel.
+		session.world.boss_peak=60
+		session.world.scout={"scouted":true,"intel":[{"index":23,"type":"boss","count":3,"grade":"hero","legion":"skeleton"}]}
+		check(session.save_world(),"queued tier-60 test setup persists")
+		check(session.start_encounter(23,selected),"second sequential boss begins at tier 40")
+		if not session.encounter.is_empty():
+			var next_battle=BattleRules.new(definitions,123)
+			check(next_battle.restore(session.encounter.checkpoint),"second boss checkpoint restores")
+			for unit in next_battle.units:
+				if unit.team=="enemy":
+					unit.hp=0
+					unit.alive=false
+			check(session.finish_encounter(next_battle),"tier 40 defeat is durable")
+			check(session.world.boss_defeated==[20,40] and session.world.current_boss_tier()==60 and session.world.tiles[23]=="boss","already unlocked tier 60 replaces defeated boss immediately")
+			var next_info: Array = session.world.scout.intel.filter(func(entry): return int(entry.index)==23)
+			check(next_info.size()==1 and int(next_info[0].count)==4 and next_info[0].legion==definitions[session.world.current_boss_id()].legions[0],"new boss scout record has fresh count and legion")
 	session.save_file_path=old_path
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
 	print("BOSS_ROSTER_RULES: %d passed, %d failed" % [passed,failed])
