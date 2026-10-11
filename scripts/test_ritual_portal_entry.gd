@@ -56,14 +56,15 @@ func fixture(tag: String, tile: String="forest"):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==2,"first and second canonical portal beats exist")
+	check(Beats.count()==3,"first three canonical portal beats exist")
 	check(Beats.beat(0).id=="arrival","original beat id")
 	check(Beats.beat(0).effect=="제단에서 이어진 흔적을 따라가자 숲 깊은 폐허에서 거대한 전이문을 발견한다.","exact original arrival narration")
 	check(Beats.beat(0).dialogue=="","no invented dialogue")
 	check(Beats.beat(0).speaker=="","no invented speaker")
 	check(Beats.beat(0).visual=="base","first beat uses the unchanged ruin base art")
 	check(Beats.beat(1).id=="portal_reveal","second original portal beat exists, first unchanged")
-	check(Beats.beat(2).is_empty(),"third ritual beat not unlocked")
+	check(Beats.beat(2).id=="final_ritual","third original ritual beat exists without changing arrival")
+	check(Beats.beat(3).is_empty(),"future omen remains locked")
 	check(Beats.BASE_ART=="res://assets/map/events/ritual-portal-ruins-base.webp","original ruin art path reused")
 	check(Portal.BASE_ART==Beats.BASE_ART,"UI entry uses same original art")
 	check(Portal.FIRST_BEAT==Beats.beat(0),"entry and canonical scene data match")
