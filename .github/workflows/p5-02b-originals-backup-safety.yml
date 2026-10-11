@@ -82,3 +82,36 @@ jobs:
             echo "::error::corrupt restored art unexpectedly passed SHA256"; exit 1
           fi
           echo "P5_02B_BACKUP_SAFETY: 8 scenarios passed, 0 failed"
+
+  windows-powershell-51:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run authentic Windows PowerShell 5.1 copy and independent verification
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $fixture = Join-Path $env:RUNNER_TEMP 'p5-02b-win-native'
+          $raw = Join-Path $fixture 'raw_assets'
+          $source = Join-Path $fixture 'source_assets'
+          $dest = Join-Path $fixture 'external-copy-fixture'
+          New-Item -ItemType Directory -Path $raw, $source -Force | Out-Null
+          [IO.File]::WriteAllText((Join-Path $raw 'original.psd'), 'immutable asset A')
+          [IO.File]::WriteAllText((Join-Path $source 'untracked.kra'), 'immutable asset B')
+          [IO.File]::WriteAllText((Join-Path $source '.env'), 'credential exclusion fixture')
+          $script = Join-Path $PWD 'scripts\p5_02b_local_originals_backup.ps1'
+          $baseline = (Get-FileHash -LiteralPath (Join-Path $raw 'original.psd') -Algorithm SHA256).Hash
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Mode Audit -RawAssetsPath $raw -SourceAssetsPath $source
+          if ($LASTEXITCODE -ne 0) { throw 'Windows audit failure' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Mode Backup -RawAssetsPath $raw -SourceAssetsPath $source -DestinationRoot $dest -AllowSameVolume
+          if ($LASTEXITCODE -ne 0) { throw 'Windows copy failure' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Mode Verify -DestinationRoot $dest
+          if ($LASTEXITCODE -ne 0) { throw 'Windows restore check failure' }
+          if ((Get-FileHash -LiteralPath (Join-Path $raw 'original.psd') -Algorithm SHA256).Hash -ne $baseline) {
+            throw 'Original art unexpectedly mutated'
+          }
+          if (Test-Path -LiteralPath (Join-Path $dest 'files\source_assets\.env')) {
+            throw 'Local secret escaped backup exclusions'
+          }
+          Write-Host 'P5_02B_WINDOWS_POWERSHELL_51_PASS'
