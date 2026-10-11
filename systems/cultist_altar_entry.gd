@@ -1,6 +1,7 @@
 extends RefCounted
-## P1-05I-1: the FIRST cultist altar arrival only. Later ritual reveal,
-## fight/pass choice, enemy battle and follow-up quest stay locked.
+const AltarBeats = preload("res://systems/cultist_altar_beats.gd")
+## P1-05I-2: first arrival and ritual-reveal scenes only.
+## The fight/pass choice, battle and later quest outcomes stay locked.
 
 const EVENT_ID = "cultist_altar_encounter_01"
 const SEEN_FLAG = "event:cultist_altar_encounter_01:seen"
@@ -40,6 +41,8 @@ static func can_enter(session, index: int) -> bool:
 	if state.choice!="" or state.battle_result!="": return false
 	# Refuse inconsistent saves instead of silently granting a scene.
 	if (state.status=="seen") != (w.event_flags.get(SEEN_FLAG,false)==true): return false
+	# An unvisited altar cannot already have progressed to the ritual layer.
+	if state.status=="unseen" and w.event_flags.get(progress_flag(1),false)==true: return false
 	return true
 
 ## Discovery persists only the first arrival receipt. No choice or reward.
@@ -49,4 +52,23 @@ static func begin(session, index: int) -> bool:
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	session.world.story_events[EVENT_ID]={"status":"seen","choice":"","battle_result":""}
 	session.world.event_flags[SEEN_FLAG]=true
+	return session.persist_change(before)
+
+## Persist one extra beat in the existing boolean event_flags schema.
+## Beat 1 displays the ritual layer. The original next beat (choice) is locked.
+static func progress_flag(index: int) -> String:
+	if index!=1: return ""
+	return "event:%s:beat:%d" % [EVENT_ID,index]
+
+static func current_beat(session) -> int:
+	if session == null or session.world == null: return -1
+	if not can_enter(session,session.world.position): return -1
+	if session.get_story_event(EVENT_ID).status!="seen": return -1
+	return 1 if session.world.event_flags.get(progress_flag(1),false)==true else 0
+
+static func advance(session, index: int, shown_index: int) -> bool:
+	if not can_enter(session,index): return false
+	if current_beat(session)!=0 or shown_index!=0: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.event_flags[progress_flag(1)]=true
 	return session.persist_change(before)
