@@ -209,7 +209,7 @@ func summon_round() -> void:
 			seed_unit.speed = int(d.speed)
 			initialize(seed_unit)
 			apply_plant(seed_unit)
-			events.append("씨앗 → 식인식물 변신")
+			events.append("씨앗 → %s 변신" % d.name)
 
 func target_weights(team: String) -> Array:
 	var formation = living(team).filter(func(u): return u.slot < 4 and not u.is_summon)
