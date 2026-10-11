@@ -13,8 +13,10 @@ on:
       - feature/stone-shuffle-landing-20261011
       - feature/stone-shuffle-departure-20261011
       - feature/stone-shuffle-rotation-inertia-20261011
+      - feature/stone-shuffle-impact-dust-20261011
     paths:
       - "systems/map_shuffle_*.gd"
+      - "systems/map_shuffle_stone_dust.gd"
       - "map.gd"
       - "systems/cultist_altar_*.gd"
       - "systems/run_session.gd"
@@ -134,3 +136,10 @@ jobs:
           timeout 70s godot --headless --path . --script res://scripts/test_map_shuffle_stone_rotation.gd 2>&1 | tee stone-rotation.log
           grep -E 'MAP_SHUFFLE_STONE_ROTATION: [0-9]+ passed, 0 failed' stone-rotation.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-rotation.log; then exit 1; fi
+      - name: Stone contact dust and floor impact regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 70s godot --headless --path . --script res://scripts/test_map_shuffle_stone_dust.gd 2>&1 | tee stone-dust.log
+          grep -E 'MAP_SHUFFLE_STONE_DUST: [0-9]+ passed, 0 failed' stone-dust.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-dust.log; then exit 1; fi
