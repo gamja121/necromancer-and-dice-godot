@@ -177,7 +177,7 @@ func actual_story_battle(session: Node, map: Control, victor: String, label: Str
 	check(button_in(map,"다시 도전")==null,label+": portal defeat is final, with no uncanonical retry option")
 	return shown
 
-func enter_epilogue(session: Node, map: Control, result: String, label: String) -> bool:
+func enter_epilogue(session: Node, map: Control, result: String, label: String) -> Dictionary:
 	check(session.story_battle_result_pending(PORTAL.EVENT_ID),label+": battle outcome awaits explicit result confirmation")
 	check(session.get_story_event(PORTAL.EVENT_ID).status=="active" and session.get_story_event(PORTAL.EVENT_ID).battle_result==result,label+": exact battle result saved without premature quest completion")
 	check(not PORTAL.aftermath_ready(session,session.world.position) and not session.event_flag_is_set(PORTAL.REVIVED_FLAG),label+": pending result cannot bypass epilogue or revive king")
@@ -193,7 +193,7 @@ func enter_epilogue(session: Node, map: Control, result: String, label: String) 
 	root.add_child(map)
 	var restored: bool=await until_ready(func(): return button_in(map,"부활 확인")!=null,12000)
 	check(restored,label+": original result view reopens on Map after process-style restart")
-	if not restored: return false
+	if not restored: return {}
 	button_in(map,"부활 확인").pressed.emit()
 	check(not session.story_battle_result_pending(PORTAL.EVENT_ID),label+": original result button consumes confirmation exactly once")
 	var ready: bool=await until_ready(func(): return button_in(map,"마치기")!=null,12000)
