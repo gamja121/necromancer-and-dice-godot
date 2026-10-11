@@ -15,10 +15,10 @@
 원본 Git blob SHA는 위 표에 보존하였다. 원본 1·2·4번 이미지가 PNG 구조적으로 손상돼 Godot 4.7.2에서 `ERR_FILE_CORRUPT`가 발생함을 최초 CI에서 확인했다. **픽셀 데이터(압축 IDAT)는 변경하지 않고** 1·4번의 IDAT CRC만 정정하고, 2번의 틀린 tRNS/IDAT 길이와 해당 CRC를 정정해 Godot 임포트를 재검증한다. 정상인 3번은 원본 SHA 그대로 유지한다. 즉 Godot용 복원 PNG 3개의 Git SHA는 위 웹 원본 SHA와 다르다. 수정 원본을 웹 저장소에 덮어쓰지 않았다.
 
 Godot PNG 복원본 Git blob SHA:
-- 기본: `965ad8907f5cae15537a60f9bdbf0ef39ac18b4c`
+- 기본: `c367076294ec20ea0aa6c4e1a31d315cd0e9de44` (Pillow 손상 허용 디코딩 후 PNG 재인코딩)
 - 변형 2: `23308e4ee4634acb28484b5e6de0d04a913f2f26`
 - 변형 3: `d10dcadffda9a4758314b54fc830011c1b9348d3` (원본 동일)
-- 변형 4: `253c49f15dfece768db526d53a1dbc2e09309b70`
+- 변형 4: `f6b504c7078c994ee529d4bdc3ed689c36de7890` (Pillow 손상 허용 디코딩 후 PNG 재인코딩)
 
 ## 수정 범위
 - `systems/map_presentation.gd`: `setup()`에서 1~4번 서로 다른 이미지 로드, `cloud_refresh()`의 기존 8개 스프라이트 순서/속도/좌우 반전과 원본 콜백/잠금/페이드/보상 저장 호출은 그대로 유지.
@@ -36,3 +36,11 @@ Godot PNG 복원본 Git blob SHA:
 - Godot 4.7.2 headless import 및 새 전용 UI 검증, P4 보상→집→셔플→다음 바퀴, 실제 단일 원정, 5단계 G 편성/초과 UI 회귀.
 - Windows PC와 Android의 화면에서 구름 방향/겹침/속도 및 레이아웃 **시각 승인 미완료**. Headless 이미지 디코딩과 노드 생성 검사는 실기 승인 대체가 아님.
 - 다른 작업자의 메인/사건/전투 중단 저장 작업을 보존하고 `main` 병합·웹 배포 및 PC 동기화는 별도 처리.
+
+
+## 5H 원본 파일 데이터 손상 상세
+- 첫 번째 Godot 4.7.2 CI에서는 원본 4개 중 1·2·4 PNG에서 `ERR_FILE_CORRUPT` 발생.
+- 2번은 PNG tRNS/IDAT 길이·CRC 메타데이터만 재설정하여 정상 디코딩.
+- 1·4번은 PNG IDAT CRC 정정만으로는 실패하여 독립 GitHub Actions Pillow 조사 실행 `38135148831`에서 `ImageFile.LOAD_TRUNCATED_IMAGES=True` 로드 후 RGBA 무손실 PNG로 재인코딩한 런타임 파일 사용.
+- **주의:** 4번 소스 IDAT 손상으로 현재 Pillow 복원 픽셀은 313×182 중 투명도 유효 범위가 y=12~77에 한정됨(원본 복구 결과 알파 bbox `(12,12,301,78)`, 색 47종). 이는 시각적 완전 원본 판정이 아니므로, 정확한 4번 구름 PNG를 확보하면 교체·실기 승인해야 한다. 1번 복원은 320×221, 알파 bbox `(0,7,320,221)`.
+- 이미지 복구는 게임 규칙/세이브를 변경하지 않는다. 원본 웹 소스와 Git blob SHA 4개를 그대로 증거로 남긴다.
