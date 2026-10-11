@@ -414,6 +414,10 @@ func show_tile(index: int) -> void:
 			show_monster_king_hunt_intro(index)
 			return
 		status.text = session.notice
+	# Only show a previously saved, unacknowledged fifth-scene result.
+	if type in ["unknown","event"] and MonsterKingHuntEntry.can_resume_completion(session,index):
+		show_monster_king_hunt_beat(index)
+		return
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -770,6 +774,9 @@ func resume_village_rumor_if_unfinished() -> void:
 	if MonsterKingHuntEntry.can_enter(session,index):
 		if session.get_story_event(MonsterKingHuntEntry.EVENT_ID).status=="seen":
 			show_monster_king_hunt_intro(index)
+			return
+	if MonsterKingHuntEntry.can_resume_completion(session,index):
+		show_monster_king_hunt_beat(index)
 
 func show_village_rumor_intro(index: int, event_id: String) -> void:
 	show_village_rumor_beat(index,event_id)
@@ -964,7 +971,7 @@ func show_monster_king_hunt_intro(index: int) -> void:
 	show_monster_king_hunt_beat(index)
 
 func show_monster_king_hunt_beat(index: int) -> void:
-	if not MonsterKingHuntEntry.can_enter(session,index): return
+	if not MonsterKingHuntEntry.can_enter(session,index) and not MonsterKingHuntEntry.can_resume_completion(session,index): return
 	var beat_index: int=MonsterKingHuntEntry.current_beat(session)
 	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))
 	if beat.is_empty(): return
@@ -985,18 +992,29 @@ func show_monster_king_hunt_beat(index: int) -> void:
 		var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(285,616),Vector2(710,34),16)
 		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	# Only the fourth destination clue is revealed; the fifth location receipt stays locked.
-	if beat_index<3:
+	# Explicitly confirm the fifth original beat before committing quest flags.
+	if beat_index<4:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="unknown" else Vector2(651,653),Vector2(171,48),func(): advance_monster_king_hunt(index,beat_index),1)
+	elif beat_index==4:
+		location_button(panel,"마치기",Vector2(463,653) if world.tiles[index]=="unknown" else Vector2(651,653),Vector2(171,48),func(): acknowledge_monster_king_hunt(index),1)
 	if world.tiles[index]=="unknown":
 		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func advance_monster_king_hunt(index: int, shown_beat: int) -> void:
-	if not MonsterKingHuntEntry.advance(session,index,shown_beat):
+	var saved: bool=MonsterKingHuntEntry.finish(session,index) if shown_beat==3 else MonsterKingHuntEntry.advance(session,index,shown_beat)
+	if not saved:
 		status.text="마물의 왕 추적 장면 저장 실패 · 다시 시도하세요."
 		return
 	show_monster_king_hunt_beat(index)
+
+func acknowledge_monster_king_hunt(index: int) -> void:
+	if not MonsterKingHuntEntry.acknowledge_completion(session,index):
+		status.text="봉인 폐허 확인 저장 실패 · 다시 시도하세요."
+		return
+	close_overlay()
+	if world.tiles[index]=="unknown": show_location(index)
+	else: render()
 
 func show_ritual_portal_intro(index: int) -> void:
 	if RitualPortalEntry.aftermath_ready(session,index):

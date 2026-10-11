@@ -39,6 +39,7 @@ on:
       - "scripts/test_monster_king_hunt_trace.gd"
       - "scripts/test_monster_king_hunt_revival_dialogue.gd"
       - "scripts/test_monster_king_hunt_destination.gd"
+      - "scripts/test_monster_king_hunt_location.gd"
       - "systems/monster_king_hunt_entry.gd"
       - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
@@ -99,6 +100,7 @@ on:
       - "scripts/test_monster_king_hunt_trace.gd"
       - "scripts/test_monster_king_hunt_revival_dialogue.gd"
       - "scripts/test_monster_king_hunt_destination.gd"
+      - "scripts/test_monster_king_hunt_location.gd"
       - "systems/monster_king_hunt_entry.gd"
       - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
@@ -487,5 +489,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_monster_king_hunt_destination.gd 2>&1 | tee monster-king-hunt-destination.log
           grep -E 'MONSTER_KING_HUNT_DESTINATION_REGRESSION: [0-9]+ passed, 0 failed' monster-king-hunt-destination.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-king-hunt-destination.log; then
+            exit 1
+          fi
+
+      - name: Monster king hunt fifth sealed ruins location, atomic completion, rollback and final acknowledgment regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_monster_king_hunt_location.gd 2>&1 | tee monster-king-hunt-location.log
+          grep -E 'MONSTER_KING_HUNT_LOCATION_REGRESSION: [0-9]+ passed, 0 failed' monster-king-hunt-location.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-king-hunt-location.log; then
             exit 1
           fi

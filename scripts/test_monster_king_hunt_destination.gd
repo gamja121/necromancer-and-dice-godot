@@ -75,7 +75,7 @@ func fixture(tag: String, side: String, tile: String):
 	return s
 
 func source_contract() -> void:
-	check(Beats.count()==4,"four source beats; location confirmation fifth locked")
+	check(Beats.count()==5,"four source beats; location confirmation fifth locked")
 	check(Beats.beat(0)==Hunt.FIRST_BEAT,"original arrival unchanged")
 	check(Beats.beat(1).id=="trace","corrupted trace unchanged")
 	check(Beats.beat(2,"weakened").id=="revival","existing weak revival line unchanged")
@@ -86,7 +86,7 @@ func source_contract() -> void:
 	check(fourth.dialogue=="왕은 그 폐허로 향했어. 봉인이 남아 있던 곳이지.","exact hunter clue")
 	check(fourth.speaker=="마물 사냥꾼" and fourth.visual=="portrait","source speaker and portrait")
 	check(Beats.beat(3,"weakened")==Beats.beat(3,"full"),"same clue for both revival modes")
-	check(Beats.beat(4).is_empty() and Beats.beat(-1).is_empty(),"no fifth completion or invalid beat")
+	check(Beats.beat(4).id=="located" and Beats.beat(5).is_empty() and Beats.beat(-1).is_empty(),"no fifth completion or invalid beat")
 	check(Beats.visual_art(str(fourth.visual))==Beats.PORTRAIT_ART,"original hunter portrait reused")
 	check(ResourceLoader.exists(Beats.PORTRAIT_ART),"portrait resource present")
 	fourth.effect="changed"
@@ -94,7 +94,7 @@ func source_contract() -> void:
 	check(Hunt.progress_flag(3)=="event:monster_king_hunt_trace_01:beat:3","unique fourth beat receipt")
 	check(Hunt.progress_flag(4).is_empty(),"location completion not checkpointed prematurely")
 	var src: String=FileAccess.get_file_as_string("res://map.gd")
-	check(src.contains("if beat_index<3:"),"third dialogue explicitly continues to fourth clue")
+	check(src.contains("if beat_index<4:"),"third dialogue explicitly continues to fourth clue")
 	check(src.contains("MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))"),"saved beat and revival mode drive UI")
 	check(src.contains("InkSceneReveal.play(scene_art)"),"original ink reveal preserved")
 	check(src.contains('location_button(panel,"세계수 기능"'),"world tree function retained")

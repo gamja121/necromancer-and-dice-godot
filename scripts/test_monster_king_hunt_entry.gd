@@ -75,7 +75,7 @@ func fixture(tag: String, winner: String, destination: String):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==4,"first four source beats present including destination clue")
+	check(Beats.count()==5,"first four source beats present including destination clue")
 	check(Beats.beat(0).id=="arrival","source hunt first beat ID")
 	check(Beats.beat(0).effect=="세계수의 뿌리 부근. 의식이 끝난 뒤에도 검은 흔적이 땅을 타고 뻗어 있다.","exact original world-tree narration")
 	check(Beats.beat(0).dialogue=="","source first beat has no dialogue")

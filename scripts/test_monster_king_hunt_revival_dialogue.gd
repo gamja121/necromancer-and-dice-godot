@@ -74,7 +74,7 @@ func fixture(tag: String, side: String, tile: String):
 	return s
 
 func source_contract() -> void:
-	check(Beats.count()==4,"fourth destination clue added after canonical first three scenes")
+	check(Beats.count()==5,"fourth destination clue added after canonical first three scenes")
 	check(Beats.beat(0)==Hunt.FIRST_BEAT,"original arrival identical")
 	check(Beats.beat(1).id=="trace","second beast scene preserved")
 	var weak: Dictionary=Beats.beat(2,"weakened")
@@ -104,7 +104,7 @@ func source_contract() -> void:
 	check(src.contains("MonsterKingHuntBeats.visual_art(str(beat.visual))"),"original portrait layer chosen by scene visual")
 	check(src.contains("InkSceneReveal.play(scene_art)"),"portrait reveals with same original ink effect")
 	check(src.contains('"%s: %s" % [str(beat.speaker),str(beat.dialogue)]'),"narrator and dialogue shown in UI")
-	check(src.contains("if beat_index<3:"),"Continue also offered after hunter dialogue")
+	check(src.contains("if beat_index<4:"),"Continue also offered after hunter dialogue")
 	check(src.contains('location_button(panel,"세계수 기능"'),"world-tree feature remains accessible")
 	check(src.contains('location_button(panel,"돌아가기"'),"map return stays accessible")
 	check(not src.contains("finish_monster_king_hunt("),"hunt quest completion is not implemented")
