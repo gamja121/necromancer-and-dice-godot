@@ -1,7 +1,6 @@
 extends Control
-## Steps 2-4: gather, counter-rotate, then reveal 21 refreshed map tiles.
-## Does not generate any new map, dice result or save state.
-## This is not wired into the live home-exit transition until later steps.
+## Home-exit visual shuffle: gather, counter-rotate and reveal 21 tiles.
+## All changes here are temporary visuals; gameplay/save state stays authoritative.
 
 const Layout = preload("res://systems/map_shuffle_layout.gd")
 const SHRINK_DURATION = 0.12
@@ -11,11 +10,16 @@ const SCATTER_DURATION = 0.46
 const FLIP_HALF_DURATION = 0.105
 const FLIP_STAGGER = 0.008
 const FLIP_EXPAND_DURATION = 0.135
+const LANDING_LIFT = 4.0
+const LANDING_DURATION = 0.17
+const SHADOW_OFFSET = Vector2(4.0, 7.0)
+const SHADOW_TINT = Color(0.035, 0.022, 0.045, 0.31)
 
 var board_buttons: Array[TextureButton] = []
 var tile_sources: Array[TextureButton] = []
 var source_visibility: Array[bool] = []
 var tile_visuals: Array[TextureRect] = []
+var tile_shadows: Array[TextureRect] = []
 var slots: Array[Dictionary] = []
 var gathering: Tween
 var rotation_tween: Tween
@@ -66,6 +70,20 @@ func prepare(tile_buttons: Array) -> bool:
 		visual.pivot_offset = visual.size * 0.5
 		visual.position = source.position
 		add_child(visual)
+		# A tinted copy of the original silhouette reads as a small contact
+		# shadow without requiring additional imported images or real 3D.
+		var shadow := TextureRect.new()
+		shadow.name = "TileShadow"
+		shadow.texture = source.texture_normal
+		shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shadow.show_behind_parent = true
+		shadow.size = visual.size
+		shadow.position = SHADOW_OFFSET
+		shadow.modulate = SHADOW_TINT
+		visual.add_child(shadow)
+		tile_shadows.append(shadow)
 		tile_sources.append(source)
 		source_visibility.append(source.visible)
 		tile_visuals.append(visual)
@@ -143,17 +161,23 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		scatter_tween.tween_property(visual, "position", destination, SCATTER_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await scatter_tween.finished
 
-	# Brief horizontal flip at each destination: shrink -> switch art ->
-	# expand to actual board tile size. The delay gives staggered landings.
+	# Short 2.5D landing: the face rises four pixels, falls with a soft
+	# bounce, and its contact shadow fades as the full-size tile settles.
+	# Delay by tile index to preserve the existing staggered reveal.
 	reveal_tween = create_tween().set_parallel(true)
 	for i in range(tile_visuals.size()):
 		var visual: TextureRect = tile_visuals[i]
+		var shadow: TextureRect = tile_shadows[i]
 		var destination_index: int = int(Layout.SCATTER_DESTINATIONS[i])
 		var next_texture: Texture2D = next_tile_textures[destination_index]
 		var delay: float = float(i) * FLIP_STAGGER
+		var landing_y: float = visual.position.y
+		visual.position.y -= LANDING_LIFT
 		reveal_tween.tween_property(visual, "scale:x", 0.04, FLIP_HALF_DURATION).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-		reveal_tween.tween_callback(func(): visual.texture = next_texture).set_delay(delay + FLIP_HALF_DURATION)
+		reveal_tween.tween_callback(_reveal_tile_face.bind(visual, shadow, next_texture)).set_delay(delay + FLIP_HALF_DURATION)
 		reveal_tween.tween_property(visual, "scale", Vector2.ONE, FLIP_EXPAND_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		reveal_tween.tween_property(visual, "position:y", landing_y, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		reveal_tween.tween_property(shadow, "modulate:a", 0.0, LANDING_DURATION).set_delay(delay + FLIP_HALF_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await reveal_tween.finished
 
 	# Commit the already saved images to the formerly hidden buttons, then
@@ -163,6 +187,11 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		board_buttons[destination_index].texture_normal = next_tile_textures[destination_index]
 	restore_tiles()
 	return true
+
+
+func _reveal_tile_face(visual: TextureRect, shadow: TextureRect, new_face: Texture2D) -> void:
+	visual.texture = new_face
+	shadow.texture = new_face
 
 
 func _valid_next_tiles(next_tile_textures: Array) -> bool:
@@ -197,6 +226,7 @@ func restore_tiles() -> void:
 	tile_sources.clear()
 	source_visibility.clear()
 	tile_visuals.clear()
+	tile_shadows.clear()
 	slots.clear()
 	gathering = null
 	rotation_tween = null
