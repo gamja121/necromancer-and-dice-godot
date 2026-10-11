@@ -31,10 +31,13 @@ var touch_active := false
 var pointer_seen := false
 var idle_time := 0.0
 var base_positions: Dictionary = {}
+# Production uses the same ConfigFile as map and battlefield. A test may
+# assign an isolated save path before adding this scene to the tree.
+var audio_save_path: String = AudioSettings.SAVE
 
 func _ready() -> void:
 	# Match the same persistent Music/SFX bus preferences used on map and battlefield.
-	AudioSettings.apply_saved()
+	AudioSettings.apply_saved(audio_save_path)
 	get_viewport().size_changed.connect(_layout_layers)
 	new_run_button.pressed.connect(_start_new_run)
 	continue_button.pressed.connect(_continue_run)
@@ -203,7 +206,7 @@ func _show_options() -> void:
 	options_dialog.popup_centered()
 
 func _save_audio() -> void:
-	AudioSettings.new().save_settings()
+	AudioSettings.new().save_settings("",audio_save_path)
 
 func _update_volume(value: float) -> void:
 	AudioServer.set_bus_mute(0,value<=0)
