@@ -9,6 +9,7 @@ on:
       - feature/map-shuffle-dice-aura-20261011
       - feature/map-shuffle-audio-20261011
       - feature/map-shuffle-audio-timing-20261011
+      - feature/map-shuffle-final-qa-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -102,3 +103,10 @@ jobs:
           timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_sfx.gd 2>&1 | tee sfx.log
           grep -E 'MAP_SHUFFLE_SFX: [0-9]+ passed, 0 failed' sfx.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' sfx.log; then exit 1; fi
+      - name: Final shuffle acceptance for repeated exits and saved worlds
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 80s godot --headless --path . --script res://scripts/test_map_shuffle_acceptance.gd 2>&1 | tee acceptance.log
+          grep -E 'MAP_SHUFFLE_ACCEPTANCE: [0-9]+ passed, 0 failed' acceptance.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' acceptance.log; then exit 1; fi
