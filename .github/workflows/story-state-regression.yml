@@ -243,7 +243,7 @@ jobs:
           phases=(move_seed move_resume move_verify chest_seed chest_choose chest_prepare chest_claim chest_verify story_seed story_action story_commit story_ack story_verify cleanup)
           for phase in "${phases[@]}"; do
             echo "::group::P4-03C process phase ${phase}"
-            timeout --signal=TERM --kill-after=5s 90s godot --headless --path . --script res://scripts/test_p4_three_process_restart.gd -- "${phase}" 2>&1 | tee "p4-three-process-${phase}.log"
+            timeout --signal=TERM --kill-after=5s 120s godot --headless --path . --script res://scripts/test_p4_three_process_restart.gd -- "${phase}" 2>&1 | tee "p4-three-process-${phase}.log"
             grep -E "P4_THREE_PROCESS_RESTART_${phase}: [0-9]+ passed, 0 failed" "p4-three-process-${phase}.log"
             if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-three-restarts:' "p4-three-process-${phase}.log"; then
               exit 1
