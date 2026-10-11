@@ -44,6 +44,18 @@ var editing: Control
 var detail: Control
 var selected_card = ""
 var card_tweens: Dictionary = {}
+var card_death_shader: Shader
+# The original HTML dock uses 16dvh cards capped at 72..118px.
+const DOCK_CARD_ASPECT = 370.0 / 540.0
+const DOCK_DEATH_SHADER_SOURCE = """
+shader_type canvas_item;
+uniform float death_factor : hint_range(0.0, 1.0) = 0.0;
+void fragment() {
+    vec4 original = COLOR;
+    float grey = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+    COLOR = vec4(mix(original.rgb, vec3(grey), death_factor), original.a * mix(1.0, 0.6, death_factor));
+}
+"""
 var busy = false
 var paused = false
 var speed_index = 0
@@ -324,10 +336,19 @@ func battle_background_path() -> String:
 func unit_floor_y() -> float:
 	return 390.0 if embedded else 570.0
 
+func dock_card_height() -> float:
+	return clampf(surface_size.y*0.16,72.0,118.0)
+
+func dock_card_size() -> Vector2:
+	var h: float=dock_card_height()
+	return Vector2(h*DOCK_CARD_ASPECT,h)
+
 func card_rest_y() -> float:
-	return surface_size.y-107.2
+	# Source CSS: bottom 8px + translateY(16px) in ready phase.
+	return surface_size.y+8.0-dock_card_height()
 
 func card_action_y() -> float:
+	# Source CSS: bottom 8px + translateY(card height - 12px).
 	return surface_size.y-20.0
 
 func unit_x(u: Dictionary) -> float:
@@ -364,11 +385,18 @@ func render_units(values: Array) -> void:
 			card.texture_normal = texture("res://assets/cards/unit-card-%s.png" % u.slug)
 			card.ignore_texture_size = true
 			card.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			card.size = Vector2(78.93,115.2)
+			card.size = dock_card_size()
 			card.pivot_offset = card.size*Vector2(0.5,0.85)
+			if card_death_shader==null:
+				card_death_shader=Shader.new()
+				card_death_shader.code=DOCK_DEATH_SHADER_SOURCE
+			var appearance=ShaderMaterial.new()
+			appearance.shader=card_death_shader
+			appearance.set_shader_parameter("death_factor",0.0)
+			card.material=appearance
 			var angles = [-3,2,-1,3,-2]
 			card.rotation_degrees = angles[(u.slot+(2 if u.team == "enemy" else 0))%5]
-			card.position = Vector2(unit_x(u)-39.465,card_action_y() if busy else card_rest_y())
+			card.position = Vector2(unit_x(u)-card.size.x*0.5,card_action_y() if busy else card_rest_y())
 			card.disabled = busy
 			card.tooltip_text = "%s · %d/%d" % [u.name,u.hp,u.max_hp]
 			var id: String = u.id
@@ -395,7 +423,13 @@ func render_units(values: Array) -> void:
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]
-		cards[u.id].modulate = Color.WHITE if u.alive else Color(0.6,0.6,0.6,0.6)
+		# Web dock dims only the corpse artwork to monochrome; the separate
+		# brand/altar decorations must retain their own texture colors.
+		cards[u.id].modulate = Color.WHITE
+		var card_appearance: ShaderMaterial=cards[u.id].material as ShaderMaterial
+		if card_appearance!=null:
+			card_appearance.set_shader_parameter("death_factor",0.0 if u.alive else 1.0)
+		cards[u.id].set_meta("dead",not u.alive)
 		cards[u.id].tooltip_text = "%s · %d/%d" % [u.name,u.hp,u.max_hp]
 		if u.alive and u.frozen: sprite.modulate = Color(0.5,0.85,1.0)
 		elif u.alive and not u.poison.is_empty(): sprite.modulate = Color(0.6,1.0,0.5)
@@ -603,6 +637,8 @@ func close_detail() -> void:
 	set_card_phase(busy)
 
 func set_card_phase(acting: bool) -> void:
+	# Original unit-card dock clears selection as the battle enters action.
+	if acting: selected_card = ""
 	for id in cards:
 		var card: TextureButton = cards[id]
 		card.disabled = acting or visuals.removed.has(id)
