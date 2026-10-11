@@ -43,6 +43,13 @@ jobs:
           timeout 250s godot --headless --path . --script res://scripts/test_p4_cultist_altar_branch_integration.gd 2>&1 | tee cultist.log
           grep -E 'P4_CULTIST_ALTAR_BRANCH_INTEGRATION: [0-9]+ passed, 0 failed' cultist.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-cultist' cultist.log; then exit 1; fi
+      - name: Live ritual portal outcomes and monster king followup
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_ritual_portal_live_integration.gd 2>&1 | tee ritual-live.log
+          grep -E 'P4_RITUAL_PORTAL_LIVE_INTEGRATION: [0-9]+ passed, 0 failed' ritual-live.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-ritual' ritual-live.log; then exit 1; fi
       - name: Graveyard branching battle permanent death and retry
         shell: bash
         run: |
