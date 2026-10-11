@@ -6,6 +6,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_reward_home_lap_integration.gd"
       - "scripts/test_p4_combat_map_return_integration.gd"
       - "data/battle_visual_metrics.json"
       - "systems/battle_presentation_layout.gd"
@@ -88,6 +89,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_reward_home_lap_integration.gd"
       - "scripts/test_p4_combat_map_return_integration.gd"
       - "data/battle_visual_metrics.json"
       - "systems/battle_presentation_layout.gd"
@@ -189,6 +191,16 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: P4-01 step 4 real treasure rewards home recovery and next lap integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_p4_reward_home_lap_integration.gd 2>&1 | tee p4-reward-home-lap.log
+          grep -E 'P4_REWARD_HOME_LAP_INTEGRATION: [0-9]+ passed, 0 failed' p4-reward-home-lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-reward-home:' p4-reward-home-lap.log; then
+            exit 1
+          fi
+
       - name: P4-01 step 3 deck selection embedded battle win defeat capture and map return integration
         shell: bash
         run: |
