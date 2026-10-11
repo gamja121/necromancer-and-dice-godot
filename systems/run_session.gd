@@ -7,6 +7,7 @@ const DiceControl = preload("res://systems/dice_control.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
+const BossRoster = preload("res://systems/boss_roster.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
@@ -50,9 +51,14 @@ func ensure_world() -> void:
 			# Upgrade older 20+ saves only if the last slot is an ordinary
 			# monster. Other legacy tile types stay intact until next shuffle.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
-			if world.reveal_boss_at_threshold() and not save_world():
-				world.restore(before_upgrade)
-				notice = "보스 타일 갱신 저장에 실패했습니다. 다시 시도하세요."
+			var migrated: bool = world.needs_boss_migration
+			var revealed: bool = world.reveal_boss_at_threshold()
+			if migrated or revealed:
+				if not save_world():
+					world.restore(before_upgrade)
+					notice = "보스 편성 갱신 저장에 실패했습니다. 다시 시도하세요."
+				else:
+					world.needs_boss_migration = false
 	encounter = world.active_encounter.duplicate(true)
 
 func save_world() -> bool:
@@ -282,30 +288,40 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		used.append(id)
 		allies.append(unit.duplicate(true))
 	var rules = load("res://systems/battlefield_rules.gd").new(world.definitions,world.rng.randi())
+	rules.forbidden_species = world.boss_order.duplicate()
 	var type: String = str(story_spec.encounter_type) if story else ("mimic" if mimic else world.tiles[index])
 	var slugs: Array = []
+	var story_definitions: Dictionary = world.definitions.duplicate()
+	for reserved in world.boss_order: story_definitions.erase(str(reserved))
 	if story:
 		# The altar fight rolls its 4 unique enemies only when an actual
 		# owned-monster deck has been confirmed. Encounter + RNG save together.
 		if event_id==StoryBattleRegistry.CULTIST_ALTAR_ID:
-			slugs = CultistAltarEnemies.select(world.definitions,world.rng)
-			if not CultistAltarEnemies.valid(world.definitions,slugs):
+			slugs = CultistAltarEnemies.select(story_definitions,world.rng)
+			if not CultistAltarEnemies.valid(story_definitions,slugs):
 				world.restore(before)
 				return false
 		elif event_id==StoryBattleRegistry.RITUAL_PORTAL_ID:
-			slugs = RitualPortalEnemies.select(world.definitions,world.rng)
-			if not RitualPortalEnemies.valid(world.definitions,slugs):
+			slugs = RitualPortalEnemies.select(story_definitions,world.rng)
+			if not RitualPortalEnemies.valid(story_definitions,slugs):
 				world.restore(before)
 				return false
 		else:
 			slugs = story_spec.enemies.duplicate()
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
+	elif type=="boss":
+		var tier: int = world.current_boss_tier()
+		var boss_id: String = world.current_boss_id()
+		if not BossRoster.valid_formation(world.definitions,boss_id,tier,world.boss_order):
+			world.restore(before)
+			return false
+		slugs = BossRoster.formation(boss_id,tier)
 	else:
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
 			if int(entry.index)==index: intel=entry; break
-		slugs = EncounterGenerator.slugs(world.definitions,world.contamination,world.laps+1,world.rng,intel)
+		slugs = EncounterGenerator.slugs(world.definitions,world.contamination,world.laps+1,world.rng,intel,type,world.boss_order)
 	if slugs.is_empty():
 		world.restore(before)
 		return false
@@ -331,6 +347,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story and get_story_event(event_id).battle_result == "lost":
 		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
+	if type=="boss": encounter["boss_tier"]=world.current_boss_tier()
 	if story: encounter["event_id"] = event_id
 	if mimic:
 		world.reward_receipts.append(world.pending_reward.id)
@@ -375,15 +392,29 @@ func finish_encounter(battle) -> bool:
 			encounter = world.active_encounter.duplicate(true)
 			return false
 	elif battle.winner()=="ally":
-		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
+		if encounter.type=="boss":
+			var beaten_tier: int = int(encounter.get("boss_tier",0))
+			if beaten_tier != world.current_boss_tier() or beaten_tier in world.boss_defeated:
+				world.restore(before)
+				encounter = world.active_encounter.duplicate(true)
+				return false
+			world.boss_defeated.append(beaten_tier)
+			if world.current_boss_tier()>0:
+				world.tiles[MapState.BOSS_TILE_INDEX]="boss"
+				world.cleared.erase(MapState.BOSS_TILE_INDEX)
+			else:
+				world.tiles[MapState.BOSS_TILE_INDEX]="monster"
+				if not MapState.BOSS_TILE_INDEX in world.cleared: world.cleared.append(MapState.BOSS_TILE_INDEX)
+		elif encounter.type in ["monster","rare-monster"] and not encounter.index in world.cleared:
+			world.cleared.append(encounter.index)
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
 		for unit in battle.units:
-			if unit.team=="enemy" and not unit.alive and not unit.is_summon:
+			if unit.team=="enemy" and not unit.alive and not unit.is_summon and not unit.slug in world.boss_order:
 				corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6)})
 		if not corpses.is_empty():
 			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
-		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
+		notice = "보스 격퇴 · 영구 처치 기록 · 오염도 -1" if encounter.type=="boss" else ("미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다.")
 	else: notice = "전투 패배 · 생존한 마물과 함께 맵으로 돌아왔습니다."
 	world.active_encounter = {}
 	if not persist_change(before): return false
@@ -391,10 +422,10 @@ func finish_encounter(battle) -> bool:
 	return true
 
 func persist_change(before: Dictionary) -> bool:
-	# Any system that raises contamination across 20 (not only leaving
-	# home) must persist the first boss tile in the SAME save transaction.
-	# A failed write rolls the boss reveal back with the rest of the state.
-	if int(before.get("contamination",0)) < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
+	world.boss_peak = maxi(world.boss_peak,world.contamination)
+	# Eligible next tier appears immediately on the reserved stone; unrelated
+	# legacy events/warps at slot 23 must not be destroyed mid-lap.
+	if world.current_boss_tier()>0 and world.tiles[MapState.BOSS_TILE_INDEX]=="monster":
 		world.reveal_boss_at_threshold()
 	if save_world(): return true
 	world.restore(before)
@@ -404,6 +435,7 @@ func persist_change(before: Dictionary) -> bool:
 
 func create_item(kind: String, source: Dictionary) -> Dictionary:
 	if kind=="unit":
+		if str(source.get("slug","")) in world.boss_order: return {}
 		var rules = Rules.new(world.definitions,world.rng.randi())
 		var item: Dictionary = rules.individual(source.slug,world.next_id("unit"))
 		item.current_hp = item.max_hp
@@ -434,7 +466,7 @@ func open_treasure(index: int = -1) -> bool:
 	var pool: Array = []
 	# Fixed web V2 roster only. Extra Godot species remain loadable from
 	# existing saves, but cannot appear as newly generated treasure rewards.
-	for slug in EncounterGenerator.eligible_roster(world.definitions):
+	for slug in EncounterGenerator.eligible_roster(world.definitions,world.boss_order):
 		pool.append({"kind":"unit","source":{"slug":slug,"name":world.definitions[slug].name}})
 	for card in Catalog.dice_cards(): pool.append({"kind":"dice","source":card})
 	for i in range(3): pool.append({"kind":"brand","source":create_item("brand",{})})
@@ -459,12 +491,14 @@ func prepare_treasure_reward(index: int) -> bool:
 	if int(world.pending_reward.selected)!=index: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var offer: Dictionary = world.pending_reward.offers[index]
+	if offer.kind=="unit" and str(offer.source.get("slug","")) in world.boss_order: return false
 	world.pending_reward.reward = {"kind":offer.kind,"item":offer.source.duplicate(true) if offer.kind=="brand" else create_item(offer.kind,offer.source)}
 	return persist_change(before)
 
 func select_capture(index: int) -> bool:
 	if world.pending_reward.get("kind","")!="capture" or world.pending_reward.locked: return false
 	if index<0 or index>=world.pending_reward.corpses.size(): return false
+	if str(world.pending_reward.corpses[index].get("slug","")) in world.boss_order: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.pending_reward.selected = index
 	world.pending_reward.attempts = world.pending_reward.max_attempts
@@ -479,6 +513,9 @@ func roll_capture() -> Dictionary:
 	pending.attempts = int(pending.attempts)-1
 	pending.roll = world.rng.randi_range(1,6)
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
+	if str(corpse.get("slug","")) in world.boss_order:
+		world.restore(before)
+		return {"ok":false}
 	if pending.roll>=int(corpse.target):
 		pending.phase = "success"
 		pending.reward = {"kind":"unit","item":create_item("unit",corpse)}
@@ -491,6 +528,7 @@ func claim_reward(discard_id: String = "") -> Dictionary:
 	if pending.is_empty() or not pending.has("reward"): return {"ok":false}
 	if pending.id in world.reward_receipts: return {"ok":false}
 	var reward: Dictionary = pending.reward
+	if reward.kind=="unit" and str(reward.item.get("slug","")) in world.boss_order: return {"ok":false}
 	var items: Array = world.roster if reward.kind=="unit" else (world.dice_cards if reward.kind=="dice" else world.brand_cards)
 	var capacity = Catalog.UNIT_CAPACITY if reward.kind=="unit" else (Catalog.DICE_CAPACITY if reward.kind=="dice" else 0)
 	if capacity>0 and items.size()>=capacity:
@@ -769,7 +807,8 @@ func pray_world_tree(index: int) -> Dictionary:
 	var face = world.rng.randi_range(1,6)
 	var delta = -5 if face==6 else (-3 if face>=4 else 1)
 	world.contamination = clampi(world.contamination+delta,0,100)
-	var threshold_crossed: bool = before.contamination < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION
+	var previous_boss_tier: int = world.current_boss_tier()
+	var threshold_crossed: bool = previous_boss_tier == 0 and world.contamination >= (40 if 20 in world.boss_defeated else 20)
 	var had_boss: bool = world.tiles[MapState.BOSS_TILE_INDEX] == "boss"
 	world.reward_receipts.append(visit)
 	world.prayer_result = {"visit":visit,"face":face,"delta":delta}
@@ -816,7 +855,15 @@ func scout_hill(index: int) -> Dictionary:
 	var intel: Array = []
 	for i in range(world.tiles.size()):
 		if world.tiles[i] in ["monster","rare-monster","boss"] and not i in world.cleared:
-			intel.append(EncounterGenerator.scout_intel(world.definitions,world.contamination,world.laps+1,world.rng,i,world.tiles[i]))
+			var info: Dictionary = {}
+			if world.tiles[i]=="boss":
+				var party: Array = BossRoster.formation(world.current_boss_id(),world.current_boss_tier())
+				var id: String = world.current_boss_id()
+				if not party.is_empty() and world.definitions.has(id):
+					info={"index":i,"type":"boss","count":party.size(),"grade":"hero","legion":world.definitions[id].legions[0]}
+			else:
+				info=EncounterGenerator.scout_intel(world.definitions,world.contamination,world.laps+1,world.rng,i,world.tiles[i],world.boss_order)
+			if not info.is_empty(): intel.append(info)
 	world.scout = {"scouted":true,"intel":intel}
 	world.reward_receipts.append(place_visit_id("scout",index))
 	if not persist_change(before): return {"ok":false,"reason":notice}
