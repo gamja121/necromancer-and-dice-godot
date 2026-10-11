@@ -1,6 +1,7 @@
 extends RefCounted
 
 const RoutePlan = preload("res://systems/route_plan.gd")
+const BossRoster = preload("res://systems/boss_roster.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
 const BOSS_CONTAMINATION = 20
@@ -15,6 +16,10 @@ var roster: Array = []
 var position = HOME
 var cleared: Array = []
 var contamination = 0
+var boss_peak = 0
+var boss_order: Array = []
+var boss_defeated: Array = []
+var needs_boss_migration = false
 var laps = 0
 var lap_ready = false
 var last_face = 1
@@ -55,6 +60,7 @@ func _init(data: Dictionary = {}, seed_value: int = 1, initial_plan: Dictionary 
 		var u = rules.individual(slug,"owned-"+str(roster.size()))
 		u.current_hp = u.max_hp
 		roster.append(u)
+	boss_order = BossRoster.roll(rng)
 	generate()
 
 static func centers() -> Array:
@@ -65,7 +71,18 @@ static func centers() -> Array:
 	for i in range(5): result.append(Vector2(6,69-i*13.5))
 	return result
 
+func current_boss_tier() -> int:
+	for tier in BossRoster.TIERS:
+		if not tier in boss_defeated:
+			return tier if boss_peak>=tier else 0
+	return 0
+
+func current_boss_id() -> String:
+	var tier: int = current_boss_tier()
+	return str(boss_order[BossRoster.TIERS.find(tier)]) if tier in BossRoster.TIERS and boss_order.size()==3 else ""
+
 func generate() -> void:
+	boss_peak = maxi(boss_peak,contamination)
 	map_serial += 1
 	var counts = COUNTS.duplicate()
 	var deltas = RoutePlan.deltas(patrol_plan)
@@ -74,6 +91,11 @@ func generate() -> void:
 	var conversion = mini(requested_conversion,counts.basic)
 	counts.basic -= conversion
 	counts.monster += conversion
+	# Only green normal encounters exist before 20. Later, a yellow elite
+	# tile appears with a random 50% chance at every new shuffle.
+	if contamination<20 or rng.randf()<0.5:
+		counts.basic += counts["rare-monster"]
+		counts["rare-monster"] = 0
 	# Reserve the last slot as one ordinary monster before the boss unlocks.
 	# Only this slot changes at contamination 20; other tiles are preserved.
 	counts.monster -= 1
@@ -90,7 +112,7 @@ func generate() -> void:
 		if i==0: tiles.append("fortune-teller-camp")
 		elif i==8: tiles.append("village")
 		elif i==HOME: tiles.append("home")
-		elif i==BOSS_TILE_INDEX: tiles.append("boss" if contamination>=BOSS_CONTAMINATION else "monster")
+		elif i==BOSS_TILE_INDEX: tiles.append("boss" if current_boss_tier()>0 else "monster")
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
@@ -102,7 +124,8 @@ func generate() -> void:
 ## Legacy boards with a different tile there defer until the next shuffle.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
-	if contamination < BOSS_CONTAMINATION or tiles.size() != 24:
+	boss_peak = maxi(boss_peak,contamination)
+	if current_boss_tier()==0 or tiles.size() != 24:
 		return false
 	if tiles[BOSS_TILE_INDEX] != "monster":
 		# Older saved boards may have events, warps, rewards or rare enemies
@@ -137,11 +160,12 @@ func warp_destination() -> int:
 func leave_home() -> void:
 	if lap_ready:
 		contamination = mini(100,contamination+4)
+		boss_peak = maxi(boss_peak,contamination)
 		laps += 1
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"boss_peak":boss_peak,"boss_order":boss_order.duplicate(),"boss_defeated":boss_defeated.duplicate(),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -175,6 +199,14 @@ func restore(saved: Dictionary) -> bool:
 		if not entry.get("battle_result","") is String: return false
 		if not entry.get("battle_result","") in ["","won","lost"]: return false
 		if entry.status == "seen" and (not entry.choice.is_empty() or not entry.get("battle_result","").is_empty()): return false
+	var saved_order: Array = saved.get("boss_order",boss_order)
+	if not BossRoster.valid_order(saved_order): return false
+	var saved_defeated: Array = saved.get("boss_defeated",[])
+	if not saved_defeated is Array or saved_defeated.size()>3: return false
+	for i in range(saved_defeated.size()):
+		if int(saved_defeated[i]) != int(BossRoster.TIERS[i]): return false
+	var saved_peak: int = int(saved.get("boss_peak",saved.contamination))
+	if saved_peak<saved.contamination or saved_peak>100: return false
 	var plan: Dictionary = saved.get("patrol_plan",RoutePlan.default_plan())
 	if not RoutePlan.valid(plan): return false
 	var intel_state: Dictionary = saved.get("scout",{"scouted":false,"intel":[]})
@@ -241,6 +273,13 @@ func restore(saved: Dictionary) -> bool:
 	position = int(saved.position)
 	cleared = saved.cleared.map(func(n): return int(n))
 	contamination = int(saved.contamination)
+	boss_peak = saved_peak
+	boss_order = saved_order.duplicate()
+	boss_defeated = saved_defeated.map(func(t): return int(t))
+	needs_boss_migration = not saved.has("boss_order") or not saved.has("boss_peak") or not saved.has("boss_defeated")
+	# An already-cleared boss on an old board must not respawn after migration.
+	if needs_boss_migration and saved.tiles[23]=="boss" and 23 in saved.cleared and boss_defeated.is_empty():
+		boss_defeated.append(20)
 	laps = int(saved.laps)
 	lap_ready = saved.lap_ready
 	last_face = int(saved.last_face)
