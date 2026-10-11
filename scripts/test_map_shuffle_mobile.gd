@@ -65,13 +65,13 @@ func projection_is_safe(phone: Vector2) -> Dictionary:
 			if shadow.grow(2.0).intersects(dice) or face.grow(2.0).intersects(dice):
 				dice_clear = false
 			for earlier in faces:
-				# Three-pixel edge buffer on each side of the visible tiles.
-				if face.grow(3.0).intersects(earlier.grow(3.0)):
+				# A five-pixel visible clearance (2.5 on each edge) at 640px width.
+				if face.grow(2.5).intersects(earlier.grow(2.5)):
 					no_overlap = false
-				if shadow.grow(3.0).intersects(earlier.grow(3.0)):
+				if shadow.grow(2.5).intersects(earlier.grow(2.5)):
 					no_overlap = false
 			for earlier_shadow in shadows:
-				if face.grow(3.0).intersects(earlier_shadow.grow(3.0)):
+				if face.grow(2.5).intersects(earlier_shadow.grow(2.5)):
 					no_overlap = false
 			faces.append(face)
 			shadows.append(shadow)
