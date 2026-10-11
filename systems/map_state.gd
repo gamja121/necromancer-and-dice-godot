@@ -208,11 +208,28 @@ func restore(saved: Dictionary) -> bool:
 	graveyard_corpses = saved.get("graveyard_corpses",[]).duplicate(true)
 	reward_receipts = saved.get("reward_receipts",[]).duplicate()
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
-	# JSON restores numeric values as floats. Treasure's selected card is an
-	# integer index: restore its exact type, including a suspended first click,
-	# so a resumed card selection is identical to the pre-save transaction.
-	if pending_reward.get("kind","")=="treasure" and pending_reward.has("selected"):
-		pending_reward.selected = int(pending_reward.selected)
+	# JSON parses numeric card faces as floats. A chest's selected index,
+	# as well as blessing/curse faces inside its *offered brand cards*, must
+	# round-trip as integers. Normalizing only the selected index left a
+	# random save/resume mismatch whenever a chest happened to offer a brand.
+	if pending_reward.get("kind","")=="treasure":
+		if pending_reward.has("selected"):
+			pending_reward.selected = int(pending_reward.selected)
+		for offer in pending_reward.get("offers",[]):
+			if not offer is Dictionary or offer.get("kind","")!="brand": continue
+			var source: Dictionary = offer.get("source",{})
+			if not source.get("brand",{}) is Dictionary: continue
+			for faces in ["bless","curse"]:
+				if source.brand.get(faces,[]) is Array:
+					source.brand[faces] = source.brand[faces].map(func(n): return int(n))
+		# The prepared but not yet claimed brand is also a durable reward.
+		var prepared: Dictionary = pending_reward.get("reward",{})
+		if prepared.get("kind","")=="brand":
+			var item: Dictionary = prepared.get("item",{})
+			if item.get("brand",{}) is Dictionary:
+				for faces in ["bless","curse"]:
+					if item.brand.get(faces,[]) is Array:
+						item.brand[faces] = item.brand[faces].map(func(n): return int(n))
 	next_serial = maxi(2,int(saved.get("next_serial",2)))
 	move_serial = maxi(0,int(saved.get("move_serial",0)))
 	map_serial = maxi(0,int(saved.get("map_serial",0)))
