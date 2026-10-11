@@ -89,7 +89,7 @@ func _run() -> void:
 
 	# Watch for the single landing cue after the spread reaches its slots.
 	var sampled: Dictionary = {"seen": false, "ordered": false}
-	get_tree().create_timer(Gather.SCATTER_DURATION + 0.055).timeout.connect(func():
+	create_timer(Gather.SCATTER_DURATION + 0.055).timeout.connect(func():
 		sampled["seen"] = true
 		sampled["ordered"] = shuffle.played_audio_cues == ["gather", "rotate", "land"]
 	)
