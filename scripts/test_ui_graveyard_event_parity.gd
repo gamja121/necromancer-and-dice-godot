@@ -22,6 +22,13 @@ func has_button(parent: Control, title: String) -> bool:
 	for node in parent.get_children():
 		if node is Button and node.text==title and node.visible: return true
 	return false
+func has_source_texture(panel: Control, path: String) -> bool:
+	if not is_instance_valid(panel): return false
+	for node in panel.get_children():
+		if node is TextureRect and node.texture!=null and node.texture.resource_path==path:
+			return true
+	return false
+
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")
 	if session==null:
@@ -44,13 +51,13 @@ func _run() -> void:
 	await process_frame
 	map.show_graveyard_child_beat(grave,0)
 	check(is_instance_valid(map.overlay),"story scene opened without changing encounter state")
-	check(child_named(map.overlay,"StorySceneImage")!=null,"illustrated left-side scene rendered")
-	check(child_named(map.overlay,"StoryInfoPanel")!=null,"separate parchment information column rendered")
+	check(has_source_texture(map.overlay,Beats.BASE_ART),"original graveyard base scene texture rendered")
+	check(has_button(map.overlay,"계속"),"original graveyard narration and continue action rendered")
 	check(has_button(map.overlay,"계속") and has_button(map.overlay,"나가기"),"opening scene exposes original controls")
 	check(not session.get_story_event("graveyard_child_ambush_01").status=="complete","visual beat alone does not complete story")
 	map.show_graveyard_child_beat(grave,2)
-	check(child_named(map.overlay,"StoryCharacterLayer")!=null,"ghoul visible on its own image layer")
-	check(child_named(map.overlay,"StoryDialogueFrame") is Panel,"native parchment dialogue frame displays without damaged source WebP")
+	check(has_source_texture(map.overlay,Beats.GHOUL_ART),"original ghoul overlay texture rendered")
+	check(child_named(map.overlay,"StoryDialogueFrame") is TextureRect and child_named(map.overlay,"StoryDialogueFrame").texture!=null,"reconstructed source WebP dialogue parchment displays")
 	var speech=child_named(map.overlay,"StoryDialogueText")
 	check(speech is Label and speech.text.contains("도와주세요"),"original child dialogue appears in speech frame")
 	map.show_graveyard_child_beat(grave,3)

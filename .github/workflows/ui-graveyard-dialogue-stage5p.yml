@@ -1,0 +1,66 @@
+name: Frozen Web Graveyard Dialogue Stage 5P
+on:
+  push:
+    branches:
+      - feature/ui-parity-graveyard-dialogue-stage5p-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-dialogue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import reconstructed canonical WebP and parse project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Real graveyard dialogue source frame, saved beat and choice gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_ui_graveyard_dialogue_stage5p.gd 2>&1 | tee dialogue.log
+          grep -E 'UI_GRAVE_DIALOGUE_PARITY: [0-9]+ passed, 0 failed' dialogue.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-grave-dialogue:' dialogue.log; then exit 1; fi
+      - name: Graveyard story scene and corpse extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_ui_graveyard_event_parity.gd 2>&1 | tee grave.log
+          grep -E 'UI_STAGE4_PARITY: [0-9]+ passed, 0 failed' grave.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage4:' grave.log; then exit 1; fi
+      - name: Restart saved child and portal story after every beat
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 270s godot --headless --path . --script res://scripts/test_p4_story_ui_interruption.gd 2>&1 | tee resume.log
+          grep -E 'P4_STORY_UI_INTERRUPTION: [0-9]+ passed, 0 failed' resume.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-story-resume:' resume.log; then exit 1; fi
+      - name: Prior patrol parchment parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_patrol_parchment_stage5o.gd 2>&1 | tee patrol.log
+          grep -E 'UI_PATROL_PARCHMENT_PARITY: [0-9]+ passed, 0 failed' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-patrol-parchment:' patrol.log; then exit 1; fi
+      - name: Real map movement, event arrival and persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 280s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee map.log
+          grep -E 'P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed' map.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-map-location:' map.log; then exit 1; fi
+      - name: Expedition title through next lap E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 320s godot --headless --path . --script res://scripts/test_p4_single_run_end_to_end.gd 2>&1 | tee e2e.log
+          grep -E 'P4_SINGLE_RUN_END_TO_END: [0-9]+ passed, 0 failed' e2e.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-single-run:' e2e.log; then exit 1; fi

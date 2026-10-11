@@ -26,6 +26,7 @@ const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
+const GRAVEYARD_DIALOGUE_ART = "res://assets/map/events/graveyard-dialogue-frame.webp"
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
@@ -1267,12 +1268,34 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
 	var chosen: bool = state.status == "active" and state.choice == "protect_child"
 	var description: String = "아이를 구하기 위해 구울 앞을 막아섰다. 출전할 마물을 선택해 구울과 싸우세요." if chosen else str(beat.effect)
-	var narration = label_at(panel,description,Vector2(275,552),Vector2(730,52),17)
+	var dialogue_visible: bool = not str(beat.dialogue).is_empty() and not chosen
+	var narration_position: Vector2 = Vector2(275,444) if dialogue_visible else Vector2(275,552)
+	var narration = label_at(panel,description,narration_position,Vector2(730,52),17)
 	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if not str(beat.dialogue).is_empty() and not chosen:
-		var dialogue = label_at(panel,"아이: %s" % beat.dialogue,Vector2(398,602),Vector2(485,28),17)
-		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if dialogue_visible:
+		# The frozen web reconstructs this original frame from eight complete
+		# base64 chunks instead of its damaged shortened fallback WebP.
+		var frame = image(panel,GRAVEYARD_DIALOGUE_ART,Vector2(102.4,489.6),Vector2(1075.2,216.0))
+		frame.name = "StoryDialogueFrame"
+		frame.stretch_mode = TextureRect.STRETCH_SCALE
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var speaker = label_at(panel,"아이",Vector2(210,526),Vector2(360,31),20)
+		speaker.name = "StoryDialogueName"
+		speaker.add_theme_color_override("font_color",Color("3a2819"))
+		speaker.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		speaker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var speech = label_at(panel,str(beat.dialogue),Vector2(210,587),Vector2(765,42),25)
+		speech.name = "StoryDialogueText"
+		speech.add_theme_color_override("font_color",Color("21150d"))
+		speech.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		speech.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		speech.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var next_mark = label_at(panel,"▼",Vector2(179,651),Vector2(44,27),17)
+		next_mark.name = "StoryDialogueNext"
+		next_mark.add_theme_color_override("font_color",Color("5e4329"))
+		next_mark.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		next_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# The original location actions remain available on graveyard tiles.
 	if world.tiles[index] == "graveyard":
 		location_button(panel,"공동묘지 기능",Vector2(870,495),Vector2(167,48),func(): dismiss_overlay(func(): show_location(index)),4)
