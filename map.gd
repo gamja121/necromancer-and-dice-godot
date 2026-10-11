@@ -13,6 +13,7 @@ const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
 const GraveyardStoryEntryMotion = preload("res://systems/graveyard_story_entry_motion.gd")
 const CommanderPortraitMotion = preload("res://systems/knight_commander_portrait_motion.gd")
+const MonsterHunterLayerMotion = preload("res://systems/monster_hunter_layer_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
@@ -931,9 +932,22 @@ func show_monster_hunter_beat(index: int) -> void:
 	var panel=modal()
 	var art=image(panel,MonsterHunterEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
-	var visual_art: String=MonsterHunterBeats.visual_art(str(beat.visual))
+	var visual: String=str(beat.visual)
+	var visual_art: String=MonsterHunterBeats.visual_art(visual)
 	if not visual_art.is_empty():
-		image(panel,visual_art,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		var is_player: bool=visual=="player"
+		var is_hunter_portrait: bool=visual=="portrait"
+		var art_rect: Rect2=CommanderPortraitMotion.source_rect(TILE_EVENT_SCENE_RECT,true) if is_player else MonsterHunterLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,is_hunter_portrait)
+		var story_layer=image(panel,visual_art,art_rect.position,art_rect.size)
+		story_layer.name="HunterPlayerPortrait" if is_player else ("HunterPortrait" if is_hunter_portrait else "HunterSceneLayer")
+		if is_player:
+			# Existing Stage V source player-enter: 0.48s from -7%/+2%.
+			CommanderPortraitMotion.play(story_layer,true,beat.id=="player_reply")
+		else:
+			# Original web: only warning_reveal/unnatural/clue scenes and
+			# identify/sent_by_commander portraits animate on reappearance.
+			var animated: bool=beat.id in (["identify","sent_by_commander"] if is_hunter_portrait else ["warning_reveal","unnatural","clue"])
+			MonsterHunterLayerMotion.play(story_layer,is_hunter_portrait,animated)
 	var heading=label_at(panel,"사건 · 세계수",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
