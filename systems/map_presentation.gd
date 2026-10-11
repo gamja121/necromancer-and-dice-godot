@@ -1,5 +1,6 @@
 extends Node
 const ContaminationHud = preload("res://systems/contamination_hud.gd")
+const CloudFog = preload("res://systems/cloud_transition_fog.gd")
 const HEAL = [[8,18,22,0,1080,-4],[18,30,26,70,1020,4],[29,22,21,140,1120,-3],[40,43,29,40,1060,4],[52,27,24,180,1160,-4],[64,38,28,100,1040,3],[75,20,21,230,1100,-3],[87,34,25,150,1060,4],[93,51,20,290,1080,-3],[12,57,24,330,1040,3],[25,69,22,220,1140,-4],[37,60,27,390,1020,4],[49,74,20,450,1100,-3],[61,64,25,300,1060,3],[73,78,22,500,1120,-4],[84,69,28,410,1040,4],[94,82,21,540,1080,-3],[56,50,20,580,1000,3]]
 # Fixed CSS source positions/speeds: v2-map-practice.css lines 705–748.
 # Bottom lanes are anchored from the screen bottom, not from a top percentage.
@@ -183,13 +184,25 @@ func cloud_lane_geometry(index: int, texture: Texture2D) -> Dictionary:
 func cloud_refresh(change_board: Callable) -> bool:
 	var layer = effect(true)
 	layer.clip_contents = true
-	var mist = ColorRect.new()
-	mist.size = layer.size
-	mist.color = Color(0.9,0.92,0.9,0.0)
-	mist.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(mist)
+	# Frozen CSS: parent wash + ::before/::after cloud banks + central mist.
+	# All ignore input; the existing effect layer itself owns the button lock.
+	var wash = ColorRect.new()
+	wash.name = "CloudBackdropWash"
+	wash.size = layer.size
+	wash.color = Color(224.0/255.0,228.0/255.0,225.0/255.0,0.0)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(wash)
+	var front_fog = CloudFog.create(layer,0)
+	var veil = CloudFog.create(layer,1)
+	var mist = CloudFog.create(layer,2)
 	var sweep = layer.create_tween().set_parallel(true)
-	sweep.tween_property(mist,"color:a",1.0,0.73).set_delay(0.43)
+	sweep.tween_property(wash,"color:a",0.18,0.24)
+	sweep.tween_property(front_fog.material,"shader_parameter/coverage",0.82,0.36)
+	sweep.tween_property(front_fog,"scale",Vector2.ONE*1.05,0.72)
+	sweep.tween_property(veil.material,"shader_parameter/coverage",0.95,0.26).set_delay(0.36)
+	sweep.tween_property(veil,"scale",Vector2.ONE*1.08,0.56).set_delay(0.25)
+	sweep.tween_property(mist.material,"shader_parameter/coverage",0.98,0.30).set_delay(0.43)
+	sweep.tween_property(mist,"scale",Vector2.ONE*1.04,0.64).set_delay(0.26)
 	var clouds: Array = []
 	var geometries: Array = []
 	for i in range(CLOUD_LANES.size()):
@@ -218,7 +231,13 @@ func cloud_refresh(change_board: Callable) -> bool:
 	var ok: bool = change_board.call()
 	await map.get_tree().create_timer(0.22).timeout
 	var reveal = layer.create_tween().set_parallel(true)
-	reveal.tween_property(mist,"color:a",0.0,0.52).set_delay(0.13)
+	reveal.tween_property(wash,"color:a",0.0,0.52)
+	reveal.tween_property(front_fog.material,"shader_parameter/coverage",0.0,0.52)
+	reveal.tween_property(front_fog,"scale",Vector2.ONE*1.16,0.52)
+	reveal.tween_property(veil.material,"shader_parameter/coverage",0.0,0.42).set_delay(0.09)
+	reveal.tween_property(veil,"scale",Vector2.ONE*1.22,0.42).set_delay(0.09)
+	reveal.tween_property(mist.material,"shader_parameter/coverage",0.0,0.52).set_delay(0.13)
+	reveal.tween_property(mist,"scale",Vector2.ONE*1.12,0.52).set_delay(0.13)
 	for i in range(clouds.size()):
 		var geometry: Dictionary = geometries[i]
 		var opening_duration: float = float(geometry["duration"])*0.82
