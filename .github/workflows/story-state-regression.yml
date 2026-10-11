@@ -9,6 +9,7 @@ on:
       - "systems/battlefield_rules.gd"
       - "scripts/test_battle_source_parity.gd"
       - "scripts/test_story_state_regression.gd"
+      - "scripts/test_save_process_boundary.gd"
       - "scripts/test_card_decoration_layout.gd"
       - "scripts/test_card_decoration_screens.gd"
       - "scripts/test_graveyard_event_entry.gd"
@@ -73,6 +74,7 @@ on:
       - "systems/battlefield_rules.gd"
       - "scripts/test_battle_source_parity.gd"
       - "scripts/test_story_state_regression.gd"
+      - "scripts/test_save_process_boundary.gd"
       - "scripts/test_card_decoration_layout.gd"
       - "scripts/test_card_decoration_screens.gd"
       - "scripts/test_graveyard_event_entry.gd"
@@ -517,3 +519,41 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' battle-source-parity.log; then
             exit 1
           fi
+
+      - name: W153 independent-process save crash before rename, commit and safe restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          phase() {
+            local stage="$1"
+            godot --headless --path . --script res://scripts/test_save_process_boundary.gd -- "$stage" 2>&1 | tee "w153-${stage}.log"
+            grep -E "W153_PROCESS_PHASE_${stage}: [0-9]+ passed, 0 failed" "w153-${stage}.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' "w153-${stage}.log"; then
+              exit 1
+            fi
+          }
+          crash_phase() {
+            local stage="$1"
+            set +e
+            godot --headless --path . --script res://scripts/test_save_process_boundary.gd -- "$stage" > "w153-${stage}.log" 2>&1
+            local code="$?"
+            set -e
+            cat "w153-${stage}.log"
+            if [ "$code" -eq 0 ]; then
+              echo "ERROR: expected process termination during ${stage} but exited successfully"
+              exit 1
+            fi
+            if ! grep -F "W153_CRASH_" "w153-${stage}.log"; then
+              echo "ERROR: no intentional termination marker for ${stage}"
+              exit 1
+            fi
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL W153' "w153-${stage}.log"; then
+              exit 1
+            fi
+          }
+          phase seed
+          crash_phase crash_before_replace
+          phase verify_old_commit
+          crash_phase crash_after_commit
+          phase verify_new_commit
+          phase cleanup
