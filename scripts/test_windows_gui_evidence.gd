@@ -183,7 +183,8 @@ func _run() -> void:
 		map.show_battle_deck(monster_index)
 		await create_timer(1.0).timeout
 		var deck: Control = map.overlay
-		var is_deck: bool = is_instance_valid(deck) and deck.get_script() != null 			and deck.get_script().resource_path.ends_with("battle_deck.gd")
+		var is_deck: bool = (is_instance_valid(deck) and deck.get_script() != null
+			and deck.get_script().resource_path.ends_with("battle_deck.gd"))
 		check(is_deck, "battle deck: real selection panel opened")
 		if is_deck:
 			var first_id: String = str(session.world.roster[0].id)
@@ -228,7 +229,8 @@ func _run() -> void:
 		reward_map.show_treasure(chest_index)
 		await create_timer(2.0).timeout
 		var reward_panel: Control = reward_map.overlay
-		var is_reward: bool = is_instance_valid(reward_panel) and reward_panel.get_script() != null 			and reward_panel.get_script().resource_path.ends_with("treasure_reward.gd")
+		var is_reward: bool = (is_instance_valid(reward_panel) and reward_panel.get_script() != null
+			and reward_panel.get_script().resource_path.ends_with("treasure_reward.gd"))
 		check(is_reward, "reward preview: original TreasureReward panel opened")
 		if is_reward:
 			check(session.world.pending_reward.get("kind", "") == "treasure"
@@ -239,7 +241,6 @@ func _run() -> void:
 		root.remove_child(reward_map)
 		reward_map.queue_free()
 		await process_frame
-	map.queue_free()
 	session.save_file_path = old_path
 	if created:
 		root.remove_child(session)
