@@ -71,24 +71,25 @@ func _run() -> void:
 	var fresh: Array = []
 	for i in range(24):
 		fresh.append(old_face if i in Layout.FIXED_INDICES else texture_for(Color(float(i) / 24.0, 0.5, 0.6)))
-	# Sample face transition while it is active, before cleanup removes all clones.
-	shuffle.play_scatter(fresh, true)
-	await create_timer(Gather.SCATTER_DURATION + Gather.FLIP_HALF_DURATION + 0.075).timeout
-	var sampled_shadow_faded := false
-	var reveal_sync := true
-	for i in range(shuffle.tile_shadows.size()):
-		var shadow: TextureRect = shuffle.tile_shadows[i]
-		var face: TextureRect = shuffle.tile_visuals[i]
-		if shadow.modulate.a < Gather.SHADOW_TINT.a:
-			sampled_shadow_faded = true
-		if face.texture != shadow.texture:
-			reveal_sync = false
-	check(sampled_shadow_faded, "contact shadow fades during landing")
-	check(reveal_sync, "reveal texture and shadow silhouette stay in sync")
-	var start: int = Time.get_ticks_msec()
-	while not shuffle.tile_visuals.is_empty() and Time.get_ticks_msec() - start < 5000:
-		await process_frame
-	check(shuffle.tile_visuals.is_empty(), "scatter and landing complete")
+	# Observe the middle of the coroutine using a timer signal while
+	# awaiting play_scatter normally (Godot 4 requires explicit await).
+	var sample: Dictionary = {"ran":false, "faded":false, "synchronized":true}
+	var probe_timer := create_timer(Gather.SCATTER_DURATION + Gather.FLIP_HALF_DURATION + 0.075)
+	probe_timer.timeout.connect(func():
+		sample["ran"] = true
+		for i in range(shuffle.tile_shadows.size()):
+			var shadow: TextureRect = shuffle.tile_shadows[i]
+			var face: TextureRect = shuffle.tile_visuals[i]
+			if shadow.modulate.a < Gather.SHADOW_TINT.a:
+				sample["faded"] = true
+			if face.texture != shadow.texture:
+				sample["synchronized"] = false
+	)
+	var saved_ok: bool = await shuffle.play_scatter(fresh, true)
+	check(bool(sample["ran"]), "landing motion sampled while active")
+	check(bool(sample["faded"]), "contact shadow fades during landing")
+	check(bool(sample["synchronized"]), "reveal texture and shadow silhouette stay in sync")
+	check(saved_ok, "scatter and landing complete")
 	check(shuffle.tile_shadows.is_empty() and shuffle.tile_visuals.is_empty(), "all temporary faces and shadows cleaned up")
 	check(buttons.all(func(tile): return tile.visible), "all gameplay tile buttons visible")
 	check(dice.texture_normal == old_face, "dice texture remains unchanged")
