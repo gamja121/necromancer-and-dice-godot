@@ -1,5 +1,6 @@
 extends Control
 const MapPresentation = preload("res://systems/map_presentation.gd")
+const MapShuffleGather = preload("res://systems/map_shuffle_gather.gd")
 var presentation
 var map_audio: Control
 var map_music: AudioStreamPlayer
@@ -1244,14 +1245,37 @@ func exit_home() -> void:
 	if moving: return
 	moving = true
 	close_overlay()
-	var ok: bool = await presentation.cloud_refresh(func():
-		if not session.leave_home(): return false
-		world = session.world
+	# Block the entire board, including inventory/options, during the shuffle.
+	var input_lock: Control = presentation.effect(true)
+	dice.disabled = true
+	var shuffle = MapShuffleGather.new()
+	stage.add_child(shuffle)
+	var prepared: bool = shuffle.prepare(buttons)
+	if prepared:
+		await shuffle.play_gather()
+		await shuffle.play_rotation()
+	# The authoritative map and save are updated exactly once, only after
+	# the old visuals have finished shuffling. No visual code writes game state.
+	var ok: bool = session.leave_home()
+	world = session.world
+	if ok:
+		if prepared:
+			var next_tile_textures: Array = []
+			for i in range(MapState.centers().size()):
+				next_tile_textures.append(texture(tile_path(i)))
+			await shuffle.play_scatter(next_tile_textures,true)
+		# Rebuild metadata, HUD, cleared flags and interaction targets from
+		# the saved board; even a failed visual effect must never hide it.
 		render()
-		return true)
+	else:
+		# persist_change() has already restored the old world snapshot.
+		shuffle.restore_tiles()
+	shuffle.queue_free()
+	input_lock.queue_free()
 	moving = false
 	dice.disabled = false
 	if not ok:
 		status.text = session.notice if not session.notice.is_empty() else "맵 교체 저장 실패 · 다시 시도하세요"
 		show_home()
-	else: status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
+	else:
+		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]

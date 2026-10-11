@@ -1,0 +1,71 @@
+name: Map Shuffle Branch Checks
+
+on:
+  push:
+    branches:
+      - feature/map-tile-counter-rotation-20261011
+    paths:
+      - "systems/map_shuffle_*.gd"
+      - "map.gd"
+      - "systems/cultist_altar_*.gd"
+      - "systems/run_session.gd"
+      - "systems/story_battle_registry.gd"
+      - "scripts/test_map_shuffle_*.gd"
+      - ".github/workflows/map-shuffle-branch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  map-shuffle-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Ring geometry regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_layout.gd 2>&1 | tee layout.log
+          grep -E 'MAP_SHUFFLE_LAYOUT: [0-9]+ passed, 0 failed' layout.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' layout.log; then exit 1; fi
+      - name: Gather animation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_gather.gd 2>&1 | tee gather.log
+          grep -E 'MAP_SHUFFLE_GATHER: [0-9]+ passed, 0 failed' gather.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' gather.log; then exit 1; fi
+      - name: Counter-rotation animation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_rotation.gd 2>&1 | tee rotation.log
+          grep -E 'MAP_SHUFFLE_ROTATION: [0-9]+ passed, 0 failed' rotation.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' rotation.log; then exit 1; fi
+      - name: Scatter, reveal and save-failure regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_map_shuffle_scatter.gd 2>&1 | tee scatter.log
+          grep -E 'MAP_SHUFFLE_SCATTER: [0-9]+ passed, 0 failed' scatter.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' scatter.log; then exit 1; fi
+      - name: Real home exit transition and failed disk save
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 65s godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee home-exit.log
+          grep -E 'MAP_SHUFFLE_HOME_EXIT: [0-9]+ passed, 0 failed' home-exit.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' home-exit.log; then exit 1; fi
