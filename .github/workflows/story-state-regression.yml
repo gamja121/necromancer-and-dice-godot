@@ -6,6 +6,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_p4_ritual_portal_live_integration.gd"
       - "scripts/test_p4_cultist_altar_branch_integration.gd"
       - "scripts/test_p4_graveyard_branch_integration.gd"
@@ -93,6 +94,7 @@ on:
       - "systems/run_session.gd"
       - "scripts/test_p4_run_entry_integration.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_p4_ritual_portal_live_integration.gd"
       - "scripts/test_p4_cultist_altar_branch_integration.gd"
       - "scripts/test_p4_graveyard_branch_integration.gd"
@@ -199,6 +201,16 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: P4-02D entire original child-rescue-to-king storyline and abandonment gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 420s godot --headless --path . --script res://scripts/test_p4_full_source_story_chain.gd 2>&1 | tee p4-full-story-chain.log
+          grep -E 'P4_FULL_SOURCE_STORY_CHAIN: [0-9]+ passed, 0 failed' p4-full-story-chain.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-chain:' p4-full-story-chain.log; then
+            exit 1
+          fi
+
       - name: P4-02C portal real dice intervention victory defeat revival and hunter continuation
         shell: bash
         run: |
