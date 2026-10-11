@@ -53,7 +53,30 @@ def display_font(size: int):
         return ImageFont.load_default()
 
 
-def metadata(path: Path) -> dict:
+def metadata(path: Path, *, frozen_reference: bool = False) -> dict:
+    # Immutable legacy WebP snapshots can have a physically truncated RIFF
+    # container. Preserve and report the actual signed bytes, never synthesize
+    # pixels or 'repair' the header. Current Godot assets must fully decode.
+    size = path.stat().st_size
+    with path.open("rb") as stream:
+        header = stream.read(12)
+    riff_declared = None
+    if len(header) == 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        riff_declared = int.from_bytes(header[4:8], "little") + 8
+        if riff_declared > size:
+            if not frozen_reference:
+                raise RuntimeError(f"current candidate has truncated WebP RIFF header: {path}")
+            return {
+                "format": "WEBP",
+                "decode_status": "TRUNCATED_RIFF_CONTAINER",
+                "file_bytes": size,
+                "riff_declared_bytes": riff_declared,
+                "missing_from_riff_bytes": riff_declared - size,
+                "width": None, "height": None, "mode": None,
+                "transparent_pixels": None, "translucent_pixels": None,
+                "total_pixels": None,
+                "file_sha256": sha256(path),
+            }
     # Ensure Pillow really decodes the entire image, not merely its header.
     with Image.open(path) as image:
         image.load()
@@ -62,16 +85,17 @@ def metadata(path: Path) -> dict:
         alpha_hist = rgba.getchannel("A").histogram()
         return {
             "format": image.format,
+            "decode_status": "OK",
             "width": corrected.width,
             "height": corrected.height,
             "mode": corrected.mode,
             "transparent_pixels": alpha_hist[0],
             "translucent_pixels": sum(alpha_hist[1:255]),
             "total_pixels": corrected.width * corrected.height,
-            "file_bytes": path.stat().st_size,
+            "file_bytes": size,
+            "riff_declared_bytes": riff_declared,
             "file_sha256": sha256(path),
         }
-
 
 def checkerboard(width: int, height: int, step: int = 16) -> Image.Image:
     background = Image.new("RGBA", (width, height), "#eeeeee")
@@ -98,18 +122,28 @@ def paint_review(original: Path, current: Path, label: str,
     for path, stats, left, name in specs:
         drawing.text((left, 63), name, font=body, fill="#20232c")
         checker = checkerboard(630, 404)
-        with Image.open(path) as im:
-            im.load()
-            src = ImageOps.exif_transpose(im).convert("RGBA")
-            src.thumbnail((620, 394), Image.Resampling.LANCZOS)
-            x = (checker.width - src.width) // 2
-            y = (checker.height - src.height) // 2
-            checker.alpha_composite(src, (x, y))
+        if stats["decode_status"] == "OK":
+            with Image.open(path) as im:
+                im.load()
+                src = ImageOps.exif_transpose(im).convert("RGBA")
+                src.thumbnail((620, 394), Image.Resampling.LANCZOS)
+                x = (checker.width - src.width) // 2
+                y = (checker.height - src.height) // 2
+                checker.alpha_composite(src, (x, y))
+            detail = (f"{stats['width']} x {stats['height']} | {stats['format']} "
+                      f"| transparent {stats['transparent_pixels']:,} px")
+        else:
+            warn = ImageDraw.Draw(checker)
+            warn.rectangle((15, 28, 613, 365), fill="#fff2ed", outline="#ba4238", width=3)
+            warn.text((33, 90), "FROZEN ORIGINAL IS NOT DECODABLE", font=title, fill="#8f281e")
+            warn.text((33, 138), f"Recorded file: {stats['file_bytes']:,} bytes", font=body, fill="#4a3331")
+            warn.text((33, 165), f"WebP RIFF declares: {stats['riff_declared_bytes']:,} bytes",
+                      font=body, fill="#4a3331")
+            warn.text((33, 192), "No pixel comparison possible; do not invent pixels",
+                      font=body, fill="#8f281e")
+            detail = "ORIGINAL WEBP TRUNCATED | original pixels unavailable"
         card.paste(checker.convert("RGB"), (left, 93))
-        drawing.text((left, 505),
-                     f"{stats['width']} x {stats['height']} | {stats['format']} "
-                     f"| alpha-transparent {stats['transparent_pixels']:,} px",
-                     font=body, fill="#22252d")
+        drawing.text((left, 505), detail, font=body, fill="#22252d")
         drawing.text((left, 528), f"Git blob: {git_blob(path)[:22]}...",
                      font=body, fill="#535764")
     return card
@@ -139,8 +173,13 @@ def produce(root: Path, frozen: Path, out: Path) -> dict:
             raise RuntimeError(f"Godot candidate changed since original P5-03 audit: {label}")
         if original_blob == current_blob:
             raise RuntimeError(f"candidate is now identical; re-audit and remove obsolete review: {label}")
-        before = metadata(original)
+        before = metadata(original, frozen_reference=True)
         after = metadata(current)
+        if after['decode_status'] != 'OK':
+            raise RuntimeError(f'current Godot art does not decode: {godot_path}')
+        damaged_expected = label in {'knight-commander', 'necromancer'}
+        if (before['decode_status'] == 'TRUNCATED_RIFF_CONTAINER') != damaged_expected:
+            raise RuntimeError(f'unexpected frozen source decode status {label}: {before["decode_status"]}')
         result = out / (label + "-comparison.png")
         view = paint_review(original, current, label, before, after)
         view.save(result, optimize=True)
@@ -157,11 +196,14 @@ def produce(root: Path, frozen: Path, out: Path) -> dict:
             "godot_metadata": after,
             "comparison": result.name,
             "comparison_sha256": sha256(result),
+            "original_decodable": before["decode_status"] == "OK",
             "visual_approval": "PENDING",
             "runtime_scene_acceptance": "NOT_CHECKED",
         })
     if len(records) != 4:
         raise RuntimeError("exactly four image-review records are required")
+    if sum(item["original_decodable"] for item in records) != 2:
+        raise RuntimeError("expected two valid original backgrounds and two broken legacy WebP portraits")
     # The summary is for comparison only; original files remain unmodified.
     summary = Image.new("RGB", (1360, len(art) * 554), "#f8f9fb")
     for i, preview in enumerate(art):
@@ -178,6 +220,8 @@ def produce(root: Path, frozen: Path, out: Path) -> dict:
             "permission to delete frozen web sources",
         ],
         "images": records,
+        "original_images_decodable": 2,
+        "original_images_truncated": 2,
         "comparison_sheet": "all-four-image-comparisons.png",
         "comparison_sheet_sha256": sha256(out / "all-four-image-comparisons.png"),
     }
@@ -185,9 +229,9 @@ def produce(root: Path, frozen: Path, out: Path) -> dict:
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    print("P5_03B_PREVIEW_PASS: 4 pinned original/current image pairs, "
-          "4 before/after previews, 1 summary sheet; "
-          "0 images modified; 4 user visual reviews pending")
+    print("P5_03B_PREVIEW_PASS: 4 pinned image pairs, 2 decoded original backgrounds, "
+          "2 truncated original WebP portraits, 4 current Godot images decoded; "
+          "4 review panels, 1 contact sheet; zero original edits")
     print("P5_03B_DELETION_BLOCKED: previews and decoded pixels are not PC/user acceptance")
     return manifest
 
@@ -206,13 +250,19 @@ def self_test() -> None:
         view = paint_review(left, right, "fixture", a, b)
         if view.size != (1360, 554):
             raise RuntimeError("preview panel geometry changed unexpectedly")
-        dest / "fixture.png"
         view.save(dest / "fixture.png")
+        broken = dest / "truncated.webp"
+        broken.write_bytes(b"RIFF" + (1000).to_bytes(4, "little") + b"WEBP" + b"INCOMPLETE")
+        broken_meta = metadata(broken, frozen_reference=True)
+        if broken_meta["decode_status"] != "TRUNCATED_RIFF_CONTAINER" or broken_meta["riff_declared_bytes"] != 1008:
+            raise RuntimeError("truncated RIFF detection fixture failed")
+        damaged_panel = paint_review(broken, right, "damaged fixture", broken_meta, b)
+        damaged_panel.save(dest / "damaged.png")
         with Image.open(dest / "fixture.png") as test:
             test.verify()
         if git_blob(left) == git_blob(right):
             raise RuntimeError("self-test changed images must not be blob-identical")
-    print("P5_03B_SELF_TEST_PASS: transparent/opaque, dimensions, changed blobs, preview decode")
+    print("P5_03B_SELF_TEST_PASS: transparent/opaque, dimensions, truncated original detection, current decode")
 
 
 def main() -> int:
