@@ -31,3 +31,8 @@
 ## 독립 이미지 복구 증빙
 - 진단 GitHub Actions 실행에서 `original` Pillow normal/tolerant, `dwebp`, `ffmpeg` 직접 디코딩 모두 실패.
 - `zero_pad` 330바이트 버전에서 Pillow·dwebp 정상 해독(동일 픽셀 해시). `length_fixed`는 Pillow 및 dwebp 실패. 복구 WebP의 앞 12,000바이트 Git blob은 웹 고정본 `3bab039aa347faa7546e213de941213dd8cade8d`와 동일함을 CI에서 검증한다.
+
+## 실맵 레이아웃 측정 중 발견한 검사 시점 문제
+- 복구 PNG/WebP 정상 가져오기와 사건 진행·저장 복원 검사 36개 통과, 첫 좌표 비교 1개 실패.
+- 프레임 생성 직후 Godot 공통 `PanelEffectsModule`가 6px 아래에서 0.20초 동안 위로 이동한다. 초기 자동검사 시 측정된 실제 좌표는 `(102.4,494.0595)`, 최종 목표 `(102.4,489.6)`; 크기 `(1075.2,216)`은 정확했다.
+- 공통 UI 애니메이션을 제거하거나 프레임을 임의 보정하지 않고, 0.29초 후 실제 좌표 0.5px 이내·크기 정확 일치로 검증한다.
