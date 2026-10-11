@@ -1,0 +1,71 @@
+name: P5-03 Source Feature and Art Reconciliation
+
+on:
+  pull_request:
+    paths:
+      - "scripts/audit_p5_03_parity.py"
+      - "docs/port_audit/feature_parity_audit.tsv"
+      - "docs/port_audit/web_feature_master.tsv"
+      - "docs/port_audit/asset_parity_audit.tsv"
+      - "docs/port_audit/migration_work_queue.tsv"
+      - "assets/**"
+      - ".github/workflows/p5-03-parity-audit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/audit_p5_03_parity.py"
+      - "docs/port_audit/feature_parity_audit.tsv"
+      - "docs/port_audit/web_feature_master.tsv"
+      - "docs/port_audit/asset_parity_audit.tsv"
+      - "docs/port_audit/migration_work_queue.tsv"
+      - "assets/**"
+      - ".github/workflows/p5-03-parity-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout canonical Godot source and resource files
+        uses: actions/checkout@v4
+
+      - name: Verify mismatch detection fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit_p5_03_parity.py --self-test | tee audit-self-test.log
+          grep -F 'P5_03_SELF_TEST_PASS: 3 missing/changed/exact fixtures, 0 failures' audit-self-test.log
+
+      - name: Cross-check fixed web manifest against current tracked Godot object SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit_p5_03_parity.py --json-output "$RUNNER_TEMP/p5-03-audit.json" 2>&1 | tee audit.log
+          grep -E '^P5_03_CODE_AUDIT_PASS: 159 features, 156 ported, 3 intentional; 791 historical assets, 22 former missing found \(20 exact / 2 changed\), 4 unapproved visual differences; 0 missing tracked mappings$' audit.log
+          grep -F 'P5_03_DELETION_NOT_AUTHORIZED:' audit.log
+          test "$(grep -c '^P5_03_REVIEW_PENDING:' audit.log)" -eq 4
+          if grep -E '^P5_03_AUDIT_FAIL:' audit.log; then
+            exit 1
+          fi
+          python3 - "$RUNNER_TEMP/p5-03-audit.json" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert d["feature_count"] == 159
+          assert d["historical_missing_now_found"] == 22
+          assert len(d["review_pending"]) == 4
+          assert not d["errors"]
+          for gate, status in d["deletion_blockers"].items():
+              assert status != "DONE", f"falsely completed: {gate}"
+          print("P5_03_DELETION_GATES_STILL_BLOCKED")
+          PY
+
+      - name: Publish machine-readable audit as short-lived CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: p5-03-code-and-source-art-audit
+          path: ${{ runner.temp }}/p5-03-audit.json
+          retention-days: 14
