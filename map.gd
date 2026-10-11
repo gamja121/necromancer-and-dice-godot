@@ -750,8 +750,8 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 			return
-	# A previously saved arrival or portal-energy reveal reopens at its actual
-	# tile. Reading a save never creates a new encounter.
+	# A saved arrival, portal energy or final ritual scene reopens on its
+	# actual tile. Loading never creates a previously unseen encounter.
 	if RitualPortalEntry.can_enter(session,index):
 		if session.get_story_event(RitualPortalEntry.EVENT_ID).status=="seen":
 			show_ritual_portal_intro(index)
@@ -939,8 +939,8 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 ## P1-05I-5: selected fight, pass follow-up and deliberate tracking completion.
 ## P1-05J-1: original first portal scene only. Reopening a saved arrival
 ## is read-only; do not enable energy layers, final battle or revival.
-## P1-05J-2: a saved Continue reveals the portal's energy overlay over
-## the unchanged ruin base. The third and later beats are still disabled.
+## P1-05J-3: the source-canonical third scene presents the cultists
+## preparing their final ritual. Omen, final intervention and combat stay locked.
 func show_ritual_portal_intro(index: int) -> void:
 	show_ritual_portal_beat(index)
 
@@ -955,14 +955,14 @@ func show_ritual_portal_beat(index: int) -> void:
 	if beat_index==0: InkSceneReveal.play(art)
 	var layer_path: String=RitualPortalBeats.layer_for(str(beat.visual))
 	if not layer_path.is_empty():
-		var energy_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
-		InkSceneReveal.play(energy_art)
+		var ritual_art=image(panel,layer_path,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		InkSceneReveal.play(ritual_art)
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,573),Vector2(710,64),18)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	if beat_index==0:
+	if beat_index<2:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="forest" else Vector2(651,653),Vector2(171,48),func(): advance_ritual_portal(index,beat_index),1)
 	if world.tiles[index]=="forest":
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
