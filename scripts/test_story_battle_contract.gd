@@ -55,7 +55,7 @@ func contract_guards() -> void:
 	check(spec.enemies==["ghoul"],"original single ghoul preserved")
 	check(spec.choice=="protect_child","original committed story choice required")
 	check(StoryBattles.definition("ritual_portal_trace_01").is_empty(),"unwired ritual remains disabled")
-	check(StoryBattles.definition("cultist_altar_encounter_01").is_empty(),"unwired cultist remains disabled")
+	check(StoryBattles.valid_definition(StoryBattles.definition(StoryBattles.CULTIST_ALTAR_ID)),"cultist combat enabled only through registered fight choice")
 	check(StoryBattles.definition("nonexistent").is_empty(),"unregistered event has no accidental fallback")
 	var altered: Dictionary = StoryBattles.definition(StoryBattles.GRAVEYARD_ID)
 	altered.enemies[0] = "goblin-rider"
@@ -83,9 +83,9 @@ func runtime_guards() -> void:
 	check(not StoryBattles.can_start(s.world,state,idx+1,spec),"noncurrent tile blocked")
 	check(not StoryBattles.can_start(s.world,state,idx,{}),"empty event spec blocked")
 	check(not s.start_story_encounter("ritual_portal_trace_01",idx,[s.world.roster[0].id]),"ritual cannot start without registration")
-	check(not s.start_story_encounter("cultist_altar_encounter_01",idx,[s.world.roster[0].id]),"cultist cannot start without registration")
+	check(not s.start_story_encounter(StoryBattles.CULTIST_ALTAR_ID,idx,[s.world.roster[0].id]),"cultist cannot start from graveyard child choice")
 	check(not s.story_battle_result_pending("ritual_portal_trace_01"),"unknown event cannot open battle result")
-	check(not s.acknowledge_story_battle_result("cultist_altar_encounter_01"),"unknown event cannot acknowledge")
+	check(not s.acknowledge_story_battle_result(StoryBattles.CULTIST_ALTAR_ID),"registered but never triggered cultist result cannot acknowledge")
 	s.world.tiles[idx] = "village"
 	check(not s.start_story_encounter(StoryBattles.GRAVEYARD_ID,idx,[s.world.roster[0].id]),"nonmatching tile blocked")
 	s.world.tiles[idx] = "graveyard"
