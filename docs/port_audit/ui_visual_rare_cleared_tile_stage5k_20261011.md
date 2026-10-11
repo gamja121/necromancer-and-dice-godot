@@ -32,3 +32,8 @@
 - 복구 파일 Git blob `f0932e6246c650613c00284262e33904f6bd57c2`; 손상된 웹 원본 blob `219f359b3be64bcbf20b3f51c1e9d45361f4705b`는 변경하지 않음.
 - **주의:** 손상 허용 디코딩은 원본의 정확한 모든 픽셀 복원을 보장하지 않는다. 카드/타일 실루엣의 시각적 원본 승인 및 정상 PC 원화 수색이 필요하다. 헤드리스 텍스처 로딩 정상은 원본 100% 복원 판정이 아니다.
 - 조사 전용 임시 워크플로 파일은 진단 로그가 GitHub Actions에 남으므로 최종 기능 브랜치에서 제거.
+
+## 추가 CI 장애물: 이전 import 실패 sidecar
+- `assets/map/tiles/rare-monster-cleared.png.import`는 실제 PNG가 없는 이전 버전부터 추적되고 있던 파일이며 `[remap] valid=false`, `dest_files`/ctex 출력 경로가 없는 실패 메타데이터다.
+- 정상 RGBA PNG를 이 위치에 복원해도 Godot editor는 이 부정확한 기록을 그대로 참조하여 런타임 `load()`가 `Failed loading resource`가 됐다. 기존 sidecar는 **원본 아트가 아닌 생성된 임포트 실패 기록**이므로 제거하고 Godot 4.7.2가 새 런타임 캐시를 만들도록 한다.
+- 검증: `godot --headless --editor --quit` 뒤 실맵 `load(res://...rare-monster-cleared.png)`, `TextureButton.texture_normal` 및 저장 복원. 이 조치로 그래픽 100% 동일 승인 여부가 바뀌지는 않는다.
