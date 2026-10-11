@@ -58,7 +58,10 @@ func sample(map: Control, observation: Dictionary, original_face: int) -> void:
 	observation["max_players"] = maxi(int(observation["max_players"]), effect.cue_players.size())
 	if effect.played_audio_cues.size() > observation["max_audio"].size():
 		observation["max_audio"] = effect.played_audio_cues.duplicate()
-	if effect.predeparture_tween != null and effect.predeparture_tween.is_running():
+	# Headless Godot can finish this 90ms tween between sampled frames.
+	# Observe that the original, real transition completed its duration,
+	# instead of requiring a particular frame rate or at least two samples.
+	if effect.predeparture_tween != null and effect.predeparture_tween.get_total_elapsed_time() >= Gather.PREDEPARTURE_DURATION - 0.001:
 		observation["predeparture"] = true
 	if effect.gathering != null and effect.gathering.is_running():
 		observation["travel"] = true
