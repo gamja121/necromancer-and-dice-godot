@@ -80,6 +80,8 @@ func _run() -> void:
 	check(session.world.contamination == 20 and session.world.tiles[23] == "boss" and session.world.map_serial == int(before.map_serial) + 1, "boss and layout survive full disk reload")
 
 	# Retry the same 16 -> 20 transition with a failing physical save.
+	# Rewind peak only for this synthetic failure fixture, not in live play.
+	session.world.boss_peak = 16
 	session.world.contamination = 16
 	session.world.generate()
 	session.world.position = MapState.HOME

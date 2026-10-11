@@ -46,6 +46,8 @@ func _run() -> void:
 		check(state.tiles.count("monster") >= 4, "one existing monster slot replaced; no missing tiles at %d" % corruption)
 		check(state.tiles.count("monster") + boss_count(state.tiles) == (5 if corruption < 40 else (6 if corruption < 80 else 7)), "only an ordinary monster converts to boss at %d" % corruption)
 
+	# Independent threshold fixture; unlike a live run, clear the previous peak.
+	state.boss_peak = 19
 	state.contamination = 19
 	state.generate()
 	state.cleared.append(23)
@@ -62,6 +64,7 @@ func _run() -> void:
 	check(restored.rng.state == state.rng.state, "boss conversion does not reroll RNG")
 
 	# Historical boards can have special tiles in the last slot.
+	state.boss_peak = 19
 	state.contamination = 19
 	state.generate()
 	state.tiles[23] = "event"
@@ -129,6 +132,7 @@ func _run() -> void:
 	check(session.world.tiles[23] == "boss" and boss_count(session.world.tiles) == 1, "legacy save reveals boss on next shuffle")
 
 	# A failed write must undo contamination AND boss appearance atomically.
+	session.world.boss_peak = 19
 	session.world.contamination = 19
 	session.world.generate()
 	var before_failure: Dictionary = session.world.snapshot().duplicate(true)

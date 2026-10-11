@@ -172,6 +172,14 @@ jobs:
           grep -E 'MAP_SHUFFLE_BOSS_INTEGRATION: [0-9]+ passed, 0 failed' boss-shuffle-integrated.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' boss-shuffle-integrated.log; then exit 1; fi
 
+      - name: Run boss roster, tile grade, encounter and permanent clear rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 95s godot --headless --path . --script res://scripts/test_boss_roster_rules.gd 2>&1 | tee boss-roster-rules.log
+          grep -E 'BOSS_ROSTER_RULES: [0-9]+ passed, 0 failed' boss-roster-rules.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' boss-roster-rules.log; then exit 1; fi
+
       - name: Boss tile contamination 20 persistence and map UI regression
         shell: bash
         run: |
