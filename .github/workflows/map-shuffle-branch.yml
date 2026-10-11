@@ -10,6 +10,7 @@ on:
       - feature/map-shuffle-audio-20261011
       - feature/map-shuffle-audio-timing-20261011
       - feature/map-shuffle-final-qa-20261011
+      - feature/stone-shuffle-landing-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -110,3 +111,10 @@ jobs:
           timeout 80s godot --headless --path . --script res://scripts/test_map_shuffle_acceptance.gd 2>&1 | tee acceptance.log
           grep -E 'MAP_SHUFFLE_ACCEPTANCE: [0-9]+ passed, 0 failed' acceptance.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' acceptance.log; then exit 1; fi
+      - name: Heavy stone landing and no-rebound regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_stone_landing.gd 2>&1 | tee stone-landing.log
+          grep -E 'MAP_SHUFFLE_STONE_LANDING: [0-9]+ passed, 0 failed' stone-landing.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-landing.log; then exit 1; fi
