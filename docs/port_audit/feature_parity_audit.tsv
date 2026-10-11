@@ -117,7 +117,7 @@ W143	보상/인벤토리	독립 낙인 카드 인벤토리	REQUIRED	✅ 완료	s
 W144	보상/인벤토리	보상 초과 시 기존/신규 중 버리기	REQUIRED	✅ 완료	systems/reward_catalog.gd; systems/reward_overflow.gd; systems/run_session.gd	마물 10/주사위 5 용량과 초과 보상 선택 UI 존재.
 W150	저장/복원	통합 RunState	REQUIRED_RULE	✅ 완료	systems/map_state.gd; systems/run_session.gd	원정 단일 상태 객체와 저장 세션 후보 존재.
 W151	저장/복원	IndexedDB 활성 원정 저장	WEB_IMPL_REPLACE	🔵 의도적 변경	systems/run_session.gd	IndexedDB는 Godot user://map_run_v1.json + 임시파일 저장/rename으로 네이티브 교체. 플레이 의미는 유지.
-W153	저장/복원	revision 기반 커밋 충돌 방지	REQUIRED_RULE	🟡 부분 이식	systems/run_session.gd	웹의 revision 충돌 검사는 Godot 저장에 직접 존재하지 않음. tmp→rename + 단일 프로세스 저장으로 위험은 낮지만 의미가 완전히 같은지 정책 확정 필요.
+W153	저장/복원	revision 기반 커밋 충돌 방지	REQUIRED_RULE	✅ 완료	systems/run_session.gd; scripts/test_save_process_boundary.gd; scripts/test_story_battle_resume.gd; docs/port_audit/09_w153_save_policy_20261011.md	Godot 단일 작성자 정책 확인: tmp/flush/rename + 실패 스냅샷 복원 + 동작별 영수증. CI에서 별도 프로세스 강제 종료(커밋 전/후)→재실행→중복 이동 방지 검증. IndexedDB revision CAS 직접 복제는 제외; 동시 실행 인스턴스 충돌은 지원하지 않으며 Windows 실기·P4 전체 복원 검증은 미완료
 W154	저장/복원	operationId 멱등성	REQUIRED_RULE	✅ 완료	systems/run_session.gd; systems/map_state.gd	웹 operationId와 구조는 다르지만 Godot는 deterministic visit/reward receipt + pending state + 저장 실패 rollback으로 중복 적용을 방지함.
 W155	저장/복원	전투 결과 원자 반영	REQUIRED_RULE	✅ 완료	systems/run_session.gd	변경 전 snapshot 복제 → 저장 실패 시 restore 패턴으로 전투/상점/추출/계승 변경을 보존하는 후보가 존재.
 W156	저장/복원	상점 거래 원자 반영	REQUIRED_RULE	✅ 완료	systems/run_session.gd	변경 전 snapshot 복제 → 저장 실패 시 restore 패턴으로 전투/상점/추출/계승 변경을 보존하는 후보가 존재.
