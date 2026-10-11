@@ -1,0 +1,73 @@
+name: P5-03B Changed Visuals Runtime Wiring
+
+on:
+  pull_request:
+    paths:
+      - "scripts/test_p5_changed_visual_runtime.gd"
+      - ".github/workflows/p5-03b-changed-visual-runtime.yml"
+      - "map.gd"
+      - "map.tscn"
+      - "systems/knight_commander_beats.gd"
+      - "systems/knight_commander_entry.gd"
+      - "assets/map/events/fortune-teller.jpg"
+      - "assets/map/events/home-interior.jpg"
+      - "assets/map/events/knight-commander-upperbody-hd.webp"
+      - "assets/map/events/necromancer-upperbody-hd.webp"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_p5_changed_visual_runtime.gd"
+      - ".github/workflows/p5-03b-changed-visual-runtime.yml"
+      - "map.gd"
+      - "map.tscn"
+      - "systems/knight_commander_beats.gd"
+      - "systems/knight_commander_entry.gd"
+      - "assets/map/events/fortune-teller.jpg"
+      - "assets/map/events/home-interior.jpg"
+      - "assets/map/events/knight-commander-upperbody-hd.webp"
+      - "assets/map/events/necromancer-upperbody-hd.webp"
+      - "docs/port_audit/migration_work_queue.tsv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  changed-visual-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+
+      - name: Import all local image resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee p5-03b-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' p5-03b-import.log; then
+            exit 1
+          fi
+
+      - name: Exercise changed images in real map home fortune and seven-beat dialogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_p5_changed_visual_runtime.gd 2>&1 | tee p5-03b-runtime.log
+          grep -E '^P5_03B_VISUAL_RUNTIME: [0-9]+ passed, 0 failed, 4 changed illustrations checked; PC/user visual approval remains REQUIRED$' p5-03b-runtime.log
+          if grep -E '^FAIL p5-changed-visual:|SCRIPT ERROR|Parse Error|Invalid call|GDScript Error' p5-03b-runtime.log; then
+            exit 1
+          fi
+
+      - name: Reconfirm production image SHA and outstanding human visual gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit_p5_03_parity.py | tee p5-03b-inventory.log
+          test "$(grep -c '^P5_03_REVIEW_PENDING:' p5-03b-inventory.log)" -eq 4
+          grep -F 'P5_03_DELETION_NOT_AUTHORIZED:' p5-03b-inventory.log
