@@ -165,6 +165,16 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then
             exit 1
           fi
+      - name: Fixed original title music and persisted Music SFX volume preferences regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 45s godot --headless --path . --script res://scripts/test_title_audio_parity.gd 2>&1 | tee title-audio-parity.log
+          grep -E 'TITLE_AUDIO_PARITY_REGRESSION: [0-9]+ passed, 0 failed' title-audio-parity.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL title-audio:' title-audio-parity.log; then
+            exit 1
+          fi
+
       - name: Monster card decoration layout regression
         shell: bash
         run: |
@@ -567,13 +577,3 @@ jobs:
           crash_phase crash_after_commit
           phase verify_new_commit
           phase cleanup
-
-      - name: Fixed original title music and persisted Music SFX volume preferences regression
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=5s 45s godot --headless --path . --script res://scripts/test_title_audio_parity.gd 2>&1 | tee title-audio-parity.log
-          grep -E 'TITLE_AUDIO_PARITY_REGRESSION: [0-9]+ passed, 0 failed' title-audio-parity.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL title-audio:' title-audio-parity.log; then
-            exit 1
-          fi
