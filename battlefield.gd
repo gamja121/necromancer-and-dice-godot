@@ -238,8 +238,8 @@ void fragment() {
 	world_layer.add_child(visuals)
 	visuals.setup(self,world_layer)
 	var header = Panel.new()
-	header.position = Vector2(420,14)
-	header.size = Vector2(452,36)
+	header.position = Vector2(312,14)
+	header.size = Vector2(461,36)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var header_style = StyleBoxFlat.new()
 	header_style.bg_color = Color("17100ff0")
@@ -249,11 +249,11 @@ void fragment() {
 	layer.add_child(header)
 	map_return = button(layer,"전투 닫기" if embedded else "맵으로",Vector2(24,18),Vector2(110,32),return_to_map)
 	map_return.disabled = map_mode
-	round_label = text(layer,"%d VS %d" % [allies.size(),enemies.size()],Vector2(422,14),Vector2(110,36),18)
+	round_label = text(layer,"%d VS %d" % [allies.size(),enemies.size()],Vector2(316,14),Vector2(122,36),18)
 	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if rules.round_number>0: round_label.text = "%d턴 · 주사위 %d" % [rules.round_number,rules.face]
-	message = text(layer,"주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1),Vector2(536,14),Vector2(334,36),12)
+	message = text(layer,"주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1),Vector2(439,14),Vector2(331,36),12)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	message.clip_text = true
@@ -266,7 +266,7 @@ void fragment() {
 	formation_button.visible = not map_mode
 	dice_cards_button = button(layer,"주사위 카드",Vector2(1138,18),Vector2(116,32),show_dice_hand)
 	dice_cards_button.visible = map_mode
-	brand_reference_button = button(layer,"낙인 확인표",Vector2(148,18),Vector2(118,32),show_brand_reference)
+	brand_reference_button = button(layer,"✦☠ 낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
 	for team in ["ally","enemy"]:
 		var title = text(layer,"아군 활성 군단" if team == "ally" else "적군 활성 군단",Vector2(25.6 if team == "ally" else 1054.4,53),Vector2(200,26),16)
 		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -285,7 +285,7 @@ void fragment() {
 	dice.position = (surface_size-dice.size)/2.0
 	dice.ignore_texture_size = true
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % rules.face)
+	dice.texture_normal = texture("res://assets/battle/dice/roll-01.png" if rules.round_number==0 else "res://assets/battle/dice/result-%02d.png" % rules.face)
 	dice.pressed.connect(on_dice_pressed)
 	dice.tooltip_text = "클릭하여 다음 라운드 진행"
 	layer.add_child(dice)
