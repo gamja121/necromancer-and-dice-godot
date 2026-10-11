@@ -3,6 +3,7 @@ extends SceneTree
 ## An isolated per-process ConfigFile is used; the player's settings are not touched.
 const AudioSettings = preload("res://systems/audio_settings.gd")
 const TITLE_SCENE = preload("res://title.tscn")
+const SessionScript = preload("res://systems/run_session.gd")
 
 var passed: int=0
 var failed: int=0
@@ -33,6 +34,13 @@ func _run() -> void:
 	initial.set_value("audio","sfx_enabled",true)
 	check(initial.save(save_path)==OK,"isolated audio settings fixture saved")
 	check(ResourceLoader.exists("res://assets/title/music/title-theme.mp3"),"canonical title MP3 imported into Godot assets")
+	# Standalone SceneTree --script runs do not install project autoload names.
+	# Provide the same canonical node path the production title uses.
+	var created_session: Node = null
+	if not root.has_node("RunSession"):
+		created_session=SessionScript.new()
+		created_session.name="RunSession"
+		root.add_child(created_session)
 	var title=TITLE_SCENE.instantiate()
 	title.audio_save_path=save_path
 	root.add_child(title)
@@ -73,6 +81,7 @@ func _run() -> void:
 	check(not music_toggle.button_pressed and not sfx_toggle.button_pressed,"title options resynchronize with restored buses")
 	check(absf(volume.value-0.42)<0.02,"title slider resynchronizes with restored master")
 	title.queue_free()
+	if created_session != null: created_session.queue_free()
 	AudioServer.set_bus_volume_db(0,master_db)
 	AudioServer.set_bus_mute(0,master_mute)
 	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"),music_mute)
