@@ -20,6 +20,9 @@ var content: Control
 var dice: TextureButton
 var corpse_id = ""
 var corpse_options: Dictionary = {}
+var graveyard_columns: Array = []
+var graveyard_corpses_grid: GridContainer
+var graveyard_brands_grid: GridContainer
 var brand_options: Array = []
 var plan: Dictionary = {}
 var selected_current = -1
@@ -59,7 +62,16 @@ func setup(map_scene, tile_index: int) -> void:
 			dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png" % int(saved.face))
 			status.text="기도 결과 %d · 오염도 %+d · 현재 %d/100" % [int(saved.face),int(saved.delta),session.world.contamination]
 	elif type=="graveyard":
-		status.position.y=605
+		close_button.text="닫기"
+		close_button.position=Vector2(911,148)
+		close_button.size=Vector2(109,35)
+		var close_style=StyleBoxTexture.new()
+		close_style.texture=load("res://assets/map/ui/parchment_button_variant_04.png")
+		for state in ["normal","hover","pressed","focus","disabled"]: close_button.add_theme_stylebox_override(state,close_style)
+		close_button.add_theme_color_override("font_color",Color("3f2818"))
+		status.position=Vector2(302,555)
+		status.size=Vector2(674,39)
+		status.add_theme_font_size_override("font_size",13)
 		render_graveyard()
 	elif type=="forest":
 		action_button=button(self,"전역 정찰",Vector2(525,465),Vector2(230,42),scout)
@@ -80,37 +92,88 @@ func setup(map_scene, tile_index: int) -> void:
 func clear_content() -> void:
 	for child in content.get_children(): content.remove_child(child); child.queue_free()
 
+# Original map-practice extraction overlay: dark framed two-column panel,
+# three-column corpse/brand card grids; game exchange rules remain unchanged.
 func render_graveyard() -> void:
 	clear_content()
 	corpse_options={}
 	brand_options=[]
-	label_at(content,"전투에서 죽은 마물의 시체",Vector2(200,105),Vector2(880,32),18)
-	var scroll=ScrollContainer.new()
-	scroll.position=Vector2(150,150)
-	scroll.size=Vector2(980,207)
-	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	content.add_child(scroll)
-	var row=HBoxContainer.new()
-	row.custom_minimum_size.x=950
-	row.alignment=BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation",16)
-	scroll.add_child(row)
+	graveyard_columns=[]
+	var frame=Panel.new()
+	frame.name="GraveyardExtractFrame"
+	frame.position=Vector2(256,135)
+	frame.size=Vector2(768,470)
+	frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var outer=StyleBoxFlat.new()
+	outer.bg_color=Color("191818")
+	outer.border_color=Color("66584c")
+	outer.set_border_width_all(2)
+	outer.set_corner_radius_all(8)
+	frame.add_theme_stylebox_override("panel",outer)
+	content.add_child(frame)
+	var heading=label_at(content,"공동묘지 · 낙인 추출",Vector2(287,160),Vector2(566,37),23)
+	heading.add_theme_color_override("font_color",Color("ddd0be"))
+	var guide=label_at(content,"전투에서 죽은 내 마물 시체를 선택한 뒤 낙인 1개를 추출하면 시체가 사라집니다.",Vector2(287,205),Vector2(710,37),13)
+	guide.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	guide.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+	guide.add_theme_color_override("font_color",Color("b8ada0"))
+	for k in range(2):
+		var column=Panel.new()
+		column.name="CorpseColumn" if k==0 else "BrandColumn"
+		column.position=Vector2(280,264) if k==0 else Vector2(670,264)
+		column.size=Vector2(371,267) if k==0 else Vector2(329,267)
+		var boxed=StyleBoxFlat.new()
+		boxed.bg_color=Color("171615")
+		boxed.border_color=Color("514a43")
+		boxed.set_border_width_all(1)
+		boxed.set_corner_radius_all(5)
+		column.add_theme_stylebox_override("panel",boxed)
+		content.add_child(column)
+		graveyard_columns.append(column)
+		var txt=label_at(content,"전투에서 죽은 마물" if k==0 else "추출할 낙인",Vector2(288,277) if k==0 else Vector2(675,277),Vector2(351,30) if k==0 else Vector2(316,30),17)
+		txt.add_theme_color_override("font_color",Color("d1c2af"))
+	var corpses_scroll=ScrollContainer.new()
+	corpses_scroll.position=Vector2(293,319)
+	corpses_scroll.size=Vector2(346,199)
+	corpses_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(corpses_scroll)
+	graveyard_corpses_grid=GridContainer.new()
+	graveyard_corpses_grid.columns=3
+	graveyard_corpses_grid.add_theme_constant_override("h_separation",8)
+	graveyard_corpses_grid.add_theme_constant_override("v_separation",8)
+	corpses_scroll.add_child(graveyard_corpses_grid)
 	var used=session.place_visit_id("grave-extract",index) in session.world.reward_receipts
 	for corpse in session.world.graveyard_corpses:
 		var box=Control.new()
-		box.custom_minimum_size=Vector2(108,188)
-		row.add_child(box)
-		var id=str(corpse.id)
-		var option=card(box,"unit",corpse,Vector2(4,0),Vector2(100,146),func(): if not busy: corpse_id=id; render_graveyard())
+		box.custom_minimum_size=Vector2(104,165)
+		graveyard_corpses_grid.add_child(box)
+		var id: String=str(corpse.id)
+		var option=card(box,"unit",corpse,Vector2(5,2),Vector2(94,134),func(): if not busy: corpse_id=id; render_graveyard())
 		option.disabled=used or busy
-		option.modulate=Color.WHITE if id==corpse_id else Color(0.73,0.67,0.60)
+		option.tooltip_text="%s · 시체" % str(corpse.name)
+		option.modulate=Color(0.93,0.90,0.83) if id==corpse_id else Color(0.61,0.59,0.57)
 		corpse_options[id]=option
-	var choices=session.graveyard_choices(corpse_id)
-	for i in range(choices.size()):
-		var choice=choices[i]
-		var option=card(content,"brand",choice.item,Vector2((1280.0-(choices.size()*155-43))/2+i*155,367),Vector2(112,163),func(): extract(int(choice.index)))
+	var brands_scroll=ScrollContainer.new()
+	brands_scroll.position=Vector2(683,319)
+	brands_scroll.size=Vector2(304,199)
+	brands_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(brands_scroll)
+	graveyard_brands_grid=GridContainer.new()
+	graveyard_brands_grid.columns=3
+	graveyard_brands_grid.add_theme_constant_override("h_separation",7)
+	graveyard_brands_grid.add_theme_constant_override("v_separation",7)
+	brands_scroll.add_child(graveyard_brands_grid)
+	var choices: Array=session.graveyard_choices(corpse_id)
+	for choice in choices:
+		var slot=Control.new()
+		slot.custom_minimum_size=Vector2(94,169)
+		graveyard_brands_grid.add_child(slot)
+		var option=card(slot,"brand",choice.item,Vector2(2,2),Vector2(90,134),func(): extract(int(choice.index)))
 		option.disabled=used or busy
 		brand_options.append(option)
+	if choices.is_empty():
+		var placeholder=label_at(content,"시체를 선택하세요" if corpse_id.is_empty() else "추출 가능한 낙인이 없습니다",Vector2(687,378),Vector2(293,59),14)
+		placeholder.add_theme_color_override("font_color",Color("8f857b"))
 	status.text="이번 방문의 추출은 완료했습니다" if used else ("전투에서 죽은 마물의 시체가 없습니다" if session.world.graveyard_corpses.is_empty() else ("시체를 선택하세요 · 낙인 하나를 추출하면 시체가 소모됩니다" if corpse_id.is_empty() else ("추출할 축복 낙인이 없습니다" if choices.is_empty() else "추출할 낙인을 누르세요 · 선택한 시체는 영구 소모됩니다")))
 
 func extract(brand_index: int) -> void:
