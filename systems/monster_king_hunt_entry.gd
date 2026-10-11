@@ -1,6 +1,6 @@
 extends RefCounted
-## P1-05K-3: source third-scene hunter dialogue after saved trace.
-## Weakened/full revival never mix; destination and final battle stay locked.
+## P1-05K-4: fourth-scene destination clue after saved revival dialogue.
+## Weakened/full revival never mix; location receipt and final battle stay locked.
 const Portal = preload("res://systems/ritual_portal_entry.gd")
 const HuntBeats = preload("res://systems/monster_king_hunt_beats.gd")
 
@@ -41,6 +41,7 @@ static func can_enter(session, index: int) -> bool:
 	if (state.status=="seen")!=(w.event_flags.get(SEEN_FLAG,false)==true): return false
 	if w.event_flags.get(progress_flag(1),false)==true and state.status!="seen": return false
 	if w.event_flags.get(progress_flag(2),false)==true and w.event_flags.get(progress_flag(1),false)!=true: return false
+	if w.event_flags.get(progress_flag(3),false)==true and w.event_flags.get(progress_flag(2),false)!=true: return false
 	return true
 
 ## Only record first discovery in a single world transaction. A replay of
@@ -54,7 +55,7 @@ static func begin(session, index: int) -> bool:
 	return session.persist_change(before)
 
 static func progress_flag(index: int) -> String:
-	if index not in [1,2]: return ""
+	if index not in [1,2,3]: return ""
 	return "event:%s:beat:%d" % [EVENT_ID,index]
 
 static func revival_mode(session) -> String:
@@ -66,6 +67,7 @@ static func current_beat(session) -> int:
 	if session == null or session.world == null: return -1
 	if not can_enter(session,session.world.position): return -1
 	if session.get_story_event(EVENT_ID).status!="seen": return -1
+	if session.world.event_flags.get(progress_flag(3),false)==true: return 3
 	if session.world.event_flags.get(progress_flag(2),false)==true: return 2
 	return 1 if session.world.event_flags.get(progress_flag(1),false)==true else 0
 
@@ -74,7 +76,7 @@ static func current_beat(session) -> int:
 static func advance(session, index: int, shown_index: int) -> bool:
 	if not can_enter(session,index): return false
 	if session.get_story_event(EVENT_ID).status!="seen": return false
-	if shown_index not in [0,1] or current_beat(session)!=shown_index: return false
+	if shown_index not in [0,1,2] or current_beat(session)!=shown_index: return false
 	if revival_mode(session) not in ["weakened","full"]: return false
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	session.world.event_flags[progress_flag(shown_index+1)]=true

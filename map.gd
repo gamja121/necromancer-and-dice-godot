@@ -985,7 +985,8 @@ func show_monster_king_hunt_beat(index: int) -> void:
 		var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(285,616),Vector2(710,34),16)
 		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	if beat_index<2:
+	# Only the fourth destination clue is revealed; the fifth location receipt stays locked.
+	if beat_index<3:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="unknown" else Vector2(651,653),Vector2(171,48),func(): advance_monster_king_hunt(index,beat_index),1)
 	if world.tiles[index]=="unknown":
 		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)

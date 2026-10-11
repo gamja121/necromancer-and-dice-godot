@@ -38,6 +38,7 @@ on:
       - "scripts/test_monster_king_hunt_entry.gd"
       - "scripts/test_monster_king_hunt_trace.gd"
       - "scripts/test_monster_king_hunt_revival_dialogue.gd"
+      - "scripts/test_monster_king_hunt_destination.gd"
       - "systems/monster_king_hunt_entry.gd"
       - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
@@ -97,6 +98,7 @@ on:
       - "scripts/test_monster_king_hunt_entry.gd"
       - "scripts/test_monster_king_hunt_trace.gd"
       - "scripts/test_monster_king_hunt_revival_dialogue.gd"
+      - "scripts/test_monster_king_hunt_destination.gd"
       - "systems/monster_king_hunt_entry.gd"
       - "systems/monster_king_hunt_beats.gd"
       - "systems/ritual_portal_enemies.gd"
@@ -475,5 +477,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_monster_king_hunt_revival_dialogue.gd 2>&1 | tee monster-king-hunt-revival-dialogue.log
           grep -E 'MONSTER_KING_HUNT_REVIVAL_DIALOGUE_REGRESSION: [0-9]+ passed, 0 failed' monster-king-hunt-revival-dialogue.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-king-hunt-revival-dialogue.log; then
+            exit 1
+          fi
+
+      - name: Monster king hunt fourth source destination clue after real revival, rollback and restore regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_monster_king_hunt_destination.gd 2>&1 | tee monster-king-hunt-destination.log
+          grep -E 'MONSTER_KING_HUNT_DESTINATION_REGRESSION: [0-9]+ passed, 0 failed' monster-king-hunt-destination.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-king-hunt-destination.log; then
             exit 1
           fi
