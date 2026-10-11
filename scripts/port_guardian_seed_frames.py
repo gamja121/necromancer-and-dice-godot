@@ -30,7 +30,7 @@ DEST = Path(__file__).resolve().parents[1] / "assets/battle/frames/guardian-seed
 
 
 def git_blob_sha(data: bytes) -> str:
-    payload = b"blob " + str(len(data)).encode() + b"\\0" + data
+    payload = b"blob " + str(len(data)).encode() + b"\0" + data
     return hashlib.sha1(payload).hexdigest()
 
 
