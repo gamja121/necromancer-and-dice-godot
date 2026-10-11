@@ -1,0 +1,82 @@
+name: Godot Web Independence Guard
+
+on:
+  pull_request:
+    paths:
+      - "**/*.gd"
+      - "**/*.tscn"
+      - "**/*.tres"
+      - "**/*.gdshader"
+      - "systems/**"
+      - "data/**"
+      - "project.godot"
+      - "scripts/guard_web_independence.py"
+      - ".github/workflows/godot-web-independence.yml"
+      - "docs/port_audit/migration_work_queue.tsv"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.gd"
+      - "**/*.tscn"
+      - "**/*.tres"
+      - "**/*.gdshader"
+      - "systems/**"
+      - "data/**"
+      - "project.godot"
+      - "scripts/guard_web_independence.py"
+      - ".github/workflows/godot-web-independence.yml"
+      - "docs/port_audit/migration_work_queue.tsv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the canonical Godot repository
+        uses: actions/checkout@v4
+
+      - name: Check regression detector rejects forbidden fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/guard_web_independence.py --self-test 2>&1 | tee independence-fixtures.log
+          grep -E 'WEB_INDEPENDENCE_SELF_TEST: [0-9]+ fixtures passed, 0 failed' independence-fixtures.log
+
+      - name: Scan all Godot runtime scripts scenes and data for web dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/guard_web_independence.py 2>&1 | tee independence-scan.log
+          grep -E 'WEB_INDEPENDENCE_PASS: [0-9]+ runtime files scanned, [0-9]+ static resources resolved, [0-9]+ dynamic paths inspected separately by Godot runtime CI; 0 forbidden web/source/URL links' independence-scan.log
+          if grep -E 'WEB_INDEPENDENCE_FAIL:|SELF_TEST_FAIL' independence-scan.log; then
+            exit 1
+          fi
+
+      - name: Setup self-contained Godot 4.7.2 engine
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+
+      - name: Import local resources without any HTML source checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee independence-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' independence-import.log; then
+            exit 1
+          fi
+
+      - name: Run native project main scene without legacy web repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 90s godot --headless --path . --quit-after 120 2>&1 | tee independence-smoke.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|GDScript Error' independence-smoke.log; then
+            exit 1
+          fi
+          echo "GODOT_INDEPENDENT_STARTUP_PASS"
