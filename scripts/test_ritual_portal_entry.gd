@@ -1,5 +1,5 @@
 extends SceneTree
-## P1-05J-1: only original ritual portal first discovery, gated by cultist altar.
+## P1-05J-1 arrival regression retained after adding J-2 energy scene.
 const SessionScript=preload("res://systems/run_session.gd")
 const CultistRumor=preload("res://systems/cultist_rumor_entry.gd")
 const Altar=preload("res://systems/cultist_altar_entry.gd")
@@ -56,13 +56,14 @@ func fixture(tag: String, tile: String="forest"):
 	return s
 
 func original_contract() -> void:
-	check(Beats.count()==1,"only first canonical portal beat exists")
+	check(Beats.count()==2,"first and second canonical portal beats exist")
 	check(Beats.beat(0).id=="arrival","original beat id")
 	check(Beats.beat(0).effect=="제단에서 이어진 흔적을 따라가자 숲 깊은 폐허에서 거대한 전이문을 발견한다.","exact original arrival narration")
 	check(Beats.beat(0).dialogue=="","no invented dialogue")
 	check(Beats.beat(0).speaker=="","no invented speaker")
 	check(Beats.beat(0).visual=="base","first beat uses the unchanged ruin base art")
-	check(Beats.beat(1).is_empty(),"next portal energy beat not unlocked")
+	check(Beats.beat(1).id=="portal_reveal","second original portal beat exists, first unchanged")
+	check(Beats.beat(2).is_empty(),"third ritual beat not unlocked")
 	check(Beats.BASE_ART=="res://assets/map/events/ritual-portal-ruins-base.webp","original ruin art path reused")
 	check(Portal.BASE_ART==Beats.BASE_ART,"UI entry uses same original art")
 	check(Portal.FIRST_BEAT==Beats.beat(0),"entry and canonical scene data match")
@@ -73,7 +74,7 @@ func original_contract() -> void:
 	check(src.contains('if type in ["forest","event"] and RitualPortalEntry.can_enter(session,index):'),"only designated forest or wildcard event tiles fire")
 	check(src.contains("if RitualPortalEntry.begin(session,index):"),"story discovery saved before display")
 	check(src.contains('func show_ritual_portal_intro(index: int) -> void:'),"separate portal presentation")
-	check(src.contains("RitualPortalBeats.beat(0)"),"presentation uses original first beat")
+	check(src.contains("RitualPortalBeats.beat(beat_index)"),"presentation loads original beat from persisted index")
 	check(src.contains("RitualPortalEntry.BASE_ART"),"presentation uses original base art")
 	check(src.contains('InkSceneReveal.play(art)'),"existing ink reveal preserved")
 	check(src.contains('사건 · 마물의 왕 부활 의식'),"original story heading")
