@@ -26,6 +26,8 @@ on:
       - "scripts/test_cultist_altar_entry.gd"
       - "scripts/test_cultist_altar_ritual_reveal.gd"
       - "scripts/test_cultist_altar_choice.gd"
+      - "systems/cultist_altar_enemies.gd"
+      - "scripts/test_cultist_altar_battle.gd"
       - "systems/cultist_altar_entry.gd"
       - "systems/cultist_altar_beats.gd"
       - "systems/cultist_rumor_beats.gd"
@@ -68,6 +70,8 @@ on:
       - "scripts/test_cultist_altar_entry.gd"
       - "scripts/test_cultist_altar_ritual_reveal.gd"
       - "scripts/test_cultist_altar_choice.gd"
+      - "systems/cultist_altar_enemies.gd"
+      - "scripts/test_cultist_altar_battle.gd"
       - "systems/cultist_altar_entry.gd"
       - "systems/cultist_altar_beats.gd"
       - "systems/cultist_rumor_beats.gd"
@@ -331,5 +335,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_cultist_altar_choice.gd 2>&1 | tee cultist-altar-choice.log
           grep -E 'CULTIST_ALTAR_CHOICE_REGRESSION: [0-9]+ passed, 0 failed' cultist-altar-choice.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' cultist-altar-choice.log; then
+            exit 1
+          fi
+
+      - name: Cultist altar summoning scene, original randomized enemy battle and durable outcome regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_cultist_altar_battle.gd 2>&1 | tee cultist-altar-battle.log
+          grep -E 'CULTIST_ALTAR_BATTLE_REGRESSION: [0-9]+ passed, 0 failed' cultist-altar-battle.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' cultist-altar-battle.log; then
             exit 1
           fi
