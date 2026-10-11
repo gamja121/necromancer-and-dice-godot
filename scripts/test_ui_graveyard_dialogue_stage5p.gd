@@ -87,6 +87,7 @@ func _run() -> void:
 	check(frame!=null,"source dialogue frame appears for actual speaking beat")
 	if frame!=null:
 		check(frame.texture==texture and frame.stretch_mode==TextureRect.STRETCH_SCALE,"recovered original art is drawn without cropping")
+		print("DIAG grave frame position=",frame.position," size=",frame.size," original desired position=",Vector2(102.4,489.6)," size=",Vector2(1075.2,216))
 		check(frame.position.distance_to(Vector2(102.4,489.6))<0.5 and frame.size.distance_to(Vector2(1075.2,216))<0.5,"dialogue frame matches frozen HTML 8% inset / 30% height")
 		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE,"decorative artwork cannot intercept choice input")
 	var speaker=panel.get_node_or_null("StoryDialogueName") as Label
