@@ -14,6 +14,11 @@ const LANDING_LIFT = 4.0
 const LANDING_DURATION = 0.17
 const SHADOW_OFFSET = Vector2(4.0, 7.0)
 const SHADOW_TINT = Color(0.035, 0.022, 0.045, 0.31)
+# Faint magical focus only. The die face and position never animate.
+const AURA_INNER_RADIUS = 48.0
+const AURA_OUTER_RADIUS = 57.0
+const AURA_FADE_IN = 0.35
+const AURA_ROTATION_RISE = 0.26
 
 var board_buttons: Array[TextureButton] = []
 var tile_sources: Array[TextureButton] = []
@@ -27,12 +32,51 @@ var scatter_tween: Tween
 var reveal_tween: Tween
 var gathered := false
 var rotated := false
+var aura_strength: float = 0.0
+var aura_tween: Tween
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 3 # Static tiles (4), hero (16), and dice (19) remain visible above.
 	size = Vector2(1280.0, 720.0)
+
+
+func _draw() -> void:
+	if aura_strength <= 0.0:
+		return
+	# Draw behind the real die (z19). Two narrow arcs and a soft center glow
+	# communicate "map reshuffling", never a new dice roll.
+	draw_circle(Layout.DICE_CENTER, AURA_OUTER_RADIUS + 3.0, Color(0.47, 0.26, 0.75, 0.035 * aura_strength))
+	draw_arc(Layout.DICE_CENTER, AURA_INNER_RADIUS, 0.0, TAU, 72, Color(0.76, 0.60, 1.0, 0.28 * aura_strength), 2.0, true)
+	draw_arc(Layout.DICE_CENTER, AURA_OUTER_RADIUS, 0.0, TAU, 88, Color(0.59, 0.39, 0.89, 0.17 * aura_strength), 1.5, true)
+
+
+func _set_aura_strength(value: float) -> void:
+	aura_strength = clampf(value, 0.0, 1.0)
+	queue_redraw()
+
+
+func _aura_fade_in() -> void:
+	if aura_tween != null and aura_tween.is_running():
+		aura_tween.kill()
+	aura_tween = create_tween()
+	aura_tween.tween_method(_set_aura_strength, aura_strength, 0.60, AURA_FADE_IN)
+
+
+func _aura_during_rotation() -> void:
+	if aura_tween != null and aura_tween.is_running():
+		aura_tween.kill()
+	aura_tween = create_tween()
+	aura_tween.tween_method(_set_aura_strength, aura_strength, 1.0, AURA_ROTATION_RISE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	aura_tween.tween_method(_set_aura_strength, 1.0, 0.65, ROTATE_DURATION - AURA_ROTATION_RISE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _aura_fade_out() -> void:
+	if aura_tween != null and aura_tween.is_running():
+		aura_tween.kill()
+	aura_tween = create_tween()
+	aura_tween.tween_method(_set_aura_strength, aura_strength, 0.0, SCATTER_DURATION).set_trans(Tween.TRANS_SINE)
 
 
 ## Parent this Control to the existing map.stage before calling prepare().
@@ -98,6 +142,7 @@ func play_gather() -> void:
 		return
 	if gathered or (gathering != null and gathering.is_running()):
 		return
+	_aura_fade_in()
 	# Shrink in place first. Keeping the tiles small during travel avoids
 	# crossing/stacking that would occur if 21 full-size tiles moved at once.
 	gathering = create_tween().set_parallel(true)
@@ -123,6 +168,7 @@ func play_rotation() -> void:
 		return
 	if rotation_tween != null and rotation_tween.is_running():
 		return
+	_aura_during_rotation()
 	rotation_tween = create_tween()
 	rotation_tween.tween_method(_apply_rotation_progress, 0.0, 1.0, ROTATE_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await rotation_tween.finished
@@ -151,6 +197,7 @@ func play_scatter(next_tile_textures: Array, save_succeeded: bool) -> bool:
 		restore_tiles()
 		return false
 
+	_aura_fade_out()
 	# The source art travels toward the closest available destination; a
 	# different tile image is chosen ONLY after arrival at that board slot.
 	scatter_tween = create_tween().set_parallel(true)
@@ -214,6 +261,10 @@ func _valid_next_tiles(next_tile_textures: Array) -> bool:
 	return true
 
 func restore_tiles() -> void:
+	if aura_tween != null and aura_tween.is_running():
+		aura_tween.kill()
+	aura_tween = null
+	_set_aura_strength(0.0)
 	if gathering != null and gathering.is_running():
 		gathering.kill()
 	if rotation_tween != null and rotation_tween.is_running():

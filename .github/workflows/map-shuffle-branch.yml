@@ -6,6 +6,7 @@ on:
       - feature/map-tile-counter-rotation-20261011
       - feature/map-shuffle-depth-landing-20261011
       - feature/map-shuffle-mobile-polish-20261011
+      - feature/map-shuffle-dice-aura-20261011
     paths:
       - "systems/map_shuffle_*.gd"
       - "map.gd"
@@ -85,3 +86,10 @@ jobs:
           timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_mobile.gd 2>&1 | tee mobile.log
           grep -E 'MAP_SHUFFLE_MOBILE: [0-9]+ passed, 0 failed' mobile.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' mobile.log; then exit 1; fi
+      - name: Dice aura timing and cleanup regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60s godot --headless --path . --script res://scripts/test_map_shuffle_dice_aura.gd 2>&1 | tee dice-aura.log
+          grep -E 'MAP_SHUFFLE_DICE_AURA: [0-9]+ passed, 0 failed' dice-aura.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' dice-aura.log; then exit 1; fi
