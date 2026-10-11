@@ -47,13 +47,13 @@ static func can_enter(session, index: int) -> bool:
 	var has_choice: bool=w.event_flags.get(progress_flag(2),false)==true
 	if has_choice and not has_ritual: return false
 	var fight: bool=w.event_flags.get(FIGHT_FLAG,false)==true
-	var pass: bool=w.event_flags.get(PASS_FLAG,false)==true
+	var passed_choice: bool=w.event_flags.get(PASS_FLAG,false)==true
 	if state.status=="active":
 		# An unfinished decision must be one of the two original choices.
 		# A fight/pass receipt on an unseen or unchosen scene is corruption.
-		if not has_choice or fight==pass: return false
-		return (state.choice=="fight" and fight) or (state.choice=="pass" and pass)
-	if state.choice!="" or fight or pass: return false
+		if not has_choice or fight==passed_choice: return false
+		return (state.choice=="fight" and fight) or (state.choice=="pass" and passed_choice)
+	if state.choice!="" or fight or passed_choice: return false
 	if state.status=="unseen" and (has_ritual or has_choice): return false
 	return true
 
