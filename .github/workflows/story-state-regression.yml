@@ -24,7 +24,9 @@ on:
       - "scripts/test_cultist_rumor_entry.gd"
       - "scripts/test_cultist_rumor_beats.gd"
       - "scripts/test_cultist_altar_entry.gd"
+      - "scripts/test_cultist_altar_ritual_reveal.gd"
       - "systems/cultist_altar_entry.gd"
+      - "systems/cultist_altar_beats.gd"
       - "systems/cultist_rumor_beats.gd"
       - "systems/cultist_rumor_entry.gd"
       - "systems/monster_hunter_beats.gd"
@@ -63,7 +65,9 @@ on:
       - "scripts/test_cultist_rumor_entry.gd"
       - "scripts/test_cultist_rumor_beats.gd"
       - "scripts/test_cultist_altar_entry.gd"
+      - "scripts/test_cultist_altar_ritual_reveal.gd"
       - "systems/cultist_altar_entry.gd"
+      - "systems/cultist_altar_beats.gd"
       - "systems/cultist_rumor_beats.gd"
       - "systems/cultist_rumor_entry.gd"
       - "systems/monster_hunter_beats.gd"
@@ -305,5 +309,15 @@ jobs:
           godot --headless --path . --script res://scripts/test_cultist_altar_entry.gd 2>&1 | tee cultist-altar-entry.log
           grep -E 'CULTIST_ALTAR_ENTRY_REGRESSION: [0-9]+ passed, 0 failed' cultist-altar-entry.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' cultist-altar-entry.log; then
+            exit 1
+          fi
+
+      - name: Cultist altar original ritual layer and saved checkpoint regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_cultist_altar_ritual_reveal.gd 2>&1 | tee cultist-altar-reveal.log
+          grep -E 'CULTIST_ALTAR_REVEAL_REGRESSION: [0-9]+ passed, 0 failed' cultist-altar-reveal.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' cultist-altar-reveal.log; then
             exit 1
           fi
