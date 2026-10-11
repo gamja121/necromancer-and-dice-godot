@@ -1,6 +1,6 @@
 extends RefCounted
-## P1-05J-1: discover and reopen the original ritual portal arrival only.
-## No future layers, combat, quest completion or monster-king revival are allowed.
+## P1-05J-2: reveal the original portal-energy layer after an explicit
+## saved Continue click. No cultists, combat, quest completion or revival.
 const CultistAltar = preload("res://systems/cultist_altar_entry.gd")
 const PortalBeats = preload("res://systems/ritual_portal_beats.gd")
 
@@ -45,10 +45,13 @@ static func can_enter(session, index: int) -> bool:
 	if state.status not in ["unseen","seen"]: return false
 	if state.choice!="" or state.battle_result!="": return false
 	var discovered: bool = w.event_flags.get(SEEN_FLAG,false)==true
-	return (state.status=="seen")==discovered
+	if (state.status=="seen")!=discovered: return false
+	# A ritual-energy receipt is valid only after the arrival was saved.
+	if w.event_flags.get(progress_flag(1),false)==true and not discovered: return false
+	return true
 
-## Save the discovery receipt in the same transaction as the first story
-## status. Never advance past beat 0 or invent any battle/quest progress.
+## Save discovery in one transaction. Reopening keeps any saved second beat;
+## neither scene grants ritual-completion or battle progress.
 static func begin(session, index: int) -> bool:
 	if not can_enter(session,index): return false
 	if session.get_story_event(EVENT_ID).status=="seen": return true
@@ -57,7 +60,23 @@ static func begin(session, index: int) -> bool:
 	session.world.event_flags[SEEN_FLAG] = true
 	return session.persist_change(before)
 
+static func progress_flag(index: int) -> String:
+	if index!=1: return ""
+	return "event:%s:beat:1" % EVENT_ID
+
 static func current_beat(session) -> int:
 	if session == null or session.world == null: return -1
 	if not can_enter(session,session.world.position): return -1
-	return 0 if session.get_story_event(EVENT_ID).status=="seen" else -1
+	if session.get_story_event(EVENT_ID).status!="seen": return -1
+	return 1 if session.world.event_flags.get(progress_flag(1),false)==true else 0
+
+## Exactly one explicit Continue from arrival to the energy-layer scene.
+## Reject duplicate/stale clicks, wrong locations and unresolved map activity.
+static func advance(session, index: int, shown_index: int) -> bool:
+	if not can_enter(session,index): return false
+	if session.get_story_event(EVENT_ID).status!="seen": return false
+	if shown_index!=0 or current_beat(session)!=shown_index: return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	session.world.event_flags[progress_flag(1)]=true
+	return session.persist_change(before)
+
