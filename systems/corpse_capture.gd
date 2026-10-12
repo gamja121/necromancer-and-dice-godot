@@ -214,15 +214,20 @@ func complete_success() -> void:
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
 	scene.message.text = corpse.name+" · 영혼 수확 성공"
 	var selected_card: TextureButton = choices[int(pending.selected)].card
-	var spirit = scene.image(self,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
+	# Keep success-flight coordinates consistent with the capture card's
+	# parent (the full map for embedded fights, the arena in standalone).
+	var spirit_parent: Control = scene.detail_parent if scene.uses_map_tile_dock() else self
+	var spirit = scene.image(spirit_parent,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
+	spirit.z_index = 76 if spirit_parent!=self else 0
 	AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
 	spirit.pivot_offset = spirit.size*0.5
 	spirit.modulate = Color(0.8,1,1)
 	selected_card.hide()
+	var flight_size: Vector2 = spirit_parent.size if spirit_parent!=self else scene.surface_size
 	var motion = create_tween()
-	motion.tween_property(spirit,"position",scene.surface_size*0.5-spirit.size*0.5,0.52).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	motion.tween_property(spirit,"position",flight_size*0.5-spirit.size*0.5,0.52).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	motion.parallel().tween_property(spirit,"scale",Vector2.ONE*1.12,0.52)
-	motion.tween_property(spirit,"position:y",scene.surface_size.y-spirit.size.y*0.35,0.48)
+	motion.tween_property(spirit,"position:y",flight_size.y-spirit.size.y*0.35,0.48)
 	motion.parallel().tween_property(spirit,"scale",Vector2.ONE*0.22,0.48)
 	motion.parallel().tween_property(spirit,"modulate:a",0.0,0.48)
 	await motion.finished
