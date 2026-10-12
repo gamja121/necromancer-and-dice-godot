@@ -2,7 +2,7 @@ extends Control
 ## Pure presentation of the saved 0..100 world contamination value. Never
 ## modifies RunSession, source RNG, tiles, receipts, or save state.
 const LABELS = ["안정","확산","침식","재앙","임계"]
-const ART_DATA = preload("res://assets/map/ui/contamination_frame_10_data.gd")
+const FRAME_PATH = "res://assets/map/ui/contamination_frame_10.webp"
 const SOURCE_SIZE = Vector2(2172.0,724.0)
 # Cut-out source coordinates: nine separators mean *ten* physical windows.
 # The end recesses are narrower in the original approved illustration;
@@ -33,27 +33,19 @@ func _ready() -> void:
 		position = Vector2(352,435.6)
 
 func _load_approved_frame() -> void:
-	if ART_DATA.PARTS.is_empty():
-		last_art_error = "embedded image data missing"
+	# Approved high-quality WebP is a normal Godot imported texture.
+	if not ResourceLoader.exists(FRAME_PATH):
+		last_art_error = "approved WebP asset unavailable"
 		return
-	var encoded: String = "".join(ART_DATA.PARTS)
-	var bytes: PackedByteArray = Marshalls.base64_to_raw(encoded)
-	if bytes.is_empty():
-		last_art_error = "cannot decode approved image"
+	frame = load(FRAME_PATH)
+	if frame == null:
+		last_art_error = "approved WebP image failed to load"
 		return
-	var hash: String = bytes.sha256_text()
-	if hash != ART_DATA.PNG_SHA256:
-		last_art_error = "image checksum mismatch"
+	if frame.get_width() != 1440 or frame.get_height() != 480:
+		last_art_error = "wrong size on approved image"
+		frame = null
 		return
-	var image: Image = Image.new()
-	if image.load_png_from_buffer(bytes) != OK or image.is_empty():
-		last_art_error = "PNG import failed"
-		return
-	if image.get_width() != 576 or image.get_height() != 192:
-		last_art_error = "unexpected embedded frame dimensions"
-		return
-	frame = ImageTexture.create_from_image(image)
-	uses_approved_art = frame != null
+	uses_approved_art = true
 
 func set_value(value: int, instant: bool = false) -> void:
 	target_value = clampf(float(value),0.0,100.0)
