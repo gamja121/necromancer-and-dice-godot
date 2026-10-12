@@ -55,6 +55,9 @@ func _run() -> void:
 	var previous_path: String=session.save_file_path
 	session.save_file_path=save
 	session.start_new_world()
+	# The original ghoul scene becomes accessible after one home reshuffle.
+	session.world.lap_ready=true
+	session.world.leave_home()
 	var index: int=session.world.tiles.find("graveyard")
 	check(index>=0,"real board contains graveyard tile")
 	if index<0:
