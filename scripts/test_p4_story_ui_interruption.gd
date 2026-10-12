@@ -37,6 +37,12 @@ func fresh(session: Node, tag: String) -> void:
 	wipe(path)
 	session.save_file_path=path
 	session.start_new_world()
+	# Story interruptions are tested on the first board that can contain a
+	# cemetery. This is a test-only completed-lap fixture, not a player skip.
+	session.world.lap_ready=true
+	session.world.leave_home()
+	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
+		tag+": isolated post-first-lap fixture has one unlocked graveyard")
 
 func until_ready(predicate: Callable,limit_ms:int=12000)->bool:
 	var begin: int=Time.get_ticks_msec()
@@ -125,7 +131,10 @@ func portal(session: Node) -> void:
 	world.event_flags[RUMOR.SEEN_FLAG]=true
 	world.event_flags[RUMOR.COMPLETE_FLAG]=true
 	world.event_flags[RUMOR.TRACKING_FLAG]=true
+	# Altar stones are excluded from the new map. Existing altar story
+	# gameplay instead starts from an eligible event tile after the rumor.
 	world.position=world.tiles.find("altar")
+	if world.position<0: world.position=world.tiles.find("event")
 	var altar_index: int=world.position
 	check(session.save_world() and ALTAR.begin(session,altar_index),"portal: canonical altar fixture starts with a true arrival")
 	check(ALTAR.advance(session,altar_index,0) and ALTAR.advance(session,altar_index,1),"portal: altar continues all original scenes")
