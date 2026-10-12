@@ -72,6 +72,13 @@ func prepare_run(session: Node, label: String) -> Dictionary:
 	clear_path(path)
 	session.save_file_path = path
 	session.start_new_world()
+	check(session.world.tiles.count("graveyard")==0,label+": graveyard absent from the first expedition")
+	# Isolated branch fixture starts after the first completed lap, when
+	# a real home shuffle unlocks the first cemetery.
+	session.world.lap_ready=true
+	session.world.leave_home()
+	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
+		label+": post-first-lap fixture contains exactly one graveyard")
 	var target: int = prepare_graveyard_landing(session)
 	check(target>=0,label+": test-only permutation preserves ordinary 24-tile board")
 	if target<0: return {}
