@@ -92,8 +92,12 @@ func _run() -> void:
 	var shade := inventory.get_child(0) as ColorRect
 	check(shade != null and shade.color.a<0.01,"book hand does not darken the board")
 	check(inventory.get_node_or_null("InventoryOutsideClose") is Button,"book hand catches outside click to close")
-	check(inventory.close_button.position.y<InventoryPanel.HAND_TOP,"book close control sits above the cards")
-	check(inventory.tab_buttons.size()==3,"existing monster/dice/brand tabs remain accessible")
+	check(not inventory.close_button.visible,"book hand hides redundant close button")
+	check(inventory.tab_buttons.size()==3 and inventory.tab_buttons.all(func(tab): return not tab.visible),
+		"book hand hides the three redundant monster/dice/brand buttons")
+	# Outside click remains the visible-free way to close the book hand.
+	check(inventory.get_node("InventoryOutsideClose").pressed.get_connections().size()>0,
+		"inventory backdrop retains outside-close signal")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")
 	if inventory.fan.entries.size()==8:
 		var hand_first: TextureButton = inventory.fan.entries[0].card
@@ -107,6 +111,12 @@ func _run() -> void:
 			"book fan spacing stays constant regardless of monster count")
 		check(not hand_first.get_child(0).visible and "체력" in hand_first.tooltip_text,
 			"bottom hand keeps its captions off map and HP accessible as tooltip")
+	# Other inventory kinds still expose their original tabs and close control.
+	var non_hand = InventoryPanel.new()
+	root.add_child(non_hand)
+	non_hand.setup(fake,"brand",book_center)
+	check(non_hand.close_button.visible and non_hand.tab_buttons.all(func(tab): return tab.visible),
+		"non-monster inventory keeps existing tabs and close button")
 	# The smallest real roster must ALSO open next to the book, not center.
 	var pair = InventoryPanel.new()
 	root.add_child(pair)
