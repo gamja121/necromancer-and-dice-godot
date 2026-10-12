@@ -86,9 +86,10 @@ func remember_shared_die() -> void:
 	# snapshots while keeping the final resting spot visually unchanged.
 	var stopped := Vector2(roundf(dice.position.x),roundf(dice.position.y))
 	dice.position = stopped
-	dice.rotation_degrees = roundf(dice.rotation_degrees)
+	var final_angle: int = roundi(dice.rotation_degrees)
+	dice.rotation_degrees = float(final_angle)
 	world.dice_visual_position = [int(stopped.x),int(stopped.y)]
-	world.dice_visual_rotation = dice.rotation_degrees
+	world.dice_visual_rotation = final_angle
 	# Presentation state goes into the ordinary atomic run save; gameplay RNG
 	# and saved die result are not changed.
 	session.save_world()
