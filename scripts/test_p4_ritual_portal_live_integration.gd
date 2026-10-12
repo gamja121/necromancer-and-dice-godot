@@ -67,9 +67,14 @@ func seed_next_tile(world, kind: String) -> int:
 			break
 	if target<0: return -1
 	var source_kind: String=kind
-	# World tree and altar have been removed from these early map pools.
-	# Their original story steps are still eligible at an event tile.
-	if world.tiles.find(kind)<0 and kind in ["unknown","altar"]:
+	# The original king-hunt artwork is explicitly a world-tree source scene;
+	# this isolated parity test makes a disposable world-tree location if the
+	# new production map has none. It does NOT modify real generation.
+	if world.tiles.find(kind)<0 and kind=="unknown":
+		var fixture_road: int=world.tiles.find("basic")
+		if fixture_road>=0: world.tiles[fixture_road]="unknown"
+	elif world.tiles.find(kind)<0 and kind=="altar":
+		# Cultist/altar story is available on normal event tiles in production.
 		source_kind="event"
 	var original: int=world.tiles.find(source_kind)
 	if original<0: return -1
