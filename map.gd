@@ -94,7 +94,9 @@ var dice_count_label: Label
 var map_chrome: Array[Control] = []
 
 func _sync_map_chrome() -> void:
-	var show_board_controls: bool = not is_instance_valid(overlay)
+	# A book hand is a visual overlay on the actual board, not a separate event.
+	# Its transparent input shield blocks map controls but leaves them visible.
+	var show_board_controls: bool = not is_instance_valid(overlay) or overlay is InventoryPanel
 	for control in map_chrome:
 		if is_instance_valid(control): control.visible = show_board_controls
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
