@@ -61,8 +61,8 @@ func _combat_fixture(battle: Control, victor: String) -> void:
 	battle.session.world.active_encounter = battle.session.encounter.duplicate(true)
 	check(battle.session.save_world(),"combat fixture stored as a valid ready checkpoint")
 
-func _scenario(session: Node, victor: String) -> void:
-	var label: String = "victory" if victor == "ally" else "defeat"
+func _scenario(session: Node, victor: String, force_capture_failure: bool = false) -> void:
+	var label: String = ("victory-capture-failed" if force_capture_failure else "victory") if victor == "ally" else "defeat"
 	var path: String = "user://p4_combat_return_%d_%s.json" % [OS.get_process_id(),label]
 	files.append(path)
 	delete_save(path)
@@ -172,16 +172,39 @@ func _scenario(session: Node, victor: String) -> void:
 		check(is_instance_valid(battle.capture_panel),label+": real soul-capture screen is shown")
 		check(battle.map_return.disabled,label+": pending capture blocks premature map return")
 		if is_instance_valid(battle.capture_panel):
-			# Resolve through actual capture interface, regardless of random
-			# success/failure. Exhaustion automatically returns to the map.
-			for i in range(3):
-				if not is_instance_valid(map.embedded_battle): break
-				if session.world.pending_reward.is_empty(): break
-				if not is_instance_valid(battle.capture_panel): break
-				await battle.capture_panel.roll()
-				if not session.world.pending_reward.is_empty() and session.world.pending_reward.get("phase","")=="retry":
-					continue
-				if session.world.pending_reward.is_empty(): break
+			var candidates: Array = battle.capture_panel.choices
+			check(candidates.size()==world.pending_reward.corpses.size() and not candidates.is_empty(),
+				label+": each fallen enemy has a selectable capture card")
+			var candidates_on_tiles: bool = true
+			for candidate in candidates:
+				var card: TextureButton = candidate.card
+				var enemy: Dictionary = battle.rules.find_id(str(world.pending_reward.corpses[int(candidate.index)].id))
+				candidates_on_tiles = candidates_on_tiles and (card.get_parent()==map.stage and enemy.team=="enemy"
+					and card.position==battle.cards[enemy.id].position
+					and card.position.y==battle.MAP_BOTTOM_TILE_CARD_Y)
+			check(candidates_on_tiles,label+": defeated enemy capture cards stay on exact lower map tiles")
+			if force_capture_failure:
+				# Emulate a legitimately exhausted capture phase in an isolated save.
+				# The real UI then commits failure before the permanent-death effect.
+				world.pending_reward.phase = "failed"
+				world.pending_reward.attempts = 0
+				world.pending_reward.locked = true
+				check(session.save_world(),label+": final failed capture state persisted before presenting result")
+				var failed_id: String = str(world.pending_reward.id)
+				await battle.capture_panel.complete_failure()
+				check(world.pending_reward.is_empty() and world.reward_receipts.count(failed_id)==1,
+					label+": final failed capture creates exactly one receipt and no monster reward")
+			else:
+				# Resolve through actual capture interface, regardless of random
+				# success/failure. Exhaustion automatically returns to the map.
+				for i in range(3):
+					if not is_instance_valid(map.embedded_battle): break
+					if session.world.pending_reward.is_empty(): break
+					if not is_instance_valid(battle.capture_panel): break
+					await battle.capture_panel.roll()
+					if not session.world.pending_reward.is_empty() and session.world.pending_reward.get("phase","")=="retry":
+						continue
+					if session.world.pending_reward.is_empty(): break
 	else:
 		check(not target in world.cleared and world.contamination==3,label+": defeat neither clears tile nor changes contamination")
 		check(world.pending_reward.is_empty() and world.reward_receipts.size()==receipt_before,label+": defeat produces no capture/reward")
@@ -233,6 +256,7 @@ func _run() -> void:
 	var original_path: String = session.save_file_path
 	await _scenario(session,"enemy")
 	await _scenario(session,"ally")
+	await _scenario(session,"ally",true)
 	session.save_file_path = original_path
 	if created: session.queue_free()
 	for path in files: delete_save(path)
