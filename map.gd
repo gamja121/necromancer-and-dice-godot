@@ -631,6 +631,7 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	battle.embedded = true
 	battle.detail_parent = stage
 	battle.external_dice_deck_button = deck_button
+	battle.external_dice_deck_count_label = dice_count_label
 	battle.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	battle.size = Vector2(1280,530)
 	battle.scale = Vector2.ONE*(viewport.size.x/1280.0)
