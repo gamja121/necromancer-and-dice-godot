@@ -325,7 +325,10 @@ func roll_move(instance_id: String = "") -> void:
 		return
 	dice_count_label.text = "주사위 카드 %d/5" % world.dice_cards.size()
 	status.text = "주사위를 굴리는 중…"+(" · "+str(result.label) if not str(result.label).is_empty() else "")
-	await dice_animation.roll_map(dice,int(result.face),Rect2(148,143,984,412),texture,sound)
+	# The selected contamination frame is a real collision wall for the
+	# cosmetic board die, without affecting the already-persisted roll result.
+	var wall: Rect2 = presentation.gauge.dice_wall_rect() if is_instance_valid(presentation.gauge) else Rect2()
+	await dice_animation.roll_map(dice,int(result.face),Rect2(148,143,984,412),texture,sound,wall)
 	var previous = int(result.origin)
 	for raw_index in result.path:
 		var index = int(raw_index)
