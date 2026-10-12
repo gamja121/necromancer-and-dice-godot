@@ -93,6 +93,8 @@ func _run() -> void:
 		check(chrome_visible(map), "location art exit restores the complete toolbar")
 		map.show_place_actions(fortune)
 		check(modal_and_chrome(map), "nested prophecy/action panel also owns board chrome visibility")
+		check(map.overlay.dice==map.dice and map.dice.is_visible_in_tree() and not map.dice.disabled,
+			"fortune teller uses same visible and clickable stage die, never a mini copy")
 		map.close_overlay()
 		check(chrome_visible(map), "closing nested location actions restores toolbar")
 
@@ -100,6 +102,8 @@ func _run() -> void:
 	if tree_index >= 0:
 		map.show_exploration_actions(tree_index)
 		check(modal_and_chrome(map), "world-tree prayer panel cannot expose map HUD beneath its art")
+		check(map.overlay.dice==map.dice and map.dice.is_visible_in_tree() and not map.dice.disabled,
+			"world tree uses same stage die and the die itself can start the prayer")
 		map.close_overlay()
 		check(chrome_visible(map), "world-tree action close restores map controls")
 
