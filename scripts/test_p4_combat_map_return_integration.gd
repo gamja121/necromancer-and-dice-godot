@@ -117,8 +117,8 @@ func _scenario(session: Node, victor: String) -> void:
 	var external_cards_ok: bool = battle.uses_map_tile_dock() and battle.cards.size()==battle.rules.units.size()
 	var every_card_overlaps_tile: bool = true
 	for card in battle.cards.values():
-		external_cards_ok = external_cards_ok and card.get_parent()==map.stage
-			and card.position.y>=border_bottom and absf((card.position.y+card.size.y*0.5)-lower_tile_y)<12.0
+		external_cards_ok = external_cards_ok and (card.get_parent()==map.stage
+			and card.position.y>=border_bottom and absf((card.position.y+card.size.y*0.5)-lower_tile_y)<12.0)
 		var overlaps_bottom_tile: bool = false
 		for tile_index in range(12,19):
 			var tile: TextureButton = map.buttons[tile_index]
@@ -130,14 +130,16 @@ func _scenario(session: Node, victor: String) -> void:
 	check(every_card_overlaps_tile,label+": monster portraits cover actual bottom map tile rectangles")
 	battle.set_card_phase(true)
 	await create_timer(0.25).timeout
-	check(battle.cards.values().all(func(card): return card.disabled
-		and absf(card.position.y-battle.MAP_BOTTOM_TILE_CARD_Y)<0.5),
-		label+": action phase keeps monster cards on bottom tiles, disabled not moved into arena")
+	var cards_stay_while_acting: bool = true
+	for card in battle.cards.values():
+		cards_stay_while_acting = cards_stay_while_acting and card.disabled and absf(card.position.y-battle.MAP_BOTTOM_TILE_CARD_Y)<0.5
+	check(cards_stay_while_acting,label+": action phase keeps monster cards on bottom tiles, disabled not moved into arena")
 	battle.set_card_phase(false)
 	await create_timer(0.25).timeout
-	check(battle.cards.values().all(func(card): return not card.disabled
-		and absf(card.position.y-battle.MAP_BOTTOM_TILE_CARD_Y)<0.5),
-		label+": next ready phase restores clickable cards on same bottom tiles")
+	var cards_stay_when_ready: bool = true
+	for card in battle.cards.values():
+		cards_stay_when_ready = cards_stay_when_ready and not card.disabled and absf(card.position.y-battle.MAP_BOTTOM_TILE_CARD_Y)<0.5
+	check(cards_stay_when_ready,label+": next ready phase restores clickable cards on same bottom tiles")
 	await create_timer(0.5).timeout
 	check(map.book_lock.locked and not map.book_lock.transitioning
 		and map.book_button.texture_disabled==map.book_lock.frames[3],
