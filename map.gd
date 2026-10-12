@@ -73,7 +73,72 @@ var stage: Control
 var buttons: Array = []
 var hero: TextureRect
 var dice: TextureButton
+const SHARED_DIE_AREA = Rect2(0.0,0.0,1280.0,720.0)
+var shared_die_busy: bool = false
 var status: Label
+
+func shared_dice_position() -> Vector2:
+	return Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
+
+func remember_shared_die() -> void:
+	if not is_instance_valid(dice): return
+	# Pixel/degree quantization avoids JSON float32 round-trip drift in v1
+	# snapshots while keeping the final resting spot visually unchanged.
+	var stopped := Vector2(roundf(dice.position.x),roundf(dice.position.y))
+	dice.position = stopped
+	var final_angle: int = roundi(dice.rotation_degrees)
+	dice.rotation_degrees = float(final_angle)
+	world.dice_visual_position = [int(stopped.x),int(stopped.y)]
+	world.dice_visual_rotation = final_angle
+	# Presentation state goes into the ordinary atomic run save; gameplay RNG
+	# and saved die result are not changed.
+	session.save_world()
+
+func roll_shared_die(face: int, battle_area: bool = false) -> void:
+	if not is_instance_valid(dice): return
+	shared_die_busy = true
+	dice.disabled = true
+	# This is ONE stage-space die across battlefield, map, world tree and
+	# fortune teller. Always begin at its previous stopping point.
+	var wall: Rect2 = Rect2()
+	if not battle_area and not is_instance_valid(overlay) and is_instance_valid(presentation.gauge):
+		wall = presentation.gauge.dice_wall_rect()
+	await dice_animation.roll_map(dice,face,SHARED_DIE_AREA,texture,sound,wall)
+	world.dice_visual_face = clampi(face,1,6)
+	remember_shared_die()
+	shared_die_busy = false
+	refresh_shared_die_input()
+
+func refresh_shared_die_input() -> void:
+	if not is_instance_valid(dice): return
+	if shared_die_busy or moving:
+		dice.disabled = true
+		return
+	if is_instance_valid(embedded_battle):
+		# An ongoing round and result/capture screen set the proper state.
+		dice.disabled = embedded_battle.busy or (not is_instance_valid(embedded_battle.capture_panel) and not embedded_battle.rules.winner().is_empty())
+		return
+	if not is_instance_valid(overlay):
+		dice.disabled = false
+		return
+	if overlay is ExplorationActions and overlay.type=="unknown":
+		dice.disabled = overlay.busy or overlay.action_button.disabled
+	elif overlay is PlaceActions and overlay.type=="fortune-teller-camp":
+		dice.disabled = overlay.busy or overlay.confirm_button.disabled
+	else:
+		dice.disabled = true
+
+func on_shared_die_pressed() -> void:
+	if shared_die_busy or moving: return
+	if is_instance_valid(embedded_battle):
+		await embedded_battle.on_dice_pressed()
+	elif overlay is ExplorationActions and overlay.type=="unknown":
+		await overlay.pray()
+	elif overlay is PlaceActions and overlay.type=="fortune-teller-camp":
+		await overlay.roll_prophecy()
+	elif not is_instance_valid(overlay):
+		await roll_move()
+
 var hud: Label
 # Route *all* overlay assignments through the map's audio visibility guard.
 # An explicit setter also handles direct scene creation (story/battle/treasure),
@@ -107,9 +172,12 @@ func _sync_map_chrome() -> void:
 		# Keep only the two original illustrated books and their counts in battle.
 		# Without this, BookBattleLock animates on a hidden button.
 		var battle_book_or_deck: bool = control == book_button or control == deck_button or control == dice_count_label
-		control.visible = show_board_controls or (central_battle and battle_book_or_deck)
+		# The one real die survives every overlay and floats above battlefield art.
+		control.visible = true if control == dice else (show_board_controls or (central_battle and battle_book_or_deck))
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		presentation.gauge.visible = show_board_controls
+	# During scene switches do not reenable a currently rolling die.
+	if is_instance_valid(dice) and not shared_die_busy: refresh_shared_die_input()
 
 func _ready() -> void:
 	DisplayServer.window_set_title("Necromancer and Dice")
@@ -236,13 +304,14 @@ func render() -> void:
 	hero.position = hero_position(world.position)
 	dice = TextureButton.new()
 	dice.ignore_texture_size = true
-	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % world.last_face)
+	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % world.dice_visual_face)
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	dice.size = Vector2(76,76)
-	dice.position = Vector2(602,307.6)
-	dice.z_index = 19
-	dice.tooltip_text = "주사위를 굴려 이동"
-	dice.pressed.connect(roll_move)
+	dice.position = shared_dice_position()
+	dice.rotation_degrees = world.dice_visual_rotation
+	dice.z_index = 96
+	dice.tooltip_text = "주사위 · 멈춘 자리에서 다시 누르기"
+	dice.pressed.connect(on_shared_die_pressed)
 	stage.add_child(dice)
 	status = label_at(stage,"주사위를 굴려 길을 따라 이동하세요",Vector2(285,385),Vector2(710,38),16)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -326,9 +395,8 @@ func roll_move(instance_id: String = "") -> void:
 	dice_count_label.text = "주사위 카드 %d/5" % world.dice_cards.size()
 	status.text = "주사위를 굴리는 중…"+(" · "+str(result.label) if not str(result.label).is_empty() else "")
 	# The selected contamination frame is a real collision wall for the
-	# cosmetic board die, without affecting the already-persisted roll result.
-	var wall: Rect2 = presentation.gauge.dice_wall_rect() if is_instance_valid(presentation.gauge) else Rect2()
-	await dice_animation.roll_map(dice,int(result.face),Rect2(148,143,984,412),texture,sound,wall)
+	# Cosmetic shared die: same rest position on map, battle, and places.
+	await roll_shared_die(int(result.face))
 	var previous = int(result.origin)
 	for raw_index in result.path:
 		var index = int(raw_index)
@@ -621,10 +689,12 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	overlay = host
 	for child in stage.get_children():
 		if child is BaseButton: child.disabled = true
+	dice.disabled = false
 	# The deck that lives on the map, not an extra battle-local copy, opens
 	# battle dice controls while the chained monster book remains locked.
 	if is_instance_valid(deck_button): deck_button.disabled = false
-	dice.hide()
+	# Leave the ONE stage die visible above the battle viewport and frame.
+	dice.show()
 	map_audio.hide()
 	status.hide()
 	hero.hide()
@@ -639,6 +709,8 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	battle.detail_parent = stage
 	battle.external_dice_deck_button = deck_button
 	battle.external_dice_deck_count_label = dice_count_label
+	battle.external_main_dice = dice
+	battle.map_owner = self
 	battle.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	battle.size = Vector2(1280,530)
 	battle.scale = Vector2.ONE*(viewport.size.x/1280.0)

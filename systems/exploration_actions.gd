@@ -54,20 +54,14 @@ func setup(map_scene, tile_index: int) -> void:
 	content=Control.new()
 	add_child(content)
 	if type=="unknown":
-		dice=TextureButton.new()
-		dice.ignore_texture_size=true
-		dice.stretch_mode=TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		dice.position=Vector2(610,245)
-		dice.size=Vector2(60,60)
-		dice.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		dice.texture_normal=map.texture("res://assets/battle/dice/result-01.png")
-		add_child(dice)
+		# World-tree prayers use the same full-stage die at its last rest pose.
+		# No local decorative copy is created and nothing snaps to (610,245).
+		dice=map.dice
 		action_button=button(self,"기도",Vector2(525,465),Vector2(230,42),pray)
 		action_button.disabled=session.place_visit_id("purify",index) in session.world.reward_receipts
 		status.text="1~3 실패: 오염도 +1 · 4~5 축복: -3 · 6 대축복: -5\n방문당 한 번 · 현재 오염도 %d/100" % session.world.contamination
 		var saved=session.world.prayer_result
 		if saved.get("visit","")==session.place_visit_id("purify",index):
-			dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png" % int(saved.face))
 			status.text="기도 결과 %d · 오염도 %+d · 현재 %d/100" % [int(saved.face),int(saved.delta),session.world.contamination]
 	elif type=="graveyard":
 		close_button.text="닫기"
@@ -102,6 +96,7 @@ func setup(map_scene, tile_index: int) -> void:
 		close_button.name="PatrolRouteClose"
 		style_patrol_button(close_button,true)
 		render_route()
+	map.refresh_shared_die_input()
 
 # These two *exact* source PNGs are already in the Godot repository but
 # were never connected to the in-game patrol action buttons. The frozen
@@ -366,9 +361,7 @@ func pray() -> void:
 	close_button.disabled=true
 	action_button.disabled=true
 	status.text="세계수에 정화 기도 중…"
-	await DiceAnimation.new().roll_map(dice,int(result.face),Rect2(300,140,680,245),map.texture,map.sound)
-	dice.position=Vector2(610,245)
-	dice.rotation=0
+	await map.roll_shared_die(int(result.face))
 	status.text=result.reason
 	map.presentation.refresh()
 	if bool(result.get("boss_appeared",false)) and map.buttons.size() > MapState.BOSS_TILE_INDEX:
@@ -386,6 +379,7 @@ func pray() -> void:
 	popup.play(int(session.world.prayer_result.delta))
 	close_button.disabled=false
 	busy=false
+	map.refresh_shared_die_input()
 
 func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensions: Vector2, callback: Callable) -> TextureButton:
 	var option = super.card(parent,kind,item,pos,dimensions,callback)

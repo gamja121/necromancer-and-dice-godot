@@ -90,7 +90,8 @@ func check_scenario(session: Node, label: String, location_type: String, is_swam
 	# Do NOT invoke session.prepare_map_roll or map.show_tile directly here.
 	# The user-facing map method runs its full die and moving hero effects.
 	await map.roll_move()
-	check(not map.moving and not map.dice.disabled,label+": die unlocked after movement")
+	check(not map.moving and map.dice.is_visible_in_tree() and map.dice.disabled==is_instance_valid(map.overlay),
+		label+": die remains visible but only unlocks when its arrival modal closes")
 	check(world.position==int(fixture.landing),label+": real die followed %d steps and landed correctly" % int(fixture.face))
 	check(world.move_serial==before_move_serial+1 and world.map_serial==before_map_serial,label+": one committed move, no map regeneration")
 	check(world.pending_move.is_empty(),label+": movement transaction finalized")
@@ -153,7 +154,8 @@ func check_interrupted_move(session: Node) -> void:
 	check(session.world.pending_move.is_empty(),"interrupted: actual Map scene finalizes pending move")
 	check(session.world.move_serial==serial and session.world.position==int(fixture.landing),"interrupted: move not rolled twice during restart")
 	check(is_instance_valid(map.overlay) and location_art_visible(map,"rest"),"interrupted: destination rest panel appears after resume")
-	check(not map.moving and not map.dice.disabled,"interrupted: controls recover after resume")
+	check(not map.moving and map.dice.is_visible_in_tree() and map.dice.disabled==is_instance_valid(map.overlay),
+		"interrupted: shared die persists but the location modal prevents accidental map rolls")
 	map.queue_free()
 	await process_frame
 	session.reload_world()

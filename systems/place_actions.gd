@@ -61,23 +61,17 @@ func setup(map_scene, tile_index: int) -> void:
 		status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if type=="fortune-teller-camp":
 		setup_fortune_visual()
-		dice=TextureButton.new()
-		dice.ignore_texture_size=true
-		dice.stretch_mode=TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		dice.position=Vector2(610,245)
-		dice.size=Vector2(60,60)
-		dice.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		dice.texture_normal=map.texture("res://assets/battle/dice/result-01.png")
-		add_child(dice)
+		# Fortune uses the persistent map die; never spawn/center a duplicate.
+		dice=map.dice
 		confirm_button=button(self,"예언 듣기",Vector2(525,505),Vector2(230,42),roll_prophecy)
 		var used=session.place_visit_id("prophecy",index) in session.world.reward_receipts
 		confirm_button.disabled=used
 		status.text="방문당 한 번 · 다음 전투에 적용할 예언을 주사위로 결정합니다\n누적: "+session.prophecy_label()
 		if used and session.world.last_prophecy.get("visit","")==session.place_visit_id("prophecy",index):
-			dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png" % int(session.world.last_prophecy.face))
 			status.text=session.world.last_prophecy.detail+"\n누적: "+session.prophecy_label()
 			show_fortune_stone(false)
 			show_fortune_result()
+		map.refresh_shared_die_input()
 		return
 	if type=="altar":
 		setup_altar_visual()
@@ -404,14 +398,13 @@ func roll_prophecy() -> void:
 	confirm_button.disabled=true
 	show_fortune_stone(true)
 	status.text="예언의 주사위를 굴리는 중…"
-	await DiceAnimation.new().roll_map(dice,int(result.face),Rect2(300,140,680,245),map.texture,map.sound)
-	dice.position=Vector2(610,245)
-	dice.rotation=0
+	await map.roll_shared_die(int(result.face))
 	status.text=result.reason
 	show_fortune_result()
 	if int(result.face)==2: await map.presentation.full_heal()
 	close_button.disabled=false
 	busy=false
+	map.refresh_shared_die_input()
 
 func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensions: Vector2, callback: Callable) -> TextureButton:
 	var option = super.card(parent,kind,item,pos,dimensions,callback)

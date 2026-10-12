@@ -110,7 +110,14 @@ func reload_during_route(session: Node, map: Control, turn: int) -> Control:
 	map.queue_free()
 	await process_frame
 	session.reload_world()
-	check(session.world.snapshot() == saved, "roll %d: entire natural map snapshot survives JSON reload" % turn)
+	var reloaded_snapshot: Dictionary = session.world.snapshot()
+	if reloaded_snapshot!=saved:
+		for field in saved:
+			if saved[field]!=reloaded_snapshot.get(field):
+				print("DEBUG_DIE_SNAPSHOT_DIFF roll=",turn," key=",field,
+					" prior=",str(saved[field]).substr(0,220),
+					" loaded=",str(reloaded_snapshot.get(field)).substr(0,220))
+	check(reloaded_snapshot == saved, "roll %d: entire natural map snapshot survives JSON reload" % turn)
 	map = MAP.instantiate()
 	root.add_child(map)
 	await process_frame
@@ -153,7 +160,9 @@ func perform_lap(session: Node) -> void:
 		check(world.position == destination and world.previous_map_roll == int(expected.face), "roll %d: original RNG face %d moves %d to %d" % [turns, int(expected.face), original_position, destination])
 		check(world.move_serial == previous_moves + 1 and world.pending_move.is_empty(), "roll %d: exactly one finalized movement transaction" % turns)
 		check(world.tiles == initial_tiles and world.map_serial == 1, "roll %d: all 24 tile types and ordering stay original" % turns)
-		check(map.selected == world.position and not map.dice.disabled and not map.moving, "roll %d: real map controls unlock after arrival" % turns)
+		check(map.selected == world.position and not map.moving
+			and map.dice.is_visible_in_tree() and map.dice.disabled==is_instance_valid(map.overlay),
+			"roll %d: shared die stays visible, only disables clicks while arrival panel is open" % turns)
 		check(session.encounter.is_empty() and world.pending_reward.is_empty() and world.reward_receipts == initial_receipts, "roll %d: no fabricated encounter or reward" % turns)
 		check(int(world.roster[0].current_hp) == (maxi(1, before_hp - 1) if kind == "swamp" else before_hp), "roll %d: natural HP change occurs only on swamp" % turns)
 		if destination == STATE.HOME:
@@ -194,7 +203,8 @@ func perform_lap(session: Node) -> void:
 			var move_before: int = world.move_serial
 			await map.roll_move()
 			check(world.position == int(followup.position) or world.tiles[int(followup.position)] == "warp", "second lap begins with genuine RNG movement")
-			check(world.move_serial == move_before + 1 and world.pending_move.is_empty() and not map.dice.disabled, "second lap movement commits exactly once")
+			check(world.move_serial == move_before + 1 and world.pending_move.is_empty()
+				and map.dice.disabled==is_instance_valid(map.overlay), "second lap move commits once and respects modal input lock")
 			print("P4_NATURAL_HOME_ROUTE: seed %d, %d genuine first-lap rolls, %d encountered tile types" % [seed, turns, places.size()])
 	map.queue_free()
 	await process_frame

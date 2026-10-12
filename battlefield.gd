@@ -79,6 +79,8 @@ var dice_cards_button: Button
 # No second deck image/button may be created inside BattleViewport.
 var external_dice_deck_button: TextureButton
 var external_dice_deck_count_label: Label
+var external_main_dice: TextureButton
+var map_owner: Control
 var brand_reference: Control
 var brand_reference_button: Button
 
@@ -330,15 +332,21 @@ void fragment() {
 			name_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			var count = text(layer,"%d/%d" % [rules.legions[team].counts[key],rules.NEED[key]],Vector2(x,111),Vector2(54,12),8)
 			count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dice = TextureButton.new()
-	dice.size = Vector2(124,106)
-	dice.position = (surface_size-dice.size)/2.0
-	dice.ignore_texture_size = true
-	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	dice.texture_normal = texture("res://assets/battle/dice/roll-01.png" if rules.round_number==0 else "res://assets/battle/dice/result-%02d.png" % rules.face)
-	dice.pressed.connect(on_dice_pressed)
-	dice.tooltip_text = "클릭하여 다음 라운드 진행"
-	layer.add_child(dice)
+	if embedded and is_instance_valid(external_main_dice):
+		# The embedded arena NEVER creates or repositions a second die.
+		# Its battle rounds use the map's full-stage die and existing click route.
+		dice = external_main_dice
+		dice.tooltip_text = "전투 주사위 · 멈춘 자리에서 다음 턴 굴리기"
+	else:
+		dice = TextureButton.new()
+		dice.size = Vector2(124,106)
+		dice.position = (surface_size-dice.size)/2.0
+		dice.ignore_texture_size = true
+		dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		dice.texture_normal = texture("res://assets/battle/dice/roll-01.png" if rules.round_number==0 else "res://assets/battle/dice/result-%02d.png" % rules.face)
+		dice.pressed.connect(on_dice_pressed)
+		dice.tooltip_text = "클릭하여 다음 라운드 진행"
+		layer.add_child(dice)
 	render_units(rules.units)
 	AudioSettings.new().setup(layer)
 	cues = CombatCues.new()
@@ -528,7 +536,11 @@ func roll_round(instance_id: String = "") -> void:
 				return
 		else: result = {"face":0,"label":""}
 		message.text = "주사위를 굴리는 중…"+(" · "+str(result.label) if not str(result.label).is_empty() else "")
-		await dice_animation.roll_battle(dice,texture,sound,wait_time)
+		if embedded and is_instance_valid(map_owner):
+			# Bounce freely over the real board/battle without snapping to center.
+			await map_owner.roll_shared_die(int(result.face),true)
+		else:
+			await dice_animation.roll_battle(dice,texture,sound,wait_time)
 		phase = "rolled"
 	elif phase=="rolled": result = session.encounter.roll
 	if phase=="rolled":
