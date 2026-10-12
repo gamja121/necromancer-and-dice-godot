@@ -96,7 +96,8 @@ func _run() -> void:
 	check(inventory.tab_buttons.size()==3 and inventory.tab_buttons.all(func(tab): return not tab.visible),
 		"book hand hides the three redundant monster/dice/brand buttons")
 	# Outside click remains the visible-free way to close the book hand.
-	check(inventory.get_node("InventoryOutsideClose").pressed.get_connections().size()>0,
+	var outside_close: Button = inventory.get_node("InventoryOutsideClose") as Button
+	check(outside_close != null and outside_close.pressed.get_connections().size()>0,
 		"inventory backdrop retains outside-close signal")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")
 	if inventory.fan.entries.size()==8:
