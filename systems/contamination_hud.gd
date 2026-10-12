@@ -25,7 +25,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 7
 	# Match the accepted bottom-centre board mockup without overlapping tile input.
-	# 5:3 aspect ratio retained; the compact meter stays centred on the board.
+	# 3:1 aspect ratio retained; the compact meter stays centred on the board.
 	size = Vector2(480,160)
 	position = Vector2(400,395)
 	_load_approved_frame()
