@@ -6,7 +6,9 @@ const HOME = 15
 const BOSS_CONTAMINATION = 20
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
-const COUNTS = {"basic":2,"graveyard":1,"altar":1,"unknown":1,"forest":1,"rest":2,"monster":5,"rare-monster":1,"gem":1,"event":2,"swamp":2,"warp":2}
+## First expedition: no world tree, rare monster, altar or graveyard.
+## Four removed tiles become ordinary roads so the loop stays exactly 24.
+const COUNTS = {"basic":6,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":2,"monster":5,"rare-monster":0,"gem":1,"event":2,"swamp":2,"warp":2}
 const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
 var definitions: Dictionary
 var rng = RandomNumberGenerator.new()
@@ -75,6 +77,12 @@ func generate() -> void:
 	var counts = COUNTS.duplicate()
 	var deltas = RoutePlan.deltas(patrol_plan)
 	for type in deltas: counts[type] += int(deltas[type])
+	# The cemetery is guaranteed to arrive ONLY on the newly shuffled map
+	# after the first completed lap (leave_home increments laps before generate).
+	# Normalize legacy patrol plans too; tombs never reappear on lap zero.
+	var unlocked_graveyards: int = 1 if laps>=1 else 0
+	counts.basic += int(counts.graveyard)-unlocked_graveyards
+	counts.graveyard = unlocked_graveyards
 	var requested_conversion = 2 if contamination>=80 else (1 if contamination>=40 else 0)
 	var conversion = mini(requested_conversion,counts.basic)
 	counts.basic -= conversion
