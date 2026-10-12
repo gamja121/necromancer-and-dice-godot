@@ -88,7 +88,8 @@ func _run() -> void:
 	await process_frame
 	var real_hud: Control=map.presentation.gauge
 	check(real_hud.size==Vector2(480,160) and real_hud.dice_wall_rect().has_area(),"real map uses compact die-blocking HUD")
-	check(map.dice.position==Vector2(602,307.6),"original clickable map die location preserved")
+	check(map.dice.position==Vector2(602,308) and map.dice.is_visible_in_tree(),
+		"persistent shared die begins at backward-compatible pixel-snapped default position")
 	check(real_hud.dice_wall_rect().position.y-radius>map.dice.position.y+map.dice.size.y*0.5,"die starts above the expanded HUD wall")
 	check(session.world.snapshot()==snapshot and session.world.rng.state==rng,"layout/wall updates never change saved world or die RNG")
 	map.modal()
