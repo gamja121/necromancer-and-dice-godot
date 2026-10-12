@@ -1,0 +1,113 @@
+name: Contamination 10-Slot Approved Art / Map Runtime
+on:
+  pull_request:
+    paths:
+      - "assets/map/ui/contamination_frame_10.webp"
+      - "systems/contamination_hud.gd"
+      - "systems/map_presentation.gd"
+      - "scripts/test_contamination_ten_slot_hud.gd"
+      - "scripts/test_contamination_gui_capture.gd"
+      - ".github/workflows/contamination-ten-slot-art.yml"
+  push:
+    branches: [feature/contamination-ten-slot-art-hud-20261012, main]
+    paths:
+      - "assets/map/ui/contamination_frame_10.webp"
+      - "systems/contamination_hud.gd"
+      - "systems/map_presentation.gd"
+      - "scripts/test_contamination_ten_slot_hud.gd"
+      - "scripts/test_contamination_gui_capture.gd"
+      - ".github/workflows/contamination-ten-slot-art.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  godot-hud-and-gameplay:
+    name: Godot 4.7.2 HUD and location regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import approved binary art and parse all Godot scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual approved artwork alpha, ten stages and map save neutrality
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_contamination_ten_slot_hud.gd 2>&1 | tee hud.log
+          grep -E '^CONTAMINATION_TEN_SLOT_HUD: [0-9]+ passed, 0 failed$' hud.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL contamination-10-slot:' hud.log; then exit 1; fi
+      - name: Existing whole map HUD visibility and event art overlap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_map_chrome_stage5r.gd 2>&1 | tee chrome.log
+          grep -E '^UI_MAP_CHROME_STAGE5R: [0-9]+ passed, 0 failed$' chrome.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-map-chrome:' chrome.log; then exit 1; fi
+      - name: Legacy route, warp, swamp and story arrival regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 360s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee locations.log
+          grep -E '^P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed$' locations.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-map-location:' locations.log; then exit 1; fi
+      - name: No low-resolution art file or original was deleted
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s assets/map/ui/contamination_frame_10.webp
+          test -s assets/map/ui/contamination_hud.png
+          git diff --check
+
+  native-windows-preview:
+    name: Windows 3 real HUD screenshots (0/12/100)
+    runs-on: windows-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          cache: false
+      - name: Import full native Godot game
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $exe=@(Get-ChildItem -Path (Join-Path $env:USERPROFILE "godot") -Filter "*win64_console.exe" -File | Select-Object -First 1 -ExpandProperty FullName)[0]
+          if (-not $exe) { throw "Godot Windows console binary not found" }
+          Add-Content -Path $env:GITHUB_ENV -Value "GODOT_WINDOWS_CONSOLE=$exe"
+          & $exe --headless --path . --editor --quit 2>&1 | Tee-Object -FilePath hud-windows-import.log
+          if ($LASTEXITCODE -ne 0) { throw "Windows art/script import failed" }
+          if ((Get-Content -Raw hud-windows-import.log) -match "SCRIPT ERROR|Parse Error|Failed loading resource") { throw "Import parse failure" }
+      - name: Capture actual native Windows UI with 0 12 and 100 corruption
+        shell: pwsh
+        timeout-minutes: 8
+        env:
+          CONTAMINATION_PREVIEW_DIR: ${{ runner.temp }}/contamination-native-screens
+        run: |
+          $ErrorActionPreference="Stop"
+          & $env:GODOT_WINDOWS_CONSOLE --audio-driver Dummy --path . --script res://scripts/test_contamination_gui_capture.gd 2>&1 | Tee-Object -FilePath hud-windows-preview.log
+          if ($LASTEXITCODE -ne 0) { throw "Windows GUI test returned an error" }
+          if ((Get-Content -Raw hud-windows-preview.log) -notmatch "CONTAMINATION_NATIVE_GUI: 3 captured, 0 failed") { throw "Expected three visible distinct HUD states" }
+          $images=@(Get-ChildItem "$env:CONTAMINATION_PREVIEW_DIR" -Filter "*.png")
+          if ($images.Count -ne 3) { throw "Expected 3 native GUI screenshots, got $($images.Count)" }
+      - name: Upload screens for human review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contamination-hud-native-windows-0-12-100
+          path: |
+            hud-windows-import.log
+            hud-windows-preview.log
+            ${{ runner.temp }}/contamination-native-screens/
+          if-no-files-found: warn
+          retention-days: 30
