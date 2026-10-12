@@ -93,14 +93,18 @@ func _draw_ten_slot_hud() -> void:
 	draw_texture_rect(frame,Rect2(Vector2.ZERO,size),false)
 	var font: Font = get_theme_default_font()
 	var title: String = "오염도"
-	var title_size: int = 20
+	var title_size: int = 22
 	var center_x: float = 350.0*scale.x
 	var tw: float = font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x
-	draw_string(font,Vector2(center_x-tw/2.0,382.0*scale.y),title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size,Color("2c2420"))
+	var title_at := Vector2(center_x-tw/2.0,382.0*scale.y)
+	draw_string_outline(font,title_at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size,2,Color("211711"))
+	draw_string(font,title_at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size,Color("251b15"))
 	var value_text: String = "%d / 100" % int(target_value)
-	var size_px: int = 16
+	var size_px: int = 17
 	var vw: float = font.get_string_size(value_text,HORIZONTAL_ALIGNMENT_LEFT,-1,size_px).x
-	draw_string(font,Vector2(center_x-vw/2.0,462.0*scale.y),value_text,HORIZONTAL_ALIGNMENT_LEFT,-1,size_px,Color("493529"))
+	var value_at := Vector2(center_x-vw/2.0,462.0*scale.y)
+	draw_string_outline(font,value_at,value_text,HORIZONTAL_ALIGNMENT_LEFT,-1,size_px,1,Color("211811"))
+	draw_string(font,value_at,value_text,HORIZONTAL_ALIGNMENT_LEFT,-1,size_px,Color("38251b"))
 
 func _draw_legacy_safe_hud() -> void:
 	draw_rect(Rect2(size*Vector2(0.015,0.13),size*Vector2(0.97,0.74)),Color("211811"))
