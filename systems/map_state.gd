@@ -18,6 +18,10 @@ var contamination = 0
 var laps = 0
 var lap_ready = false
 var last_face = 1
+# Purely visual stage-space rest pose for the ONE shared die. Optional in
+# existing v1 saves; no gameplay roll probabilities or RNG state change.
+var dice_visual_position: Array = [602.0,307.6]
+var dice_visual_rotation: float = 0.0
 var region = "default"
 var dice_cards: Array = []
 var brand_cards: Array = []
@@ -136,7 +140,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -282,6 +286,12 @@ func restore(saved: Dictionary) -> bool:
 	laps = int(saved.laps)
 	lap_ready = saved.lap_ready
 	last_face = int(saved.last_face)
+	var stored_die = saved.get("dice_visual_position",[602.0,307.6])
+	if stored_die is Array and stored_die.size()==2 and (stored_die[0] is int or stored_die[0] is float) and (stored_die[1] is int or stored_die[1] is float):
+		dice_visual_position = [clampf(float(stored_die[0]),0.0,1204.0),clampf(float(stored_die[1]),0.0,644.0)]
+	else:
+		dice_visual_position = [602.0,307.6]
+	dice_visual_rotation = clampf(float(saved.get("dice_visual_rotation",0.0)), -3600.0,3600.0)
 	region = saved.region
 	rng.seed = int(saved.rng_seed)
 	rng.state = int(saved.rng_state)
