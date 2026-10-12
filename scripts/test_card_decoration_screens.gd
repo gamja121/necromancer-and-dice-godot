@@ -95,10 +95,10 @@ func _run() -> void:
 	check(outside_book != null and outside_book.visible
 		and outside_book.pressed.get_connections().size()>0,
 		"book hand still closes by tapping outside the cards")
-	check(inventory.tab_buttons.size()==3
-		and inventory.tab_buttons.all(func(tab): return not tab.visible
-			and tab.disabled and tab.focus_mode==Control.FOCUS_NONE),
-		"monster/dice/brand toolbar buttons are hidden and cannot receive input")
+	var toolbar_hidden := inventory.tab_buttons.size()==3
+	for tab in inventory.tab_buttons:
+		toolbar_hidden = toolbar_hidden and not tab.visible and tab.disabled and tab.focus_mode==Control.FOCUS_NONE
+	check(toolbar_hidden,"monster/dice/brand toolbar buttons are hidden and cannot receive input")
 	check(not inventory.close_button.visible and inventory.close_button.disabled
 		and inventory.close_button.focus_mode==Control.FOCUS_NONE,
 		"floating close button is hidden and inaccessible in the book hand")
