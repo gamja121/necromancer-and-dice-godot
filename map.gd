@@ -103,6 +103,7 @@ func roll_shared_die(face: int, battle_area: bool = false) -> void:
 	if not battle_area and not is_instance_valid(overlay) and is_instance_valid(presentation.gauge):
 		wall = presentation.gauge.dice_wall_rect()
 	await dice_animation.roll_map(dice,face,SHARED_DIE_AREA,texture,sound,wall)
+	world.dice_visual_face = clampi(face,1,6)
 	remember_shared_die()
 	shared_die_busy = false
 	refresh_shared_die_input()
@@ -302,7 +303,7 @@ func render() -> void:
 	hero.position = hero_position(world.position)
 	dice = TextureButton.new()
 	dice.ignore_texture_size = true
-	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % world.last_face)
+	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % world.dice_visual_face)
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	dice.size = Vector2(76,76)
 	dice.position = shared_dice_position()
