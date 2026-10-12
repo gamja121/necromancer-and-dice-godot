@@ -105,7 +105,9 @@ func _run() -> void:
 	check(chrome_visible(map), "home exit returns original map HUD")
 
 	map.show_inventory("unit")
-	check(modal_and_chrome(map), "book inventory also keeps map toolbar out of foreground")
+	# The inventory book intentionally keeps board chrome visible behind its input shield.
+	# Unlike location actions, the inventory is an overlay on the real board.
+	check(is_instance_valid(map.overlay) and map.map_audio.modal_blocked and chrome_visible(map), "book inventory keeps source HUD visible while blocking board inputs")
 	map.close_overlay()
 	check(chrome_visible(map), "book inventory close restores map controls")
 	map.show_inventory("dice")

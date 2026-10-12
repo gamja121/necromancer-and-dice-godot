@@ -48,10 +48,13 @@ func setup(map_scene, tile_index: int) -> void:
 	type=session.world.tiles[index]
 	z_index=85
 	backdrop()
+	# Keep the location artwork and the exact embedded-battle border in place
+	# while shop, ritual or prophecy controls are used.
+	var location_art: String = {"village":"village","altar":"altar","fortune-teller-camp":"fortune-teller"}[type]
+	map.location_scene_image(self,"res://assets/map/events/%s.jpg" % location_art)
 	if type=="village":
 		setup_shop_visual()
 	else:
-		art(self,"res://assets/map/events/%s.jpg" % {"altar":"altar","fortune-teller-camp":"fortune-teller"}[type],Vector2(120,70),Vector2(1040,480)).modulate=Color(0.38,0.32,0.28,0.7)
 		label_at(self,{"altar":"제단 · 피의 의식","fortune-teller-camp":"점술가 · 예언"}[type],Vector2(290,22),Vector2(700,40),24)
 		close_button=button(self,"돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 		status=label_at(self,"",Vector2(130,435),Vector2(1020,58),15)
