@@ -2,10 +2,25 @@ extends Control
 const Overflow = preload("res://systems/reward_overflow.gd")
 const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
+const PermanentDeath = preload("res://systems/permanent_death.gd")
 var scene
 var session
 var choices: Array = []
+# Enemy capture cards are external children of the map stage in embedded mode.
+# Remove these along with the capture panel so they never leak across battles.
+var external_choice_nodes: Array = []
 var busy = false
+
+func _exit_tree() -> void:
+	for node in external_choice_nodes:
+		if is_instance_valid(node): node.queue_free()
+	external_choice_nodes.clear()
+
+func place_choice_node(node: Control, parent: Control) -> void:
+	if parent != self:
+		external_choice_nodes.append(node)
+		node.z_index = 65
+
 var capture_info_panel: Panel
 var capture_info_status: Label
 var capture_info_title: Label
@@ -38,10 +53,15 @@ func setup(battle_scene) -> void:
 		option.ignore_texture_size = true
 		option.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		option.size = scene.cards[unit.id].size
-		option.position = Vector2(scene.unit_x(unit)-option.size.x*0.5,scene.card_rest_y())
+		var on_map_tiles: bool = scene.uses_map_tile_dock()
+		var choice_parent: Control = scene.detail_parent if on_map_tiles else self
+		# During capture, use the SAME bottom-tile rectangle as the defeated
+		# enemy's regular battle card. Do not relocate it into the clipped arena.
+		option.position = scene.cards[unit.id].position if on_map_tiles else Vector2(scene.unit_x(unit)-option.size.x*0.5,scene.card_rest_y())
 		option.tooltip_text = "%s · 필요 주사위 %d 이상" % [corpse.name,int(corpse.target)]
 		option.pressed.connect(func(): select_corpse(index))
-		add_child(option)
+		choice_parent.add_child(option)
+		place_choice_node(option,choice_parent)
 		add_selection_outline(option)
 		BrandFrameOverlay.sync(option,unit)
 		AltarUpgradeBadge.sync(option,unit)
@@ -56,12 +76,16 @@ func setup(battle_scene) -> void:
 		target.tooltip_text = option.tooltip_text
 		target.pressed.connect(func(): select_corpse(index))
 		add_child(target)
-		var caption = scene.text(self,"%d 이상" % int(corpse.target),Vector2(scene.unit_x(unit)-45,scene.card_rest_y()-24),Vector2(90,24),13)
+		var caption_pos: Vector2 = Vector2(option.position.x-16,option.position.y+option.size.y+2) if on_map_tiles else Vector2(scene.unit_x(unit)-45,scene.card_rest_y()-24)
+		var caption = scene.text(choice_parent,"%d 이상" % int(corpse.target),caption_pos,Vector2(90,24),13)
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var arrow = scene.image(self,"res://assets/cards/corpse-selection-arrow.png",option.position+Vector2(23,-55),Vector2(34,34))
+		place_choice_node(caption,choice_parent)
+		var arrow_pos: Vector2 = option.position+Vector2(23,-13 if on_map_tiles else -55)
+		var arrow = scene.image(choice_parent,"res://assets/cards/corpse-selection-arrow.png",arrow_pos,Vector2(34,34))
 		arrow.rotation = PI
 		arrow.pivot_offset = arrow.size*0.5
+		place_choice_node(arrow,choice_parent)
 		choices.append({"card":option,"target":target,"arrow":arrow,"index":index})
 	refresh()
 	if pending.phase in ["success","failed"]: call_deferred("resume_result")
@@ -233,6 +257,17 @@ func complete_failure() -> void:
 		scene.dice.disabled = false
 		scene.message.text = "결과 저장 실패 · 주사위를 눌러 다시 저장하세요"
 		return
+	# The terminal failure is now persisted. Dissolve every unrecovered enemy
+	# card using the *same* permanent-death shader, sound and rising ash as the
+	# allied permanent-loss presentation, then return to the live map. Never
+	# remove the cards before the save succeeds, so failed storage stays retryable.
+	var failed_cards: Array = []
+	for choice in choices:
+		if is_instance_valid(choice.card): failed_cards.append(choice.card)
+	var effect = PermanentDeath.new()
+	(scene.detail_parent if scene.uses_map_tile_dock() else scene.layer).add_child(effect)
+	await effect.play_failed_capture(scene,failed_cards)
+	effect.queue_free()
 	session.notice += " · 영혼 수확 실패"
 	scene.busy = false
 	scene.return_to_map()
