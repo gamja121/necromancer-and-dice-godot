@@ -32,7 +32,55 @@ func roll_battle(button: TextureButton, get_texture: Callable, play_sound: Calla
 		button.rotation = base_rotation
 		button.scale = base_scale
 
-func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callable, play_sound: Callable) -> void:
+## One-frame elastic reflection against a stage-space UI obstacle.
+## The obstacle is grown by the die's visual radius so its painted corners
+## cannot overlap the frame. No gameplay/world randomness is consumed.
+func resolve_wall_bounce(previous: Vector2, proposed: Vector2, velocity: Vector2, radius: float, wall: Rect2) -> Dictionary:
+	if wall.size.x<=0.0 or wall.size.y<=0.0:
+		return {"center":proposed,"velocity":velocity,"bounced":false}
+	var bounds: Rect2=wall.grow(radius)
+	if not bounds.has_point(proposed):
+		return {"center":proposed,"velocity":velocity,"bounced":false}
+	var location: Vector2=proposed
+	var motion: Vector2=velocity
+	# Resolve against the face approached from outside; if loaded overlapping,
+	# push to the closest edge so the die can never get stuck inside.
+	if previous.y<=bounds.position.y:
+		location.y=bounds.position.y-0.1
+		motion.y=-absf(motion.y)*0.78
+	elif previous.y>=bounds.end.y:
+		location.y=bounds.end.y+0.1
+		motion.y=absf(motion.y)*0.78
+	elif previous.x<=bounds.position.x:
+		location.x=bounds.position.x-0.1
+		motion.x=-absf(motion.x)*0.78
+	elif previous.x>=bounds.end.x:
+		location.x=bounds.end.x+0.1
+		motion.x=absf(motion.x)*0.78
+	else:
+		var margins: Array[float]=[
+			absf(location.y-bounds.position.y),
+			absf(bounds.end.y-location.y),
+			absf(location.x-bounds.position.x),
+			absf(bounds.end.x-location.x)
+		]
+		var nearest: int=margins.find(margins.min())
+		match nearest:
+			0:
+				location.y=bounds.position.y-0.1
+				motion.y=-absf(motion.y)*0.78
+			1:
+				location.y=bounds.end.y+0.1
+				motion.y=absf(motion.y)*0.78
+			2:
+				location.x=bounds.position.x-0.1
+				motion.x=-absf(motion.x)*0.78
+			3:
+				location.x=bounds.end.x+0.1
+				motion.x=absf(motion.x)*0.78
+	return {"center":location,"velocity":motion,"bounced":true}
+
+func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callable, play_sound: Callable, collision_wall: Rect2 = Rect2()) -> void:
 	button.pivot_offset = button.size*0.5
 	var radius = button.size.length()*0.55
 	var minimum = area.position+Vector2.ONE*radius
@@ -57,6 +105,7 @@ func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callab
 		frame_clock += dt
 		sound_clock += dt
 		velocity *= exp(-(3.4 if elapsed>duration*0.62 else 1.15)*dt)
+		var previous_center: Vector2=center
 		center += velocity*dt
 		var bounced = false
 		if center.x<minimum.x:
@@ -75,6 +124,12 @@ func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callab
 			center.y = maximum.y
 			velocity.y = -absf(velocity.y)*0.78
 			bounced = true
+		# The compact corruption HUD acts like a solid wall for this
+		# *visual* die. Map die face and save state were decided beforehand.
+		var wall_hit: Dictionary=resolve_wall_bounce(previous_center,center,velocity,radius,collision_wall)
+		center=wall_hit["center"]
+		velocity=wall_hit["velocity"]
+		bounced=bounced or bool(wall_hit["bounced"])
 		if bounced and sound_clock>0.085 and play_sound.is_valid():
 			play_sound.call("dice-tick")
 			sound_clock = 0.0
