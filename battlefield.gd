@@ -74,6 +74,7 @@ var dice_cards_button: Button
 # When embedded in the map, use the EXISTING lower-right deck button.
 # No second deck image/button may be created inside BattleViewport.
 var external_dice_deck_button: TextureButton
+var external_dice_deck_count_label: Label
 var brand_reference: Control
 var brand_reference_button: Button
 
@@ -754,7 +755,7 @@ func on_dice_pressed() -> void:
 func begin_capture() -> void:
 	close_brand_reference()
 	close_dice_hand()
-	dice_cards_button.disabled = true
+	set_deck_disabled(true)
 	close_detail()
 	capture_panel = CorpseCapture.new()
 	layer.add_child(capture_panel)
@@ -768,10 +769,13 @@ func can_open_brand_reference() -> bool:
 func _process(_delta: float) -> void:
 	if is_instance_valid(brand_reference_button):
 		brand_reference_button.disabled = not can_open_brand_reference()
-	if map_mode and is_instance_valid(dice_cards_button):
-		var count=dice_cards_button.get_node_or_null("DeckCount")
-		if count is Label and session!=null and session.world!=null:
-			count.text="%d/5" % session.world.dice_cards.size()
+	if map_mode and session!=null and session.world!=null:
+		var deck_count: String = "%d/5" % session.world.dice_cards.size()
+		if is_instance_valid(external_dice_deck_count_label):
+			external_dice_deck_count_label.text = "주사위 카드 "+deck_count
+		if is_instance_valid(dice_cards_button):
+			var count=dice_cards_button.get_node_or_null("DeckCount")
+			if count is Label: count.text=deck_count
 
 func show_brand_reference() -> void:
 	if not can_open_brand_reference() or is_instance_valid(brand_reference): return
