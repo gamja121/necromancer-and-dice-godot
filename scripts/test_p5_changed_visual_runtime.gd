@@ -64,8 +64,14 @@ func check_art_ui(map: Control, art_path: String, tag: String) -> void:
 		tag + ": TextureRect lies inside the 1280x720 viewport")
 	check(art.visible and art.texture.get_width() > 0 and art.texture.get_height() > 0,
 		tag + ": visible with decoded texture")
-	check(art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED,
-		tag + ": aspect-preserving Map composition")
+	if art.name == "LocationSceneImage":
+		check(art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED,
+			tag + ": ordinary location uses battle-sized aspect-covered art")
+		check(art.position.distance_to(map.LOCATION_EVENT_SCENE_RECT.position) < 0.2 and art.size.distance_to(map.LOCATION_EVENT_SCENE_RECT.size) < 0.2,
+			tag + ": ordinary location art occupies the exact embedded battle viewport")
+	else:
+		check(art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED,
+			tag + ": existing story composition retains centered aspect")
 
 func _run() -> void:
 	# Actual bytes, decoding and Godot imported Texture2D are both checked.
