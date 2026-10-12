@@ -87,7 +87,34 @@ func _run() -> void:
 	var inventory = InventoryPanel.new()
 	root.add_child(inventory)
 	inventory.setup(fake)
+	# The book uses the real board as backdrop and anchors an overlapping hand low.
+	var shade := inventory.get_child(0) as ColorRect
+	check(shade != null and shade.color.a<0.01,"book hand does not darken the board")
+	check(inventory.get_node_or_null("InventoryOutsideClose") is Button,"book hand catches outside click to close")
+	check(inventory.close_button.position.y<InventoryPanel.HAND_TOP,"book close control sits above the cards")
+	check(inventory.tab_buttons.size()==3,"existing monster/dice/brand tabs remain accessible")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")
+	if inventory.fan.entries.size()==8:
+		var hand_first: TextureButton = inventory.fan.entries[0].card
+		var hand_second: TextureButton = inventory.fan.entries[1].card
+		check(hand_first.position.y>=500 and hand_second.position.y>=500,"book cards rise from lower board instead of center")
+		check(hand_first.position.x<hand_second.position.x and hand_first.position.x+hand_first.size.x>hand_second.position.x,
+			"adjacent monster cards overlap without changing original card art")
+		check(not hand_first.get_child(0).visible and "체력" in hand_first.tooltip_text,
+			"bottom hand keeps its captions off map and HP accessible as tooltip")
+	# Above ten cards the player scrolls a still-overlapping hand rather than
+	# compressing original portraits or discarding any owned unit.
+	var extended: Array = owned.duplicate(true)
+	for i in range(5): extended.append(unit(i+100))
+	var large_inventory = InventoryPanel.new()
+	root.add_child(large_inventory)
+	large_inventory.setup(FakeSession.new(extended))
+	var scroller = large_inventory.content.get_node_or_null("RosterHandScroll") as ScrollContainer
+	check(scroller != null,"large monster roster has bottom horizontal scroll")
+	check(large_inventory.fan.entries.size()==extended.size(),"large hand retains every monster card")
+	if scroller != null:
+		check(scroller.position.y>=500 and scroller.horizontal_scroll_mode==ScrollContainer.SCROLL_MODE_AUTO,
+			"large hand scroll stays at bottom without shrinking cards")
 	if inventory.fan.entries.size()==8:
 		var left: TextureButton = inventory.fan.entries[0].card
 		var right: TextureButton = inventory.fan.entries[1].card
