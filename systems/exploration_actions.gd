@@ -1,5 +1,6 @@
 extends "res://systems/reward_ui.gd"
 signal closed
+signal hill_route_chosen(steps: int)
 const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
 const ROUTE_RESERVE_ART = "res://assets/map/ui/patrol-route-frame.webp"
@@ -32,6 +33,8 @@ var selected_current = -1
 var selected_reserve = -1
 var current_options: Array = []
 var reserve_options: Array = []
+var hill_selected_steps: int = 0
+var hill_choice_buttons: Array = []
 
 func setup(map_scene, tile_index: int) -> void:
 	map=map_scene
@@ -42,7 +45,7 @@ func setup(map_scene, tile_index: int) -> void:
 	backdrop()
 	var background={"unknown":"world-tree","graveyard":"graveyard","forest":"forest","home":"home-interior"}[type]
 	art(self,"res://assets/map/events/%s.jpg" % background,Vector2(120,70),Vector2(1040,480)).modulate=Color(0.42,0.35,0.28,0.65)
-	label_at(self,{"unknown":"세계수 · 정화 기도","graveyard":"공동묘지 · 낙인 추출","forest":"언덕 · 전역 정찰","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
+	label_at(self,{"unknown":"세계수 · 정화 기도","graveyard":"공동묘지 · 낙인 추출","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
 	close_button=button(self,"돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -77,9 +80,9 @@ func setup(map_scene, tile_index: int) -> void:
 		status.add_theme_font_size_override("font_size",13)
 		render_graveyard()
 	elif type=="forest":
-		action_button=button(self,"전역 정찰",Vector2(525,465),Vector2(230,42),scout)
-		if session.world.scout.scouted: render_intel()
-		else: status.text="남은 마물 타일의 적 수·등급·군단을 확인합니다 · 정확한 종류는 전투 진입 시 결정"
+		action_button=button(self,"이동 확정",Vector2(525,478),Vector2(230,44),confirm_hill_route)
+		action_button.disabled=true
+		render_hill_choices()
 	else:
 		plan=session.world.patrol_plan.duplicate(true)
 		close_button.text="닫기"
@@ -217,43 +220,54 @@ func extract(brand_index: int) -> void:
 	render_graveyard()
 	status.text=result.reason
 
-func scout() -> void:
-	if busy: return
-	var result=session.scout_hill(index)
-	if not result.ok: status.text=result.reason; return
-	render_intel()
+## Six forward routes are displayed; crossing the fixed HOME tile is
+## forbidden by the same path-stop rule as normal die movement.
+func hill_max_steps() -> int:
+	for steps in range(1,7):
+		if (index+steps)%24==MapState.HOME:
+			return steps
+	return 6
 
-func render_intel() -> void:
+func render_hill_choices() -> void:
 	clear_content()
+	hill_choice_buttons.clear()
+	hill_selected_steps=0
 	action_button.disabled=true
-	var scroll=ScrollContainer.new()
-	scroll.position=Vector2(180,105)
-	scroll.size=Vector2(920,335)
-	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	content.add_child(scroll)
-	var grid=GridContainer.new()
-	grid.columns=2
-	grid.add_theme_constant_override("h_separation",18)
-	grid.add_theme_constant_override("v_separation",12)
-	scroll.add_child(grid)
-	var intel=session.active_scout_intel()
-	for entry in intel:
-		var tile=PanelContainer.new()
-		tile.custom_minimum_size=Vector2(438,104)
-		var style=StyleBoxFlat.new()
-		style.bg_color=Color("241b18ed")
-		style.border_color=Color("89734c")
-		style.set_border_width_all(1)
-		style.content_margin_left=14
-		style.content_margin_top=10
-		tile.add_theme_stylebox_override("panel",style)
-		grid.add_child(tile)
-		var text=Label.new()
-		text.text="%d번 · %s\n적 %d마리 · %s 포함 · %s 군단 확인" % [int(entry.index)+1,session.world.NAMES[entry.type],int(entry.count),GRADES[entry.grade],LEGIONS.get(entry.legion,entry.legion)]
-		text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-		text.add_theme_font_size_override("font_size",17)
-		tile.add_child(text)
-	status.text="남은 마물 타일 %d곳 정찰 완료 · 적 수와 확인된 등급/군단은 실제 전투에 적용" % intel.size()
+	status.text="현재 %d번 언덕 · 앞으로 이동할 1~6칸을 선택하세요. 집을 넘을 수 없습니다." % (index+1)
+	var heading=label_at(content,"목적지 선택 · 주사위와 카드 소모 없음",Vector2(268,118),Vector2(740,40),22)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var max_steps: int=hill_max_steps()
+	for steps in range(1,7):
+		var destination: int=(index+steps)%24
+		var allowed: bool=steps<=max_steps
+		var caption: String="+%d칸 → %d번 · %s" % [steps,destination+1,MapState.NAMES[session.world.tiles[destination]]]
+		if not allowed: caption+=" (집 통과 불가)"
+		var chosen_step: int=steps
+		var row: int=(steps-1)/2
+		var column: int=(steps-1)%2
+		var option: Button=button(content,caption,Vector2(232+column*420,190+row*85),Vector2(400,66),func(): select_hill_step(chosen_step))
+		option.name="HillStep%d" % steps
+		option.disabled=not allowed
+		option.add_theme_font_size_override("font_size",19)
+		hill_choice_buttons.append(option)
+
+func select_hill_step(steps: int) -> void:
+	if busy or steps<1 or steps>hill_max_steps(): return
+	hill_selected_steps=steps
+	for i in range(hill_choice_buttons.size()):
+		var control: Button=hill_choice_buttons[i]
+		control.add_theme_color_override("font_color",Color("e5c17f") if i+1==steps else Color("f2dfb5"))
+	map.highlight((index+steps)%24)
+	action_button.disabled=false
+	status.text="%d칸 앞 · %d번 %s 선택 · 이동 확정을 누르면 실제로 이동합니다." % [steps,(index+steps)%24+1,MapState.NAMES[session.world.tiles[(index+steps)%24]]]
+
+func confirm_hill_route() -> void:
+	if busy or hill_selected_steps<1: return
+	busy=true
+	action_button.disabled=true
+	close_button.disabled=true
+	hill_route_chosen.emit(hill_selected_steps)
+
 
 func render_route() -> void:
 	clear_content()

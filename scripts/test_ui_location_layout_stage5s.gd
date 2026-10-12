@@ -11,7 +11,7 @@ const SOURCE = [
 	{"tile":"fortune-teller-camp", "button":"예언"},
 	{"tile":"unknown", "button":"기도"},
 	{"tile":"graveyard", "button":"시체 파헤치기"},
-	{"tile":"forest", "button":"정찰"}
+	{"tile":"forest", "button":"이동 위치 선택"}
 ]
 var passed: int = 0
 var failed: int = 0
@@ -103,9 +103,8 @@ func _run() -> void:
 		var art = get_art(map.overlay)
 		check(art != null and art.texture.resource_path == "res://assets/map/events/%s.jpg" % map.EVENT_IMAGES[str(target.tile)], str(target.tile) + " original event art resource is preserved")
 		if str(target.tile) == "forest":
-			var forest_action = get_button(map.overlay,"정찰 정보")
-			var scout_action = get_button(map.overlay,"정찰")
-			check(is_instance_valid(forest_action) or is_instance_valid(scout_action), "hill scout button uses the source current scouting state")
+			var hill_action = get_button(map.overlay,"이동 위치 선택")
+			check(is_instance_valid(hill_action), "hill action offers a selectable 1–6 tile movement instead of scouting")
 		map.close_overlay()
 		check(map.overlay == null and not map.map_audio.modal_blocked, str(target.tile) + " close removes foreground and restores audio icon")
 		check(map.presentation.gauge.visible and map.map_chrome.size() == 8, str(target.tile) + " close restores source map HUD")

@@ -101,7 +101,7 @@ func check_scenario(session: Node, label: String, location_type: String, is_swam
 		check(is_instance_valid(map.overlay),label+": location panel automatically opens on landing")
 		check(location_art_visible(map,location_type),label+": correct original location background rendered")
 		check(has_panel_button(map,"나가기"),label+": location has exit control")
-		var names: Dictionary = {"rest":"전체 회복","forest":"정찰","altar":"의식","unknown":"기도"}
+		var names: Dictionary = {"rest":"전체 회복","forest":"이동 위치 선택","altar":"의식","unknown":"기도"}
 		check(has_panel_button(map,str(names[location_type])),label+": correct location action is present")
 	elif location_type=="monster":
 		check(is_instance_valid(map.overlay) and map.overlay.get_script()!=null and map.overlay.get_script().resource_path.ends_with("battle_deck.gd"),label+": monster landing opens real pre-battle deck selection")
