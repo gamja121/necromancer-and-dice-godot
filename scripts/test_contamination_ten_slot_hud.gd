@@ -64,7 +64,7 @@ func _run() -> void:
 	hud.set_value(72,true)
 	hud.set_value(100,false)
 	check(hud.display_value==72.0 and hud.target_value==100.0,"normal contamination rises over time, not with an instant jump")
-	hud._process(0.14)
+	hud._process(0.04)
 	check(hud.display_value>72.0 and hud.display_value<100.0,"partial frame of animated fill is correctly interpolated")
 	hud._process(0.5)
 	check(hud.display_value==100.0,"animation settles exactly at the saved target")
