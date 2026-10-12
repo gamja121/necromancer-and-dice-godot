@@ -82,7 +82,12 @@ func shared_dice_position() -> Vector2:
 
 func remember_shared_die() -> void:
 	if not is_instance_valid(dice): return
-	world.dice_visual_position = [dice.position.x,dice.position.y]
+	# Pixel/degree quantization avoids JSON float32 round-trip drift in v1
+	# snapshots while keeping the final resting spot visually unchanged.
+	var stopped := Vector2(roundf(dice.position.x),roundf(dice.position.y))
+	dice.position = stopped
+	dice.rotation_degrees = roundf(dice.rotation_degrees)
+	world.dice_visual_position = [int(stopped.x),int(stopped.y)]
 	world.dice_visual_rotation = dice.rotation_degrees
 	# Presentation state goes into the ordinary atomic run save; gameplay RNG
 	# and saved die result are not changed.
