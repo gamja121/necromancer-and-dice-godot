@@ -69,5 +69,5 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/audit_p5_03_parity.py | tee p5-03b-inventory.log
-          test "$(grep -c '^P5_03_REVIEW_PENDING:' p5-03b-inventory.log)" -eq 4
+          test "$(grep -c '^P5_03_REVIEW_PENDING:' p5-03b-inventory.log)" -eq 3
           grep -F 'P5_03_DELETION_NOT_AUTHORIZED:' p5-03b-inventory.log
