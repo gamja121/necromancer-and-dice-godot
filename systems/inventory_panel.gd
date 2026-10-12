@@ -51,13 +51,21 @@ func layout_shell(kind: String) -> void:
 	var hand = kind=="unit"
 	backdrop_shade.color = Color.TRANSPARENT if hand else Color("030201d9")
 	title_label.visible = not hand
+	# The book now behaves as an unobstructed monster-card hand. No floating
+	# monster/dice/brand/close toolbar covers the right-hand map or status bar.
+	# The existing outside-tap and Escape paths still close the hand.
 	for index in range(tab_buttons.size()):
 		var tab: Button = tab_buttons[index]
-		tab.position = Vector2(780+index*108,480) if hand else Vector2(355+index*195,155)
-		tab.size = Vector2(102,34) if hand else Vector2(180,38)
-		tab.text = ["마물","주사위","낙인"][index] if hand else ["마물","주사위 카드","낙인 카드"][index]
-	close_button.position = Vector2(1112,480) if hand else Vector2(550,590)
-	close_button.size = Vector2(86,34) if hand else Vector2(180,42)
+		tab.visible = not hand
+		tab.focus_mode = Control.FOCUS_NONE if hand else Control.FOCUS_ALL
+		tab.position = Vector2(355+index*195,155)
+		tab.size = Vector2(180,38)
+		tab.text = ["마물","주사위 카드","낙인 카드"][index]
+	close_button.visible = not hand
+	close_button.disabled = hand
+	close_button.focus_mode = Control.FOCUS_NONE if hand else Control.FOCUS_ALL
+	close_button.position = Vector2(550,590)
+	close_button.size = Vector2(180,42)
 
 func roster_hand_start() -> Vector2:
 	# Map passes the clicked book's actual canvas position. Convert it to this
@@ -148,7 +156,8 @@ func show_kind(kind: String) -> void:
 	await fan.animate(true,origin_global)
 	if closing: return
 	changing = false
-	for tab in tab_buttons: tab.disabled = false
+	# Hidden book tabs must stay disabled after the opening animation, too.
+	for tab in tab_buttons: tab.disabled = kind=="unit"
 
 func show_item(kind: String, item: Dictionary) -> void:
 	if closing or changing or kind!="unit": return
