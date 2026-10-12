@@ -61,7 +61,7 @@ func _run() -> void:
 	root.add_child(map)
 	current_scene=map
 	await process_frame
-	check(map.presentation.gauge.uses_user-selected_art,"real board HUD uses new user-selected art")
+	check(map.presentation.gauge.uses_approved_art,"real board HUD uses new user-selected art")
 	var snapshot: Dictionary=session.world.snapshot().duplicate(true)
 	for level in [0,12,100]:
 		await _capture(map,level)
