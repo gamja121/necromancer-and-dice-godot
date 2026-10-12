@@ -47,6 +47,10 @@ var card_tweens: Dictionary = {}
 var card_death_shader: Shader
 # The original HTML dock uses 16dvh cards capped at 72..118px.
 const DOCK_CARD_ASPECT = 370.0 / 540.0
+# On embedded map battles the monster cards sit directly ON the bottom
+# stone tile row, centered vertically near its original y=612 tile centers.
+# The central battle viewport ends at y=576: no cards remain in that viewport.
+const MAP_BOTTOM_TILE_CARD_Y = 576.0
 const DOCK_DEATH_SHADER_SOURCE = """
 shader_type canvas_item;
 uniform float death_factor : hint_range(0.0, 1.0) = 0.0;
@@ -79,9 +83,18 @@ var brand_reference: Control
 var brand_reference_button: Button
 
 func _exit_tree() -> void:
+	# The map-tile dock belongs to the map stage, not this battle viewport.
+	# Release its cards explicitly when the battle is removed/restarted.
+	clear_map_tile_cards()
 	close_brand_reference()
 	close_dice_hand()
 	stop_audio()
+
+func clear_map_tile_cards() -> void:
+	if not uses_map_tile_dock(): return
+	for card in cards.values():
+		if is_instance_valid(card) and card.get_parent()==detail_parent:
+			card.queue_free()
 
 func stop_audio() -> void:
 	for child in get_children():
@@ -208,6 +221,7 @@ func reset_battle() -> void:
 	if map_mode and checkpoint.is_empty():
 		for u in rules.units:
 			if u.team=="ally": u.hp = mini(u.max_hp,u.get("current_hp",u.max_hp)+(u.max_hp-u.base_hp))
+	clear_map_tile_cards()
 	if is_instance_valid(layer):
 		remove_child(layer)
 		layer.queue_free()
@@ -350,11 +364,26 @@ func dock_card_size() -> Vector2:
 	var h: float=dock_card_height()
 	return Vector2(h*DOCK_CARD_ASPECT,h)
 
+func uses_map_tile_dock() -> bool:
+	return embedded and is_instance_valid(detail_parent)
+
+func map_tile_card_x(u: Dictionary, card_width: float) -> float:
+	# Project the actual unit slot from the scaled battlefield onto the map
+	# stage. Keep the same allied/enemy horizontal correspondence while using
+	# the bottom map's tile row (NOT the battle viewport's local dock).
+	var slot_on_canvas: Vector2 = get_global_transform_with_canvas()*Vector2(unit_x(u),0.0)
+	var slot_on_map: Vector2 = detail_parent.get_global_transform_with_canvas().affine_inverse()*slot_on_canvas
+	return slot_on_map.x-card_width*0.5
+
 func card_rest_y() -> float:
+	if uses_map_tile_dock(): return MAP_BOTTOM_TILE_CARD_Y
 	# Source CSS: bottom 8px + translateY(16px) in ready phase.
 	return surface_size.y+8.0-dock_card_height()
 
 func card_action_y() -> float:
+	# External cards remain on the lower map tiles even while battle actions
+	# play. Their clicks are disabled, but they never pop back into the arena.
+	if uses_map_tile_dock(): return MAP_BOTTOM_TILE_CARD_Y
 	# Source CSS: bottom 8px + translateY(card height - 12px).
 	return surface_size.y-20.0
 
@@ -403,14 +432,17 @@ func render_units(values: Array) -> void:
 			card.material=appearance
 			var angles = [-3,2,-1,3,-2]
 			card.rotation_degrees = angles[(u.slot+(2 if u.team == "enemy" else 0))%5]
-			card.position = Vector2(unit_x(u)-card.size.x*0.5,card_action_y() if busy else card_rest_y())
+			card.position = Vector2(map_tile_card_x(u,card.size.x) if uses_map_tile_dock()
+				else unit_x(u)-card.size.x*0.5,card_action_y() if busy else card_rest_y())
 			card.disabled = busy
 			card.tooltip_text = "%s · %d/%d" % [u.name,u.hp,u.max_hp]
 			var id: String = u.id
 			card.pressed.connect(func(): show_detail(rules.find_id(id)))
 			card.mouse_entered.connect(func(): card.z_index = 46 if selected_card==id else 45)
 			card.mouse_exited.connect(func(): card.z_index = 46 if selected_card==id else 44)
-			layer.add_child(card)
+			# Embedded monster cards belong to the actual bottom map tiles,
+			# outside the clipped CentralBattle frame and its battle layer.
+			(detail_parent if uses_map_tile_dock() else layer).add_child(card)
 			card.z_index = 44
 			cards[u.id] = card
 			BrandFrameOverlay.sync(card,u)
@@ -661,7 +693,10 @@ func set_card_phase(acting: bool) -> void:
 		if card_tweens.has(id) and card_tweens[id].is_valid(): card_tweens[id].kill()
 		var tween = create_tween()
 		card_tweens[id] = tween
-		tween.tween_property(card,"position:y",card_action_y() if acting else (card_rest_y()-24.0 if selected_card==id else card_rest_y()),0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		var tile_card: bool = uses_map_tile_dock()
+		var target_y: float = card_rest_y() if tile_card else (
+			card_action_y() if acting else (card_rest_y()-24.0 if selected_card==id else card_rest_y()))
+		tween.tween_property(card,"position:y",target_y,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func show_selection() -> void:
 	if busy: return
