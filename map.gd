@@ -331,8 +331,10 @@ func resume_map_move() -> void:
 	var landed = int(result.get("landed",world.position))
 	hero.position = hero_position(landed)
 	highlight(landed)
-	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % int(result.face))
-	status.text = "주사위 %d · %d칸 이동 · %s 도착%s" % [int(result.face),result.path.size(),MapState.NAMES[world.tiles[world.position]]," · "+str(result.label) if not str(result.label).is_empty() else ""]
+	var from_hill: bool = str(result.get("source",""))=="hill"
+	if not from_hill:
+		dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % int(result.face))
+	status.text = ("언덕 선택 · %d칸 이동 · %s 도착" % [result.path.size(),MapState.NAMES[world.tiles[world.position]]]) if from_hill else ("주사위 %d · %d칸 이동 · %s 도착%s" % [int(result.face),result.path.size(),MapState.NAMES[world.tiles[world.position]]," · "+str(result.label) if not str(result.label).is_empty() else ""])
 	if world.tiles[landed]=="warp" and landed!=world.position:
 		status.text = "%d번 워프 → %d번 워프" % [landed+1,world.position+1]
 		await presentation.warp(hero,hero_position(world.position))
@@ -749,10 +751,41 @@ func show_exploration_actions(index: int) -> void:
 	stage.add_child(panel)
 	overlay = panel
 	panel.setup(self,index)
-	panel.closed.connect(func(): dismiss_overlay(func():
-		world = session.world
-		if index==MapState.HOME: show_home(true)
-		else: show_location(index)))
+	panel.closed.connect(func():
+		highlight(world.position)
+		dismiss_overlay(func():
+			world = session.world
+			if index==MapState.HOME: show_home(true)
+			else: show_location(index)))
+	panel.hill_route_chosen.connect(func(steps: int):
+		close_overlay()
+		move_from_hill(index,steps))
+
+## Use the same pending-map-move animation and restore pipeline as a die,
+## but do not roll or change the visible die. The RunSession already saved
+## the selection, target effects and one-use receipt before animation.
+func move_from_hill(index: int, steps: int) -> void:
+	if moving or is_instance_valid(overlay): return
+	var result: Dictionary=session.prepare_hill_move(index,steps)
+	if not result.get("ok",false):
+		status.text=str(result.get("reason","언덕 이동을 저장하지 못했습니다."))
+		highlight(world.position)
+		if world.position==index and world.pending_move.is_empty(): show_exploration_actions(index)
+		return
+	moving=true
+	dice.disabled=true
+	highlight(index)
+	var previous: int=index
+	for raw_index in result.path:
+		var tile_index: int=int(raw_index)
+		hero.flip_h=center(tile_index).x<center(previous).x
+		sound("move")
+		var motion=create_tween()
+		motion.tween_property(hero,"position",hero_position(tile_index),0.23)
+		await motion.finished
+		highlight(tile_index)
+		previous=tile_index
+	await resume_map_move()
 
 func location_button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, variant: int = 1) -> Button:
 	var node = button(parent,title,pos,dimensions,callback)
@@ -1515,7 +1548,7 @@ func show_location(index: int) -> void:
 		var key = "ritual" if type=="altar" else "prophecy"
 		if type!="village": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
 	elif type in ["unknown","graveyard","forest"]:
-		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"정찰 정보" if world.scout.scouted else "정찰"}
+		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"이동 위치 선택"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]
 		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func(): close_overlay(); show_exploration_actions(index),variant)
 		if type=="unknown": action.disabled = session.place_visit_id("purify",index) in world.reward_receipts
