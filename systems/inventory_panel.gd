@@ -51,13 +51,20 @@ func layout_shell(kind: String) -> void:
 	var hand = kind=="unit"
 	backdrop_shade.color = Color.TRANSPARENT if hand else Color("030201d9")
 	title_label.visible = not hand
+	# The bottom-left book already explains that these are owned monsters.
+	# Do not draw the redundant 마물/주사위/낙인/닫기 toolbar over the map.
+	# The full-screen outside-click surface and Escape still dismiss this hand.
 	for index in range(tab_buttons.size()):
 		var tab: Button = tab_buttons[index]
-		tab.position = Vector2(780+index*108,480) if hand else Vector2(355+index*195,155)
-		tab.size = Vector2(102,34) if hand else Vector2(180,38)
-		tab.text = ["마물","주사위","낙인"][index] if hand else ["마물","주사위 카드","낙인 카드"][index]
-	close_button.position = Vector2(1112,480) if hand else Vector2(550,590)
-	close_button.size = Vector2(86,34) if hand else Vector2(180,42)
+		tab.visible = not hand
+		if not hand:
+			tab.position = Vector2(355+index*195,155)
+			tab.size = Vector2(180,38)
+			tab.text = ["마물","주사위 카드","낙인 카드"][index]
+	close_button.visible = not hand
+	if not hand:
+		close_button.position = Vector2(550,590)
+		close_button.size = Vector2(180,42)
 
 func roster_hand_start() -> Vector2:
 	# Map passes the clicked book's actual canvas position. Convert it to this
