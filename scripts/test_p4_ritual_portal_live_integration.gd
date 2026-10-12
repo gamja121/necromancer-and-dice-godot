@@ -87,7 +87,10 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	world.event_flags[RUMOR.SEEN_FLAG]=true
 	world.event_flags[RUMOR.COMPLETE_FLAG]=true
 	world.event_flags[RUMOR.TRACKING_FLAG]=true
+	# The altar no longer exists on the first map. The production ritual
+	# may be discovered at a normal event tile after the cultist rumor.
 	world.position=world.tiles.find("altar")
+	if world.position<0: world.position=world.tiles.find("event")
 	check(world.position>=0 and session.save_world(),tag+": prerequisite cultist rumor saved")
 	var altar_at: int=world.position
 	check(ALTAR.begin(session,altar_at),tag+": previous altar arrival saved through production state machine")
