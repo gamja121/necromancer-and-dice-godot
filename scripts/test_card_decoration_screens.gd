@@ -91,16 +91,16 @@ func _run() -> void:
 	var shade := inventory.get_child(0) as ColorRect
 	check(shade != null and shade.color.a<0.01,"book hand does not darken the board")
 	check(inventory.get_node_or_null("InventoryOutsideClose") is Button,"book hand catches outside click to close")
-	check(inventory.close_button.position.y<inventory.HAND_TOP,"book close control sits above the cards")
+	check(inventory.close_button.position.y<InventoryPanel.HAND_TOP,"book close control sits above the cards")
 	check(inventory.tab_buttons.size()==3,"existing monster/dice/brand tabs remain accessible")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")
 	if inventory.fan.entries.size()==8:
-		var first: TextureButton = inventory.fan.entries[0].card
-		var next: TextureButton = inventory.fan.entries[1].card
-		check(first.position.y>=500 and next.position.y>=500,"book cards rise from lower board instead of center")
-		check(first.position.x<next.position.x and first.position.x+first.size.x>next.position.x,
+		var hand_first: TextureButton = inventory.fan.entries[0].card
+		var hand_second: TextureButton = inventory.fan.entries[1].card
+		check(hand_first.position.y>=500 and hand_second.position.y>=500,"book cards rise from lower board instead of center")
+		check(hand_first.position.x<hand_second.position.x and hand_first.position.x+hand_first.size.x>hand_second.position.x,
 			"adjacent monster cards overlap without changing original card art")
-		check(not first.get_child(0).visible and "체력" in first.tooltip_text,
+		check(not hand_first.get_child(0).visible and "체력" in hand_first.tooltip_text,
 			"bottom hand keeps its captions off map and HP accessible as tooltip")
 	# Above ten cards the player scrolls a still-overlapping hand rather than
 	# compressing original portraits or discarding any owned unit.
