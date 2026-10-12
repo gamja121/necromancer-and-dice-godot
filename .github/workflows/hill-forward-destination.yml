@@ -1,0 +1,77 @@
+name: Hill Forward Destination Choice Godot
+on:
+  push:
+    branches:
+      - feature/hill-choose-forward-1to6-20261012
+      - main
+    paths:
+      - "map.gd"
+      - "systems/run_session.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_hill_forward_choice.gd"
+      - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_ui_location_layout_stage5s.gd"
+      - ".github/workflows/hill-forward-destination.yml"
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/run_session.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_hill_forward_choice.gd"
+      - "scripts/test_p4_map_move_location_integration.gd"
+      - "scripts/test_ui_location_layout_stage5s.gd"
+      - ".github/workflows/hill-forward-destination.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hill-forward-godot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project and verify GDScript parsing
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --editor --quit 2>&1 | tee hill-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' hill-import.log; then exit 1; fi
+      - name: Six forward choices actual UI and save-boundary scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 220s godot --headless --path . --script res://scripts/test_hill_forward_choice.gd 2>&1 | tee hill-forward.log
+          grep -E '^HILL_FORWARD_CHOICE: [0-9]+ passed, 0 failed$' hill-forward.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL hill-forward:' hill-forward.log; then exit 1; fi
+      - name: Regression actual map travel across the seven location families
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 310s godot --headless --path . --script res://scripts/test_p4_map_move_location_integration.gd 2>&1 | tee location.log
+          grep -E '^P4_MAP_LOCATION_INTEGRATION: [0-9]+ passed, 0 failed$' location.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-map-location:' location.log; then exit 1; fi
+      - name: Location art and original scene frame remains intact
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_location_layout_stage5s.gd 2>&1 | tee location-ui.log
+          grep -E '^UI_LOCATION_LAYOUT_STAGE5S: [0-9]+ passed, 0 failed$' location-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-location-layout:' location-ui.log; then exit 1; fi
+      - name: Natural home lap and story entrance still work
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 230s godot --headless --path . --script res://scripts/test_p4_natural_home_lap.gd 2>&1 | tee home.log
+          grep -E '^P4_NATURAL_HOME_LAP: [0-9]+ passed, 0 failed$' home.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-natural:' home.log; then exit 1; fi
+      - name: Verify tracked source file hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -E '(^|/)(\.godot|source_assets|raw_assets)/|(^|/)\.env$|\.pck$|\.exe$'; then exit 1; fi
+          git diff --check
+          echo "HILL_FORWARD_SOURCE_HYGIENE_PASS"
