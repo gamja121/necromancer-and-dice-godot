@@ -71,6 +71,20 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	check(map.map_audio.modal_blocked and not map.presentation.gauge.visible, tag + " Stage5Q/R event chrome remains hidden")
 	check(map.buttons.size() == 24 and map.hero.visible, tag + " all board tiles and hero remain behind art")
 
+func check_action_frame(map: Control, panel: Control, tag: String, expected_art: String) -> void:
+	var scene_art = panel.get_node_or_null("LocationSceneImage")
+	var frame = panel.get_node_or_null("LocationBattleFrame")
+	check(scene_art is TextureRect, tag + " retains the location illustration in the action panel")
+	check(frame is NinePatchRect, tag + " retains the original battle border in the action panel")
+	if scene_art is TextureRect:
+		check(same_rect(scene_art,map.LOCATION_EVENT_SCENE_RECT), tag + " keeps the 980x406 battle viewport")
+		check(scene_art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED, tag + " keeps undistorted center crop")
+		check(scene_art.texture != null and scene_art.texture.resource_path == "res://assets/map/events/%s.jpg" % expected_art, tag + " uses the approved previous artwork")
+	if frame is NinePatchRect:
+		check(frame.texture != null and frame.texture.resource_path == "res://assets/map/ui/battle_frame.png", tag + " keeps identical battle border asset")
+		check(frame.position.distance_to(map.LOCATION_EVENT_FRAME_RECT.position) < 0.2 and (frame.size * frame.scale).distance_to(map.LOCATION_EVENT_FRAME_RECT.size) < 0.2, tag + " keeps the 1024x450 border footprint")
+		check(frame.patch_margin_left == 170 and frame.patch_margin_right == 170 and frame.patch_margin_top == 150 and frame.patch_margin_bottom == 150 and not frame.draw_center, tag + " keeps the battle nine-patch settings")
+
 func cleanup() -> void:
 	for suffix in ["", ".tmp"]:
 		if FileAccess.file_exists(save_path + suffix):
@@ -116,6 +130,33 @@ func _run() -> void:
 		map.close_overlay()
 		check(map.overlay == null and not map.map_audio.modal_blocked, str(target.tile) + " close removes foreground and restores audio icon")
 		check(map.presentation.gauge.visible and map.map_chrome.size() == 8, str(target.tile) + " close restores source map HUD")
+	# Enter the functional panels via the real scene buttons, not merely
+	# direct setup: prior builds replaced the wide framed painting with 1040x480 art.
+	for target in SOURCE:
+		var tile_name: String = str(target.tile)
+		if tile_name == "rest": continue
+		var idx: int = session.world.tiles.find(tile_name)
+		if idx < 0: continue
+		map.show_location(idx)
+		var button = get_button(map.overlay,str(target.button))
+		check(button != null, tile_name + " retains its function button")
+		if button != null: button.pressed.emit()
+		var scene_name: String = str(map.EVENT_IMAGES[tile_name])
+		check_action_frame(map,map.overlay,tile_name + " function",scene_name)
+		map.close_overlay()
+		map.show_location(idx)
+		check_frame(map,tile_name + " return","전체 회복" if tile_name == "rest" else str(target.button),map.TILE_EVENT_ACTION_RECT)
+		map.close_overlay()
+	# The house also has two distinct functional screens: patrol and inheritance.
+	map.show_exploration_actions(map.MapState.HOME)
+	check_action_frame(map,map.overlay,"house patrol","home-interior")
+	map.close_overlay()
+	var inheritance = map.HomeInheritance.new()
+	map.stage.add_child(inheritance)
+	map.overlay = inheritance
+	inheritance.setup(session,map)
+	check_action_frame(map,map.overlay,"house inheritance","home-interior")
+	map.close_overlay()
 	map.show_home(false)
 	check_frame(map,"home exterior","들어가기",map.TILE_EVENT_ACTION_RECT)
 	var exterior_art = get_art(map.overlay)

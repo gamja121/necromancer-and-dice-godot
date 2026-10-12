@@ -714,6 +714,7 @@ func show_dice_hand() -> void:
 		roll_move(id))
 
 func location_scene_image(parent: Control, path: String) -> TextureRect:
+	# Shared across ordinary locations AND their feature/action panels.
 	# Reuse the native embedded battle's actual inner viewport and nine-patch frame.
 	# Center-cover crops excess height without stretching the illustration sideways.
 	var scene_art = image(parent,path,LOCATION_EVENT_SCENE_RECT.position,LOCATION_EVENT_SCENE_RECT.size)
@@ -775,7 +776,7 @@ func show_home_inheritance() -> void:
 	var panel = HomeInheritance.new()
 	stage.add_child(panel)
 	overlay = panel
-	panel.setup(session)
+	panel.setup(session,self)
 	panel.closed.connect(func(): dismiss_overlay(func(): show_home(true)))
 
 func show_place_actions(index: int) -> void:

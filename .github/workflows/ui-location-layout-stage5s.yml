@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - feature/ui-parity-location-layout-stage5s-20261012
+      - feature/location-frame-persistence-20261013
+      - main
   workflow_dispatch:
 permissions:
   contents: read

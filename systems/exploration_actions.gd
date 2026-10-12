@@ -44,7 +44,9 @@ func setup(map_scene, tile_index: int) -> void:
 	z_index=85
 	backdrop()
 	var background={"unknown":"world-tree","graveyard":"graveyard","forest":"forest","home":"home-interior"}[type]
-	art(self,"res://assets/map/events/%s.jpg" % background,Vector2(120,70),Vector2(1040,480)).modulate=Color(0.42,0.35,0.28,0.65)
+	# The action layer uses the same 980x406 painting and 1024x450 nine-patch
+	# as the location screen; action-specific controls are layered above it.
+	map.location_scene_image(self,"res://assets/map/events/%s.jpg" % background)
 	label_at(self,{"unknown":"세계수 · 정화 기도","graveyard":"공동묘지 · 낙인 추출","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
 	close_button=button(self,"돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)

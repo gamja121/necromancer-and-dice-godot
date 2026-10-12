@@ -25,11 +25,14 @@ var brand_fan: Control
 var inheritance_frame: TextureRect
 var interface_data: Dictionary
 
-func setup(run_session) -> void:
+func setup(run_session, map_scene: Control = null) -> void:
 	session = run_session
 	z_index = 85
 	interface_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json"))
 	backdrop()
+	# Optional map reference keeps direct tests/backwards callers compatible.
+	if map_scene != null:
+		map_scene.location_scene_image(self,"res://assets/map/events/home-interior.jpg")
 	label_at(self,"낙인 계승",Vector2(450,7),Vector2(380,30),24)
 	button(self,"닫기",Vector2(1129,29),Vector2(92,38),func(): if not busy: closed.emit())
 	# Web prototype shows three adjacent columns and two simultaneous card sources.
