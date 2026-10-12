@@ -99,6 +99,30 @@ func _scenario(session: Node, victor: String) -> void:
 	check(session.encounter.type=="monster" and session.encounter.allies.size()==2,label+": generated normal encounter has selected owned unit")
 	check(session.encounter.enemies.size()>=1 and session.encounter.enemies.size()<=4,label+": original encounter generator produced enemies")
 	check(battle.map_return.disabled and battle.rules.winner().is_empty(),label+": cannot leave unfinished combat")
+	# Real map book and deck must remain in their ORIGINAL positions throughout
+	# embedded battle; do not make a duplicate in the clipped BattleViewport.
+	check(map.book_button.visible and map.book_button.is_visible_in_tree() and map.book_lock.locked,
+		label+": original bottom-left book stays visible and chain-locks in combat")
+	check(map.book_button.position==Vector2(13,550)
+		and map.book_button.disabled,label+": chained map book retains original position and blocks clicks")
+	check(map.deck_button.visible and map.deck_button.is_visible_in_tree()
+		and map.deck_button.position==Vector2(1134,563) and not map.deck_button.disabled,
+		label+": original bottom-right deck stays at the map position and remains clickable")
+	check(battle.dice_cards_button==null and battle.external_dice_deck_button==map.deck_button,
+		label+": no duplicate deck button exists within the battlefield")
+	await create_timer(0.5).timeout
+	check(map.book_lock.locked and not map.book_lock.transitioning
+		and map.book_button.texture_disabled==map.book_lock.frames[3],
+		label+": chained book finishes its four-frame locking animation visibly")
+	map.deck_button.pressed.emit()
+	await process_frame
+	check(is_instance_valid(battle.dice_hand) and battle.dice_hand.battle_mode
+		and battle.dice_hand.size.y==720,
+		label+": original map deck opens full-height battle dice hand")
+	battle.close_dice_hand()
+	check(not is_instance_valid(battle.dice_hand)
+		and map.deck_button.texture_normal==load("res://assets/map/ui/map-card-deck.png"),
+		label+": closing battle dice hand restores original deck icon")
 	var receipt_before: int = world.reward_receipts.size()
 	var original_encounter_id: String = str(session.encounter.id)
 	_combat_fixture(battle,victor)

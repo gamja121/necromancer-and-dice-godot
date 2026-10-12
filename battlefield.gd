@@ -71,6 +71,10 @@ var session
 var dice_animation = DiceAnimation.new()
 var dice_hand: Control
 var dice_cards_button: Button
+# When embedded in the map, use the EXISTING lower-right deck button.
+# No second deck image/button may be created inside BattleViewport.
+var external_dice_deck_button: TextureButton
+var external_dice_deck_count_label: Label
 var brand_reference: Control
 var brand_reference_button: Button
 
@@ -276,25 +280,28 @@ void fragment() {
 	speed_button = button(layer,"×1",Vector2(1080,18),Vector2(54,32),cycle_speed)
 	var formation_button = button(layer,"편성 변경",Vector2(1138,18),Vector2(116,32),show_selection)
 	formation_button.visible = not map_mode
-	dice_cards_button = button(layer,"주사위 카드",Vector2(1138,18),Vector2(116,32),show_dice_hand)
-	dice_cards_button.visible = map_mode
-	if map_mode:
-		# The original deck is an image button at bottom right, not toolbar text.
-		dice_cards_button.name="BattleDiceDeckButton"
-		dice_cards_button.text=""
-		dice_cards_button.position=Vector2(1094,surface_size.y-134)
-		dice_cards_button.size=Vector2(165,95)
-		set_deck_button_style(false)
-		var count=Label.new()
-		count.name="DeckCount"
-		count.position=Vector2(56,-5)
-		count.size=Vector2(56,21)
-		count.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		count.add_theme_font_size_override("font_size",12)
-		count.add_theme_color_override("font_color",Color("f1d9aa"))
-		count.text="%d/5" % session.world.dice_cards.size()
-		count.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		dice_cards_button.add_child(count)
+	dice_cards_button = null
+	if not embedded:
+		# Standalone battles preserve their own controls. Embedded battles
+		# are driven from the persistent map deck outside BattleViewport.
+		dice_cards_button = button(layer,"주사위 카드",Vector2(1138,18),Vector2(116,32),show_dice_hand)
+		dice_cards_button.visible = map_mode
+		if map_mode:
+			dice_cards_button.name="BattleDiceDeckButton"
+			dice_cards_button.text=""
+			dice_cards_button.position=Vector2(1094,surface_size.y-134)
+			dice_cards_button.size=Vector2(165,95)
+			set_deck_button_style(false)
+			var count=Label.new()
+			count.name="DeckCount"
+			count.position=Vector2(56,-5)
+			count.size=Vector2(56,21)
+			count.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+			count.add_theme_font_size_override("font_size",12)
+			count.add_theme_color_override("font_color",Color("f1d9aa"))
+			count.text="%d/5" % session.world.dice_cards.size()
+			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			dice_cards_button.add_child(count)
 	brand_reference_button = button(layer,"✦☠ 낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
 	for team in ["ally","enemy"]:
 		var title = text(layer,"아군 활성 군단" if team == "ally" else "적군 활성 군단",Vector2(25.6 if team == "ally" else 1054.4,53),Vector2(200,26),16)
@@ -478,7 +485,7 @@ func roll_round(instance_id: String = "") -> void:
 	busy = true
 	set_card_phase(true)
 	dice.disabled = true
-	dice_cards_button.disabled = true
+	set_deck_disabled(true)
 	pause_button.disabled = false
 	var result: Dictionary = {}
 	if phase=="ready":
@@ -533,7 +540,7 @@ func roll_round(instance_id: String = "") -> void:
 	pause_button.text = "일시정지"
 	pause_button.disabled = true
 	dice.disabled = not winner.is_empty()
-	dice_cards_button.disabled = not winner.is_empty()
+	set_deck_disabled(not winner.is_empty())
 	if map_mode and not winner.is_empty():
 		if not session.finish_encounter(rules):
 			map_return.disabled = false
@@ -551,7 +558,7 @@ func storage_failed(reason: String) -> void:
 	pause_button.text = "일시정지"
 	pause_button.disabled = true
 	dice.disabled = false
-	dice_cards_button.disabled = session.encounter.get("phase","ready")!="ready"
+	set_deck_disabled(map_mode and session.encounter.get("phase","ready")!="ready")
 	set_card_phase(false)
 	render_units(rules.units)
 	message.text = reason
@@ -559,9 +566,15 @@ func storage_failed(reason: String) -> void:
 func resume_battle() -> void:
 	await roll_round()
 
+func set_deck_disabled(value: bool) -> void:
+	if is_instance_valid(dice_cards_button): dice_cards_button.disabled = value
+	if is_instance_valid(external_dice_deck_button): external_dice_deck_button.disabled = value
+
 func set_deck_button_style(open: bool) -> void:
-	if not is_instance_valid(dice_cards_button): return
 	var path="res://assets/map/ui/map-card-deck-open.png" if open else "res://assets/map/ui/map-card-deck.png"
+	if is_instance_valid(external_dice_deck_button):
+		external_dice_deck_button.texture_normal = texture(path)
+	if not is_instance_valid(dice_cards_button): return
 	var style=StyleBoxTexture.new()
 	style.texture=texture(path)
 	for state in ["normal","hover","pressed","focus","disabled"]:
@@ -575,7 +588,9 @@ func show_dice_hand() -> void:
 	dice_hand = DiceHand.new()
 	(detail_parent if embedded else layer).add_child(dice_hand)
 	var context: Dictionary=session.dice_context(true).duplicate(true)
-	context["ui_surface_height"]=surface_size.y
+	# Embedded hands are children of the full 720px map, not the clipped
+	# 530px battlefield. Animate from the original lower-right deck position.
+	context["ui_surface_height"]=detail_parent.size.y if embedded and is_instance_valid(detail_parent) else surface_size.y
 	dice_hand.setup(session.world.dice_cards,context,true)
 	set_deck_button_style(true)
 	dice_hand.closed.connect(close_dice_hand)
@@ -740,7 +755,7 @@ func on_dice_pressed() -> void:
 func begin_capture() -> void:
 	close_brand_reference()
 	close_dice_hand()
-	dice_cards_button.disabled = true
+	set_deck_disabled(true)
 	close_detail()
 	capture_panel = CorpseCapture.new()
 	layer.add_child(capture_panel)
@@ -754,10 +769,13 @@ func can_open_brand_reference() -> bool:
 func _process(_delta: float) -> void:
 	if is_instance_valid(brand_reference_button):
 		brand_reference_button.disabled = not can_open_brand_reference()
-	if map_mode and is_instance_valid(dice_cards_button):
-		var count=dice_cards_button.get_node_or_null("DeckCount")
-		if count is Label and session!=null and session.world!=null:
-			count.text="%d/5" % session.world.dice_cards.size()
+	if map_mode and session!=null and session.world!=null:
+		var deck_count: String = "%d/5" % session.world.dice_cards.size()
+		if is_instance_valid(external_dice_deck_count_label):
+			external_dice_deck_count_label.text = "주사위 카드 "+deck_count
+		if is_instance_valid(dice_cards_button):
+			var count=dice_cards_button.get_node_or_null("DeckCount")
+			if count is Label: count.text=deck_count
 
 func show_brand_reference() -> void:
 	if not can_open_brand_reference() or is_instance_valid(brand_reference): return
