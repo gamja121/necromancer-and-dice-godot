@@ -91,9 +91,17 @@ func _run() -> void:
 	# The book uses the real board as backdrop and anchors an overlapping hand low.
 	var shade := inventory.get_child(0) as ColorRect
 	check(shade != null and shade.color.a<0.01,"book hand does not darken the board")
-	check(inventory.get_node_or_null("InventoryOutsideClose") is Button,"book hand catches outside click to close")
-	check(inventory.close_button.position.y<InventoryPanel.HAND_TOP,"book close control sits above the cards")
-	check(inventory.tab_buttons.size()==3,"existing monster/dice/brand tabs remain accessible")
+	var outside_book := inventory.get_node_or_null("InventoryOutsideClose") as Button
+	check(outside_book != null and outside_book.visible
+		and outside_book.pressed.get_connections().size()>0,
+		"book hand still closes by tapping outside the cards")
+	check(inventory.tab_buttons.size()==3
+		and inventory.tab_buttons.all(func(tab): return not tab.visible
+			and tab.disabled and tab.focus_mode==Control.FOCUS_NONE),
+		"monster/dice/brand toolbar buttons are hidden and cannot receive input")
+	check(not inventory.close_button.visible and inventory.close_button.disabled
+		and inventory.close_button.focus_mode==Control.FOCUS_NONE,
+		"floating close button is hidden and inaccessible in the book hand")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")
 	if inventory.fan.entries.size()==8:
 		var hand_first: TextureButton = inventory.fan.entries[0].card
