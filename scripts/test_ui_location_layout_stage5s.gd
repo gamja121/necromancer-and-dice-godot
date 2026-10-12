@@ -1,7 +1,7 @@
 extends SceneTree
-## Stage 5S: original CSS tile-event overlay is transparent, its image is
-## 62% wide and 16:9 centered, and action/exit buttons occupy a right rail.
-## Test the real Godot map and all seven source location scene types.
+## Stage 5S updated: location scenes use the real embedded-battle footprint,
+## cover-cropped illustrations and the identical battle nine-patch frame.
+## Test real gameplay actions and all seven location scene types.
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const SOURCE = [
@@ -54,13 +54,20 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	check(backdrop != null and is_zero_approx(backdrop.color.a), tag + " source has transparent event backdrop")
 	check(backdrop != null and backdrop.mouse_filter == Control.MOUSE_FILTER_STOP, tag + " transparent overlay still blocks map clicks")
 	var art = get_art(panel)
-	check(same_rect(art,map.TILE_EVENT_SCENE_RECT), tag + " original image fits centered 62%-wide 16:9 frame")
+	check(same_rect(art,map.LOCATION_EVENT_SCENE_RECT), tag + " location painting uses battle's 980x406 viewport")
+	check(is_instance_valid(art) and art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED, tag + " illustration fills battle aspect without distortion")
+	var frame = panel.get_node_or_null("LocationBattleFrame")
+	check(frame is NinePatchRect, tag + " reuses native battle frame")
+	if frame is NinePatchRect:
+		check(frame.texture != null and frame.texture.resource_path == "res://assets/map/ui/battle_frame.png", tag + " frame uses exact battle border asset")
+		check(frame.position.distance_to(map.LOCATION_EVENT_FRAME_RECT.position)<0.2 and (frame.size*frame.scale).distance_to(map.LOCATION_EVENT_FRAME_RECT.size)<0.2, tag + " frame matches battle 1024x450 footprint")
+		check(frame.draw_center == false and frame.patch_margin_left == 170 and frame.patch_margin_top == 150, tag + " border preserves native battle nine-patch")
 	var action = get_button(panel,primary_label)
-	check(same_rect(action,primary_rect), tag + " action is outside image at original CSS right rail")
+	check(same_rect(action,primary_rect), tag + " action occupies the dedicated below-scene row")
 	var exit = get_button(panel,"나가기")
-	check(same_rect(exit,map.TILE_EVENT_EXIT_RECT), tag + " exit matches CSS right 1% bottom 7%")
-	check(is_instance_valid(action) and action.position.x >= map.TILE_EVENT_SCENE_RECT.end.x - 0.2, tag + " action never covers illustration")
-	check(is_instance_valid(exit) and exit.position.x >= map.TILE_EVENT_SCENE_RECT.end.x - 0.2, tag + " exit never covers illustration")
+	check(same_rect(exit,map.TILE_EVENT_EXIT_RECT), tag + " exit occupies the below-scene row")
+	check(is_instance_valid(action) and action.position.y >= map.LOCATION_EVENT_FRAME_RECT.end.y, tag + " action never covers illustration")
+	check(is_instance_valid(exit) and exit.position.y >= map.LOCATION_EVENT_FRAME_RECT.end.y, tag + " exit never covers illustration")
 	check(map.map_audio.modal_blocked and not map.presentation.gauge.visible, tag + " Stage5Q/R event chrome remains hidden")
 	check(map.buttons.size() == 24 and map.hero.visible, tag + " all board tiles and hero remain behind art")
 
@@ -91,9 +98,10 @@ func _run() -> void:
 	var before_rng: int = session.world.rng.state
 	var before_receipts: Array = session.world.reward_receipts.duplicate()
 	check(map.overlay == null and map.map_chrome.size() == 8, "map begins with visible source HUD and no overlay")
-	check(map.TILE_EVENT_SCENE_RECT == Rect2(243.2,136.8,793.6,446.4), "source scene width equals 62% of 1280 and aspect 16:9")
-	check(map.TILE_EVENT_ACTION_RECT == Rect2(1036.8,434.4,230.4,76.8), "source buttons use right 1%, 18% width, bottom 29%")
-	check(map.TILE_EVENT_EXIT_RECT == Rect2(1036.8,592.8,230.4,76.8), "source exit uses right 1%, 18% width, bottom 7%")
+	check(map.TILE_EVENT_SCENE_RECT == Rect2(243.2,136.8,793.6,446.4), "story panels retain original 16:9 footprint")
+	check(map.LOCATION_EVENT_SCENE_RECT == Rect2(150,148,980,406) and map.LOCATION_EVENT_FRAME_RECT == Rect2(128,126,1024,450), "locations share embedded battlefield geometry")
+	check(map.TILE_EVENT_ACTION_RECT == Rect2(515,595,216,58), "primary action lies below battle-sized image")
+	check(map.TILE_EVENT_EXIT_RECT == Rect2(765,595,216,58), "exit is alongside the action without covering art")
 	for target in SOURCE:
 		var idx: int = session.world.tiles.find(str(target.tile))
 		check(idx >= 0, str(target.tile) + " exists on actual board")
@@ -121,8 +129,8 @@ func _run() -> void:
 	var home_inherit = get_button(map.overlay,"낙인 계승")
 	var home_patrol = get_button(map.overlay,"순찰경로")
 	var home_exit = get_button(map.overlay,"나가기")
-	check(home_inherit.position.y + home_inherit.size.y < home_patrol.position.y and home_patrol.position.y + home_patrol.size.y < home_exit.position.y, "home action rail has three nonoverlapping controls")
-	check(home_exit.position.y + home_exit.size.y < 720.0, "home action exit stays within source viewport")
+	check(home_inherit.position.x + home_inherit.size.x < home_patrol.position.x and home_patrol.position.x + home_patrol.size.x < home_exit.position.x, "home bottom row has three nonoverlapping controls")
+	check(home_exit.position.y + home_exit.size.y < 720.0, "home action exit stays inside viewport")
 	map.close_overlay()
 	map.modal()
 	var dark = get_backdrop(map.overlay)

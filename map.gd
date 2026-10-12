@@ -32,13 +32,17 @@ const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
-# Frozen web v2-map-practice.js fitTileEventScene() and CSS event controls.
-# The 1280x720 board uses the 62%-wide 16:9 scene and a separate 18%-wide right button rail.
+# Story illustrations keep the existing 16:9 source layout, independently of location scenes.
 const TILE_EVENT_SCENE_RECT = Rect2(243.2,136.8,793.6,446.4)
-const TILE_EVENT_ACTION_RECT = Rect2(1036.8,434.4,230.4,76.8) # right 1%, bottom 29%
-const TILE_EVENT_EXIT_RECT = Rect2(1036.8,592.8,230.4,76.8) # right 1%, bottom 7%
-const TILE_EVENT_INHERITANCE_RECT = Rect2(1036.8,391.2,230.4,76.8) # bottom 35%
-const TILE_EVENT_PATROL_RECT = Rect2(1036.8,492.0,230.4,76.8) # bottom 21%
+# Ordinary tile locations use the exact embedded battlefield footprint and frame.
+# Battle host: (128,126) 1024x450; inner viewport: (+22,+22) 980x406.
+const LOCATION_EVENT_SCENE_RECT = Rect2(150.0,148.0,980.0,406.0)
+const LOCATION_EVENT_FRAME_RECT = Rect2(128.0,126.0,1024.0,450.0)
+# Keep gameplay actions below the wider art, where none of them hide the scene.
+const TILE_EVENT_ACTION_RECT = Rect2(515.0,595.0,216.0,58.0)
+const TILE_EVENT_EXIT_RECT = Rect2(765.0,595.0,216.0,58.0)
+const TILE_EVENT_INHERITANCE_RECT = Rect2(265.0,595.0,216.0,58.0)
+const TILE_EVENT_PATROL_RECT = Rect2(515.0,595.0,216.0,58.0)
 # Frozen CSS places the ghoul at 55%/18% of the event art frame,
 # sized to 30%/64% (not stretched across the whole scene).
 const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
@@ -709,9 +713,31 @@ func show_dice_hand() -> void:
 		close_overlay()
 		roll_move(id))
 
+func location_scene_image(parent: Control, path: String) -> TextureRect:
+	# Reuse the native embedded battle's actual inner viewport and nine-patch frame.
+	# Center-cover crops excess height without stretching the illustration sideways.
+	var scene_art = image(parent,path,LOCATION_EVENT_SCENE_RECT.position,LOCATION_EVENT_SCENE_RECT.size)
+	scene_art.name = "LocationSceneImage"
+	scene_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var frame = NinePatchRect.new()
+	frame.name = "LocationBattleFrame"
+	frame.texture = texture("res://assets/map/ui/battle_frame.png")
+	frame.position = LOCATION_EVENT_FRAME_RECT.position
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.draw_center = false
+	frame.scale = Vector2.ONE*0.22
+	frame.size = LOCATION_EVENT_FRAME_RECT.size/0.22
+	frame.patch_margin_left = 170
+	frame.patch_margin_right = 170
+	frame.patch_margin_top = 150
+	frame.patch_margin_bottom = 150
+	frame.z_index = 10
+	parent.add_child(frame)
+	return scene_art
+
 func show_home(interior: bool = false) -> void:
 	var panel = modal(false)
-	var home_art = image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg",TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	var home_art = location_scene_image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg")
 	# The home exterior opens with ink; entering the house shows interior art instantly.
 	if not interior:
 		InkSceneReveal.play(home_art)
@@ -737,7 +763,7 @@ func show_home(interior: bool = false) -> void:
 			show_exploration_actions(MapState.HOME))
 		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
 		if not allowed.ok:
-			var hint = label_at(panel,str(allowed.reason),Vector2(340,463),Vector2(600,30),15)
+			var hint = label_at(panel,str(allowed.reason),Vector2(350,665),Vector2(580,30),15)
 			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 func show_home_inheritance() -> void:
@@ -1541,7 +1567,7 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
 	var panel = modal(false)
-	var scene_art = image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type],TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	var scene_art = location_scene_image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type])
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
 	InkSceneReveal.play(scene_art)
 	var exit = location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func(): dismiss_overlay(render),4)
