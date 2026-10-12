@@ -53,9 +53,13 @@ func layout_shell(kind: String) -> void:
 	title_label.visible = not hand
 	for index in range(tab_buttons.size()):
 		var tab: Button = tab_buttons[index]
+		# The left book opens only the monster hand; its toolbar is redundant.
+		# Keep the controls for the non-monster inventory panels.
+		tab.visible = not hand
 		tab.position = Vector2(780+index*108,480) if hand else Vector2(355+index*195,155)
 		tab.size = Vector2(102,34) if hand else Vector2(180,38)
 		tab.text = ["마물","주사위","낙인"][index] if hand else ["마물","주사위 카드","낙인 카드"][index]
+	close_button.visible = not hand
 	close_button.position = Vector2(1112,480) if hand else Vector2(550,590)
 	close_button.size = Vector2(86,34) if hand else Vector2(180,42)
 
