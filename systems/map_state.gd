@@ -22,7 +22,7 @@ var last_face = 1
 # existing v1 saves; no gameplay roll probabilities or RNG state change.
 var dice_visual_position: Array = [602,308]
 var dice_visual_face: int = 1
-var dice_visual_rotation: float = 0.0
+var dice_visual_rotation: int = 0
 var region = "default"
 var dice_cards: Array = []
 var brand_cards: Array = []
@@ -294,7 +294,7 @@ func restore(saved: Dictionary) -> bool:
 		dice_visual_position = [clampi(roundi(float(stored_die[0])),0,1204),clampi(roundi(float(stored_die[1])),0,644)]
 	else:
 		dice_visual_position = [602,308]
-	dice_visual_rotation = clampf(float(saved.get("dice_visual_rotation",0.0)), -3600.0,3600.0)
+	dice_visual_rotation = clampi(roundi(float(saved.get("dice_visual_rotation",0))),-3600,3600)
 	dice_visual_face = clampi(int(saved.get("dice_visual_face",saved.last_face)),1,6)
 	region = saved.region
 	rng.seed = int(saved.rng_seed)
