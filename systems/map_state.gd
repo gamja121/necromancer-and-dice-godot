@@ -20,7 +20,7 @@ var lap_ready = false
 var last_face = 1
 # Purely visual stage-space rest pose for the ONE shared die. Optional in
 # existing v1 saves; no gameplay roll probabilities or RNG state change.
-var dice_visual_position: Array = [602.0,307.6]
+var dice_visual_position: Array = [602,308]
 var dice_visual_rotation: float = 0.0
 var region = "default"
 var dice_cards: Array = []
@@ -286,11 +286,13 @@ func restore(saved: Dictionary) -> bool:
 	laps = int(saved.laps)
 	lap_ready = saved.lap_ready
 	last_face = int(saved.last_face)
-	var stored_die = saved.get("dice_visual_position",[602.0,307.6])
+	var stored_die = saved.get("dice_visual_position",[602,308])
 	if stored_die is Array and stored_die.size()==2 and (stored_die[0] is int or stored_die[0] is float) and (stored_die[1] is int or stored_die[1] is float):
-		dice_visual_position = [clampf(float(stored_die[0]),0.0,1204.0),clampf(float(stored_die[1]),0.0,644.0)]
+		# JSON decodes numeric values as floats; convert back to exact integer
+		# pixels so world.snapshot() remains byte-equivalent across save/reload.
+		dice_visual_position = [clampi(roundi(float(stored_die[0])),0,1204),clampi(roundi(float(stored_die[1])),0,644)]
 	else:
-		dice_visual_position = [602.0,307.6]
+		dice_visual_position = [602,308]
 	dice_visual_rotation = clampf(float(saved.get("dice_visual_rotation",0.0)), -3600.0,3600.0)
 	region = saved.region
 	rng.seed = int(saved.rng_seed)
