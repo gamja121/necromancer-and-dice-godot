@@ -26,7 +26,10 @@ func _capture(map: Control, level: int) -> void:
 	if image==null or image.is_empty(): return
 	check(image.get_width()==1280 and image.get_height()==720,"level %d: native game 1280x720" % level)
 	var crop: Image = image.get_region(Rect2i(351,379,578,192))
-	var fingerprint: String = crop.get_data().sha256_text()
+	var hash_context: HashingContext = HashingContext.new()
+	hash_context.start(HashingContext.HASH_SHA256)
+	hash_context.update(crop.get_data())
+	var fingerprint: String = hash_context.finish().hex_encode()
 	check(not prior_hashes.has(fingerprint),"level %d: visual pixels differ from every prior fill state" % level)
 	prior_hashes[fingerprint]=true
 	var dest: String=output.path_join("contamination_%03d_of_100.png" % level)
