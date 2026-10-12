@@ -66,11 +66,16 @@ func seed_next_tile(world, kind: String) -> int:
 			target=at
 			break
 	if target<0: return -1
-	var original: int=world.tiles.find(kind)
+	var source_kind: String=kind
+	# World tree and altar have been removed from these early map pools.
+	# Their original story steps are still eligible at an event tile.
+	if world.tiles.find(kind)<0 and kind in ["unknown","altar"]:
+		source_kind="event"
+	var original: int=world.tiles.find(source_kind)
 	if original<0: return -1
 	if original!=target:
 		var old: String=str(world.tiles[target])
-		world.tiles[target]=kind
+		world.tiles[target]=source_kind
 		world.tiles[original]=old
 	return target
 
