@@ -7,6 +7,59 @@ var souls: Array = []
 var elapsed = 0.0
 var dissolving = false
 
+# The same ash-and-soul dissolve is also used when a defeated enemy's soul
+# cannot be harvested. This is a presentation-only effect; no roster edits.
+const DISSOLVE_SHADER_SOURCE = """
+shader_type canvas_item;
+uniform float dissolve : hint_range(0.0,1.0) = 0.0;
+varying vec4 vertex_tint;
+void vertex() { vertex_tint = COLOR; }
+float noise(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+void fragment() {
+	vec4 source = texture(TEXTURE,UV)*vertex_tint;
+	float field = noise(floor(UV*160.0))*0.55+(1.0-UV.y)*0.45;
+	float edge = smoothstep(dissolve,dissolve+0.065,field);
+	float glow = (1.0-smoothstep(dissolve+0.065,dissolve+0.14,field))*edge;
+	COLOR = vec4(mix(source.rgb,vec3(0.87,0.70,1.0),glow),source.a*edge);
+}
+"""
+
+func play_failed_capture(battle_scene, failed_cards: Array) -> void:
+	scene = battle_scene
+	# Parent lives in the same coordinates as candidate cards: the map stage
+	# for embedded battles, or the ordinary battle layer otherwise.
+	size = get_parent().size
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	z_index = 80
+	var dissolve_shader = Shader.new()
+	dissolve_shader.code = DISSOLVE_SHADER_SOURCE
+	for card in failed_cards:
+		if not is_instance_valid(card): continue
+		# A separate material per card is essential for independent card state.
+		var mat = ShaderMaterial.new()
+		mat.shader = dissolve_shader
+		card.material = mat
+		card.disabled = true
+		souls.append({"card":card,"center":card.position+card.size*0.5})
+	if souls.is_empty(): return
+	scene.sound("permanent-death")
+	dissolving = true
+	elapsed = 0.0
+	var remaining: float = 0.65
+	while remaining>0.0:
+		await get_tree().process_frame
+		if not scene.paused:
+			remaining -= get_process_delta_time()*scene.speed_values[scene.speed_index]
+		var t = clampf(1.0-remaining/0.65,0.0,1.0)
+		for soul in souls:
+			if is_instance_valid(soul.card):
+				soul.card.material.set_shader_parameter("dissolve",t)
+	for soul in souls:
+		if is_instance_valid(soul.card):
+			soul.card.hide()
+	dissolving = false
+	queue_redraw()
+
 func _process(delta: float) -> void:
 	if scene == null: return
 	if not scene.paused: elapsed += delta*scene.speed_values[scene.speed_index]
@@ -96,20 +149,7 @@ func play(battle_scene, fallen: Array) -> void:
 		await scene.wait_time(frame_delay)
 	if not souls.is_empty():
 		var shader = Shader.new()
-		shader.code = """
-shader_type canvas_item;
-uniform float dissolve : hint_range(0.0,1.0) = 0.0;
-varying vec4 vertex_tint;
-void vertex() { vertex_tint = COLOR; }
-float noise(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-void fragment() {
-	vec4 source = texture(TEXTURE,UV)*vertex_tint;
-	float field = noise(floor(UV*160.0))*0.55+(1.0-UV.y)*0.45;
-	float edge = smoothstep(dissolve,dissolve+0.065,field);
-	float glow = (1.0-smoothstep(dissolve+0.065,dissolve+0.14,field))*edge;
-	COLOR = vec4(mix(source.rgb,vec3(0.87,0.70,1.0),glow),source.a*edge);
-}
-"""
+		shader.code = DISSOLVE_SHADER_SOURCE
 		for soul in souls:
 			var material = ShaderMaterial.new()
 			material.shader = shader
