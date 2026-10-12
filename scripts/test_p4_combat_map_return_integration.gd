@@ -96,6 +96,11 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 		return
 	var battle: Control = map.embedded_battle
 	check(battle.embedded and battle.map_mode and battle.session == session,label+": battlefield is connected to current RunSession")
+	check(battle.dice==map.dice and map.dice.get_parent()==map.stage and map.dice.is_visible_in_tree(),
+		label+": original stage die is the battle die, with no recreated center button")
+	var entry_die_pos: Vector2=map.dice.position
+	check(map.dice.z_index>map.overlay.z_index and not map.dice.disabled,
+		label+": movable shared die remains visible and clickable above battlefield frame")
 	check(session.encounter.type=="monster" and session.encounter.allies.size()==2,label+": generated normal encounter has selected owned unit")
 	check(session.encounter.enemies.size()>=1 and session.encounter.enemies.size()<=4,label+": original encounter generator produced enemies")
 	check(battle.map_return.disabled and battle.rules.winner().is_empty(),label+": cannot leave unfinished combat")
@@ -162,6 +167,11 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 	while battle.rules.winner().is_empty() and turns < 8:
 		turns += 1
 		await battle.roll_round()
+		check(map.dice==battle.dice and map.dice.position==map.shared_dice_position(),
+			label+": round %d shared die stops on stage and saves that exact position" % turns)
+		if turns==1:
+			check(map.dice.position!=entry_die_pos,
+				label+": the die physically bounces instead of returning to its battle center")
 	check(battle.rules.winner()==victor,label+": actual dice/actions produce expected "+label+" in %d round(s)" % turns)
 	check(not battle.busy,label+": combat unlocks after final hit")
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),label+": battle completion clears durable active checkpoint")
@@ -213,6 +223,8 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 	var returned: bool = await until_ready(func(): return map.embedded_battle == null and not map.battle_returning,16000)
 	check(returned,label+": finished battle returns to the original live Map scene")
 	check(map.world==session.world and map.buttons.size()==24 and map.dice.visible and not map.dice.disabled,label+": board and dice are interactive again")
+	check(map.dice.position==map.shared_dice_position(),
+		label+": battle exit preserves last dice stopping pose on map, including render rebuild")
 	check(map.hero.visible and map.status.visible and map.map_audio.visible,label+": hero/HUD restored after battle")
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty() and session.world.pending_reward.is_empty(),label+": no active combat/capture retained after returning")
 	var expected_receipts: int = world.reward_receipts.size()
