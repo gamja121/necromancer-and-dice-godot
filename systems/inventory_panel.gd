@@ -3,8 +3,9 @@ signal closed
 ## Purely visual inventory hand; owned units and persistence stay in RunSession.
 const HAND_TOP = 512.0
 const HAND_CARD_SIZE = Vector2(136,218)
-const HAND_SPACING = 104.0
-const HAND_CENTER = 572.0
+const HAND_SPACING = 90.0
+const HAND_BOOK_OFFSET = Vector2(24.0,-105.0)
+const HAND_SCROLL_WIDTH = 944.0
 const HAND_SCROLL_THRESHOLD = 10
 const UnitInfo = preload("res://systems/unit_info.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -58,6 +59,16 @@ func layout_shell(kind: String) -> void:
 	close_button.position = Vector2(1112,480) if hand else Vector2(550,590)
 	close_button.size = Vector2(86,34) if hand else Vector2(180,42)
 
+func roster_hand_start() -> Vector2:
+	# Map passes the clicked book's actual canvas position. Convert it to this
+	# overlay, then lay out from its right page instead of the board's center.
+	# The cards deliberately tuck a few pixels below the board edge.
+	var book_local: Vector2 = get_global_transform_with_canvas().affine_inverse()*origin_global
+	return Vector2(
+		clampf(book_local.x+HAND_BOOK_OFFSET.x,0.0,size.x-HAND_CARD_SIZE.x),
+		clampf(book_local.y+HAND_BOOK_OFFSET.y,0.0,size.y-HAND_CARD_SIZE.y+12.0)
+	)
+
 func focus_hand_card(option: TextureButton, home: Vector2, focused: bool) -> void:
 	if closing or not is_instance_valid(option): return
 	option.z_index = 20 if focused else 0
@@ -81,12 +92,13 @@ func show_kind(kind: String) -> void:
 			Vector2(385,568) if kind=="unit" else Vector2(300,335),
 			Vector2(510,40) if kind=="unit" else Vector2(680,40),18)
 	var holder: Control = content
+	var hand_start: Vector2 = roster_hand_start() if kind=="unit" else Vector2.ZERO
 	if kind=="unit" and items.size()>HAND_SCROLL_THRESHOLD:
 		# Never shrink a large roster into illegible cards. Scroll an overlapping hand.
 		var scroll = ScrollContainer.new()
 		scroll.name = "RosterHandScroll"
-		scroll.position = Vector2(177,HAND_TOP)
-		scroll.size = Vector2(926,205)
+		scroll.position = hand_start
+		scroll.size = Vector2(minf(HAND_SCROLL_WIDTH,size.x-hand_start.x),maxf(1.0,size.y-hand_start.y))
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		content.add_child(scroll)
@@ -99,21 +111,22 @@ func show_kind(kind: String) -> void:
 		holder = row
 	var half = (items.size()-1)*0.5
 	var step = minf(156,880.0/maxi(1,items.size()-1))
-	if kind=="unit": step = minf(HAND_SPACING,840.0/maxi(1,items.size()-1))
+	# The owned-monster hand always grows RIGHT from the left book, even
+	# when it holds just one or two cards. Never recenter based on count.
 	for i in range(items.size()):
 		var item: Dictionary = items[i]
 		var parent: Control = content
 		var pos = Vector2(572+(i-half)*step,240+absf(i-half)*3.5)
 		if kind=="unit":
 			parent = holder
-			pos = Vector2(i*HAND_SPACING,0) if holder!=content else Vector2(HAND_CENTER+(i-half)*step,HAND_TOP+absf(i-half)*3)
+			pos = Vector2(i*HAND_SPACING,0.0) if holder!=content else hand_start+Vector2(i*HAND_SPACING,-minf(float(i),5.0)*2.0)
 		elif holder is HBoxContainer:
 			parent = Control.new()
 			parent.custom_minimum_size = Vector2(152,300)
 			holder.add_child(parent)
 			pos = Vector2(8,12)
 		var option = card(parent,kind,item,pos,HAND_CARD_SIZE,func(): show_item(kind,item))
-		option.rotation_degrees = clampf((i-half)*2.0,-7,7) if kind=="unit" else clampf((i-half)*1.6,-5,5)
+		option.rotation_degrees = (3.0-7.0*float(i)/float(maxi(items.size()-1,1))) if kind=="unit" else clampf((i-half)*1.6,-5,5)
 		if kind=="unit":
 			option.get_child(0).text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]
 			option.get_child(0).visible = false
