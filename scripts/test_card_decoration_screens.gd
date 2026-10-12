@@ -86,7 +86,8 @@ func _run() -> void:
 	var fake := FakeSession.new(owned)
 	var inventory = InventoryPanel.new()
 	root.add_child(inventory)
-	inventory.setup(fake)
+	var book_center := Vector2(133,616)
+	inventory.setup(fake,"unit",book_center)
 	# The book uses the real board as backdrop and anchors an overlapping hand low.
 	var shade := inventory.get_child(0) as ColorRect
 	check(shade != null and shade.color.a<0.01,"book hand does not darken the board")
@@ -100,21 +101,39 @@ func _run() -> void:
 		check(hand_first.position.y>=500 and hand_second.position.y>=500,"book cards rise from lower board instead of center")
 		check(hand_first.position.x<hand_second.position.x and hand_first.position.x+hand_first.size.x>hand_second.position.x,
 			"adjacent monster cards overlap without changing original card art")
+		check(absf(hand_first.position.x-(book_center.x+InventoryPanel.HAND_BOOK_OFFSET.x))<1.0,
+			"eight-card hand starts at left book, never at center")
+		check(absf((hand_second.position.x-hand_first.position.x)-InventoryPanel.HAND_SPACING)<0.1,
+			"book fan spacing stays constant regardless of monster count")
 		check(not hand_first.get_child(0).visible and "체력" in hand_first.tooltip_text,
 			"bottom hand keeps its captions off map and HP accessible as tooltip")
+	# The smallest real roster must ALSO open next to the book, not center.
+	var pair = InventoryPanel.new()
+	root.add_child(pair)
+	pair.setup(FakeSession.new([unit(201),unit(202)]),"unit",book_center)
+	check(pair.fan.entries.size()==2,"two-card book contains both owned monsters")
+	if pair.fan.entries.size()==2:
+		var pair_left: TextureButton = pair.fan.entries[0].card
+		var pair_right: TextureButton = pair.fan.entries[1].card
+		check(absf(pair_left.position.x-(book_center.x+InventoryPanel.HAND_BOOK_OFFSET.x))<1.0,
+			"two-card book left edge follows the clicked book, not the board center")
+		check(pair_right.position.x<pair_left.position.x+pair_left.size.x,
+			"two-card book cards are staggered and overlapping to the right")
 	# Above ten cards the player scrolls a still-overlapping hand rather than
 	# compressing original portraits or discarding any owned unit.
 	var extended: Array = owned.duplicate(true)
 	for i in range(5): extended.append(unit(i+100))
 	var large_inventory = InventoryPanel.new()
 	root.add_child(large_inventory)
-	large_inventory.setup(FakeSession.new(extended))
+	large_inventory.setup(FakeSession.new(extended),"unit",book_center)
 	var scroller = large_inventory.content.get_node_or_null("RosterHandScroll") as ScrollContainer
 	check(scroller != null,"large monster roster has bottom horizontal scroll")
 	check(large_inventory.fan.entries.size()==extended.size(),"large hand retains every monster card")
 	if scroller != null:
 		check(scroller.position.y>=500 and scroller.horizontal_scroll_mode==ScrollContainer.SCROLL_MODE_AUTO,
 			"large hand scroll stays at bottom without shrinking cards")
+		check(absf(scroller.position.x-(book_center.x+InventoryPanel.HAND_BOOK_OFFSET.x))<1.0,
+			"scrolling eleven-plus monster cards still starts at the left book")
 	if inventory.fan.entries.size()==8:
 		var left: TextureButton = inventory.fan.entries[0].card
 		var right: TextureButton = inventory.fan.entries[1].card
