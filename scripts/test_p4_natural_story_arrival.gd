@@ -224,7 +224,10 @@ func natural_village_rumor(session: Node) -> void:
 	var natural_laps: int=0
 	var initial_receipts: Array=world.reward_receipts.duplicate()
 	var reached: bool=false
-	for turn in range(30):
+	# Random natural dice may pass the fixed village without landing on it
+	# for several laps. After unlocking the graveyard later, allow enough
+	# authentic (unforced) rolls rather than baking in the old seed's 30 limit.
+	for turn in range(70):
 		if is_instance_valid(map.overlay):
 			check(false,"natural stage begins with an unhandled overlay")
 			break
@@ -263,7 +266,7 @@ func natural_village_rumor(session: Node) -> void:
 			map=MAP.instantiate()
 			root.add_child(map)
 			await process_frame
-	check(reached,"true natural dice travel eventually reaches first rescued-child village rumor within 30 rolls")
+	check(reached,"true natural dice travel reaches rescued-child village rumor within 70 rolls")
 	check(total_moves>=1,"rumor route requires actual intervening natural dice moves")
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),"prior rescued child remains complete through arbitrary natural map travel")
 	if reached:
