@@ -61,6 +61,11 @@ func eligible_tile(world) -> int:
 			break
 	if target<0: return -1
 	var old_altar: int = world.tiles.find("altar")
+	if old_altar<0:
+		# Isolated storyline regression still tests original altar artwork and
+		# pass/fight buttons: synthesize ONE altar in this disposable test only.
+		old_altar=world.tiles.find("basic")
+		if old_altar>=0: world.tiles[old_altar]="altar"
 	if old_altar<0: return -1
 	if old_altar!=target:
 		var previous: String = str(world.tiles[target])

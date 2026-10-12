@@ -39,6 +39,9 @@ func fresh_session(suffix: String):
 	delete_file(path)
 	s.save_file_path = path
 	s.start_new_world()
+	# Story contract tests begin at the first naturally unlocked cemetery.
+	s.world.lap_ready=true
+	s.world.leave_home()
 	s.world.position = s.world.tiles.find("graveyard")
 	check(StoryEntry.begin(s,s.world.position),"isolated discovery saved")
 	check(StoryEntry.choose(s,s.world.position,"protect_child"),"isolated choice saved")

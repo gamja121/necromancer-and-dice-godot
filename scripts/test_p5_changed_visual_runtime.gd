@@ -98,6 +98,12 @@ func _run() -> void:
 	var previous_path: String = s.save_file_path
 	s.save_file_path = save_path
 	s.start_new_world()
+	# The source graveyard is intentionally locked for the whole first lap.
+	# Use the actual first home shuffle to stage this story-art regression.
+	s.world.lap_ready=true
+	s.world.leave_home()
+	check(s.world.laps==1 and s.world.tiles.count("graveyard")==1,
+		"changed story art tested on first graveyard-unlocked board")
 	var map: Control = MAP_SCENE.instantiate()
 	root.add_child(map)
 	current_scene = map

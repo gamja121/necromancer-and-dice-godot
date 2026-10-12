@@ -210,8 +210,13 @@ func chest_verify(s) -> void:
 
 func story_seed(s) -> void:
 	var w = s.world
+	if w.laps==0 and not w.tiles.has("graveyard"):
+		# Test-only story phase begins on the first cemetery-unlocked board.
+		# This uses the production leave_home() lap transition, not a forged tile.
+		w.lap_ready=true
+		w.leave_home()
 	var index: int = w.tiles.find("graveyard")
-	check(index >= 0, "original graveyard story location exists")
+	check(index >= 0 and w.laps>=1, "graveyard story location unlocks after first lap")
 	if index < 0: return
 	w.position = index
 	check(s.save_world(), "graveyard approach saved")

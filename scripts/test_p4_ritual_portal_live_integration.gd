@@ -66,11 +66,21 @@ func seed_next_tile(world, kind: String) -> int:
 			target=at
 			break
 	if target<0: return -1
-	var original: int=world.tiles.find(kind)
+	var source_kind: String=kind
+	# The original king-hunt artwork is explicitly a world-tree source scene;
+	# this isolated parity test makes a disposable world-tree location if the
+	# new production map has none. It does NOT modify real generation.
+	if world.tiles.find(kind)<0 and kind=="unknown":
+		var fixture_road: int=world.tiles.find("basic")
+		if fixture_road>=0: world.tiles[fixture_road]="unknown"
+	elif world.tiles.find(kind)<0 and kind=="altar":
+		# Cultist/altar story is available on normal event tiles in production.
+		source_kind="event"
+	var original: int=world.tiles.find(source_kind)
 	if original<0: return -1
 	if original!=target:
 		var old: String=str(world.tiles[target])
-		world.tiles[target]=kind
+		world.tiles[target]=source_kind
 		world.tiles[original]=old
 	return target
 
@@ -87,7 +97,10 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	world.event_flags[RUMOR.SEEN_FLAG]=true
 	world.event_flags[RUMOR.COMPLETE_FLAG]=true
 	world.event_flags[RUMOR.TRACKING_FLAG]=true
+	# The altar no longer exists on the first map. The production ritual
+	# may be discovered at a normal event tile after the cultist rumor.
 	world.position=world.tiles.find("altar")
+	if world.position<0: world.position=world.tiles.find("event")
 	check(world.position>=0 and session.save_world(),tag+": prerequisite cultist rumor saved")
 	var altar_at: int=world.position
 	check(ALTAR.begin(session,altar_at),tag+": previous altar arrival saved through production state machine")

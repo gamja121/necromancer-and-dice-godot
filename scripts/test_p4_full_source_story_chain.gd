@@ -69,6 +69,12 @@ func fresh_world(session: Node, tag: String) -> void:
 	clear_save(path)
 	session.save_file_path=path
 	session.start_new_world()
+	# Child rescue is unavailable until lap 1; start this synthetic source-
+	# story branch fixture from the genuine home-shuffled second board.
+	session.world.lap_ready=true
+	session.world.leave_home()
+	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
+		tag+": first home exit unlocks cemetery without pre-filling story flags")
 	var ids: Array=[CHILD.EVENT_ID,VILLAGE.RESCUED_ID,VILLAGE.ABANDONED_ID,COMMANDER.EVENT_ID,HUNTER.EVENT_ID,CULTIST.EVENT_ID,ALTAR.EVENT_ID,PORTAL.EVENT_ID,HUNT.EVENT_ID]
 	check(ids.all(func(id): return is_unseen(session,str(id))),tag+": every source story begins genuinely unseen, zero prefilled completions")
 	check(session.world.event_flags.is_empty() and session.encounter.is_empty() and session.world.active_encounter.is_empty(),tag+": no quest/battle flags fabricated at start")
@@ -91,10 +97,14 @@ func prepare_dice_target(session: Node, kind: String, label: String) -> int:
 			break
 	if candidate<0: return -1
 	var source_index: int=world.tiles.find(kind)
+	# World tree and altar are intentionally absent from this progression
+	# stage; their story branches are still reachable through event tiles.
+	if source_index<0 and kind in ["unknown","altar"]:
+		source_index=world.tiles.find("event")
 	if source_index<0: return -1
 	if source_index!=candidate:
 		var old_kind: String=str(world.tiles[candidate])
-		world.tiles[candidate]=kind
+		world.tiles[candidate]=str(world.tiles[source_index])
 		world.tiles[source_index]=old_kind
 	check(world.tiles.size()==24 and world.tiles[0]=="fortune-teller-camp" and world.tiles[8]=="village" and world.tiles[STATE.HOME]=="home",label+": all fixed map anchor tiles preserved")
 	return candidate

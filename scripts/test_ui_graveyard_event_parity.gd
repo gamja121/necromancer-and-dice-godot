@@ -32,6 +32,9 @@ func _run() -> void:
 	var path="user://ui_stage4_%d.json" % OS.get_process_id()
 	session.save_file_path=path
 	session.start_new_world()
+	# Test UI on the first legitimate cemetery-bearing map (lap 1).
+	session.world.lap_ready=true
+	session.world.leave_home()
 	var grave: int=session.world.tiles.find("graveyard")
 	check(grave>=0,"graveyard tile available")
 	if grave<0:

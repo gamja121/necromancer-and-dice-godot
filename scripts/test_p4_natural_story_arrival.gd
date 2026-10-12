@@ -1,10 +1,10 @@
 extends SceneTree
-## P4-02E-A: natural unmodified 24-slot board, original RNG map die,
-## real child rescue battle -> naturally reached rescued-child village rumor.
-## No tile swaps, teleports, forced dice faces, route resets or invented
-## event/quest completion flags at any point of this integration test.
-## Seed selection chooses a fully generated native board that reaches the
-## first genuine graveyard with the first genuine roll (fast, reproducible).
+## P4-02E-A: seeded POST-FIRST-LAP fixture (graveyard is absent from lap 0),
+## then genuine map dice -> real child rescue -> naturally reached village.
+## The fixture uses the real leave_home() shuffle once, but skips acting out
+## the first uneventful lap; a separate natural-home test plays lap zero.
+## No later tile permutations, teleports, forced dice or quest flags.
+## Seed selection finds a naturally generated lap-1 graveyard next to home.
 ## Incidental location/deck panels are dismissed; generated treasure is
 ## claimed through its original UI if encountered. Windows visual/audio
 ## acceptance and all-stage unshortened whole-story play remain separate.
@@ -54,6 +54,8 @@ func real_generated_seed(world) -> int:
 	var preview=RandomNumberGenerator.new()
 	for seed in range(1,1600):
 		var trial=STATE.new(world.definitions,seed,world.patrol_plan)
+		trial.lap_ready=true
+		trial.leave_home()
 		preview.state=trial.rng.state
 		var face: int=preview.randi_range(1,6)
 		var destination: int=STATE.HOME+face
@@ -68,11 +70,18 @@ func create_run(session: Node) -> int:
 	session.save_file_path=path
 	session.start_new_world()
 	var seed: int=real_generated_seed(session.world)
-	check(seed>0,"found deterministic untouched natural map with first genuine graveyard roll")
+	check(seed>0,"found untouched, naturally shuffled second map with a genuine graveyard roll")
 	if seed<=0: return -1
 	session.world=STATE.new(session.world.definitions,seed,session.world.patrol_plan)
 	var world=session.world
-	check(world.position==STATE.HOME and world.tiles.size()==24 and world.tiles[8]=="village" and world.tiles[15]=="home", "source 24-tile board has unchanged canonical fixed anchors")
+	check(world.laps==0 and world.tiles.count("graveyard")==0,"new expedition starts without the graveyard")
+	# Test fixture: begin at lap-1 map after a genuine leave_home() shuffle;
+	# the separate natural-home integration exercises the actual 1st lap.
+	world.lap_ready=true
+	world.leave_home()
+	check(world.laps==1 and world.tiles.count("graveyard")==1 and world.map_serial==2,
+		"one original first-lap exit unlocks one graveyard before the story")
+	check(world.position==STATE.HOME and world.tiles.size()==24 and world.tiles[8]=="village" and world.tiles[15]=="home", "second 24-tile board has unchanged canonical fixed anchors")
 	check(world.story_events.is_empty() and world.event_flags.is_empty() and world.move_serial==0,"fresh run has no manufactured story flags/movement")
 	check(session.save_world(),"native generated seeded board persisted without permutation")
 	return seed
@@ -90,7 +99,7 @@ func actual_graveyard_rescue(session: Node) -> bool:
 	await process_frame
 	check(not is_instance_valid(map.overlay),"fresh normal map starts without story overlay")
 	await map.roll_move()
-	check(world.tiles==first_tiles and world.map_serial==1,"first original die does not swap/rebuild any source tiles")
+	check(world.tiles==first_tiles and world.map_serial==2,"first lap-1 die does not swap/rebuild generated tiles")
 	check(world.position==destination and world.previous_map_roll==face and world.move_serial==1,"true source RNG face moves along genuine map path to graveyard")
 	check(world.pending_move.is_empty() and session.get_story_event(CHILD.EVENT_ID).status=="seen","first genuine landing commits child discovery once")
 	check(button_at(map,"계속")!=null,"graveyard child original UI presents scene 1")
@@ -146,7 +155,7 @@ func actual_graveyard_rescue(session: Node) -> bool:
 	for i in range(3): await process_frame
 	button_at(map,"맵으로").pressed.emit()
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),"original acknowledgement commits authentic rescued-child receipt")
-	check(world.tiles==first_tiles and world.map_serial==1 and world.position==destination,"genuine rescue victory never changes board or teleports hero")
+	check(world.tiles==first_tiles and world.map_serial==2 and world.position==destination,"genuine rescue victory never changes board or teleports hero")
 	for i in range(4): await process_frame
 	map.queue_free()
 	await process_frame
@@ -215,7 +224,10 @@ func natural_village_rumor(session: Node) -> void:
 	var natural_laps: int=0
 	var initial_receipts: Array=world.reward_receipts.duplicate()
 	var reached: bool=false
-	for turn in range(30):
+	# Random natural dice may pass the fixed village without landing on it
+	# for several laps. After unlocking the graveyard later, allow enough
+	# authentic (unforced) rolls rather than baking in the old seed's 30 limit.
+	for turn in range(70):
 		if is_instance_valid(map.overlay):
 			check(false,"natural stage begins with an unhandled overlay")
 			break
@@ -254,7 +266,7 @@ func natural_village_rumor(session: Node) -> void:
 			map=MAP.instantiate()
 			root.add_child(map)
 			await process_frame
-	check(reached,"true natural dice travel eventually reaches first rescued-child village rumor within 30 rolls")
+	check(reached,"true natural dice travel reaches rescued-child village rumor within 70 rolls")
 	check(total_moves>=1,"rumor route requires actual intervening natural dice moves")
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),"prior rescued child remains complete through arbitrary natural map travel")
 	if reached:
