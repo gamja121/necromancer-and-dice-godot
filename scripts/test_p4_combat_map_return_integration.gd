@@ -179,9 +179,9 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 			for candidate in candidates:
 				var card: TextureButton = candidate.card
 				var enemy: Dictionary = battle.rules.find_id(str(world.pending_reward.corpses[int(candidate.index)].id))
-				candidates_on_tiles = candidates_on_tiles and card.get_parent()==map.stage and enemy.team=="enemy"
+				candidates_on_tiles = candidates_on_tiles and (card.get_parent()==map.stage and enemy.team=="enemy"
 					and card.position==battle.cards[enemy.id].position
-					and card.position.y==battle.MAP_BOTTOM_TILE_CARD_Y
+					and card.position.y==battle.MAP_BOTTOM_TILE_CARD_Y)
 			check(candidates_on_tiles,label+": defeated enemy capture cards stay on exact lower map tiles")
 			if force_capture_failure:
 				# Emulate a legitimately exhausted capture phase in an isolated save.
