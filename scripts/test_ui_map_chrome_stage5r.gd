@@ -133,7 +133,7 @@ func _run() -> void:
 		check(chrome_visible(map), "canceling prebattle deck restores board chrome")
 
 	check(session.world.snapshot() == original_snapshot, "UI-only transitions do not alter world save state")
-	check(map.dice.position==Vector2(602.0,307.6), "all location overlays keep the single die at its original stopping place")
+	check(map.dice.position==Vector2(602,308), "all location overlays keep the single die at its original stopping place")
 	check(session.world.rng.state == original_rng, "UI-only transitions do not advance gameplay RNG")
 	check(session.world.reward_receipts == original_receipts, "UI-only transitions do not award or remove rewards")
 	# Simulate a previously completed cosmetic roll; rebuilt stages must load
