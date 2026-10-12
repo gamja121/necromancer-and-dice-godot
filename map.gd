@@ -97,8 +97,13 @@ func _sync_map_chrome() -> void:
 	# A book hand is a visual overlay on the actual board, not a separate event.
 	# Its transparent input shield blocks map controls but leaves them visible.
 	var show_board_controls: bool = not is_instance_valid(overlay) or overlay is InventoryPanel
+	var central_battle: bool = is_instance_valid(overlay) and overlay.name=="CentralBattle"
 	for control in map_chrome:
-		if is_instance_valid(control): control.visible = show_board_controls
+		if not is_instance_valid(control): continue
+		# Keep only the two original illustrated books and their counts in battle.
+		# Without this, BookBattleLock animates on a hidden button.
+		var battle_book_or_deck: bool = control == book_button or control == deck_button or control == dice_count_label
+		control.visible = show_board_controls or (central_battle and battle_book_or_deck)
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		presentation.gauge.visible = show_board_controls
 
@@ -267,7 +272,11 @@ func render() -> void:
 	deck_button.size = Vector2(128,120)
 	deck_button.z_index = 50
 	deck_button.tooltip_text = "주사위·낙인 카드 보관함"
-	deck_button.pressed.connect(func(): show_inventory("dice"))
+	deck_button.pressed.connect(func():
+		if is_instance_valid(embedded_battle):
+			embedded_battle.show_dice_hand()
+		else:
+			show_inventory("dice"))
 	stage.add_child(deck_button)
 	add_button_effect(deck_button)
 	dice_count_label = label_at(stage,"주사위 카드 %d/5" % world.dice_cards.size(),Vector2(1120,684),Vector2(150,26),12)
@@ -605,6 +614,9 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	overlay = host
 	for child in stage.get_children():
 		if child is BaseButton: child.disabled = true
+	# The deck that lives on the map, not an extra battle-local copy, opens
+	# battle dice controls while the chained monster book remains locked.
+	if is_instance_valid(deck_button): deck_button.disabled = false
 	dice.hide()
 	map_audio.hide()
 	status.hide()
@@ -618,6 +630,7 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	var battle = Battlefield.instantiate()
 	battle.embedded = true
 	battle.detail_parent = stage
+	battle.external_dice_deck_button = deck_button
 	battle.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	battle.size = Vector2(1280,530)
 	battle.scale = Vector2.ONE*(viewport.size.x/1280.0)
