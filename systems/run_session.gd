@@ -804,6 +804,42 @@ func extract_graveyard(index: int, corpse_id: String, brand_index: int) -> Dicti
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":Catalog.label("brand",selected)+" 낙인을 추출했습니다 · 시체 소모"}
 
+## Hill replaces monster scouting with an explicitly chosen *forward* move.
+## The regular die/card history and RNG must not change. The normal board
+## contract stops at HOME, even when the player requested more steps.
+## Legacy scout intel remains readable for old saves, but no hill UI issues it.
+func prepare_hill_move(index: int, steps: int) -> Dictionary:
+	var allowed: Dictionary = place_allowed(index,"forest")
+	if not allowed.ok: return allowed
+	if world.position != index:
+		return {"ok":false,"reason":"현재 언덕에 있을 때만 이동을 선택할 수 있습니다."}
+	if steps < 1 or steps > 6:
+		return {"ok":false,"reason":"앞으로 1~6칸 중 선택하세요."}
+	var receipt: String = place_visit_id("hill-route",index)
+	if receipt in world.reward_receipts:
+		return {"ok":false,"reason":"이번 언덕 방문의 이동은 이미 사용했습니다."}
+	var before: Dictionary = world.snapshot().duplicate(true)
+	var path: Array = world.move_path(steps)
+	if path.size() != steps:
+		world.restore(before)
+		return {"ok":false,"reason":"집을 지나서는 이동할 수 없습니다."}
+	# A chosen stride is not a rolled face or a dice-control-card use.
+	world.last_face = int(before.last_face)
+	var landed: int = world.position
+	if world.tiles[landed] == "warp":
+		world.position = world.warp_destination()
+	elif world.tiles[landed] == "swamp":
+		for unit in world.roster:
+			unit.current_hp = maxi(1,int(unit.current_hp)-1)
+	world.reward_receipts.append(receipt)
+	world.pending_move = {
+		"source":"hill","face":steps,"label":"언덕 지정 이동",
+		"origin":index,"path":path,"landed":landed
+	}
+	if not persist_change(before):
+		return {"ok":false,"reason":notice}
+	return world.pending_move.merged({"ok":true})
+
 func scout_hill(index: int) -> Dictionary:
 	var allowed = place_allowed(index,"forest")
 	if not allowed.ok: return allowed
