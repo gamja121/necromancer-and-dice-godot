@@ -45,9 +45,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/audit_p5_03_parity.py --json-output "$RUNNER_TEMP/p5-03-audit.json" 2>&1 | tee audit.log
-          grep -E '^P5_03_CODE_AUDIT_PASS: 159 features, 156 ported, 3 intentional; 791 historical assets, 22 former missing found \(20 exact / 2 changed\), 4 unapproved visual differences; 0 missing tracked mappings$' audit.log
+          grep -E '^P5_03_CODE_AUDIT_PASS: 159 features, 156 ported, 3 intentional; 791 historical assets, 22 former missing found \(20 exact / 2 changed\), 3 unapproved visual differences; 0 missing tracked mappings$' audit.log
           grep -F 'P5_03_DELETION_NOT_AUTHORIZED:' audit.log
-          test "$(grep -c '^P5_03_REVIEW_PENDING:' audit.log)" -eq 4
+          test "$(grep -c '^P5_03_REVIEW_PENDING:' audit.log)" -eq 3
           if grep -E '^P5_03_AUDIT_FAIL:' audit.log; then
             exit 1
           fi
@@ -56,7 +56,7 @@ jobs:
           d = json.load(open(sys.argv[1], encoding="utf-8"))
           assert d["feature_count"] == 159
           assert d["historical_missing_now_found"] == 22
-          assert len(d["review_pending"]) == 4
+          assert len(d["review_pending"]) == 3
           assert not d["errors"]
           for gate, status in d["deletion_blockers"].items():
               assert status != "DONE", f"falsely completed: {gate}"
