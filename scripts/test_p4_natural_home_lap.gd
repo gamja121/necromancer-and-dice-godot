@@ -110,7 +110,14 @@ func reload_during_route(session: Node, map: Control, turn: int) -> Control:
 	map.queue_free()
 	await process_frame
 	session.reload_world()
-	check(session.world.snapshot() == saved, "roll %d: entire natural map snapshot survives JSON reload" % turn)
+	var reloaded_snapshot: Dictionary = session.world.snapshot()
+	if reloaded_snapshot!=saved:
+		for field in saved:
+			if saved[field]!=reloaded_snapshot.get(field):
+				print("DEBUG_DIE_SNAPSHOT_DIFF roll=",turn," key=",field,
+					" prior=",str(saved[field]).substr(0,220),
+					" loaded=",str(reloaded_snapshot.get(field)).substr(0,220))
+	check(reloaded_snapshot == saved, "roll %d: entire natural map snapshot survives JSON reload" % turn)
 	map = MAP.instantiate()
 	root.add_child(map)
 	await process_frame
