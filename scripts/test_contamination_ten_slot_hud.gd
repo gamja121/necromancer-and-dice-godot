@@ -43,8 +43,8 @@ func _run() -> void:
 	await process_frame
 	check(hud.uses_approved_art and hud.last_art_error.is_empty(),"production HUD actually loads new asset; fallback is not used")
 	check(hud.frame!=null and hud.frame.get_width()==1152,"HUD holds exact new hi-res imported image")
-	check(hud.size==Vector2(576,192) and hud.position==Vector2(352,379),
-		"approved UI is naturally proportioned and centered inside the 1280x720 game board")
+	check(hud.size==Vector2(480,160) and hud.position==Vector2(400,395),
+		"compact selected-art UI is centred on the 1280x720 board")
 	check(hud.mouse_filter==Control.MOUSE_FILTER_IGNORE,"HUD decoration cannot swallow map movement or inventory clicks")
 	check(hud.SLOT_X.size()==10 and hud.COLORS.size()==10,"ten measured alpha holes yield exactly 10 visual windows and 10 effect palettes")
 	for i in range(10):

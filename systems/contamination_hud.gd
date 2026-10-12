@@ -25,8 +25,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 7
 	# Match the accepted bottom-centre board mockup without overlapping tile input.
-	size = Vector2(576,192)
-	position = Vector2(352,379)
+	# 3:1 aspect ratio retained; the compact meter stays centred on the board.
+	size = Vector2(480,160)
+	position = Vector2(400,395)
 	_load_approved_frame()
 	if not uses_approved_art:
 		# Safe release fallback for any damaged embedded visual resource.
@@ -48,6 +49,16 @@ func _load_approved_frame() -> void:
 		frame = null
 		return
 	uses_approved_art = true
+
+## Stage-space physical obstacle for the map die. The rectangle only
+## covers the solid visible face (not the raven's high transparent surround).
+## It is not a Control mouse blocker: map clicks/overlays stay unchanged.
+func dice_wall_rect() -> Rect2:
+	if not visible or not is_inside_tree(): return Rect2()
+	return Rect2(
+		position + Vector2(size.x*0.028,size.y*0.32),
+		Vector2(size.x*0.944,size.y*0.57)
+	)
 
 func set_value(value: int, instant: bool = false) -> void:
 	target_value = clampf(float(value),0.0,100.0)
@@ -95,18 +106,13 @@ func _draw_ten_slot_hud() -> void:
 	draw_texture_rect(frame,Rect2(Vector2.ZERO,size),false)
 	var font: Font = get_theme_default_font()
 	var title: String = "오염도"
-	var title_size: int = 19
+	var title_size: int = 31
 	var center_x: float = 332.0*scale.x
 	var tw: float = font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x
-	var title_at := Vector2(center_x-tw/2.0,347.0*scale.y)
+	var title_at := Vector2(center_x-tw/2.0,428.0*scale.y)
 	draw_string_outline(font,title_at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size,2,Color("211711"))
 	draw_string(font,title_at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size,Color("251b15"))
-	var value_text: String = "%d / 100" % int(target_value)
-	var size_px: int = 18
-	var vw: float = font.get_string_size(value_text,HORIZONTAL_ALIGNMENT_LEFT,-1,size_px).x
-	var value_at := Vector2(center_x-vw/2.0,466.0*scale.y)
-	draw_string_outline(font,value_at,value_text,HORIZONTAL_ALIGNMENT_LEFT,-1,size_px,1,Color("211811"))
-	draw_string(font,value_at,value_text,HORIZONTAL_ALIGNMENT_LEFT,-1,size_px,Color("38251b"))
+	# The fill shows actual 0–100 progress; no secondary numerical readout.
 
 func _draw_legacy_safe_hud() -> void:
 	draw_rect(Rect2(size*Vector2(0.015,0.13),size*Vector2(0.97,0.74)),Color("211811"))
@@ -122,11 +128,4 @@ func _draw_legacy_safe_hud() -> void:
 		var x: float = meter.position.x+meter.size.x*i/10.0
 		draw_line(Vector2(x,meter.position.y),Vector2(x,meter.end.y),Color("100c09aa"),1.0)
 	var font: Font = get_theme_default_font()
-	draw_string(font,size*Vector2(0.25,0.34),"오염도",HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("39251c"))
-	var stage_index: int = mini(int(target_value)/20,4)
-	var caption: String = LABELS[stage_index]
-	var text_x: float = size.x*0.881-font.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x/2.0
-	draw_string(font,Vector2(text_x,size.y*0.48),caption,HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color("302118"))
-	caption = "%d / 100" % int(target_value)
-	text_x = size.x*0.881-font.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,10).x/2.0
-	draw_string(font,Vector2(text_x,size.y*0.67),caption,HORIZONTAL_ALIGNMENT_LEFT,-1,10,Color("302118"))
+	draw_string(font,size*Vector2(0.28,0.49),"오염도",HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("39251c"))

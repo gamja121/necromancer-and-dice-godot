@@ -4,16 +4,22 @@ on:
     paths:
       - "assets/map/ui/contamination_crow_tile_10.webp"
       - "systems/contamination_hud.gd"
+      - "systems/dice_animation.gd"
+      - "map.gd"
+      - "scripts/test_contamination_dice_wall.gd"
       - "systems/map_presentation.gd"
       - "scripts/test_contamination_ten_slot_hud.gd"
       - "scripts/test_contamination_gui_capture.gd"
       - "scripts/test_contamination_chrome_current.gd"
       - ".github/workflows/contamination-ten-slot-art.yml"
   push:
-    branches: [feature/contamination-hud-crow-tile-20261012, main]
+    branches: [feature/contamination-hud-compact-dice-wall-20261013, main]
     paths:
       - "assets/map/ui/contamination_crow_tile_10.webp"
       - "systems/contamination_hud.gd"
+      - "systems/dice_animation.gd"
+      - "map.gd"
+      - "scripts/test_contamination_dice_wall.gd"
       - "systems/map_presentation.gd"
       - "scripts/test_contamination_ten_slot_hud.gd"
       - "scripts/test_contamination_gui_capture.gd"
@@ -47,6 +53,13 @@ jobs:
           timeout 160s godot --headless --path . --script res://scripts/test_contamination_ten_slot_hud.gd 2>&1 | tee hud.log
           grep -E '^CONTAMINATION_TEN_SLOT_HUD: [0-9]+ passed, 0 failed$' hud.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL contamination-10-slot:' hud.log; then exit 1; fi
+      - name: Compact HUD and four-direction die collision
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_contamination_dice_wall.gd 2>&1 | tee collision.log
+          grep -E '^CONTAMINATION_DICE_WALL: [0-9]+ passed, 0 failed$' collision.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL contamination-dice-wall:' collision.log; then exit 1; fi
       - name: Map event modal and current book-hand visibility contract
         shell: bash
         run: |
