@@ -26,11 +26,18 @@ static func use_system_default_output() -> void:
 		AudioServer.output_device = "Default"
 
 static func ensure_buses() -> void:
+	# Godot 4.7.x web/Sample regression: AudioServer.add_bus() forwards
+	# an append index of -1 to JS Bus.addAt(), which may disconnect the
+	# Master bus from the actual browser audio destination. Result: entire
+	# web game is silent even though players report playing=true.
+	# Growing bus_count directly avoids the broken Web addAt(-1) route.
+	# Ref: godotengine/godot#119026 (4.7.2 web confirmed).
 	for name in ["Music","SFX"]:
 		if AudioServer.get_bus_index(name) < 0:
-			AudioServer.add_bus()
-			AudioServer.set_bus_name(AudioServer.bus_count-1,name)
-			AudioServer.set_bus_send(AudioServer.bus_count-1,"Master")
+			var new_index: int = AudioServer.bus_count
+			AudioServer.bus_count = new_index + 1
+			AudioServer.set_bus_name(new_index,name)
+			AudioServer.set_bus_send(new_index,"Master")
 
 static func apply_saved(save_path: String = SAVE) -> void:
 	ensure_buses()

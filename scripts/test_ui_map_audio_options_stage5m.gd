@@ -63,7 +63,9 @@ func _run() -> void:
 	check(audio.advanced_content.visible and audio.output_label!=null and audio.volume_slider!=null,"system default output policy and master volume available under Advanced")
 	check(audio.output_label.text.contains("시스템 기본") and audio.advanced_content.get_node_or_null("MapAudioOutputDevice")==null,"no device-specific selector can bind the game to this PC")
 	# A previously saved Realtek preference must no longer control output or
-	# survive a later write of regular volume/Music/SFX settings.
+	# survive a later write of regular volume/Music/SFX settings. Reload
+	# latest toggles first: do not accidentally undo the just saved SFX OFF.
+	check(cfg.load(test_file)==OK,"legacy output fixture reads latest music/SFX toggles")
 	cfg.set_value("audio","output","Realtek")
 	check(cfg.save(test_file)==OK,"legacy machine-specific output fixture stored")
 	AudioOptions.apply_saved(test_file)
