@@ -396,8 +396,9 @@ func card_action_y() -> float:
 	return surface_size.y-20.0
 
 func unit_x(u: Dictionary) -> float:
-	var columns = [4,3,2,1,5] if u.team == "ally" else [2,3,4,5,1]
-	return (0.0 if u.team == "ally" else 665.6)+(columns[mini(u.slot,4)]-0.5)*122.88
+	# Use exactly the same selected slot anchor for the on-field monster,
+	# HP bar and its corresponding bottom dock card. No inverted ally order.
+	return presentation_layout.horizontal_center(u,surface_size)
 
 func frame_path(u: Dictionary, motion: String, index: int) -> String:
 	return "res://assets/battle/frames/%s/%s-%02d.png" % [u.slug,motion,index]
