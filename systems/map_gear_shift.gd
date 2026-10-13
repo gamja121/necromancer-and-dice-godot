@@ -3,7 +3,7 @@ extends Control
 ## stone face IS the saved destination face; never replace art on landing.
 ## Original home/village/fortune slots and the gameplay die stay still.
 const Layout = preload("res://systems/map_shuffle_layout.gd")
-const Animation = preload("res://systems/map_shuffle_gather.gd")
+const StoneInertia = preload("res://systems/map_shuffle_gather.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
 const MOVE_SFX = preload("res://assets/battle/sfx/move.ogg")
 const LAND_SFX = preload("res://assets/battle/sfx/heavy.ogg")
@@ -146,7 +146,7 @@ func prepare(buttons: Array, destination_textures: Array) -> bool:
 
 func _apply_notch(time_fraction: float) -> void:
 	# Existing stone flywheel has a continuous slow-start / firm brake curve.
-	var progress: float=Animation.stone_rotation_progress(time_fraction)
+	var progress: float=StoneInertia.stone_rotation_progress(time_fraction)
 	last_progress=progress
 	for i in range(visuals.size()):
 		var visual: TextureRect=visuals[i]
