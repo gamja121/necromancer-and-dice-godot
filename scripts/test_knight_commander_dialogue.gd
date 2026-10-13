@@ -44,6 +44,7 @@ func fixture(suffix: String):
 	s.start_new_world()
 	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
 	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	var grave: int=s.world.tiles.find("graveyard")
 	s.world.position=grave
 	check(Child.begin(s,grave),"discover original child")
