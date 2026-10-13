@@ -15,6 +15,8 @@ const COLORS = [
 	Color("b17a31"),Color("b66232"),Color("aa492e"),Color("9b3935"),
 	Color("88405e"),Color("74336e")
 ]
+# Colour anchors follow the entire ten-slot bar, rather than snapping one
+# flat colour per segment. The original stone/crow art stays untouched.
 var target_value: float = 0.0
 var display_value: float = 0.0
 var frame: Texture2D
@@ -79,6 +81,27 @@ func segment_fractions(value: float) -> PackedFloat32Array:
 		fractions.append(clampf(stage-float(i),0.0,1.0))
 	return fractions
 
+## Continuous green-to-yellow-to-red-to-purple blend over the entire meter.
+## Driven only by the current position within the ten slots, never by RNG/save.
+func gradient_color(progress: float) -> Color:
+	var coordinate: float = clampf(progress,0.0,1.0)*float(COLORS.size()-1)
+	var left_index: int = mini(int(coordinate),COLORS.size()-1)
+	var right_index: int = mini(left_index+1,COLORS.size()-1)
+	return COLORS[left_index].lerp(COLORS[right_index],coordinate-float(left_index))
+
+## Fine strips blend *within* each transparent art window, including the
+## partially filled leading slot; stone dividers remain drawn over the fill.
+func _paint_gradient_slot(cell: Rect2, slot: int, fraction: float) -> void:
+	var filled_width: float = cell.size.x*clampf(fraction,0.0,1.0)
+	if filled_width <= 0.0: return
+	var strips: int = maxi(1,ceili(filled_width/1.5))
+	for stripe in range(strips):
+		var start_x: float = filled_width*float(stripe)/float(strips)
+		var end_x: float = filled_width*float(stripe+1)/float(strips)
+		var position_on_bar: float = (float(slot)+(start_x+end_x)*0.5/cell.size.x)/10.0
+		draw_rect(Rect2(cell.position+Vector2(start_x,0.0),Vector2(end_x-start_x,cell.size.y)),gradient_color(position_on_bar))
+
+
 func _draw() -> void:
 	if frame == null: return
 	if uses_approved_art: _draw_ten_slot_hud()
@@ -98,7 +121,7 @@ func _draw_ten_slot_hud() -> void:
 		draw_rect(cutout,Color("171914",0.84))
 		if fractions[i] <= 0.0: continue
 		var fill := Rect2(cutout.position,Vector2(maxf(0.0,span*fractions[i]),height))
-		draw_rect(fill,COLORS[i])
+		_paint_gradient_slot(cutout,i,fractions[i])
 		# Flat hand-painted highlights echo the selected board tile style,
 		# leaving transparent boundaries and animation room above the fill.
 		var highlight := Rect2(fill.position+Vector2(0,2*scale.y),Vector2(fill.size.x,maxf(1,height*0.16)))
@@ -123,7 +146,7 @@ func _draw_legacy_safe_hud() -> void:
 	for i in range(10):
 		if fractions[i]<=0: continue
 		var x: float = meter.position.x+meter.size.x*float(i)/10.0
-		draw_rect(Rect2(x,meter.position.y,meter.size.x/10.0*fractions[i],meter.size.y),COLORS[i])
+		_paint_gradient_slot(Rect2(x,meter.position.y,meter.size.x/10.0,meter.size.y),i,fractions[i])
 	for i in range(1,10):
 		var x: float = meter.position.x+meter.size.x*i/10.0
 		draw_line(Vector2(x,meter.position.y),Vector2(x,meter.end.y),Color("100c09aa"),1.0)

@@ -194,7 +194,7 @@ func perform_lap(session: Node) -> void:
 			exit.pressed.emit()
 			var shuffled: bool = await until_ready(func(): return not map.moving and world.map_serial == 2, 80000)
 			check(shuffled, "actual gather/rotation/scatter completes one saved natural shuffle")
-			check(world.laps == 1 and world.contamination == 4 and not world.lap_ready, "home exit commits exactly one lap and +4 contamination")
+			check(world.laps == 1 and world.contamination == 7 and not world.lap_ready, "home exit commits exactly one lap and +7 contamination")
 			check(world.position == STATE.HOME and world.tiles.size() == 24 and world.tiles[0] == "fortune-teller-camp" and world.tiles[8] == "village" and world.tiles[STATE.HOME] == "home", "reshuffled board preserves all three fixed anchors")
 			check(world.tiles.count("graveyard")==1 and world.tiles.count("basic")==5,
 				"first completed lap unlocks exactly one graveyard in place of one road")

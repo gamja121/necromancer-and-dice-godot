@@ -105,7 +105,7 @@ func _run() -> void:
 			break
 		check(session.world.map_serial == initial_serial + number, "round %d increments map serial only once" % number)
 		check(session.world.laps == initial_laps + number, "round %d counts only one completed lap" % number)
-		check(session.world.contamination == mini(100, initial_contamination + 4 * number), "round %d advances contamination once" % number)
+		check(session.world.contamination == mini(100, initial_contamination + 7 * number), "round %d advances contamination once" % number)
 		check(not map.moving and not map.dice.disabled, "round %d restores dice input" % number)
 		check(not is_instance_valid(map.overlay), "round %d closes the home overlay" % number)
 		check(map.world == session.world and board_matches(map), "round %d shows the committed board" % number)

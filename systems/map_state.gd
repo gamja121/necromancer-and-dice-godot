@@ -4,6 +4,7 @@ const RoutePlan = preload("res://systems/route_plan.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
 const BOSS_CONTAMINATION = 20
+const LAP_CONTAMINATION_GAIN = 7
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
 ## First expedition: no world tree, rare monster, altar or graveyard.
@@ -144,7 +145,7 @@ func warp_destination() -> int:
 
 func leave_home() -> void:
 	if lap_ready:
-		contamination = mini(100,contamination+4)
+		contamination = mini(100,contamination+LAP_CONTAMINATION_GAIN)
 		laps += 1
 	generate()
 
