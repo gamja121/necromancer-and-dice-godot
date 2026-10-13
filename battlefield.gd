@@ -521,7 +521,7 @@ func render_units(values: Array) -> void:
 			sprite.position = geometry.position
 			sprite.flip_h = u.team == "enemy"
 			sprite.modulate = Color.WHITE if u.alive else Color(0.4,0.4,0.4,0.35)
-		bars[u.id].position = Vector2(unit_x(u)-bars[u.id].size.x/2.0,surface_size.y*0.3028)
+		bars[u.id].position = Vector2(unit_x(u)-bars[u.id].size.x/2.0,presentation_layout.health_bar_y(u,surface_size))
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]

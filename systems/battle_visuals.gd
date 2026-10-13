@@ -298,7 +298,9 @@ func set_focus(actor_id: String = "", target_id: String = "") -> void:
 	for id in states:
 		var sprite: TextureRect = scene.sprites[id]
 		var geometry: Dictionary = layouts[id]
-		sprite.z_index = 42 if id==actor_id else (41 if id==target_id else int(geometry.z))
+		# Keep the actual ground-plane depth even during attack focus: a rear
+		# combatant must never draw over a nearer ally or enemy.
+		sprite.z_index = int(geometry.z)
 		sprite.material.set_shader_parameter("dim",0.0 if actor_id.is_empty() or id in [actor_id,target_id] else 1.0)
 
 func play_action(action: Dictionary) -> void:
