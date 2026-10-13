@@ -29,14 +29,15 @@ REVIEW_PENDING_BLOBS = {
     "assets/map/events/knight-commander-upperbody-hd.webp": "7710370f7462cf12da98f9721b054500d5b43c4e",
     "assets/map/events/necromancer-upperbody-hd.webp": "c707c93a5ca3feeca9a51c7baa1fd2252ea58970",
 }
-# Five new event-scene backgrounds explicitly selected by the owner on 2026-10-12.
-# Preserve the original 791-row ledger: current approved art is separate.
-APPROVED_TILE_SCENE_ART = {
-    "assets/map/events/village.jpg": ("dfb53bedac34a0a3f66c4371c88a2c7897a004e2", 579254),
-    "assets/map/events/graveyard.jpg": ("fef0bbb127b167e132abe5a8045d469b3d24fbbb", 571915),
-    "assets/map/events/altar.jpg": ("75a927aa0cc5b45a5a88e19e9a0922fbba6ea461", 556088),
-    "assets/map/events/home.jpg": ("b17d3b2f0cf850e628fdf55d87315f908943bdac", 555895),
-    "assets/map/events/fortune-teller.jpg": ("96d14c52c1a597df7b01e2a7610420af1abc5b57", 493930),
+# On 2026-10-13 the owner explicitly reverted the five event-scene paintings
+# to their immediately pre-2026-10-12-replacement Godot blobs.
+# Pin those five exact binaries without altering the immutable 791-row ledger.
+RESTORED_TILE_SCENE_ART = {
+    "assets/map/events/village.jpg": ("517e7d2a5e77d8378f1d74f1e7fb5a4332ab4f99", 316884),
+    "assets/map/events/graveyard.jpg": ("104d532e6e636a481af2686508e1893d5b210559", 323393),
+    "assets/map/events/altar.jpg": ("8ac0a1cd4ba270326030163b4bbdc4a3476338d5", 252740),
+    "assets/map/events/home.jpg": ("616260406a18488f0d7a7e4a0c5772df946717de", 954098),
+    "assets/map/events/fortune-teller.jpg": ("effcf0425a5a3fb9d015b7046a9a9500132134e9", 984867),
 }
 # Stage 5H repaired corrupt source PNGs into decodeable *runtime* copies.
 # The immutable 791-row historical ledger deliberately still records the old
@@ -139,7 +140,6 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
     missing = []
     baseline = collections.Counter()
     observed_review = set()
-    observed_approved_tile_scene = set()
     observed_cloud_repair = set()
     if len(assets) != 791:
         problems.append(f"asset baseline rows {len(assets)} != 791")
@@ -161,8 +161,8 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
             sha, size = tracked[godot_path]
             expected = row["godot_sha"]
             if sha != expected or size != int(row["godot_size"]):
-                if godot_path in APPROVED_TILE_SCENE_ART and (sha, size) == APPROVED_TILE_SCENE_ART[godot_path]:
-                    observed_approved_tile_scene.add(godot_path)
+                if godot_path in RESTORED_TILE_SCENE_ART and (sha, size) == RESTORED_TILE_SCENE_ART[godot_path]:
+                    pass  # Explicitly restored, hash-pinned pre-replacement art.
                 elif godot_path in REVIEW_PENDING_BLOBS and sha == REVIEW_PENDING_BLOBS[godot_path]:
                     observed_review.add(godot_path)
                     review.append({"web_path": original, "godot_path": godot_path,
@@ -214,9 +214,10 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
             continue
         problems.append(f"unexpected historical asset status: {status}")
 
-    if observed_approved_tile_scene != set(APPROVED_TILE_SCENE_ART):
-        problems.append(f"approved tile scene artwork differs from pinned replacements: "
-                        f"{sorted(set(APPROVED_TILE_SCENE_ART)-observed_approved_tile_scene)}")
+    for path, pinned in RESTORED_TILE_SCENE_ART.items():
+        if tracked.get(path) != pinned:
+            problems.append(f"restored pre-replacement artwork drift {path}: "
+                            f"expected {pinned}, found {tracked.get(path)}")
     if observed_review != set(REVIEW_PENDING_BLOBS):
         problems.append(f"missing or unexpected review-pending drift: "
                         f"{sorted(set(REVIEW_PENDING_BLOBS)-observed_review)}")
