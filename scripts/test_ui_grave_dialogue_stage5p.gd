@@ -4,6 +4,7 @@ extends SceneTree
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const STORY = preload("res://systems/story_event_entry.gd")
+const GATE = preload("res://systems/story_contamination_gate.gd")
 const BEATS = preload("res://systems/graveyard_story_beats.gd")
 const SOURCE = "res://assets/map/ui/intro-dialogue-box.webp"
 var passed: int = 0
@@ -62,7 +63,14 @@ func _run() -> void:
 		return
 	check(source.get_width()>50 and source.get_height()>20,"source WebP decodes original nonempty frame")
 	session.world.position=idx
-	check(session.save_world(),"test-only graveyard position persisted")
+	# The isolated artwork test must use the real first-discovery threshold.
+	# Check both sides of the boundary without changing production rules.
+	var minimum: int = int(GATE.MINIMUMS[STORY.EVENT_ID])
+	session.world.contamination = minimum - 1
+	check(not STORY.can_enter(session,idx),"graveyard first discovery stays locked below contamination minimum")
+	session.world.contamination = minimum
+	check(STORY.can_enter(session,idx),"graveyard unlocks at the canonical contamination minimum")
+	check(session.save_world(),"test-only eligible graveyard world persisted")
 	check(STORY.begin(session,idx),"canonical production graveyard story discovered by explicit action")
 	var map=MAP.instantiate()
 	root.add_child(map)
