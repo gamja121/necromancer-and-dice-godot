@@ -1,7 +1,7 @@
 extends SceneTree
-## Real home-exit regression for the 2026-10-13 one-notch stone gear.
-## Prior counterrotating gather/scatter/flip visuals are deliberately
-## replaced in LIVE gameplay, while independent legacy geometry tests remain.
+## Full scene home-exit regression: gather 21 stones into two rings,
+## rotate one tooth, visibly exchange two disjoint pairs, scatter matching
+## persisted faces, and safely rollback on save failure.
 const MapScene = preload("res://map.tscn")
 const MapState = preload("res://systems/map_state.gd")
 const Gear = preload("res://systems/map_gear_shift.gd")
@@ -62,23 +62,31 @@ func _run() -> void:
 		session.world.lap_ready=true
 		var previous_tiles: Array=session.world.tiles.duplicate()
 		var before_serial: int=session.world.map_serial
-		var seen: Dictionary={"visuals":0,"progress_monotone":true,"last_progress":0.0,"faces_stable":true,"movement":false,"frame_count":0,"active_frames":0,"input_locked":true}
+		var seen: Dictionary={"visuals":0,"progress_monotone":true,"last_progress":0.0,"faces_stable":true,"phases":{},"swap_move":false,"pairs":0,"input_locked":true}
 		var observer: Callable=func():
 			if not is_instance_valid(map) or not is_instance_valid(map.stage): return
 			var gears: Array=gear_nodes(map)
 			if gears.is_empty(): return
 			var effect: Control=gears[0]
-			seen["frame_count"]=int(seen["frame_count"])+1
 			seen["visuals"]=maxi(int(seen["visuals"]),effect.visuals.size())
 			if not map.moving or not map.dice.disabled: seen["input_locked"]=false
-			if effect.rotation_tween==null: return
-			seen["active_frames"]=int(seen["active_frames"])+1
-			if effect.last_progress<float(seen["last_progress"])-0.0001: seen["progress_monotone"]=false
-			seen["last_progress"]=effect.last_progress
-			if effect.last_progress>0.02 and effect.last_progress<0.99: seen["movement"]=true
-			for i in range(effect.visuals.size()):
-				var index: int=int(effect.target_indices[i])
-				if effect.visuals[i].texture!=map.texture(map.tile_path(index)): seen["faces_stable"]=false
+			if effect.phase in ["gather","rotate","swap","scatter"]:
+				seen["phases"][effect.phase]=true
+			seen["pairs"]=maxi(int(seen["pairs"]),effect.swap_pairs.size())
+			if effect.phase=="rotate":
+				if effect.last_progress<float(seen["last_progress"])-0.0001:
+					seen["progress_monotone"]=false
+				seen["last_progress"]=effect.last_progress
+			if effect.phase=="swap" and not effect.swap_pairs.is_empty():
+				var pair: Dictionary=effect.swap_pairs[0]
+				var source_idx: int=effect.source_indices.find(int(pair["a"]))
+				if source_idx>=0 and effect.visuals[source_idx].position.distance_to(effect.rotated_centers[source_idx]-effect.visuals[source_idx].size*0.5)>0.5:
+					seen["swap_move"]=true
+			if effect.phase in ["rotate","swap","scatter"]:
+				for i in range(effect.visuals.size()):
+					var dest: int=int(effect.target_indices[i])
+					if effect.visuals[i].texture!=map.texture(map.tile_path(dest)):
+						seen["faces_stable"]=false
 		process_frame.connect(observer)
 		map.exit_home()
 		map.exit_home()
@@ -90,11 +98,15 @@ func _run() -> void:
 		check(session.world.contamination==mini(100,(lap+1)*7),"lap %d respects existing +7 contamination" % (lap+1))
 		check(scene_board_matches(map) and map.world==session.world,"lap %d shows exact persisted tile types" % (lap+1))
 		check(gear_nodes(map).is_empty() and not map.moving and not map.dice.disabled,"lap %d leaves no ghost tiles and releases input" % (lap+1))
-		check(int(seen["visuals"])==21 and bool(seen["movement"]) and int(seen["active_frames"])>1,"lap %d physically rotates all 21 tiles once" % (lap+1))
-		check(bool(seen["faces_stable"]) and bool(seen["progress_monotone"]),"lap %d has NO arriving face flip or reverse spin" % (lap+1))
+		var four_phases: bool=true
+		for name in ["gather","rotate","swap","scatter"]:
+			if not seen["phases"].has(name): four_phases=false
+		check(int(seen["visuals"])==21 and four_phases,"lap %d visibly gathers, one-notch rotates, swaps and scatters all 21 tiles" % (lap+1))
+		check(int(seen["pairs"])==2 and bool(seen["swap_move"]),"lap %d shows two real simultaneous exchanged tile pairs" % (lap+1))
+		check(bool(seen["faces_stable"]) and bool(seen["progress_monotone"]) and is_equal_approx(float(seen["last_progress"]),1.0),"lap %d has no post-landing face flip or repeated ring spin" % (lap+1))
 		check(bool(seen["input_locked"]),"lap %d blocks input during the moving gear" % (lap+1))
 		check(map.dice.position==die_pos and map.dice.rotation_degrees==die_rot and session.world.last_face==face_before,"lap %d does not move or reroll the die" % (lap+1))
-		var minimum_changes: int=Gear.changed_count(previous_tiles,session.world.tiles)
+		var minimum_changes: int=Gear.changed_count(previous_tiles,session.world.tiles,session.world.map_serial)
 		if lap==0: check(minimum_changes==1,"first lap converts only one tile into the required graveyard")
 		elif lap==1: check(minimum_changes==0,"second lap keeps all shifted tile identities")
 		elif lap==2: check(session.world.tiles[23]=="boss","third lap retains fixed boss slot at contamination 21")
