@@ -1,0 +1,39 @@
+name: Patrol parchment settled layout
+on:
+  pull_request:
+    paths:
+      - "scripts/test_ui_patrol_parchment_stage5o.gd"
+      - ".github/workflows/patrol-parchment-settled-layout.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_ui_patrol_parchment_stage5o.gd"
+      - ".github/workflows/patrol-parchment-settled-layout.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-patrol-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Test original patrol action positions after entrance
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_patrol_parchment_stage5o.gd 2>&1 | tee patrol.log
+          grep -E '^UI_PATROL_PARCHMENT_PARITY: [0-9]+ passed, 0 failed$' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-patrol-parchment:' patrol.log; then exit 1; fi
+      - name: Whitespace
+        run: git diff --check
