@@ -74,6 +74,7 @@ func prepare_run(session: Node, label: String) -> Dictionary:
 	session.start_new_world()
 	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
 	session.world.contamination = 100
+	session.world.reveal_boss_at_threshold()
 	check(session.world.tiles.count("graveyard")==0,label+": graveyard absent from the first expedition")
 	# Isolated branch fixture starts after the first completed lap, when
 	# a real home shuffle unlocks the first cemetery.
