@@ -42,7 +42,7 @@ func install_deterministic_landing(session: Node, tile_type: String) -> Dictiona
 			if i not in [0,8,MapState.HOME,landing] and world.tiles[i] == tile_type:
 				source = i
 				break
-		if source < 0 and tile_type in ["altar","unknown"]:
+		if source < 0 and tile_type in ["altar","unknown","rest","swamp"]:
 			# This disposable UI-only fixture still exercises the artwork and
 			# buttons of locations removed from the real opening board.
 			# A spare road becomes one test-only advanced tile; production
