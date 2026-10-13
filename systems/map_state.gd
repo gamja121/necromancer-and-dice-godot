@@ -280,6 +280,12 @@ func restore(saved: Dictionary) -> bool:
 	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
 	patrol_plan = plan.duplicate(true)
+	# Godot's JSON parser returns count numbers as floats. Treat a saved
+	# choice of two stones as the same integer plan selected in the UI,
+	# without reinterpreting old 6+5 patrol-inventory saves.
+	if RoutePlan.is_new(patrol_plan):
+		for kind in RoutePlan.CHOICES:
+			patrol_plan.selection[kind] = int(patrol_plan.selection[kind])
 	scout = intel_state.duplicate(true)
 	prayer_result = saved.get("prayer_result",{}).duplicate(true)
 	event_flags = stored_flags.duplicate(true)
