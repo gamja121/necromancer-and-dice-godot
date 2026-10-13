@@ -47,7 +47,8 @@ const TILE_EVENT_PATROL_RECT = Rect2(515.0,595.0,216.0,58.0)
 # Frozen CSS places the ghoul at 55%/18% of the event art frame,
 # sized to 30%/64% (not stretched across the whole scene).
 const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
-const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
+const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/shared_dialogue_panel.svg"
+const SHARED_DIALOGUE_RECT = Rect2(205.0, 516.0, 870.0, 132.0)
 const GRAVEYARD_DIALOGUE_RECT = Rect2(102.4,489.6,1075.2,216.0)
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
@@ -268,6 +269,14 @@ func image(parent: Control, path: String, pos: Vector2, dimensions: Vector2) -> 
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(node)
 	return node
+
+func shared_story_frame(panel: Control) -> TextureRect:
+	# Decorative art only. No labels, buttons, named tabs, hit-testing or saved state.
+	var frame = image(panel, GRAVEYARD_DIALOGUE_FRAME, SHARED_DIALOGUE_RECT.position, SHARED_DIALOGUE_RECT.size)
+	frame.name = "SharedStoryDialogueFrame"
+	frame.stretch_mode = TextureRect.STRETCH_SCALE
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return frame
 
 func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2, font_size: int = 15) -> Label:
 	var node = Label.new()
@@ -1077,13 +1086,18 @@ func show_village_rumor_beat(index: int, event_id: String) -> void:
 	if beat_index==0: InkSceneReveal.play(artwork)
 	for layer in beat.layers:
 		image(panel,str(layer),Vector2(243.2,136.8),Vector2(793.6,446.4))
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 마을",Vector2(352,84),Vector2(575,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narrative=label_at(panel,str(beat.effect),Vector2(275,533),Vector2(730,66),17)
+	narrative.add_theme_color_override("font_color", Color("271a10"))
+	narrative.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	narrative.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	narrative.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	if not str(beat.dialogue).is_empty():
 		var dialogue=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(294,601),Vector2(692,50),16)
+		dialogue.add_theme_color_override("font_color", Color("271a10"))
+		dialogue.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var final_scene: bool=VillageRumorBeats.is_final(event_id,beat_index)
@@ -1127,12 +1141,17 @@ func show_knight_commander_beat(index: int) -> void:
 	var portrait = image(panel,str(beat.portrait),portrait_bounds.position,portrait_bounds.size)
 	portrait.name = "PlayerStoryPortrait" if player_reply else "CommanderStoryPortrait"
 	CommanderPortraitMotion.play(portrait,player_reply,beat.id in ["arrival","recognition","player_reply"])
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 기사단장",Vector2(348,84),Vector2(584,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narrative=label_at(panel,str(beat.effect),Vector2(285,530),Vector2(710,63),17)
+	narrative.add_theme_color_override("font_color", Color("271a10"))
+	narrative.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	narrative.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	narrative.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(288,598),Vector2(704,49),16)
+	speech.add_theme_color_override("font_color", Color("271a10"))
+	speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var finishing: bool=KnightCommanderBeats.is_final(beat_index)
@@ -1185,13 +1204,18 @@ func show_monster_hunter_beat(index: int) -> void:
 			# identify/sent_by_commander portraits animate on reappearance.
 			var animated: bool=beat.id in (["identify","sent_by_commander"] if is_hunter_portrait else ["warning_reveal","unnatural","clue"])
 			MonsterHunterLayerMotion.play(story_layer,is_hunter_portrait,animated)
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 세계수",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
+	effect.add_theme_color_override("font_color", Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if not str(beat.dialogue).is_empty():
 		var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(291,604),Vector2(698,47),16)
+		speech.add_theme_color_override("font_color", Color("271a10"))
+		speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var finishing: bool=MonsterHunterBeats.is_final(beat_index)
@@ -1234,13 +1258,18 @@ func show_cultist_rumor_beat(index: int) -> void:
 		var procession=image(panel,layer,bounds.position,bounds.size)
 		procession.name="CultistProcessionLayer"
 		CultistStoryLayerMotion.play(procession,false,beat.id=="procession")
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 같은 문양",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
+	effect.add_theme_color_override("font_color", Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if not str(beat.dialogue).is_empty():
 		var dialogue=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(291,604),Vector2(698,47),16)
+		dialogue.add_theme_color_override("font_color", Color("271a10"))
+		dialogue.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var finishing: bool=CultistRumorBeats.is_final(beat_index)
@@ -1294,13 +1323,18 @@ func show_monster_king_hunt_beat(index: int) -> void:
 		var hunt_layer=image(panel,layer_path,bounds.position,bounds.size)
 		hunt_layer.name="KingHuntPortrait" if is_portrait else "KingHuntSceneLayer"
 		MonsterHunterLayerMotion.play(hunt_layer,is_portrait,beat.id==("revival" if is_portrait else "trace"))
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 왕의 흔적",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,61),18)
+	effect.add_theme_color_override("font_color", Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if not str(beat.dialogue).is_empty():
 		var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(285,616),Vector2(710,34),16)
+		speech.add_theme_color_override("font_color", Color("271a10"))
+		speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	# Explicitly confirm the fifth original beat before committing quest flags.
@@ -1356,14 +1390,19 @@ func show_ritual_portal_beat(index: int) -> void:
 		# Frozen web JS animates portal_reveal and omen; its crossing ID
 		# is absent from the canonical five beats, so cultists stay still.
 		RitualPortalLayerMotion.play(ritual_art,beat.id in ["portal_reveal","omen"])
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narration: String=RitualPortalBeats.INTERVENTION_EFFECT if intervening and scene_state.battle_result=="" else str(beat.effect)
 	var effect=label_at(panel,narration,Vector2(285,558),Vector2(710,59),18)
+	effect.add_theme_color_override("font_color", Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if not str(beat.dialogue).is_empty() and not intervening:
 		var dialogue=label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,619),Vector2(710,29),16)
+		dialogue.add_theme_color_override("font_color", Color("271a10"))
+		dialogue.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	if beat_index<4:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="forest" else Vector2(651,653),Vector2(171,48),func(): advance_ritual_portal(index,beat_index),1)
@@ -1413,12 +1452,17 @@ func show_ritual_portal_aftermath(index: int) -> void:
 	var omen=image(panel,RitualPortalBeats.OMEN_ART,bounds.position,bounds.size)
 	omen.name="PortalOmenLayer"
 	RitualPortalLayerMotion.play(omen,false)
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 마물의 왕 부활 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,65),17)
+	effect.add_theme_color_override("font_color", Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var speech=label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,619),Vector2(710,34),16)
+	speech.add_theme_color_override("font_color", Color("271a10"))
+	speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	location_button(panel,"마치기",Vector2(463,653),Vector2(171,48),func(): finish_ritual_portal(index),1)
 	if world.tiles[index]=="forest":
@@ -1462,10 +1506,13 @@ func show_cultist_altar_beat(index: int) -> void:
 		var ritual_art=image(panel,layer_path,bounds.position,bounds.size)
 		ritual_art.name="CultistSummonLayer" if fighting else "CultistRitualLayer"
 		CultistStoryLayerMotion.play(ritual_art,true,beat.id=="ritual_reveal" or (fighting and altar_state.battle_result==""))
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narration: String=CultistAltarBeats.SUMMON_EFFECT if fighting else str(beat.effect)
 	var effect=label_at(panel,narration,Vector2(285,573),Vector2(710,64),18)
+	effect.add_theme_color_override("font_color", Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if beat_index<2:
@@ -1511,12 +1558,17 @@ func show_cultist_altar_followup(index: int) -> void:
 	var overlay_layer=image(panel,overlay_path,bounds.position,bounds.size)
 	overlay_layer.name="CultistRitualLayer" if story.choice=="pass" else "CultistSummonLayer"
 	CultistStoryLayerMotion.play(overlay_layer,true,false)
+	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var effect=label_at(panel,narration,Vector2(285,548),Vector2(710,62),17)
+	effect.add_theme_color_override("font_color", Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var speech=label_at(panel,"%s: %s" % [CultistAltarBeats.FOLLOWUP_SPEAKER,CultistAltarBeats.FOLLOWUP_DIALOGUE],Vector2(285,610),Vector2(710,34),16)
+	speech.add_theme_color_override("font_color", Color("271a10"))
+	speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	if story.choice=="pass":
 		location_button(panel,"선택 변경",Vector2(320,653),Vector2(164,48),func(): reconsider_cultist_altar(index),4)
@@ -1686,13 +1738,18 @@ func show_story_battle_result(event_id: String) -> void:
 	InkSceneReveal.play(art)
 	if not str(view.overlay).is_empty():
 		image(panel,str(view.overlay),Vector2(243.2,136.8),Vector2(793.6,446.4))
+	shared_story_frame(panel)
 	var heading = label_at(panel,str(view.title),Vector2(360,84),Vector2(568,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var narrative = label_at(panel,str(view.narration),Vector2(285,558),Vector2(710,62),18)
+	narrative.add_theme_color_override("font_color", Color("271a10"))
+	narrative.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	narrative.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	narrative.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if not str(view.dialogue).is_empty():
 		var dialogue = label_at(panel,str(view.dialogue),Vector2(396,619),Vector2(492,26),17 if not view.retry else 16)
+		dialogue.add_theme_color_override("font_color", Color("271a10"))
+		dialogue.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if view.retry and not world.roster.is_empty():
 		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_story_battle_result_ui(event_id,true),1)

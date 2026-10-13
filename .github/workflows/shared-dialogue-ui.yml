@@ -1,0 +1,46 @@
+name: Shared Parchment Dialogue UI
+on:
+  pull_request:
+    paths:
+      - 'assets/map/ui/shared_dialogue_panel.svg'
+      - 'systems/intro_scene.gd'
+      - 'map.gd'
+      - 'scripts/test_shared_dialogue_panel.gd'
+      - 'scripts/test_ui_grave_dialogue_stage5p.gd'
+      - '.github/workflows/shared-dialogue-ui.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'assets/map/ui/shared_dialogue_panel.svg'
+      - 'systems/intro_scene.gd'
+      - 'map.gd'
+      - 'scripts/test_shared_dialogue_panel.gd'
+      - 'scripts/test_ui_grave_dialogue_stage5p.gd'
+      - '.github/workflows/shared-dialogue-ui.yml'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import assets and scripts
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify shared parchment UI across intro and events
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_shared_dialogue_panel.gd 2>&1 | tee shared.log
+          grep -E '^SHARED_DIALOGUE_UI: [0-9]+ passed, 0 failed$' shared.log
+          if grep -E 'FAIL shared-dialogue:|SCRIPT ERROR|Parse Error|Invalid call' shared.log; then exit 1; fi
+      - name: Verify canonical graveyard dialogue interaction and save reload
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_grave_dialogue_stage5p.gd 2>&1 | tee grave.log
+          grep -E '^UI_GRAVE_DIALOGUE_FRAME_PARITY: [0-9]+ passed, 0 failed$' grave.log
+          if grep -E 'FAIL ui-grave-dialogue:|SCRIPT ERROR|Parse Error|Invalid call' grave.log; then exit 1; fi
