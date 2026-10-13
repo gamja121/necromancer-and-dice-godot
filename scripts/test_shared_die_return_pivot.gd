@@ -111,6 +111,9 @@ func _run() -> void:
 		check(session.world.dice_visual_position==[int(battle_pose.x),int(battle_pose.y)] and session.world.dice_visual_rotation==battle_rotation,"battle return does not rewrite saved visual coordinates")
 		check(session.world.rng.state==rng_before_return,"exit and redraw do not consume gameplay random values")
 		check(session.save_world(),"returned pose saved for reload")
+		# The returned map audio panel awaits two _ready frames. Wait for
+		# that real initialisation before explicitly rebuilding a second stage.
+		for frame in range(5): await process_frame
 		session.reload_world()
 		map.world=session.world
 		map.render()
