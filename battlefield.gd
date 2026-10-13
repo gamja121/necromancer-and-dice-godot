@@ -638,11 +638,19 @@ func roll_round(instance_id: String = "") -> void:
 			map_return.disabled = false
 			message.text = "전투 결과 저장 실패 · 전투 닫기로 다시 시도하세요"
 			return
+		if winner=="enemy":
+			# The final loss has already been atomically saved. Do not reveal a
+			# return-to-map action or permit another roll on the dead expedition.
+			map_return.disabled=true
+			message.text="원정 종료 · 망자의 계약이 끊어졌다."
+			if embedded and is_instance_valid(map_owner):
+				map_owner.show_game_over()
+			return
 		if session.world.pending_reward.get("kind","")=="capture":
 			begin_capture()
 			return
 		map_return.disabled = false
-		message.text = ("승리!" if winner=="ally" else "패배")+" · 전투를 닫고 원정을 계속하세요"
+		message.text = "승리! · 전투를 닫고 원정을 계속하세요"
 
 func storage_failed(reason: String) -> void:
 	busy = false

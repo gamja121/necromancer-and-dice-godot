@@ -261,7 +261,7 @@ func start_encounter(index: int, selected_ids: Array) -> bool:
 	return _start_encounter(index,selected_ids)
 
 func _start_encounter(index: int, selected_ids: Array, event_id: String = "") -> bool:
-	if world == null: return false
+	if world == null or not world.run_result.is_empty(): return false
 	var story_spec: Dictionary = StoryBattleRegistry.definition(event_id)
 	var story: bool = not story_spec.is_empty()
 	if not event_id.is_empty() and not story: return false
@@ -357,6 +357,9 @@ func finish_encounter(battle) -> bool:
 		if not get_story_event(event_id).status == "active" or get_story_event(event_id).choice != story_spec.choice: return false
 	elif str(encounter.get("type","")).begins_with("event-"): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
+	for combatant in battle.units:
+		if combatant.team=="enemy" and not combatant.alive and not combatant.get("is_summon",false):
+			world.enemies_defeated += 1
 	var survivors: Array = []
 	for owned in world.roster:
 		var fought: Dictionary = battle.find_id(owned.id)
@@ -386,7 +389,22 @@ func finish_encounter(battle) -> bool:
 		if not corpses.is_empty():
 			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
 		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
-	else: notice = "전투 패배 · 생존한 마물과 함께 맵으로 돌아왔습니다."
+	else: notice = "전투 패배 · 원정 종료"
+	# All defeated battles end the expedition, even if owned monsters
+	# remain. The battle record, permanent losses, and game-over are saved
+	# atomically so reload cannot revive the run or duplicate rewards.
+	if battle.winner()=="enemy":
+		world.run_result = {
+			"ended":true,
+			"reason":"battle_defeat",
+			"encounter_id":str(encounter.get("id","")),
+			"laps":world.laps,
+			"contamination":world.contamination,
+			"enemies_defeated":world.enemies_defeated,
+			"lost_monsters":world.graveyard_corpses.size(),
+			"surviving_monsters":world.roster.size()
+		}
+		notice = "원정 종료 · 망자의 계약이 끊어졌습니다."
 	world.active_encounter = {}
 	if not persist_change(before): return false
 	encounter = {}
