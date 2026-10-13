@@ -1,0 +1,57 @@
+name: Ordered battle deck and aligned dock cards
+on:
+  pull_request:
+    paths:
+      - "battlefield.gd"
+      - "systems/battle_presentation_layout.gd"
+      - "scripts/test_battle_formation_order.gd"
+      - ".github/workflows/battle-formation-order.yml"
+  push:
+    branches: [main]
+    paths:
+      - "battlefield.gd"
+      - "systems/battle_presentation_layout.gd"
+      - "scripts/test_battle_formation_order.gd"
+      - ".github/workflows/battle-formation-order.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ordered-formation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot project import
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Verify real prebattle 1, 2 and 4 unit lineup and under-unit cards
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --script res://scripts/test_battle_formation_order.gd 2>&1 | tee order.log
+          grep -E '^BATTLE_FORMATION_ORDER: [0-9]+ passed, 0 failed$' order.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL battle-formation-order:' order.log; then exit 1; fi
+      - name: Preserve original 720 and 530 battle card dock behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --script res://scripts/test_ui_battle_card_dock_parity.gd 2>&1 | tee dock.log
+          grep -E '^UI_BATTLE_CARD_DOCK_PARITY: [0-9]+ passed, 0 failed$' dock.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-battle-dock:' dock.log; then exit 1; fi
+      - name: Real map selection, combat, capture and return remain valid
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 480s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee combat.log
+          grep -E '^P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed$' combat.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-combat:' combat.log; then exit 1; fi
+      - name: Check whitespace
+        run: git diff --check
