@@ -42,9 +42,11 @@ func start_case(session: Node, name: String, tile_index: int = 3, target_index: 
 			# Swamp is zero in new games until its future contamination
 			# unlock. Build it only in this disposable landing fixture.
 			if other<0 and target_type=="swamp":
-				other=world.tiles.find("basic")
-				if other>=0 and other!=target_index and other!=tile_index:
-					world.tiles[other]="swamp"
+				for road in range(world.tiles.size()):
+					if road not in [0,8,MapState.HOME,tile_index,target_index] and world.tiles[road]=="basic":
+						other=road
+						world.tiles[other]="swamp"
+						break
 			if other>=0:
 				world.tiles[target_index]=target_type
 				world.tiles[other]=original_type
