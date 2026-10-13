@@ -58,6 +58,12 @@ func setup(run_session: Node, persistent_die: TextureButton, positions: Array, i
 	else:
 		finish_now()
 
+func _gui_input(event: InputEvent) -> void:
+	if not cinematic: return
+	if (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+		finish_now()
+		accept_event()
+
 func _process(delta: float) -> void:
 	if cinematic:
 		circle_clock += delta
