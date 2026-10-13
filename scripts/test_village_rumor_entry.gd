@@ -39,6 +39,8 @@ func create(suffix: String):
 	cleanup(path)
 	s.save_file_path=path
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
 	check(s.has_save(),"disposable save exists")
 	return s
 
