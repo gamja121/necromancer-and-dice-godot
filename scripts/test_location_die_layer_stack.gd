@@ -29,7 +29,7 @@ func find_button(root: Node, title: String) -> Button:
 			return c
 	return null
 
-func check_location(map: Control, label: String, control_name: String) -> void:
+func check_location(map: Control, label: String, control_name: String, die_in_front: bool = false) -> void:
 	var panel: Control = map.overlay
 	check(is_instance_valid(panel) and panel.get_parent()==map.stage,label+": real location overlay is on board")
 	if not is_instance_valid(panel): return
@@ -37,8 +37,12 @@ func check_location(map: Control, label: String, control_name: String) -> void:
 	var frame: NinePatchRect=find_location_frame(panel)
 	var action: Button=find_button(panel,control_name)
 	check(art!=null and frame!=null and action!=null,label+": source illustration, border and action exist")
-	check(map.dice.is_visible_in_tree() and map.dice.z_index<panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE,label+": source art paints over inactive die and blocks click-through")
-	check(panel==map.stage.get_child(map.stage.get_child_count()-1),label+": modal receives pointer before board controls")
+	if die_in_front:
+		check(map.dice.is_visible_in_tree() and map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,label+": live fortune die paints ABOVE its original art and receives user input")
+		check(map.stage.get_child(map.stage.get_child_count()-1)==map.dice,label+": fortune die is last sibling for actual Godot click hit-testing")
+	else:
+		check(map.dice.is_visible_in_tree() and map.dice.z_index<panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE,label+": source art paints over inactive die and blocks click-through")
+		check(panel==map.stage.get_child(map.stage.get_child_count()-1),label+": modal receives pointer before board controls")
 	if art!=null and frame!=null and action!=null:
 		check(art.get_index()<frame.get_index() and (frame.z_index<action.z_index or (frame.z_index==action.z_index and frame.get_index()<action.get_index())),label+": actionable button draws above painted art and border")
 
@@ -84,11 +88,18 @@ func _run() -> void:
 		check_location(map,"rest","전체 회복")
 		map.close_overlay()
 
-	map.show_place_actions(0)
-	check_location(map,"fortune-teller function","예언 듣기")
-	var fortune_panel: Control=map.overlay
-	check(fortune_panel.get("dice")==die and find_button(fortune_panel,"예언 듣기")!=null,"fortune action button works with the original shared die below art")
+	# The ordinary teller painting must still hide the die; only its
+	# explicit prophecy action may raise the single click-to-roll die.
+	map.show_location(0)
+	check_location(map,"fortune-teller location painting","예언")
 	map.close_overlay()
+	map.show_place_actions(0)
+	check_location(map,"fortune-teller function","예언 듣기",true)
+	var fortune_panel: Control=map.overlay
+	check(fortune_panel.get("dice")==die and find_button(fortune_panel,"예언 듣기")!=null,"prophecy uses one original visible shared die above its art, not a duplicate")
+	check(not die.disabled,"unused fortune die is immediately clickable before the one-time prophecy")
+	map.close_overlay()
+	check(die.z_index==map.DIE_FOREGROUND_Z and die.mouse_filter==Control.MOUSE_FILTER_STOP,"closing fortune returns original map die to normal clickable layer")
 	check(session.world.snapshot()==before and session.world.rng.state==rng,"map and location layer transitions do not modify game state")
 
 	var monster: int=session.world.tiles.find("monster")
