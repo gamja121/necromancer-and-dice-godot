@@ -184,7 +184,9 @@ func _sync_map_chrome() -> void:
 	var show_board_controls: bool = not is_instance_valid(overlay) or overlay is InventoryPanel
 	var central_battle: bool = is_instance_valid(overlay) and overlay.name=="CentralBattle"
 	var die_action: bool = (overlay is ExplorationActions and overlay.type=="unknown") or (overlay is PlaceActions and overlay.type=="fortune-teller-camp")
-	var show_die: bool = not is_instance_valid(overlay) or central_battle or die_action
+	# Keep source location art and story overlays' shared die visible,
+	# but never float it over the PRE-BATTLE CARD SELECTOR.
+	var show_die: bool = not (overlay is BattleDeck)
 	for control in map_chrome:
 		if not is_instance_valid(control): continue
 		var battle_book_or_deck: bool = control == book_button or control == deck_button or control == dice_count_label
@@ -197,6 +199,10 @@ func _sync_map_chrome() -> void:
 		presentation.gauge.visible = show_board_controls
 	# During scene switches do not reenable a currently rolling die.
 	if is_instance_valid(dice) and not shared_die_busy: refresh_shared_die_input()
+	# In non-action location modals the die remains painted (legacy UI
+	# contract), but cannot steal any pointer events from the dialogue.
+	if is_instance_valid(dice):
+		dice.mouse_filter = Control.MOUSE_FILTER_IGNORE if (is_instance_valid(overlay) and not central_battle and not die_action) else Control.MOUSE_FILTER_STOP
 
 func _ready() -> void:
 	DisplayServer.window_set_title("Necromancer and Dice")
