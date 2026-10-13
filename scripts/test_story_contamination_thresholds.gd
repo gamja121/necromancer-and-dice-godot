@@ -23,7 +23,7 @@ func check(ok: bool, label: String) -> void:
 
 func clean() -> void:
 	for suffix in ["",".tmp"]:
-		var path := save_path+suffix
+		var path: String = save_path+str(suffix)
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
@@ -65,7 +65,8 @@ func _run() -> void:
 	session.world.contamination = 0
 	check(Child.can_enter(session,child_tile),"already seen child stays playable after prayer decrease")
 	check(session.save_world(),"seen child below threshold is saved")
-	check(session.reload_world(),"seen child reload succeeds")
+	session.reload_world()
+	check(session.get_story_event(Child.EVENT_ID).status=="seen","seen child reload succeeds")
 	check(Child.can_enter(session,child_tile),"seen child reopens after reload at zero")
 	# Resolve abandonment in the test world through the actual source choice.
 	check(Child.choose(session,child_tile,"leave"),"abandon branch resolves via original choice")
@@ -80,7 +81,8 @@ func _run() -> void:
 	session.world.contamination = 0
 	check(Rumor.eligible_event_id(session,village)==Rumor.ABANDONED_ID,"seen abandoned rumor resumes at zero")
 	check(session.save_world(),"abandoned rumor progression persists")
-	check(session.reload_world(),"abandoned rumor reloads")
+	session.reload_world()
+	check(session.get_story_event(Rumor.ABANDONED_ID).status=="seen","abandoned rumor reloads")
 	check(Rumor.eligible_event_id(session,village)==Rumor.ABANDONED_ID,"abandoned rumor resumes after restart")
 	# Separate rescue branch should use the same limit rather than inherit an
 	# already-seen abandoned rumor, with no extra reward or story conclusion.
