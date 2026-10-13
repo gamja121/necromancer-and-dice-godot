@@ -1,0 +1,61 @@
+name: Location illustration die layer ordering
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/home_inheritance.gd"
+      - "systems/place_actions.gd"
+      - "scripts/test_location_die_layer_stack.gd"
+      - ".github/workflows/location-die-layer-stack.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "scripts/test_location_die_layer_stack.gd"
+      - ".github/workflows/location-die-layer-stack.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  layered-location-and-battle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse native Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Verify home, inheritance, fortune, location and battle die layers
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_location_die_layer_stack.gd 2>&1 | tee layering.log
+          grep -E '^LOCATION_DIE_LAYER_STACK: [0-9]+ passed, 0 failed$' layering.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL location-layer-stack:' layering.log; then exit 1; fi
+      - name: Check unchanged location art and input contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in 'test_ui_location_layout_stage5s.gd:UI_LOCATION_LAYOUT_STAGE5S' 'test_ui_map_chrome_stage5r.gd:UI_MAP_CHROME_STAGE5R' 'test_shared_die_safety.gd:SHARED_DIE_SAFETY'; do
+            script="${spec%%:*}"
+            summary="${spec#*:}"
+            timeout 225s godot --headless --path . --script "res://scripts/$script" 2>&1 | tee one.log
+            grep -E "^$summary: [0-9]+ passed, 0 failed$" one.log
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' one.log; then exit 1; fi
+          done
+      - name: Verify real embedded combat and return
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 500s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee combat.log
+          grep -E '^P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed$' combat.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-combat:' combat.log; then exit 1; fi
+      - name: Check patch whitespace
+        run: git diff --check
