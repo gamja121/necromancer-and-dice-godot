@@ -100,6 +100,14 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 	if battle.entry_summon_active:
 		check(await until_ready(func(): return not battle.entry_summon_active,16000),
 			label+": black-silhouette summon finishes before first combat input")
+	# On a fresh encounter the real brand chart now opens AFTER every ally
+	# has arrived, and must be acknowledged before normal gameplay testing.
+	check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open
+		and map.dice.disabled,label+": first brand overview gates initial combat roll")
+	if is_instance_valid(battle.brand_reference):
+		battle.brand_reference.close()
+		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference)),
+			label+": player dismisses automatic brand overview to unlock combat")
 	check(battle.embedded and battle.map_mode and battle.session == session,label+": battlefield is connected to current RunSession")
 	check(battle.dice==map.dice and map.dice.get_parent()==map.stage and map.dice.is_visible_in_tree(),
 		label+": original stage die is the battle die, with no recreated center button")
