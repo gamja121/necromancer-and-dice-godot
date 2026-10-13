@@ -9,11 +9,13 @@ var closing = false
 ## HTML reference: v2-auto-battle-practice.html / .brand-reference-grid.
 ## Presentation-only: never change the incoming rules or the curse-first resolver.
 const DICE_RESULT_PATH = "res://assets/battle/dice/result-%02d.png"
-const FRAME_PATH = "res://assets/battle/ui/legion-info-window-hd.png"
+const FRAME_PATH = "res://assets/map/ui/inheritance_info.webp"
 const GRID_WIDTH = 938.0
 const FIRST_COL = 230.0
 const FACE_COL = 108.0
 const CELL_GAP = 5
+const HEADER_HEIGHT = 36.0
+const ROW_HEIGHT = 34.0
 
 var dice_headers: Array[TextureRect] = []
 var reference_rows: Array[HBoxContainer] = []
@@ -39,7 +41,7 @@ func setup(rules) -> void:
 	var grid_frame=Panel.new()
 	grid_frame.name="BrandReferenceGridFrame"
 	grid_frame.position=Vector2(169,170)
-	grid_frame.size=Vector2(943,391)
+	grid_frame.size=Vector2(943,345)
 	grid_frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	var paper=StyleBoxFlat.new()
 	paper.bg_color=Color("ead9bb66")
@@ -50,7 +52,7 @@ func setup(rules) -> void:
 	reference_scroll=ScrollContainer.new()
 	reference_scroll.name="BrandReferenceScroll"
 	reference_scroll.position=Vector2(174,176)
-	reference_scroll.size=Vector2(932,376)
+	reference_scroll.size=Vector2(932,332)
 	reference_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	reference_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
 	add_child(reference_scroll)
@@ -63,7 +65,7 @@ func setup(rules) -> void:
 	header.add_theme_constant_override("separation",CELL_GAP)
 	reference_grid.add_child(header)
 	var corner=PanelContainer.new()
-	corner.custom_minimum_size=Vector2(FIRST_COL,40)
+	corner.custom_minimum_size=Vector2(FIRST_COL,HEADER_HEIGHT)
 	corner.add_theme_stylebox_override("panel",header_style())
 	var corner_title=Label.new()
 	corner_title.text="마물"
@@ -76,7 +78,7 @@ func setup(rules) -> void:
 	for face in range(1,7):
 		var slot=PanelContainer.new()
 		slot.name="DiceFace%02d" % face
-		slot.custom_minimum_size=Vector2(FACE_COL,40)
+		slot.custom_minimum_size=Vector2(FACE_COL,HEADER_HEIGHT)
 		slot.add_theme_stylebox_override("panel",header_style())
 		var die=TextureRect.new()
 		die.name="DiceImage"
@@ -105,7 +107,7 @@ func setup(rules) -> void:
 			var unit_button=Button.new()
 			unit_button.name="UnitName"
 			unit_button.text=("아군 · " if team=="ally" else "적군 · ")+str(u.name)
-			unit_button.custom_minimum_size=Vector2(FIRST_COL,40)
+			unit_button.custom_minimum_size=Vector2(FIRST_COL,ROW_HEIGHT)
 			var portrait_path="res://assets/battle/ui/info-portraits/%s.png" % str(u.slug)
 			if ResourceLoader.exists(portrait_path):
 				unit_button.icon=load(portrait_path)
@@ -123,7 +125,7 @@ func setup(rules) -> void:
 				cell.set_meta("face",face)
 				cell.set_meta("mode",mode)
 				cell.text="✦" if mode=="blessing" else ("☠" if mode=="curse" else "")
-				cell.custom_minimum_size=Vector2(FACE_COL,40)
+				cell.custom_minimum_size=Vector2(FACE_COL,ROW_HEIGHT)
 				cell.disabled=mode=="normal"
 				cell.tooltip_text="%s · %d번 · %s" % [str(u.name),face,"축복" if mode=="blessing" else ("저주" if mode=="curse" else "발동 없음")]
 				cell.add_theme_color_override("font_color",Color("35692c") if mode=="blessing" else Color("752d25"))
@@ -132,21 +134,37 @@ func setup(rules) -> void:
 				row.add_child(cell)
 				row_cells.append(cell)
 			face_cells.append(row_cells)
-	var note=label_at(self,"✦ 축복 · ☠ 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다.",Vector2(171,566),Vector2(942,24),13)
+	var detail_frame=Panel.new()
+	detail_frame.name="BrandReferenceDetailFrame"
+	detail_frame.position=Vector2(170,541)
+	detail_frame.size=Vector2(943,99)
+	detail_frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var detail_style=StyleBoxFlat.new()
+	detail_style.bg_color=Color("f2e4ccbb")
+	detail_style.border_color=Color("6d5139")
+	detail_style.set_border_width_all(1)
+	detail_frame.add_theme_stylebox_override("panel",detail_style)
+	add_child(detail_frame)
+	var note=label_at(self,"✦ 축복 · ☠ 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다.",Vector2(171,514),Vector2(942,23),13)
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	detail_scroll=ScrollContainer.new()
 	detail_scroll.name="BrandReferenceDescription"
-	detail_scroll.position=Vector2(174,592)
-	detail_scroll.size=Vector2(933,46)
+	detail_scroll.position=Vector2(174,545)
+	detail_scroll.size=Vector2(933,91)
 	detail_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(detail_scroll)
 	summary=Label.new()
 	summary.name="BrandReferenceSummary"
 	summary.text="마물 또는 낙인 눈금을 선택하세요."
 	summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	# A wrapped Label inside ScrollContainer must have a bounded width to grow vertically.
+	summary.custom_minimum_size=Vector2(895,0)
+	summary.custom_maximum_size=Vector2(895,0)
 	summary.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	summary.vertical_alignment=VERTICAL_ALIGNMENT_TOP
 	summary.add_theme_color_override("font_color",Color("34251c"))
-	summary.add_theme_font_size_override("font_size",13)
+	summary.add_theme_font_size_override("font_size",14)
+	summary.add_theme_constant_override("line_spacing",3)
 	detail_scroll.add_child(summary)
 
 func header_style() -> StyleBoxFlat:
@@ -175,6 +193,8 @@ func describe(u: Dictionary, marks: Array, face: int = 0) -> void:
 			lines.append("✦ %s · %s" % [definition.name,definition.blessing])
 	if lines.size()==1: lines.append("낙인 없음" if face==0 else "발동 없음")
 	summary.text = "\n".join(lines)
+	# Always start at the selected mark name rather than retaining the previous scroll offset.
+	detail_scroll.set_deferred("scroll_vertical",0)
 
 func close() -> void:
 	if closing: return
