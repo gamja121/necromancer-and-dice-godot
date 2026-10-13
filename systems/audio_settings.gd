@@ -1,10 +1,9 @@
 extends Control
 
 ## Frozen web map audio options: compact OPTION panel and separate ON/OFF rows.
-## Godot-only output-device and master-volume controls remain under Advanced.
+## Always use the OS default output; Advanced retains only master volume.
 const SAVE = "user://audio_settings.cfg"
 const PANEL_RECT = Rect2(995.84, 82.8, 256.0, 170.0)
-static var output_devices: PackedStringArray
 
 var save_file_path: String = SAVE
 var panel: PanelContainer
@@ -15,13 +14,16 @@ var music_toggle: Button
 var sfx_toggle: Button
 var advanced_button: Button
 var advanced_content: VBoxContainer
-var output_selector: OptionButton
+var output_label: Label
 var volume_slider: HSlider
 
-static func outputs(refresh: bool = false) -> PackedStringArray:
-	if refresh or output_devices.is_empty():
-		output_devices = AudioServer.get_output_device_list()
-	return output_devices
+## Godot's "Default" device tracks the host OS's preferred speakers/headset.
+## Browsers route Web audio themselves; headless CI has no physical output.
+static func use_system_default_output() -> void:
+	if DisplayServer.get_name() in ["headless","web"]:
+		return
+	if AudioServer.output_device != "Default":
+		AudioServer.output_device = "Default"
 
 static func ensure_buses() -> void:
 	for name in ["Music","SFX"]:
@@ -39,16 +41,9 @@ static func apply_saved(save_path: String = SAVE) -> void:
 	var volume: float = clampf(float(settings.get_value("audio","volume",1.0)),0.0,1.0)
 	AudioServer.set_bus_volume_db(0,linear_to_db(maxf(0.001,volume)))
 	AudioServer.set_bus_mute(0,volume<=0)
-	if DisplayServer.get_name()=="headless": return
-	var desired: String = settings.get_value("audio","output","Default")
-	var devices = outputs()
-	var chosen = "Default"
-	for device in devices:
-		if device==desired or (desired=="Realtek" and "realtek" in device.to_lower()):
-			chosen = device
-			break
-	if AudioServer.output_device != chosen: AudioServer.output_device = chosen
-	print("Game audio requested: ",AudioServer.get_driver_name()," / ",chosen)
+	# Ignore any machine-specific audio.output left in existing user saves.
+	# "Default" follows the host system's current preferred output device.
+	use_system_default_output()
 
 func style_action(node: Button, compact: bool = false) -> void:
 	var normal = StyleBoxFlat.new()
@@ -163,18 +158,13 @@ func setup(parent: Control) -> void:
 	advanced_content.add_theme_constant_override("separation",5)
 	advanced_content.visible = false
 	column.add_child(advanced_content)
-	var output_label = Label.new()
-	output_label.text = "소리 출력 장치"
+	# Show the routing policy; never expose hardware model names in a game
+	# save or bind this portable build to any particular computer.
+	output_label = Label.new()
+	output_label.name = "MapAudioSystemDefaultOutput"
+	output_label.text = "출력: 시스템 기본 장치 (자동)"
 	output_label.add_theme_font_size_override("font_size",12)
 	advanced_content.add_child(output_label)
-	output_selector = OptionButton.new()
-	output_selector.name = "MapAudioOutputDevice"
-	advanced_content.add_child(output_selector)
-	output_selector.item_selected.connect(func(index):
-		var current = outputs()
-		if index<0 or index>=current.size(): return
-		AudioServer.output_device = current[index]
-		save_settings(current[index]))
 	var volume_label = Label.new()
 	volume_label.text = "전체 음량"
 	volume_label.add_theme_font_size_override("font_size",12)
@@ -217,22 +207,12 @@ func toggle_panel() -> void:
 	panel.visible = not panel.visible
 	if panel.visible:
 		refresh_controls()
-		if advanced_content.visible: refresh_output_devices()
+
 
 func toggle_advanced() -> void:
 	advanced_content.visible = not advanced_content.visible
 	advanced_button.text = "고급 설정 ▴" if advanced_content.visible else "고급 설정 ▾"
-	if advanced_content.visible: refresh_output_devices()
 
-func refresh_output_devices() -> void:
-	var devices = outputs(true)
-	output_selector.clear()
-	if devices.is_empty():
-		output_selector.add_item("Default")
-		output_selector.select(0)
-		return
-	for device in devices: output_selector.add_item(device)
-	output_selector.select(maxi(0,devices.find(AudioServer.output_device)))
 
 func toggle_category(category: String) -> void:
 	if not category in ["Music","SFX"]: return
@@ -241,19 +221,16 @@ func toggle_category(category: String) -> void:
 	save_settings()
 	refresh_controls()
 
-func save_settings(output_name: String = "", save_path: String = "") -> void:
+func save_settings(_legacy_output_name: String = "", save_path: String = "") -> void:
 	var target = save_file_path if save_path.is_empty() else save_path
 	var settings = ConfigFile.new()
 	settings.load(target)
-	settings.set_value("audio","output",AudioServer.output_device if output_name.is_empty() else output_name)
+	# Migrate old per-PC output values away on the next settings save.
+	if settings.has_section_key("audio","output"):
+		settings.erase_section_key("audio","output")
+	use_system_default_output()
 	settings.set_value("audio","volume",0.0 if AudioServer.is_bus_mute(0) else db_to_linear(AudioServer.get_bus_volume_db(0)))
 	for category in ["Music","SFX"]:
 		settings.set_value("audio",category.to_lower()+"_enabled",not AudioServer.is_bus_mute(AudioServer.get_bus_index(category)))
 	settings.save(target)
 
-func _ready() -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if DisplayServer.get_name()!="headless" and output_selector!=null and advanced_content.visible:
-		output_selector.select(maxi(0,outputs().find(AudioServer.output_device)))
-		print("Game audio active: ",AudioServer.output_device)

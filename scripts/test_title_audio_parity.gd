@@ -32,7 +32,10 @@ func _run() -> void:
 	initial.set_value("audio","volume",0.64)
 	initial.set_value("audio","music_enabled",true)
 	initial.set_value("audio","sfx_enabled",true)
-	check(initial.save(save_path)==OK,"isolated audio settings fixture saved")
+	# Simulate an older Windows save which pinned the audio to the
+	# developer's hardware. Modern builds must ignore and purge that value.
+	initial.set_value("audio","output","Realtek")
+	check(initial.save(save_path)==OK,"isolated legacy audio settings fixture saved")
 	check(ResourceLoader.exists("res://assets/title/music/title-theme.mp3"),"canonical title MP3 imported into Godot assets")
 	# Standalone SceneTree --script runs do not install project autoload names.
 	# Provide the same canonical node path the production title uses.
@@ -68,6 +71,7 @@ func _run() -> void:
 	check(settings.load(save_path)==OK,"title changes are written to the isolated config")
 	check(settings.get_value("audio","music_enabled",true)==false,"Music off persists")
 	check(settings.get_value("audio","sfx_enabled",true)==false,"SFX off persists")
+	check(not settings.has_section_key("audio","output"),"title settings never persist machine-specific audio hardware")
 	check(absf(float(settings.get_value("audio","volume",0))-0.42)<0.02,"master volume persists")
 	# Simulate the same startup reload path used by map and battlefield.
 	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"),false)
