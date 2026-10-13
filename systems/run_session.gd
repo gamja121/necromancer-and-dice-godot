@@ -923,8 +923,8 @@ func leave_home() -> bool:
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.position = MapState.HOME
 	world.leave_home()
-	# Rotate the actual old tile identities one cog-notch. Reconcile only
-	# required tile COUNT changes before the same atomic world save, rather
-	# than rotating cosmetic tiles and replacing all 21 faces on landing.
-	world.tiles = MapGearShift.compose_board(before["tiles"],world.tiles)
+	# Generate the EXACT manifest of two real rings, one cog-notch, and
+	# two disjoint tile-pair exchanges. Conserve generated type counts and
+	# commit once; the animation reuses the identical manifest.
+	world.tiles = MapGearShift.compose_board(before["tiles"],world.tiles,world.map_serial)
 	return persist_change(before)
