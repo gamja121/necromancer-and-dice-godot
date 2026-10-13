@@ -108,9 +108,8 @@ func _run() -> void:
 	# This visual fixture follows the completed rescue into the commander.
 	# The first-discovery contamination requirement is a separate production
 	# gate; supply its exact minimum without inventing story progression.
-	s.world.contamination = int(GATE.MINIMUMS[COMMANDER.EVENT_ID])
-	s.world.reveal_boss_at_threshold()
-	check(s.save_world(),"changed-art fixture saves canonical commander contamination prerequisite")
+	s.world.contamination = int(GATE.MINIMUMS[RUMOR.RESCUED_ID])
+	check(s.save_world(),"changed-art fixture saves canonical child and rescued-rumor thresholds")
 	var map: Control = MAP_SCENE.instantiate()
 	root.add_child(map)
 	current_scene = map
@@ -147,6 +146,11 @@ func _run() -> void:
 		for beat_idx in range(RUMOR_BEATS.count(RUMOR.RESCUED_ID)):
 			check(RUMOR.advance(s, village_idx, RUMOR.RESCUED_ID, beat_idx),
 				"village rumor beat %d persisted" % beat_idx)
+		# Commander first appears at 20; reach that threshold only after
+		# the rescue and rumor, so the earlier graveyard cannot be replaced.
+		s.world.contamination = int(GATE.MINIMUMS[COMMANDER.EVENT_ID])
+		s.world.reveal_boss_at_threshold()
+		check(s.save_world(),"changed-art fixture persists commander threshold and boss reveal")
 		check(COMMANDER.begin(s, village_idx), "commander encounter unlocked and saved")
 		check(map.session == s, "real Map refers to same event RunSession")
 		check(COMMANDER.can_enter(s, village_idx), "commander gate remains open after first saved beat")
