@@ -158,7 +158,7 @@ func test_home_and_next_lap(session: Node) -> void:
 	exit_button.pressed.emit()
 	var regenerated: bool = await until_ready(func(): return not map.moving and world.map_serial==initial_serial+1,65000)
 	check(regenerated,"real gather/rotation/scatter sequence finishes and board re-renders")
-	check(world.laps==initial_laps+1 and world.contamination==mini(100,initial_contamination+4),"one lap and +4 contamination on leaving home")
+	check(world.laps==initial_laps+1 and world.contamination==mini(100,initial_contamination+7),"one lap and +7 contamination on leaving home")
 	check(not world.lap_ready and world.cleared.is_empty() and world.tiles.size()==24,"new lap resets visit-ready/cleared state and keeps 24 tiles")
 	check(world.tiles[0]=="fortune-teller-camp" and world.tiles[8]=="village" and world.tiles[MapState.HOME]=="home","fixed camp, village and home anchors survive shuffle")
 	check(world.reward_receipts==initial_rewards,"map regeneration does not award, lose or duplicate inventory receipts")
