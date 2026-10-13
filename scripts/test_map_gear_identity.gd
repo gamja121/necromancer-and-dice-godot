@@ -129,9 +129,13 @@ func _run() -> void:
 	# unchanged; the route and animation must reveal it BEFORE the gear.
 	new_kinds[7]="graveyard"
 	var planned: Array=Gear.compose_board(old_kinds,new_kinds,17)
+	# In the real game all basic tiles share the SAME source texture.
+	# A different colour per destination would misrepresent a nonexistent
+	# face replacement in this synthetic test. Only the newly spawned
+	# cemetery has a genuinely different image.
 	var visuals_by_dest: Array=[]
 	for i in range(24):
-		visuals_by_dest.append(common_face if i in Layout.FIXED_INDICES else new_faces[i])
+		visuals_by_dest.append(new_faces[i] if planned[i]=="graveyard" else common_face)
 	var gear:=Gear.new()
 	stage.add_child(gear)
 	check(gear.prepare(buttons,visuals_by_dest,old_kinds,planned,17),"21 original stone actors gather from 24-tile board")
