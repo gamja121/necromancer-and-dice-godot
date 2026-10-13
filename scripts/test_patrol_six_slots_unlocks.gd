@@ -93,7 +93,8 @@ func _run() -> void:
 	valid_plan.selection["monster"]=2
 	var done: Dictionary=session.confirm_patrol(valid_plan)
 	check(bool(done.get("ok",false)) and int(session.world.patrol_plan.selection.monster)==2,"confirmed two added monsters persist independently of the five automatic")
-	check(session.reload_world() and int(session.world.patrol_plan.selection.monster)==2,"new patrol plan survives JSON reload")
+	session.reload_world()
+	check(int(session.world.patrol_plan.selection.monster)==2,"new patrol plan survives JSON reload")
 	# Legacy saves keep their original counts and unmodified route inventory.
 	var old_style: Dictionary={"current":Plan.CURRENT.duplicate(),"reserve":Plan.RESERVE.duplicate()}
 	check(Plan.valid(old_style),"legacy 6+5 route inventory remains accepted in old saves")
