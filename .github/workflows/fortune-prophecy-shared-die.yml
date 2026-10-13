@@ -1,0 +1,56 @@
+name: Fortune Prophecy Shared Die Foreground
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/place_actions.gd"
+      - "scripts/test_location_die_layer_stack.gd"
+      - "scripts/test_ui_fortune_prophecy_stage5l.gd"
+      - ".github/workflows/fortune-prophecy-shared-die.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/place_actions.gd"
+      - "scripts/test_location_die_layer_stack.gd"
+      - "scripts/test_ui_fortune_prophecy_stage5l.gd"
+      - ".github/workflows/fortune-prophecy-shared-die.yml"
+permissions:
+  contents: read
+jobs:
+  fortune-die:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse original Godot source
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 190s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Original location paintings and fortune interactive foreground die
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_location_die_layer_stack.gd 2>&1 | tee location.log
+          grep -E 'LOCATION_DIE_LAYER_STACK: [0-9]+ passed, 0 failed' location.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL location-layer-stack:' location.log; then exit 1; fi
+      - name: Real fortune click roll original art and durable once-only outcome
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_ui_fortune_prophecy_stage5l.gd 2>&1 | tee fortune.log
+          grep -E 'UI_FORTUNE_PROPHECY_PARITY: [0-9]+ passed, 0 failed' fortune.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-fortune:' fortune.log; then exit 1; fi
+      - name: Collision wall and battle button unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_shared_die_safety.gd 2>&1 | tee die.log
+          grep -E 'SHARED_DIE_SAFETY: [0-9]+ passed, 0 failed' die.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL shared-die-safety:' die.log; then exit 1; fi

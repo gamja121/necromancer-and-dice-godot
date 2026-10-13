@@ -82,8 +82,12 @@ func _run() -> void:
 	check(panel.fortune_stone.size==Vector2(210,204),"fortune crystal obeys original 210-pixel sizing")
 	check(not panel.fortune_stone.visible and not panel.fortune_result.visible,"crystal/result hidden before pressing once-only prophecy")
 	check(not panel.confirm_button.disabled,"unused fortune allows explicit user action")
-	check(panel.dice!=null and panel.dice.visible,"original dice animation control remains available")
-	panel.confirm_button.pressed.emit()
+	check(panel.dice==map.dice and map.dice.visible,"fortune uses the original map die, not a duplicate")
+	check(map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP and not map.dice.disabled,"fortune die is visible ABOVE source art and is clickable")
+	check(map.stage.get_child(map.stage.get_child_count()-1)==map.dice,"fortune die is on top for GUI hit testing, not just draw order")
+	# Click the actual stage die rather than the prophecy text button.
+	# This goes through Map.on_shared_die_pressed -> PlaceActions.roll_prophecy.
+	map.dice.pressed.emit()
 	await process_frame
 	check(panel.fortune_stone.visible and panel.fortune_aura.visible,"crystal and purple halo appear only after user confirms")
 	check(panel.confirm_button.disabled and panel.close_button.disabled,"fortune locks repeated rolls and exit during animation")
@@ -115,7 +119,8 @@ func _run() -> void:
 	await process_frame
 	map.show_place_actions(index)
 	panel=map.overlay
-	check(panel.confirm_button.disabled,"loaded already-used fortune remains disabled")
+	check(panel.confirm_button.disabled and map.dice.disabled,"loaded already-used fortune disables both the action and shared die")
+	check(map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,"reopened fortune result still draws the same die above original artwork")
 	check(panel.fortune_stone.visible and panel.fortune_aura.visible,"reopened result restores crystal without rerolling")
 	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"reopened result displays same chosen face and effect")
 	check(panel.dice.texture_normal==map.texture("res://assets/battle/dice/result-04.png"),"result die texture restores from persisted face")
