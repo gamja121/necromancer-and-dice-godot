@@ -36,7 +36,7 @@ func _run() -> void:
 	check(panel.frame_art!=null and panel.frame_art.texture!=null,"original parchment-frame art remains rendered")
 	check(absf(panel.frame_art.position.x-116)<1 and absf(panel.frame_art.position.y-77)<=6.1 and panel.frame_art.size==Vector2(1048,566),"frame matches web size; entrance tween may temporarily offset 6px")
 	check(panel.frame_art.texture.resource_path=="res://assets/map/ui/inheritance_info.webp","reference panel uses existing cleaned transparent parchment asset")
-	check(panel.detail_scroll.size.y>=90 and panel.detail_scroll.position.y==545,"effect description keeps readable multi-line space")
+	check(panel.detail_scroll.size.y>=90 and absf(panel.detail_scroll.position.y-545)<=6.1,"effect description keeps readable multi-line space during entry tween")
 	check(panel.summary.autowrap_mode==TextServer.AUTOWRAP_WORD_SMART and panel.summary.custom_maximum_size.x==895,"description has a bounded width for reliable word wrapping")
 	check(panel.reference_rows[0].get_child(0).custom_minimum_size.y==34,"compact rows preserve all eight monster rows")
 	check(panel.dice_headers.size()==6 and panel.dice_headers.all(func(d): return d.texture!=null),"six actual result-dice images replace numbers")
