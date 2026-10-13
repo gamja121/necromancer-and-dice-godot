@@ -79,6 +79,8 @@ func fresh_altar(session: Node, tag: String) -> Dictionary:
 	clear_save(path)
 	session.save_file_path=path
 	session.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	session.world.contamination = 100
 	var world=session.world
 	# Only canonical *already completed* prerequisite rumor; no free quest
 	# progress from this test and no modifications to live source logic.
