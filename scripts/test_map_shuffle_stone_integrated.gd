@@ -110,7 +110,9 @@ func _run() -> void:
 		check(session.world.snapshot()==snap,"failed save fully restores map, RNG, counts, lap and dice")
 		check(gear_nodes(map).is_empty(),"failed save creates no deceptive moving tile")
 		check(is_instance_valid(map.overlay),"failed save returns to retryable home")
-		check(not map.moving and not map.dice.disabled,"failed save re-enables original die")
+		check(not map.moving and map.dice.disabled,"failed save releases movement lock while retryable home modal still prevents die clicks")
+		map.close_overlay()
+		check(not map.dice.disabled,"closing failed-save home modal restores clickable die")
 	# Drain the new map's asynchronous audio controls before scene teardown.
 	for i in range(6): await process_frame
 	map.queue_free()
