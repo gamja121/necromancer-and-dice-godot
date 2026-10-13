@@ -1,0 +1,72 @@
+name: Restore Web And Mobile Game Audio
+on:
+  pull_request:
+    paths:
+      - "systems/audio_settings.gd"
+      - "title.gd"
+      - "scripts/test_mobile_web_audio_recovery.gd"
+      - ".github/workflows/mobile-web-audio-recovery.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/audio_settings.gd"
+      - "title.gd"
+      - "scripts/test_mobile_web_audio_recovery.gd"
+      - ".github/workflows/mobile-web-audio-recovery.yml"
+permissions:
+  contents: read
+jobs:
+  mobile-web-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+      - name: Parse all game and sound scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Confirm valid Master Music SFX graph and browser touch unlock
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 100s godot --headless --path . --script res://scripts/test_mobile_web_audio_recovery.gd 2>&1 | tee web-audio.log
+          grep -E '^MOBILE_WEB_AUDIO_RECOVERY: [0-9]+ passed, 0 failed$' web-audio.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL mobile-web-audio:' web-audio.log; then exit 1; fi
+      - name: Title Music SFX persistent settings regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_title_audio_parity.gd 2>&1 | tee title.log
+          grep -E '^TITLE_AUDIO_PARITY_REGRESSION: [0-9]+ passed, 0 failed$' title.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL title-audio:' title.log; then exit 1; fi
+      - name: Map advanced audio and mute settings regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_map_audio_options_stage5m.gd 2>&1 | tee map.log
+          grep -E '^UI_MAP_AUDIO_OPTIONS_PARITY: [0-9]+ passed, 0 failed$' map.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-map-audio:' map.log; then exit 1; fi
+      - name: Export real Godot web build without audio compile errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mobile-web-audio
+          timeout 160s godot --headless --path . --export-release "Web" /tmp/mobile-web-audio/index.html 2>&1 | tee export.log
+          test -s /tmp/mobile-web-audio/index.html
+          test -s /tmp/mobile-web-audio/index.pck
+          test -s /tmp/mobile-web-audio/index.wasm
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' export.log; then exit 1; fi
+      - name: Source guard for broken Web dynamic add_bus path
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -E '^\s*AudioServer\.add_bus\(' systems/audio_settings.gd; then exit 1; fi
+          grep -F 'AudioServer.bus_count = new_index + 1' systems/audio_settings.gd
+          git diff --check
