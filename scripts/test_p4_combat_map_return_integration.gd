@@ -205,9 +205,23 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				check(world.pending_reward.is_empty() and world.reward_receipts.count(failed_id)==1,
 					label+": final failed capture creates exactly one receipt and no monster reward")
 			else:
-				# Resolve through actual capture interface, regardless of random
-				# success/failure. Exhaustion automatically returns to the map.
-				for i in range(3):
+				# First capture is triggered via the REAL shared die button, not
+				# directly through the capture panel. Verify the stage die moves
+				# while the previously saved capture face stays authoritative.
+				var capture_start: Vector2=map.dice.position
+				check(not map.dice.disabled,label+": soul capture unlocks shared die button after victory")
+				map.dice.pressed.emit()
+				await create_timer(0.26).timeout
+				check(map.shared_die_busy and map.dice.position.distance_to(capture_start)>5.0,
+					label+": pressing postbattle reward die triggers actual map bounce, not frozen in-place wobble")
+				check(is_instance_valid(battle.capture_panel) and battle.capture_panel.busy,
+					label+": capture phase locks repeated die presses while it rolls")
+				var capture_finished: bool=await until_ready(func():
+					return not is_instance_valid(map.embedded_battle) or (is_instance_valid(battle.capture_panel) and not battle.capture_panel.busy),25000)
+				check(capture_finished,label+": real capture button finishes its animation and result")
+				# A second saved capture attempt is valid only when the first
+				# attempt missed and the result explicitly allows a retry.
+				for i in range(2):
 					if not is_instance_valid(map.embedded_battle): break
 					if session.world.pending_reward.is_empty(): break
 					if not is_instance_valid(battle.capture_panel): break

@@ -186,9 +186,18 @@ func roll() -> void:
 	busy = true
 	scene.busy = true
 	refresh()
-	await scene.dice_animation.roll_battle(scene.dice,scene.texture,scene.sound,wait)
+	if scene.embedded and is_instance_valid(scene.map_owner):
+		# Post-victory capture uses the same full-stage die and physical
+		# bouncing animation as the map and battle. roll_capture() has ALREADY
+		# committed the outcome; this is presentation only, with no new RNG.
+		await scene.map_owner.roll_shared_die(int(result.face),true)
+	else:
+		# Standalone battlefield has no persistent map die or map owner.
+		await scene.dice_animation.roll_battle(scene.dice,scene.texture,scene.sound,wait)
 	scene.dice.texture_normal = scene.texture("res://assets/battle/dice/result-%02d.png" % int(result.face))
-	scene.sound("dice-land")
+	# The shared map animation already plays the landing SFX.
+	if not (scene.embedded and is_instance_valid(scene.map_owner)):
+		scene.sound("dice-land")
 	await scene.cues.play_dice_result(int(result.face))
 	if result.success:
 		await wait(0.42)
