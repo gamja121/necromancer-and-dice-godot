@@ -1,0 +1,21 @@
+name: AI Task Stall Watchdog
+on:
+  schedule:
+    - cron: "11 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: ai-task-stall-watchdog
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diagnose stale tasks (no code/model execution)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tools/ai_runner/checkpoints.py watchdog --timeout 90 --retries 3
