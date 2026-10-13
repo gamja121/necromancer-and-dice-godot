@@ -31,6 +31,9 @@ var dice_cards: Array = []
 var brand_cards: Array = []
 var graveyard_corpses: Array = []
 var reward_receipts: Array = []
+# Run records survive reload. Existing version:1 saves default to a live run.
+var enemies_defeated: int = 0
+var run_result: Dictionary = {}
 var pending_reward: Dictionary = {}
 var next_serial = 2
 var move_serial = 0
@@ -150,7 +153,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -167,8 +170,14 @@ func restore(saved: Dictionary) -> bool:
 	if saved.contamination<0 or saved.contamination>100: return false
 	for field in ["dice_cards","brand_cards","graveyard_corpses","reward_receipts"]:
 		if saved.has(field) and not saved[field] is Array: return false
-	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result","event_flags","story_events"]:
+	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result","event_flags","story_events","run_result"]:
 		if saved.has(field) and not saved[field] is Dictionary: return false
+	if int(saved.get("enemies_defeated",0))<0: return false
+	var terminal: Dictionary = saved.get("run_result",{})
+	if not terminal.is_empty():
+		if terminal.get("reason","")!="battle_defeat" or terminal.get("ended",false)!=true: return false
+		for value in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
+			if not terminal.has(value) or int(terminal[value])<0: return false
 	var stored_flags: Dictionary = saved.get("event_flags",{})
 	for flag in stored_flags:
 		if not flag is String or str(flag).is_empty() or not stored_flags[flag] is bool: return false
@@ -221,6 +230,11 @@ func restore(saved: Dictionary) -> bool:
 	brand_cards = saved.get("brand_cards",[]).duplicate(true)
 	graveyard_corpses = saved.get("graveyard_corpses",[]).duplicate(true)
 	reward_receipts = saved.get("reward_receipts",[]).duplicate()
+	enemies_defeated = maxi(0,int(saved.get("enemies_defeated",0)))
+	run_result = saved.get("run_result",{}).duplicate(true)
+	if not run_result.is_empty():
+		for k in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
+			run_result[k] = int(run_result[k])
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
 	# JSON parses numeric card faces as floats. A chest's selected index,
 	# as well as blessing/curse faces inside its *offered brand cards*, must
