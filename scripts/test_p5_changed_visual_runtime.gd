@@ -8,6 +8,7 @@ const GRAVE = preload("res://systems/story_event_entry.gd")
 const RUMOR = preload("res://systems/village_rumor_entry.gd")
 const RUMOR_BEATS = preload("res://systems/village_rumor_beats.gd")
 const COMMANDER = preload("res://systems/knight_commander_entry.gd")
+const GATE = preload("res://systems/story_contamination_gate.gd")
 const BEATS = preload("res://systems/knight_commander_beats.gd")
 
 const CHANGED = [
@@ -104,6 +105,12 @@ func _run() -> void:
 	s.world.leave_home()
 	check(s.world.laps==1 and s.world.tiles.count("graveyard")==1,
 		"changed story art tested on first graveyard-unlocked board")
+	# This visual fixture follows the completed rescue into the commander.
+	# The first-discovery contamination requirement is a separate production
+	# gate; supply its exact minimum without inventing story progression.
+	s.world.contamination = int(GATE.MINIMUMS[COMMANDER.EVENT_ID])
+	s.world.reveal_boss_at_threshold()
+	check(s.save_world(),"changed-art fixture saves canonical commander contamination prerequisite")
 	var map: Control = MAP_SCENE.instantiate()
 	root.add_child(map)
 	current_scene = map
