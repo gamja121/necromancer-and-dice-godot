@@ -81,6 +81,8 @@ func check_scenario(session: Node, label: String, location_type: String, is_swam
 	clear_path(path)
 	session.save_file_path = path
 	session.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	session.world.contamination = 100
 	var world = session.world
 	var fixture: Dictionary = install_deterministic_landing(session,location_type)
 	check(not fixture.is_empty(),label+": preserved-tile-count board fixture generated")
@@ -144,6 +146,8 @@ func check_interrupted_move(session: Node) -> void:
 	clear_path(path)
 	session.save_file_path = path
 	session.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	session.world.contamination = 100
 	var world = session.world
 	var fixture: Dictionary = install_deterministic_landing(session,"rest")
 	check(not fixture.is_empty(),"interrupted: deterministic rest landing present")
