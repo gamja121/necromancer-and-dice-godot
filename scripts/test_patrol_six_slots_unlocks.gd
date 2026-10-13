@@ -55,7 +55,8 @@ func _run() -> void:
 		state.generate()
 		verify_fixed(state.tiles,"full six-choice contamination %d" % stage)
 		check(state.tiles.count("basic")>=2,"six optional monsters never consume two protected swamp roads at contamination %d" % stage)
-		check(state.tiles.count("monster")>=5 if stage<20 else state.tiles.count("monster")>=4,"automatic monsters retained even after boss reservation at %d" % stage)
+		var minimum_monsters: int=5 if stage<20 else 4
+		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
 		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==0,"no unapproved rest or premature swamp at contamination %d" % stage)
 		if stage>=20: check(state.tiles[23]=="boss","boss remains on 24th board slot at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
