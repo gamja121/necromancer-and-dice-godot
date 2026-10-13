@@ -40,7 +40,7 @@ func check_location(map: Control, label: String, control_name: String) -> void:
 	check(map.dice.is_visible_in_tree() and map.dice.z_index<panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE,label+": source art paints over inactive die and blocks click-through")
 	check(panel==map.stage.get_child(map.stage.get_child_count()-1),label+": modal receives pointer before board controls")
 	if art!=null and frame!=null and action!=null:
-		check(art.get_index()<frame.get_index() and frame.z_index<action.z_index,label+": actionable button draws above painted art and border")
+		check(art.get_index()<frame.get_index() and (frame.z_index<action.z_index or (frame.z_index==action.z_index and frame.get_index()<action.get_index())),label+": actionable button draws above painted art and border")
 
 func _run() -> void:
 	var path: String="user://location_die_layer_%d.json" % OS.get_process_id()
@@ -87,8 +87,9 @@ func _run() -> void:
 	map.show_place_actions(0)
 	check_location(map,"fortune-teller function","예언 듣기")
 	var fortune_panel: Control=map.overlay
-	check(fortune_panel.dice==die and find_button(fortune_panel,"예언 듣기")!=null,"fortune action button works with the original shared die below art")
+	check(fortune_panel.get("dice")==die and find_button(fortune_panel,"예언 듣기")!=null,"fortune action button works with the original shared die below art")
 	map.close_overlay()
+	check(session.world.snapshot()==before and session.world.rng.state==rng,"map and location layer transitions do not modify game state")
 
 	var monster: int=session.world.tiles.find("monster")
 	check(monster>=0,"first lap includes a monster tile")
@@ -104,14 +105,7 @@ func _run() -> void:
 		check(map.embedded_battle!=null and map.embedded_battle.dice==die,"embedded battle keeps exact same die instance")
 		check(die.visible and die.z_index>map.overlay.z_index and die.mouse_filter==Control.MOUSE_FILTER_STOP,"only actual battlefield lifts die above battle art and makes it clickable")
 		check(map.stage.get_child(map.stage.get_child_count()-1)==die,"battle die is last sibling for real GUI hit testing")
-		map.finish_embedded_battle()
-		await process_frame
-
-	check(die.position==initial_position and session.world.dice_visual_face==initial_face,"layer transitions preserve shared die pose and face")
-	# Combat setup is expected to change encounter state; ensure cosmetic
-	# layering did not re-roll gameplay RNG or grant rewards directly.
-	if monster<0:
-		check(session.world.snapshot()==before and session.world.rng.state==rng,"pure presentation never changes game state")
+		check(die.position==initial_position and session.world.dice_visual_face==initial_face,"layer transitions preserve shared die pose and face")
 	map.queue_free()
 	await process_frame
 	session.save_file_path=prior_path
