@@ -484,6 +484,10 @@ func render_units(values: Array) -> void:
 		for node in [sprite,bars[u.id],cards[u.id]]:
 			node.visible = not visuals.removed.has(u.id)
 	visuals.sync(values)
+	# Dock cards are appended to the map stage AFTER the battle viewport.
+	# Re-raise the single shared die for mouse hit-testing, not just drawing.
+	if uses_map_tile_dock() and is_instance_valid(map_owner):
+		map_owner.raise_shared_die_for_input()
 
 func wait_time(seconds: float) -> void:
 	var remaining = seconds
