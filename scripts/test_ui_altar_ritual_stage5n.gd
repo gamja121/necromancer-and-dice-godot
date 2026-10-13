@@ -29,8 +29,13 @@ func _run() -> void:
 	session.save_file_path=save
 	session.start_new_world()
 	var world=session.world
+	# The first map intentionally excludes altar. Put one in an ordinary
+	# road slot for this isolated ritual save/restore test only.
 	var index: int=world.tiles.find("altar")
-	check(index>=0,"generated 24-tile map includes the original ritual altar")
+	if index<0:
+		index=world.tiles.find("basic")
+		if index>=0: world.tiles[index]="altar"
+	check(index>=0,"unlocked ritual altar can be tested without altering first-lap rules")
 	check(world.roster.size()>=2,"altar fixture has two distinct units")
 	if index<0 or world.roster.size()<2:
 		session.save_file_path=old_path
