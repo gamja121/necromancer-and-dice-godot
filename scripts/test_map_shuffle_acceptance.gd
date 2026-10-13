@@ -1,11 +1,11 @@
 extends SceneTree
-## Final map-shuffle acceptance: repeated laps, duplicate input, save rollback,
+## Final gather/one-notch/exchange acceptance: repeated laps, double input, save rollback,
 ## cleaned visuals/audio and readback of the persisted world.
 ## Run: godot --headless --path . --script res://scripts/test_map_shuffle_acceptance.gd
 
 const MapScene = preload("res://map.tscn")
 const MapState = preload("res://systems/map_state.gd")
-const Gather = preload("res://systems/map_shuffle_gather.gd")
+const Gear = preload("res://systems/map_gear_shift.gd")
 const ROUNDS = 3
 const STATE_KEYS = [
 	"tiles", "map_serial", "laps", "contamination", "rng_seed",
@@ -35,7 +35,7 @@ func active_shuffle_count(map: Control) -> int:
 		return -1
 	var count := 0
 	for node in map.stage.get_children():
-		if node.get_script() == Gather:
+		if node.get_script() == Gear:
 			count += 1
 	return count
 
