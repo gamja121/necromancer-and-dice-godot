@@ -745,6 +745,9 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	host.add_child(viewport)
 	var battle = Battlefield.instantiate()
 	battle.embedded = true
+	# Only the freshly confirmed deck triggers the black-silhouette intro.
+	# Saved encounters are opened with animate_lock=false and skip it.
+	battle.play_entry_summon = animate_lock
 	battle.detail_parent = stage
 	battle.external_dice_deck_button = deck_button
 	battle.external_dice_deck_count_label = dice_count_label

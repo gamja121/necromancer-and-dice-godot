@@ -1,0 +1,61 @@
+name: Allied magic-circle silhouette entry
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "battlefield.gd"
+      - "systems/battle_visuals.gd"
+      - "scripts/test_battle_entry_summon.gd"
+      - "scripts/test_p4_combat_map_return_integration.gd"
+      - ".github/workflows/battle-entry-summon.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "battlefield.gd"
+      - "systems/battle_visuals.gd"
+      - "scripts/test_battle_entry_summon.gd"
+      - "scripts/test_p4_combat_map_return_integration.gd"
+      - ".github/workflows/battle-entry-summon.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  battle-entry-summon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot sprites, shaders and scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Summon 1, 2 and 4 allies with a circle and black-to-art reveal
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 250s godot --headless --path . --script res://scripts/test_battle_entry_summon.gd 2>&1 | tee summon.log
+          grep -E '^BATTLE_ENTRY_SUMMON: [0-9]+ passed, 0 failed$' summon.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|^FAIL entry-summon:' summon.log; then exit 1; fi
+      - name: Existing deck selection and bottom card order
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 250s godot --headless --path . --script res://scripts/test_battle_formation_order.gd 2>&1 | tee formation.log
+          grep -E '^BATTLE_FORMATION_ORDER: [0-9]+ passed, 0 failed$' formation.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL battle-formation-order:' formation.log; then exit 1; fi
+      - name: Actual battle, reward and map return
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 500s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee battle.log
+          grep -E '^P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed$' battle.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-combat:' battle.log; then exit 1; fi
+      - name: Whitespace check
+        run: git diff --check

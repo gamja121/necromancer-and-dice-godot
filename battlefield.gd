@@ -1,8 +1,12 @@
 extends Control
 
 signal finished
+signal entry_summon_finished
 
 var embedded = false
+# Set only by freshly confirmed deck; saved/reloaded encounters skip the intro.
+var play_entry_summon: bool = false
+var entry_summon_active: bool = false
 var detail_parent: Control
 var surface_size = Vector2(1280,720)
 
@@ -127,6 +131,8 @@ func _ready() -> void:
 	audio.finished.connect(audio.play)
 	if DisplayServer.get_name() != "headless": audio.play()
 	reset_battle()
+	if play_entry_summon and embedded and map_mode and not rules.units.is_empty() and rules.round_number==0 and session.encounter.get("phase","ready")=="ready":
+		begin_entry_summon()
 	if map_mode and session.world.pending_reward.get("kind","")=="capture": begin_capture()
 	elif map_mode and not session.encounter.is_empty() and session.encounter.get("phase","ready")!="ready":
 		resume_battle()
@@ -357,6 +363,39 @@ void fragment() {
 		button(layer,"새 전투",Vector2(582,664),Vector2(116,32),func():
 			if not busy: reset_battle())
 
+# This is a one-shot presentation gate, not a new turn or encounter phase.
+# Keep the real shared die and deck disabled until all chosen allies emerge.
+func begin_entry_summon() -> void:
+	if entry_summon_active or not is_instance_valid(visuals): return
+	var ids: Array=visuals.prepare_entry_summon()
+	if ids.is_empty(): return
+	entry_summon_active=true
+	dice.disabled=true
+	set_deck_disabled(true)
+	for card in cards.values(): card.disabled=true
+	call_deferred("_play_entry_summon",ids)
+
+func _play_entry_summon(ids: Array) -> void:
+	# Wait for the existing opening veil to disappear, but leave the saved
+	# encounter rules/dice outcome untouched.
+	await get_tree().create_timer(0.43).timeout
+	if not is_inside_tree(): return
+	for id in ids:
+		await visuals.play_entry_summon_unit(str(id))
+		if not is_inside_tree(): return
+	visuals.clear_entry_summon()
+	entry_summon_active=false
+	if is_instance_valid(capture_panel):
+		refresh_after_entry_capture()
+	else:
+		dice.disabled=false
+		set_deck_disabled(false)
+		for card in cards.values(): card.disabled=false
+	entry_summon_finished.emit()
+
+func refresh_after_entry_capture() -> void:
+	if is_instance_valid(capture_panel): capture_panel.refresh()
+
 func battle_background_path() -> String:
 	var region = session.world.region if map_mode else "winter"
 	var names = {"default":"dark-forest","winter":"snow-forest","hell":"lava-forest"}
@@ -520,6 +559,10 @@ func sound(kind: String) -> void:
 	player.play()
 
 func roll_round(instance_id: String = "") -> void:
+	# Scripted resume/tests can request a round while the intro is still
+	# running; queue it behind the visual gate rather than dropping the roll.
+	if entry_summon_active:
+		await entry_summon_finished
 	if busy or is_instance_valid(capture_panel) or is_instance_valid(brand_reference): return
 	if not map_mode and not rules.winner().is_empty(): return
 	var phase = str(session.encounter.get("phase","ready")) if map_mode else "ready"
@@ -630,6 +673,7 @@ func set_deck_button_style(open: bool) -> void:
 		dice_cards_button.add_theme_stylebox_override(state,style)
 
 func show_dice_hand() -> void:
+	if entry_summon_active: return
 	close_brand_reference()
 	if not map_mode or busy or is_instance_valid(capture_panel) or not rules.winner().is_empty() or session.encounter.get("phase","ready")!="ready": return
 	if is_instance_valid(dice_hand): return
@@ -678,7 +722,7 @@ func cycle_speed() -> void:
 	speed_button.text = "×%d" % (speed_index+1)
 
 func show_detail(u: Dictionary) -> void:
-	if busy or u.is_empty(): return
+	if busy or entry_summon_active or u.is_empty(): return
 	close_brand_reference()
 	close_detail()
 	selected_card = u.id
@@ -814,7 +858,7 @@ func begin_capture() -> void:
 	capture_panel.setup(self)
 
 func can_open_brand_reference() -> bool:
-	if busy or is_instance_valid(capture_panel) or rules == null: return false
+	if busy or entry_summon_active or is_instance_valid(capture_panel) or rules == null: return false
 	if not rules.winner().is_empty(): return false
 	return not map_mode or session.encounter.get("phase","ready")=="ready"
 

@@ -95,6 +95,11 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 		map.queue_free()
 		return
 	var battle: Control = map.embedded_battle
+	# Real first-entrance summon must finish before this legacy test checks
+	# normal clickable-card and dice states (resume has no intro).
+	if battle.entry_summon_active:
+		check(await until_ready(func(): return not battle.entry_summon_active,16000),
+			label+": black-silhouette summon finishes before first combat input")
 	check(battle.embedded and battle.map_mode and battle.session == session,label+": battlefield is connected to current RunSession")
 	check(battle.dice==map.dice and map.dice.get_parent()==map.stage and map.dice.is_visible_in_tree(),
 		label+": original stage die is the battle die, with no recreated center button")
