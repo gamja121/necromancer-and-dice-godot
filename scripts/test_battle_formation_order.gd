@@ -68,6 +68,9 @@ func scenario(session: Node, count: int) -> void:
 	var geometry_matches: bool=true
 	var dock_matches: bool=true
 	var card_inside_board: bool=true
+	var larger_cards: bool=true
+	var card_rectangles: Array[Rect2]=[]
+	var no_card_overlap: bool=true
 	var old_columns: Array=[4,3,2,1,5]
 	var original_positions: bool=true
 	var original_depth: bool=true
@@ -94,7 +97,20 @@ func scenario(session: Node, count: int) -> void:
 		dock_matches=dock_matches and card.get_parent()==map.stage and absf(card.position.x+card.size.x*0.5-canvas_to_map.x)<0.5
 		dock_matches=dock_matches and absf(card.position.y-battle.MAP_BOTTOM_TILE_CARD_Y)<0.5
 		card_inside_board=card_inside_board and card.position.x>=0.0 and card.position.x+card.size.x<=map.stage.size.x and card.position.y>=0.0 and card.position.y+card.size.y<=map.stage.size.y
+		# The embedded battle's cards are mounted on the MAP stage: grow
+		# their art and hit target without moving the original V2 monster.
+		larger_cards=larger_cards and absf(card.size.y-120.0)<0.2 and absf(card.size.x-120.0*battle.DOCK_CARD_ASPECT)<0.2
+		larger_cards=larger_cards and absf(card.position.y-552.0)<0.2
+	# Every actual bottom card (including enemies) must stay within the
+	# board and avoid covering another monster's click target.
 	for u in battle.rules.units:
+		var entry_card: TextureButton=battle.cards[u.id]
+		var rect: Rect2=Rect2(entry_card.position,entry_card.size)
+		larger_cards=larger_cards and absf(entry_card.size.y-120.0)<0.2 and absf(entry_card.size.x-120.0*battle.DOCK_CARD_ASPECT)<0.2
+		card_inside_board=card_inside_board and rect.position.x>=0.0 and rect.end.x<=map.stage.size.x and rect.position.y>=0.0 and rect.end.y<=map.stage.size.y
+		for previous in card_rectangles:
+			if rect.intersects(previous): no_card_overlap=false
+		card_rectangles.append(rect)
 		if u.team=="enemy":
 			var enemy_columns: Array=[2,3,4,5,1]
 			var original_x: float=665.6+(float(enemy_columns[mini(int(u.slot),4)])-0.5)*122.88
@@ -112,7 +128,9 @@ func scenario(session: Node, count: int) -> void:
 	for i in range(1,dock_centers.size()):
 		descending_dock=descending_dock and dock_centers[i]<dock_centers[i-1]
 	check(dock_centers.size()==count and descending_dock,"%d cards: lower cards retain original V2 staggered order" % count)
-	check(card_inside_board,"%d cards: all allied cards remain inside playable board bounds" % count)
+	check(card_inside_board,"%d cards: all enlarged cards remain inside playable board bounds" % count)
+	check(larger_cards,"%d cards: both teams' mapped dock cards are enlarged to 120px, 42 percent over previous size" % count)
+	check(no_card_overlap,"%d cards: enlarged card clickable rectangles do not intersect" % count)
 	check(enemies_unaltered,"%d cards: original enemy formation is unchanged" % count)
 	var fifth: Dictionary={"slot":4,"team":"ally"}
 	check(absf(layout.horizontal_center(fifth,battle.surface_size)-(4.5*battle.surface_size.x*0.48/5.0))<0.2,

@@ -54,7 +54,11 @@ const DOCK_CARD_ASPECT = 370.0 / 540.0
 # On embedded map battles the monster cards sit directly ON the bottom
 # stone tile row, centered vertically near its original y=612 tile centers.
 # The central battle viewport ends at y=576: no cards remain in that viewport.
-const MAP_BOTTOM_TILE_CARD_Y = 576.0
+const MAP_BOTTOM_TILE_CARD_Y = 552.0
+# The persistent map-stage cards were too small (84.8px high).
+# Increase only map-embedded battle cards, preserving the original
+# 16dvh dock used by standalone/legacy battle windows.
+const MAP_BOTTOM_TILE_CARD_HEIGHT = 120.0
 const DOCK_DEATH_SHADER_SOURCE = """
 shader_type canvas_item;
 uniform float death_factor : hint_range(0.0, 1.0) = 0.0;
@@ -408,7 +412,9 @@ func dock_card_height() -> float:
 	return clampf(surface_size.y*0.16,72.0,118.0)
 
 func dock_card_size() -> Vector2:
-	var h: float=dock_card_height()
+	# Cards mounted on the map's bottom tile row remain large and touchable.
+	# Do not scale the source battlefield or its original standalone dock.
+	var h: float=MAP_BOTTOM_TILE_CARD_HEIGHT if uses_map_tile_dock() else dock_card_height()
 	return Vector2(h*DOCK_CARD_ASPECT,h)
 
 func uses_map_tile_dock() -> bool:
