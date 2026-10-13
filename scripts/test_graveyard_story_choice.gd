@@ -35,6 +35,8 @@ func _make(suffix: String):
 	paths.append(path)
 	_delete(path)
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
 	_check(s.has_save(),"isolated session saved")
 	s.world.position = s.world.tiles.find("graveyard")
 	return s
