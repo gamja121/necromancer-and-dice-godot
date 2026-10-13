@@ -103,7 +103,9 @@ func prepare_dice_target(session: Node, kind: String, label: String) -> int:
 	var source_index: int=world.tiles.find(kind)
 	# World tree and altar are intentionally absent from this progression
 	# stage; their story branches are still reachable through event tiles.
-	if source_index<0 and kind in ["unknown","altar"]:
+	if source_index<0 and kind in ["unknown","altar","forest"]:
+		# Portal is valid on a forest OR event tile. The generated board may
+		# not retain forest after contamination-driven shuffles.
 		source_index=world.tiles.find("event")
 	if source_index<0: return -1
 	if source_index!=candidate:

@@ -144,14 +144,17 @@ func portal(session: Node) -> void:
 	check(ALTAR.advance(session,altar_index,0) and ALTAR.advance(session,altar_index,1),"portal: altar continues all original scenes")
 	check(ALTAR.choose(session,altar_index,2,"pass") and ALTAR.finish(session,altar_index) and ALTAR.completed(session),"portal: original altar Finish unlocks source quest, not a forged portal state")
 	var forest_index: int=world.tiles.find("forest")
+	# Natural post-lap boards may lack a forest; the production portal also
+	# permits an event tile. Keep the tile type and story prerequisites real.
+	if forest_index<0: forest_index=world.tiles.find("event")
 	world.position=forest_index
-	check(forest_index>=0 and session.save_world(),"portal: original forest tile saved with genuinely unseen portal")
+	check(forest_index>=0 and session.save_world(),"portal: eligible forest/event tile saved with genuinely unseen portal")
 	var map: Control=await map_load(session)
 	check(not is_instance_valid(map.overlay) and session.get_story_event(PORTAL.EVENT_ID).status=="unseen","portal: reload at unseen forest never invents portal discovery")
 	for i in range(3): await process_frame
 	map.queue_free()
 	await process_frame
-	check(PORTAL.begin(session,forest_index),"portal: production portal discovery saved at real forest")
+	check(PORTAL.begin(session,forest_index),"portal: production portal discovery saved at valid forest/event tile")
 	map=await map_load(session)
 	check(button_in(map,"계속")!=null and PORTAL.current_beat(session)==0,"portal: reopened first known forest scene restores original UI")
 	for beat in range(4):
