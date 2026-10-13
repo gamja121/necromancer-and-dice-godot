@@ -3,12 +3,12 @@ extends RefCounted
 const DEPTH = [0.94,1.01,1.08,1.14,0.88]
 const OFFSET = [-0.03,0.02,0.07,0.11,-0.06]
 const Z = [13,15,17,18,12]
-# Restore the original V2 battlefield formation: allies form a
-# perspective stagger towards the CENTER, with slot 1 nearest the enemy.
-# The fifth (summoned) unit retains its original independent column 5.
-# Prebattle selection IDs stay in their chosen order; sprite, HP and dock
-# cards must follow the same *physical* slot, not reverse independently.
-const ALLY_COLUMNS = [4,3,2,1,5]
+# The player's deck selection is left-to-right: slot 0 is the leftmost
+# ally on the battlefield, slot 3 is the rightmost selected ally.
+# Sprite, HP bar and dock card share horizontal_center(), so never reverse
+# those positions after the deck is confirmed. Slot 4 is reserved for summons.
+# Enemy formation, depth and target probabilities are independent.
+const ALLY_COLUMNS = [1,2,3,4,5]
 const ENEMY_COLUMNS = [2,3,4,5,1]
 const RATIOS = {"bone-golem":1.5,"death-knight":1.0,"plague-frog":0.5,"grave-worm":0.5,"spider-knight":2.0,"stone-golem":2.0,"flesh-golem":1.5,"skeleton-cavalry":1.5,"spiderling":0.5,"guardian-seed":0.5,"goblin-chief":1.5,"kraken":2.0,"minotaur":1.5,"goblin-rider":1.0,"yeti":1.5,"orc-warrior":1.5,"hydra":2.0,"boulder-ogre":1.5,"abyss-claw-hunter":1.5,"corpse-slime":1.0}
 var metrics: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/battle_visual_metrics.json"))
