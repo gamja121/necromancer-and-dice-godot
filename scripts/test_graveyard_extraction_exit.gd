@@ -22,7 +22,7 @@ func find_button(panel: Control, text_value: String) -> Button:
 		if child is Button and child.text==text_value: return child
 	return null
 
-func until(predicate: Callable, max_frames: int = 180) -> bool:
+func wait_for(predicate: Callable, max_frames: int = 180) -> bool:
 	for i in range(max_frames):
 		if predicate.call(): return true
 		await process_frame
@@ -66,8 +66,8 @@ func _run() -> void:
 		return
 	entry.pressed.emit()
 	var panel: Control = map.overlay
-	check(panel is EXTRACTION,"actual extraction panel opens through original location action")
-	if not panel is EXTRACTION:
+	check(panel.get_script() == EXTRACTION,"actual extraction panel opens through original location action")
+	if panel.get_script() != EXTRACTION:
 		quit(1)
 		return
 	var close: Button = panel.get_node_or_null("GraveyardExtractClose")
@@ -81,14 +81,14 @@ func _run() -> void:
 	# Keep the traditional 'close to location' navigation as well.
 	if is_instance_valid(close):
 		close.pressed.emit()
-		check(await until(func(): return find_button(map.overlay,"나가기")!=null),"close returns to original location screen")
+		check(await wait_for(func(): return find_button(map.overlay,"나가기")!=null),"close returns to original location screen")
 		map.close_overlay()
 	map.show_location(grave)
 	entry = find_button(map.overlay,"시체 파헤치기")
 	if entry!=null: entry.pressed.emit()
 	panel = map.overlay
-	check(panel is EXTRACTION,"graveyard can be reopened after ordinary close")
-	if panel is EXTRACTION:
+	check(panel.get_script() == EXTRACTION,"graveyard can be reopened after ordinary close")
+	if panel.get_script() == EXTRACTION:
 		var id: String = str(corpse.id)
 		check(panel.corpse_options.has(id),"the deceased card is still selectable")
 		if panel.corpse_options.has(id):
@@ -103,7 +103,7 @@ func _run() -> void:
 				check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"extraction receipt is committed")
 				check(is_instance_valid(panel.graveyard_exit_button) and not panel.graveyard_exit_button.disabled,"exit survives re-render after extraction")
 				panel.graveyard_exit_button.pressed.emit()
-				check(await until(func(): return not is_instance_valid(map.overlay)),"one-click exit returns directly to the playable map")
+				check(await wait_for(func(): return not is_instance_valid(map.overlay)),"one-click exit returns directly to the playable map")
 				check(map.dice.visible and not map.dice.disabled,"map dice reactivated after leaving extraction")
 				var saved: Dictionary = session.world.snapshot().duplicate(true)
 				session.reload_world()
@@ -113,7 +113,7 @@ func _run() -> void:
 				check(is_instance_valid(map.overlay) and is_instance_valid(map.overlay.graveyard_exit_button),"corpse-free return path retains map exit")
 				if is_instance_valid(map.overlay):
 					map.overlay.graveyard_exit_button.pressed.emit()
-					check(await until(func(): return not is_instance_valid(map.overlay)),"corpse-free extraction cannot trap the player")
+					check(await wait_for(func(): return not is_instance_valid(map.overlay)),"corpse-free extraction cannot trap the player")
 				# On a legitimately reopened location the action is spent, but
 				# the standard exit remains available.
 				map.show_location(grave)
