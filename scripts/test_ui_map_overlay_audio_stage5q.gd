@@ -99,13 +99,22 @@ func _run() -> void:
 		check(is_instance_valid(map.overlay) and is_blocked(map), "nested prophecy actions also hide map sound controls")
 		map.close_overlay()
 		check(is_unblocked(map), "leaving prophecy actions restores board sound icon")
+	# The first lap intentionally has no world tree. Use a temporary road
+	# only in this isolated visual test and restore it before save comparisons.
 	var unknown: int = session.world.tiles.find("unknown")
-	check(unknown>=0, "fixed map contains world-tree prayer")
+	var temporary_world_tree: bool = false
+	if unknown < 0:
+		unknown = session.world.tiles.find("basic")
+		if unknown >= 0:
+			session.world.tiles[unknown] = "unknown"
+			temporary_world_tree = true
+	check(unknown>=0, "world-tree prayer can be inspected without changing first-lap rules")
 	if unknown>=0:
 		map.show_exploration_actions(unknown)
 		check(is_instance_valid(map.overlay) and is_blocked(map), "world-tree action screen does not expose overlapping audio UI")
 		map.close_overlay()
 		check(is_unblocked(map), "world-tree action close restores map icon")
+	if temporary_world_tree: session.world.tiles[unknown] = "basic"
 	map.show_home()
 	check(is_instance_valid(map.overlay) and is_blocked(map), "home exterior scene hides audio UI like source event art")
 	map.close_overlay()
