@@ -76,6 +76,8 @@ var dice: TextureButton
 # The 24 perimeter tiles form a wall; the painted die (including rotation)
 # must stay inside the open central board, on map AND in combat.
 const SHARED_DIE_AREA = Rect2(150.0,140.0,980.0,416.0)
+const DIE_FOREGROUND_Z = 96
+const DIE_BEHIND_LOCATION_Z = 20
 var shared_die_busy: bool = false
 var status: Label
 
@@ -179,30 +181,34 @@ func raise_shared_die_for_input() -> void:
 		stage.move_child(dice,stage.get_child_count()-1)
 
 func _sync_map_chrome() -> void:
-	# The map keeps its single die node, but modal card/location screens must
-	# never show a disabled die ON TOP of their choices or consume their clicks.
-	var show_board_controls: bool = not is_instance_valid(overlay) or overlay is InventoryPanel
-	var central_battle: bool = is_instance_valid(overlay) and overlay.name=="CentralBattle"
-	var die_action: bool = (overlay is ExplorationActions and overlay.type=="unknown") or (overlay is PlaceActions and overlay.type=="fortune-teller-camp")
-	# Keep source location art and story overlays' shared die visible,
-	# but never float it over the PRE-BATTLE CARD SELECTOR.
-	var show_die: bool = not (overlay is BattleDeck)
+	# A single persistent die changes PAINT and INPUT priority with the scene.
+	# Only the actual battlefield puts it over foreground art and controls.
+	var has_overlay: bool = is_instance_valid(overlay)
+	var central_battle: bool = has_overlay and overlay.name=="CentralBattle"
+	var foreground_die: bool = not has_overlay or central_battle
+	var show_board_controls: bool = not has_overlay or overlay is InventoryPanel
+	var show_die: bool = not (overlay is BattleDeck or overlay is HomeInheritance)
 	for control in map_chrome:
 		if not is_instance_valid(control): continue
 		var battle_book_or_deck: bool = control == book_button or control == deck_button or control == dice_count_label
 		control.visible = show_die if control == dice else (show_board_controls or (central_battle and battle_book_or_deck))
-	# z_index draws the die over the battle art but does NOT determine GUI
-	# hit-testing order. Put it last among stage siblings so its pressed
-	# signal is actually reachable inside CentralBattle and action panels.
-	if show_die: raise_shared_die_for_input()
+	if is_instance_valid(dice):
+		dice.z_index = DIE_FOREGROUND_Z if foreground_die else DIE_BEHIND_LOCATION_Z
+		# Godot GUI input depends on sibling order, NOT z_index alone.
+		# Make the shared die the LAST sibling in battle/map only; a location
+		# overlay must retain both painting and click precedence.
+		if foreground_die and show_die:
+			raise_shared_die_for_input()
+		elif has_overlay and overlay.get_parent()==stage:
+			stage.move_child(overlay,stage.get_child_count()-1)
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		presentation.gauge.visible = show_board_controls
-	# During scene switches do not reenable a currently rolling die.
+	# Keep existing saved face, button and role-specific gameplay rules.
 	if is_instance_valid(dice) and not shared_die_busy: refresh_shared_die_input()
-	# In non-action location modals the die remains painted (legacy UI
-	# contract), but cannot steal any pointer events from the dialogue.
+	# Location functions are triggered by their own topmost UI buttons;
+	# even the fortune/tree panels must not allow clicks through the painting.
 	if is_instance_valid(dice):
-		dice.mouse_filter = Control.MOUSE_FILTER_IGNORE if (is_instance_valid(overlay) and not central_battle and not die_action) else Control.MOUSE_FILTER_STOP
+		dice.mouse_filter = Control.MOUSE_FILTER_STOP if foreground_die else Control.MOUSE_FILTER_IGNORE
 
 func _ready() -> void:
 	DisplayServer.window_set_title("Necromancer and Dice")
@@ -334,7 +340,7 @@ func render() -> void:
 	dice.size = Vector2(76,76)
 	dice.position = shared_dice_position()
 	dice.rotation_degrees = world.dice_visual_rotation
-	dice.z_index = 96
+	dice.z_index = DIE_FOREGROUND_Z
 	dice.tooltip_text = "주사위 · 멈춘 자리에서 다시 누르기"
 	dice.pressed.connect(on_shared_die_pressed)
 	stage.add_child(dice)
@@ -832,7 +838,9 @@ func location_scene_image(parent: Control, path: String) -> TextureRect:
 	frame.patch_margin_right = 170
 	frame.patch_margin_top = 150
 	frame.patch_margin_bottom = 150
-	frame.z_index = 10
+	# Frame belongs to the painting, not a top-level glass layer over
+	# buttons/text built after location_scene_image().
+	frame.z_index = 0
 	parent.add_child(frame)
 	return scene_art
 
@@ -936,6 +944,8 @@ func move_from_hill(index: int, steps: int) -> void:
 
 func location_button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, variant: int = 1) -> Button:
 	var node = button(parent,title,pos,dimensions,callback)
+	# Location actions must draw over both the source painting and its frame.
+	node.z_index = 11
 	var style = StyleBoxTexture.new()
 	style.texture = texture("res://assets/map/ui/parchment_button_variant_%02d.png" % variant)
 	style.content_margin_left = 10
