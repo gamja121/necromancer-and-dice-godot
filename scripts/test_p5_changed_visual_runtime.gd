@@ -8,6 +8,7 @@ const GRAVE = preload("res://systems/story_event_entry.gd")
 const RUMOR = preload("res://systems/village_rumor_entry.gd")
 const RUMOR_BEATS = preload("res://systems/village_rumor_beats.gd")
 const COMMANDER = preload("res://systems/knight_commander_entry.gd")
+const GATE = preload("res://systems/story_contamination_gate.gd")
 const BEATS = preload("res://systems/knight_commander_beats.gd")
 
 const CHANGED = [
@@ -127,6 +128,16 @@ func _run() -> void:
 	var village_idx: int = s.world.tiles.find("village")
 	check(grave_idx >= 0 and village_idx >= 0, "story target tiles exist")
 	if grave_idx >= 0 and village_idx >= 0:
+		# Each story's first discovery uses its actual contamination gate.
+		# The previous artwork fixture stopped at first-lap +7 and then
+		# attempted graveyard (>=10), village rumor (>=15), and commander
+		# (>=20) without meeting any threshold, causing 40 false failures.
+		# This changes only the isolated test world, never production rules.
+		var target_contamination: int = int(GATE.MINIMUMS[COMMANDER.EVENT_ID])
+		check(target_contamination >= int(GATE.MINIMUMS[GRAVE.EVENT_ID])
+			and target_contamination >= int(GATE.MINIMUMS[RUMOR.RESCUED_ID]),
+			"test starts at a contamination value satisfying all three source story gates")
+		s.world.contamination = target_contamination
 		s.world.position = grave_idx
 		check(GRAVE.begin(s, grave_idx), "real graveyard child story discovery")
 		check(GRAVE.choose(s, grave_idx, "protect_child"), "real rescue choice saved")
