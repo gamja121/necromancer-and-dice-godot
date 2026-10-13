@@ -75,14 +75,14 @@ func _run() -> void:
 		map.show_location(rest)
 		check(is_instance_valid(map.overlay),"real location art opens")
 		check(painted_center(map.dice).distance_to(pose+DIE_SIZE*0.5)<0.05,"painting does not shift die behind it")
-		var before_die: Control=map.dice
+		var before_die_id: int=map.dice.get_instance_id()
 		var exit_button: Button=null
 		for node in map.overlay.get_children():
 			if node is Button and node.text=="나가기": exit_button=node
 		check(exit_button!=null,"painted tile has real exit button")
 		if exit_button!=null:
 			exit_button.pressed.emit()
-			var back: bool=await wait_until(func(): return not is_instance_valid(map.overlay) and is_instance_valid(map.dice) and map.dice!=before_die)
+			var back: bool=await wait_until(func(): return not is_instance_valid(map.overlay) and is_instance_valid(map.dice) and map.dice.get_instance_id()!=before_die_id)
 			check(back,"actual tile exit redraws playable board")
 			if back: preserved_pose(map,pose,rotation,"after tile art exit")
 	# Changing the die's visual pose during a battle must survive another
@@ -93,10 +93,10 @@ func _run() -> void:
 		session.world.position=monster
 		var ids: Array=[str(session.world.roster[0].id),str(session.world.roster[1].id)]
 		check(session.start_encounter(monster,ids),"isolated battle starts from real units")
-		# Enemy selection legitimately consumes RNG; returns/redraws must not.
-		var rng_before_return: int=session.world.rng.state
 		map.open_embedded_battle(false)
 		await process_frame
+		# Enemy selection and battlefield setup legitimately consume RNG.
+		var rng_before_return: int=session.world.rng.state
 		check(is_instance_valid(map.embedded_battle) and map.embedded_battle.dice==map.dice,"battle reuses original single stage die")
 		var battle_pose:=Vector2(800,220)
 		var battle_rotation:=123
@@ -114,6 +114,8 @@ func _run() -> void:
 		session.reload_world()
 		map.world=session.world
 		map.render()
+		await process_frame
+		await process_frame
 		preserved_pose(map,battle_pose,battle_rotation,"after full save reload")
 	map.queue_free()
 	await process_frame
