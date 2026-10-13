@@ -62,21 +62,12 @@ jobs:
           timeout 120s godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee exit.log
           grep -E '^MAP_SHUFFLE_HOME_EXIT: [0-9]+ passed, 0 failed$' exit.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL shuffle-home:' exit.log; then exit 1; fi
-      - name: Existing three-lap full acceptance and save-failure rollback
+      - name: Existing three-lap acceptance and rollback
         shell: bash
         run: |
           set -euo pipefail
           timeout 150s godot --headless --path . --script res://scripts/test_map_shuffle_acceptance.gd 2>&1 | tee acceptance.log
-          grep -E '^MAP_SHUFFLE_ACCEPTANCE: [0-9]+ passed, 0 failed
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 130s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss.log
-          grep -E '^MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed$' boss.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' boss.log; then exit 1; fi
-      - name: Patch whitespace
-        run: git diff --check
- acceptance.log
+          grep -E '^MAP_SHUFFLE_ACCEPTANCE: [0-9]+ passed, 0 failed$' acceptance.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL map-acceptance:' acceptance.log; then exit 1; fi
       - name: Boss tile and contamination threshold regression
         shell: bash
