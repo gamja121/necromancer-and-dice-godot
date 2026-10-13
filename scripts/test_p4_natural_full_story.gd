@@ -12,6 +12,77 @@ const PORTAL = preload("res://systems/ritual_portal_entry.gd")
 const HUNT = preload("res://systems/monster_king_hunt_entry.gd")
 const HUNT_BEATS = preload("res://systems/monster_king_hunt_beats.gd")
 
+# Resolve incidental mimics through the actual chest, deck, battlefield and
+# corpse-capture interfaces. The journey keeps the naturally drawn die faces,
+# generated tiles, quest states and authentic battle/capture receipts.
+func incidental_overlay(session: Node, map: Control, label: String) -> bool:
+	if str(session.world.pending_reward.get("kind","")) != "mimic":
+		return await super.incidental_overlay(session,map,label)
+	var original_receipt: String = str(session.world.pending_reward.get("id",""))
+	var deck_ready: bool = await until_ready(func(): return is_deck(map), 16000)
+	check(deck_ready,"incident " + label + ": real chest reveals mimic and offers the real deck")
+	if not deck_ready: return false
+	var deck: Control = map.overlay
+	var selected: Array = []
+	for owned in session.world.roster:
+		if int(owned.current_hp) > 0:
+			selected.append(str(owned.id))
+		if selected.size() == 2: break
+	check(not selected.is_empty(),"incident " + label + ": existing living monsters can face mimic")
+	if selected.is_empty(): return false
+	for id in selected: deck.toggle_unit(id)
+	check(deck.selected_ids.size() == selected.size() and not deck.confirm_button.disabled,"incident " + label + ": original deck confirms living monsters")
+	deck.confirm_button.pressed.emit()
+	var started: bool = await until_ready(func(): return is_instance_valid(map.embedded_battle) and not map.embedded_battle.rules.units.is_empty(), 16000)
+	check(started,"incident " + label + ": genuine mimic encounter starts in embedded battlefield")
+	if not started: return false
+	var battle: Control = map.embedded_battle
+	check(str(session.encounter.get("type","")) == "mimic","incident " + label + ": encounter is canonical mimic, not synthetic story battle")
+	# Fixture adjusts combat strength only, as in the rescue and portal tests.
+	# It never assigns a victory, capture outcome, dice face or quest receipt.
+	for unit in battle.rules.units:
+		unit.passive = ""
+		unit.brands = []
+		unit.poison = []
+		unit.frozen = false
+		unit.undying_used = false
+		unit.shields = 0
+		unit.curse = {}
+		unit.bless = {}
+		var ally: bool = unit.team == "ally"
+		unit.base_attack = 999 if ally else 0
+		unit.attack = unit.base_attack
+		unit.base_speed = 999 if ally else 0
+		unit.speed = unit.base_speed
+		if not ally: unit.hp = 1
+	battle.rules.refresh()
+	battle.session.encounter.checkpoint = battle.rules.snapshot()
+	battle.session.world.active_encounter = battle.session.encounter.duplicate(true)
+	check(battle.session.save_world(),"incident " + label + ": isolated mimic battle stats saved before actual dice")
+	var rounds: int = 0
+	while battle.rules.winner().is_empty() and rounds < 9:
+		rounds += 1
+		await battle.roll_round()
+	check(battle.rules.winner() == "ally","incident " + label + ": actual mimic battle wins through rolled actions")
+	if battle.rules.winner() != "ally": return false
+	if str(session.world.pending_reward.get("kind","")) == "capture":
+		var capture_ready: bool = await until_ready(func(): return is_instance_valid(battle.capture_panel), 8000)
+		check(capture_ready,"incident " + label + ": defeated mimic enters native corpse capture")
+		if not capture_ready: return false
+		var attempts: int = 0
+		while str(session.world.pending_reward.get("kind","")) == "capture" and attempts < 3:
+			attempts += 1
+			await battle.on_dice_pressed()
+		check(session.world.pending_reward.is_empty(),"incident " + label + ": original capture rolls resolve the mimic reward")
+		if not session.world.pending_reward.is_empty(): return false
+	else:
+		check(battle.map_return != null and not battle.map_return.disabled,"incident " + label + ": completed mimic may return to the board")
+		battle.map_return.pressed.emit()
+	var returned: bool = await until_ready(func(): return not is_instance_valid(map.embedded_battle) and not map.battle_returning, 20000)
+	check(returned,"incident " + label + ": post-mimic battle returns to actual map")
+	check(original_receipt in session.world.reward_receipts and session.encounter.is_empty() and session.world.pending_reward.is_empty(),"incident " + label + ": mimic visit consumed once without dangling encounter")
+	return returned and session.encounter.is_empty() and session.world.pending_reward.is_empty()
+
 func restore_actual_panel(session: Node, map: Control, wanted: String, description: String) -> Control:
 	var snapshot: Dictionary = session.world.snapshot().duplicate(true)
 	map.queue_free()
