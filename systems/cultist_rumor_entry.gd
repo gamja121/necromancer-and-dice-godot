@@ -1,4 +1,5 @@
 extends RefCounted
+const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
 ## P1-05H: complete six-scene village cultist rumor and tracking quest.
 ## The later cultist altar encounter and its battle remain inactive.
@@ -26,6 +27,7 @@ const FIRST_BEAT = {
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var w = session.world
+	if not ContaminationGate.allows(session,EVENT_ID): return false
 	if index<0 or index>=w.tiles.size() or index!=w.position: return false
 	if w.tiles[index] not in ["village","event"]: return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty(): return false
