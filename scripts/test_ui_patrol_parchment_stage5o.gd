@@ -74,6 +74,10 @@ func _run() -> void:
 	check(is_original(route.action_button,inart),"confirm uses authentic enter parchment in all button states")
 	check(is_original(route.close_button,outart),"close uses authentic exit parchment in all button states")
 	check(route.close_button.text=="닫기" and route.action_button.text=="경로 확정" and route.route_reset_button.text=="기본값","source three action captions retained")
+	# PanelEffectsModule offsets all three real buttons by 6px during the
+	# 0.20s entrance tween. Compare approved source coordinates only AFTER
+	# the entrance settles; do not remove the player's visible animation.
+	await create_timer(0.29).timeout
 	check(route.close_button.position.distance_to(Vector2(430,561))<0.5 and route.close_button.size==Vector2(128,36),"source close button keeps game-canvas footprint")
 	check(route.action_button.position.distance_to(Vector2(614,561))<0.5 and route.action_button.size==Vector2(160,36),"confirm keeps existing board position")
 	check(route.route_reset_button.position.distance_to(Vector2(245,561))<0.5 and route.route_reset_button.size==Vector2(148,36),"reset keeps existing board position")
