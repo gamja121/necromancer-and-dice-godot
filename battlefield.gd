@@ -435,8 +435,9 @@ func card_action_y() -> float:
 	return surface_size.y-20.0
 
 func unit_x(u: Dictionary) -> float:
-	# Use exactly the same selected slot anchor for the on-field monster,
-	# HP bar and its corresponding bottom dock card. No inverted ally order.
+	# Both the V2-staggered summon sprites and their bottom cards follow
+	# the SAME physical slot. The source lineup places slot 1 nearest the
+	# center and slot 4 at the rear, without changing selected unit IDs.
 	return presentation_layout.horizontal_center(u,surface_size)
 
 func frame_path(u: Dictionary, motion: String, index: int) -> String:
