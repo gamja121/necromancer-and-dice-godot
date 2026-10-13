@@ -17,24 +17,26 @@ func check(ok: bool, description: String) -> void:
 		failed += 1
 		printerr("FAIL ui-map-chrome: ", description)
 
-func chrome_hidden(map: Control) -> bool:
+func chrome_hidden(map: Control, die_visible: bool = true) -> bool:
 	if map.map_chrome.size() != 8: return false
 	for control in map.map_chrome:
 		if not is_instance_valid(control): return false
 		if control==map.dice:
-			if not control.visible or not control.is_visible_in_tree(): return false
+			if control.visible != die_visible or control.is_visible_in_tree() != die_visible: return false
 		else:
 			if control.visible or control.is_visible_in_tree(): return false
 	return is_instance_valid(map.presentation.gauge) and not map.presentation.gauge.visible
 
-func chrome_visible(map: Control) -> bool:
+func chrome_visible(map: Control, die_visible: bool = true) -> bool:
 	if map.map_chrome.size() != 8: return false
 	for control in map.map_chrome:
-		if not is_instance_valid(control) or not control.visible or not control.is_visible_in_tree(): return false
+		if not is_instance_valid(control): return false
+		var expected: bool = die_visible if control==map.dice else true
+		if control.visible != expected or control.is_visible_in_tree() != expected: return false
 	return is_instance_valid(map.presentation.gauge) and map.presentation.gauge.visible
 
-func modal_and_chrome(map: Control) -> bool:
-	return is_instance_valid(map.overlay) and chrome_hidden(map) and map.map_audio.modal_blocked
+func modal_and_chrome(map: Control, die_visible: bool = true) -> bool:
+	return is_instance_valid(map.overlay) and chrome_hidden(map,die_visible) and map.map_audio.modal_blocked
 
 func board_remains(map: Control) -> bool:
 	if not is_instance_valid(map.hero) or not map.hero.visible: return false
@@ -74,7 +76,7 @@ func _run() -> void:
 	var layer = map.modal()
 	check(layer == map.overlay and modal_and_chrome(map), "opening ordinary location modal hides all map chrome at once")
 	check(board_remains(map), "source map tile ring and hero are not hidden with its toolbar")
-	check(map.dice.is_visible_in_tree() and map.dice.disabled and not map.book_button.is_visible_in_tree(), "single persistent die stays visible but cannot roll through ordinary location dialogs")
+	check(map.dice.is_visible_in_tree() and map.dice.disabled and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE and not map.book_button.is_visible_in_tree(), "inactive but visible die ignores location dialogue pointer input")
 	var saved_status: String = map.status.text
 	map.status.text = "Stage5R temporary status"
 	map.close_overlay()
@@ -92,7 +94,7 @@ func _run() -> void:
 		map.close_overlay()
 		check(chrome_visible(map), "location art exit restores the complete toolbar")
 		map.show_place_actions(fortune)
-		check(modal_and_chrome(map), "nested prophecy/action panel also owns board chrome visibility")
+		check(modal_and_chrome(map,true), "prophecy panel keeps clickable die while hiding board chrome")
 		check(map.overlay.dice==map.dice and map.dice.is_visible_in_tree() and not map.dice.disabled,
 			"fortune teller uses same visible and clickable stage die, never a mini copy")
 		map.close_overlay()
@@ -101,7 +103,7 @@ func _run() -> void:
 	var tree_index: int = session.world.tiles.find("unknown")
 	if tree_index >= 0:
 		map.show_exploration_actions(tree_index)
-		check(modal_and_chrome(map), "world-tree prayer panel cannot expose map HUD beneath its art")
+		check(modal_and_chrome(map,true), "world-tree prayer die remains visible without board HUD")
 		check(map.overlay.dice==map.dice and map.dice.is_visible_in_tree() and not map.dice.disabled,
 			"world tree uses same stage die and the die itself can start the prayer")
 		map.close_overlay()
@@ -115,7 +117,7 @@ func _run() -> void:
 	map.show_inventory("unit")
 	# The inventory book intentionally keeps board chrome visible behind its input shield.
 	# Unlike location actions, the inventory is an overlay on the real board.
-	check(is_instance_valid(map.overlay) and map.map_audio.modal_blocked and chrome_visible(map), "book inventory keeps source HUD visible while blocking board inputs")
+	check(is_instance_valid(map.overlay) and map.map_audio.modal_blocked and chrome_visible(map), "book inventory keeps original HUD and the inactive die")
 	map.close_overlay()
 	check(chrome_visible(map), "book inventory close restores map controls")
 	map.show_inventory("dice")
@@ -127,7 +129,7 @@ func _run() -> void:
 	check(monster >= 0, "board has a normal prebattle tile")
 	if monster >= 0:
 		map.show_battle_deck(monster)
-		check(modal_and_chrome(map), "prebattle deck panel hides board toolbar without starting a fight")
+		check(modal_and_chrome(map,false) and not map.dice.is_visible_in_tree(), "prebattle deck hides inactive die and toolbar without starting a fight")
 		check(session.encounter.is_empty(), "opening deck remains a UI-only operation")
 		map.close_overlay()
 		check(chrome_visible(map), "canceling prebattle deck restores board chrome")
@@ -138,13 +140,13 @@ func _run() -> void:
 	check(session.world.reward_receipts == original_receipts, "UI-only transitions do not award or remove rewards")
 	# Simulate a previously completed cosmetic roll; rebuilt stages must load
 	# the persisted pose instead of their old hard-coded center.
-	map.dice.position = Vector2(375.0,468.0)
+	map.dice.position = Vector2(280.0,330.0)
 	map.dice.rotation_degrees = 27.0
 	map.remember_shared_die()
 	var previous_dice = map.dice
 	map.render()
 	check(map.dice != previous_dice and chrome_visible(map), "board render recreates exactly the visible new controls")
-	check(map.dice.position == Vector2(375,468) and absf(map.dice.rotation_degrees-27.0)<0.1,
+	check(map.dice.position == Vector2(280,330) and absf(map.dice.rotation_degrees-27.0)<0.1,
 		"rebuilt map die starts at its LAST stopped pose, never auto-centers")
 	check(map.map_chrome.size() == 8 and board_remains(map), "reconstructed chrome has no old-stage references")
 	map.modal()

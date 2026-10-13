@@ -1,0 +1,59 @@
+name: Shared die tile wall and battle click regression
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/dice_animation.gd"
+      - "scripts/test_shared_die_safety.gd"
+      - "scripts/test_ui_map_chrome_stage5r.gd"
+      - ".github/workflows/shared-die-safety.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/dice_animation.gd"
+      - "scripts/test_shared_die_safety.gd"
+      - "scripts/test_ui_map_chrome_stage5r.gd"
+      - ".github/workflows/shared-die-safety.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  die-wall-input:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse game assets and scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Run focused tile wall and embedded battle input tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --script res://scripts/test_shared_die_safety.gd 2>&1 | tee safety.log
+          grep -E '^SHARED_DIE_SAFETY: [0-9]+ passed, 0 failed$' safety.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL shared-die-safety:' safety.log; then exit 1; fi
+      - name: Existing modal and map chrome regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --script res://scripts/test_ui_map_chrome_stage5r.gd 2>&1 | tee chrome.log
+          grep -E '^UI_MAP_CHROME_STAGE5R: [0-9]+ passed, 0 failed$' chrome.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-map-chrome:' chrome.log; then exit 1; fi
+      - name: Existing real battle return and roll regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 500s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee battle.log
+          grep -E '^P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed$' battle.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-combat:' battle.log; then exit 1; fi
+      - name: Validate patch
+        run: git diff --check
