@@ -41,6 +41,7 @@ func create(suffix: String):
 	s.start_new_world()
 	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
 	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	check(s.has_save(),"disposable save exists")
 	return s
 
