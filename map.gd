@@ -73,18 +73,30 @@ var stage: Control
 var buttons: Array = []
 var hero: TextureRect
 var dice: TextureButton
-const SHARED_DIE_AREA = Rect2(0.0,0.0,1280.0,720.0)
+# The 24 perimeter tiles form a wall; the painted die (including rotation)
+# must stay inside the open central board, on map AND in combat.
+const SHARED_DIE_AREA = Rect2(150.0,140.0,980.0,416.0)
 var shared_die_busy: bool = false
 var status: Label
 
 func shared_dice_position() -> Vector2:
-	return Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
+	var stored := Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
+	var wall: Rect2 = Rect2()
+	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
+		wall = presentation.gauge.dice_wall_rect()
+	# Legacy saves may have a pose over a tile or the corruption HUD.
+	# Correct only the cosmetic button position; never rewrite the saved roll.
+	return dice_animation.safe_rest_position(stored,Vector2(76,76),SHARED_DIE_AREA,wall)
 
 func remember_shared_die() -> void:
 	if not is_instance_valid(dice): return
-	# Pixel/degree quantization avoids JSON float32 round-trip drift in v1
-	# snapshots while keeping the final resting spot visually unchanged.
-	var stopped := Vector2(roundf(dice.position.x),roundf(dice.position.y))
+	# Snap a legacy / combat landing away from the tile ring and visible HUD
+	# before persisting it; the result, gameplay RNG and turn never change.
+	var wall: Rect2 = Rect2()
+	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
+		wall = presentation.gauge.dice_wall_rect()
+	var safe: Vector2 = dice_animation.safe_rest_position(dice.position,dice.size,SHARED_DIE_AREA,wall)
+	var stopped := Vector2(roundf(safe.x),roundf(safe.y))
 	dice.position = stopped
 	var final_angle: int = roundi(dice.rotation_degrees)
 	dice.rotation_degrees = float(final_angle)
@@ -163,17 +175,21 @@ var dice_count_label: Label
 var map_chrome: Array[Control] = []
 
 func _sync_map_chrome() -> void:
-	# A book hand is a visual overlay on the actual board, not a separate event.
-	# Its transparent input shield blocks map controls but leaves them visible.
+	# The map keeps its single die node, but modal card/location screens must
+	# never show a disabled die ON TOP of their choices or consume their clicks.
 	var show_board_controls: bool = not is_instance_valid(overlay) or overlay is InventoryPanel
 	var central_battle: bool = is_instance_valid(overlay) and overlay.name=="CentralBattle"
+	var die_action: bool = (overlay is ExplorationActions and overlay.type=="unknown") or (overlay is PlaceActions and overlay.type=="fortune-teller-camp")
+	var show_die: bool = not is_instance_valid(overlay) or central_battle or die_action
 	for control in map_chrome:
 		if not is_instance_valid(control): continue
-		# Keep only the two original illustrated books and their counts in battle.
-		# Without this, BookBattleLock animates on a hidden button.
 		var battle_book_or_deck: bool = control == book_button or control == deck_button or control == dice_count_label
-		# The one real die survives every overlay and floats above battlefield art.
-		control.visible = true if control == dice else (show_board_controls or (central_battle and battle_book_or_deck))
+		control.visible = show_die if control == dice else (show_board_controls or (central_battle and battle_book_or_deck))
+	# z_index draws the die over the battle art but does NOT determine GUI
+	# hit-testing order. Put it last among stage siblings so its pressed
+	# signal is actually reachable inside CentralBattle and action panels.
+	if show_die and is_instance_valid(dice) and dice.get_parent()==stage:
+		stage.move_child(dice,stage.get_child_count()-1)
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		presentation.gauge.visible = show_board_controls
 	# During scene switches do not reenable a currently rolling die.
