@@ -136,6 +136,7 @@ func style_patrol_button(control: Button, is_exit: bool = false) -> void:
 	control.add_theme_font_size_override("font_size",13)
 
 func reset_route() -> void:
+	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
 	plan=RoutePlan.default_plan()
 	selected_current=-1
 	selected_reserve=-1
@@ -381,6 +382,7 @@ func render_route() -> void:
 		value.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		value.add_theme_color_override("font_color",Color("382719"))
 	action_button.disabled=used
+	route_reset_button.disabled=used
 	status.text="이번 방문은 확정 완료 · 다음 바퀴부터 반영" if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 해금 후 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
 
 func adjust_route_tile(kind: String, difference: int) -> void:
