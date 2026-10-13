@@ -280,6 +280,12 @@ func restore(saved: Dictionary) -> bool:
 	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
 	patrol_plan = plan.duplicate(true)
+	# JSON loads quantity counters as floats (6.0 instead of 6).
+	# Normalize to durable integer tile counts, so equality and future
+	# + / - controls survive process restarts without a phantom edit.
+	if RoutePlan.is_new(patrol_plan):
+		for kind in RoutePlan.CHOICES:
+			patrol_plan.selection[kind] = int(patrol_plan.selection[kind])
 	# Godot's JSON parser returns count numbers as floats. Treat a saved
 	# choice of two stones as the same integer plan selected in the UI,
 	# without reinterpreting old 6+5 patrol-inventory saves.
