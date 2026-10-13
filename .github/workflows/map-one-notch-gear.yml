@@ -9,6 +9,7 @@ on:
       - "scripts/test_map_shuffle_stone_integrated.gd"
       - "scripts/test_map_shuffle_home_exit.gd"
       - "scripts/test_map_shuffle_acceptance.gd"
+      - "scripts/test_map_shuffle_boss_threshold.gd"
       - ".github/workflows/map-one-notch-gear.yml"
   push:
     branches: [main]
@@ -20,6 +21,7 @@ on:
       - "scripts/test_map_shuffle_stone_integrated.gd"
       - "scripts/test_map_shuffle_home_exit.gd"
       - "scripts/test_map_shuffle_acceptance.gd"
+      - "scripts/test_map_shuffle_boss_threshold.gd"
       - ".github/workflows/map-one-notch-gear.yml"
 permissions:
   contents: read
