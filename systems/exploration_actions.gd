@@ -1,5 +1,6 @@
 extends "res://systems/reward_ui.gd"
 signal closed
+signal leave_to_map
 signal hill_route_chosen(steps: int)
 const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
@@ -18,6 +19,7 @@ var type: String
 var busy = false
 var status: Label
 var close_button: Button
+var graveyard_exit_button: Button
 var action_button: Button
 var route_reset_button: Button
 var content: Control
@@ -75,6 +77,21 @@ func setup(map_scene, tile_index: int) -> void:
 		status.size=Vector2(674,39)
 		status.add_theme_font_size_override("font_size",13)
 		render_graveyard()
+		# The extraction frame is added after the original close button.
+		# Draw/input-order the close control over that frame, not behind it.
+		close_button.name="GraveyardExtractClose"
+		close_button.z_index=10
+		close_button.move_to_front()
+		# A separate, always-available one-click escape to the actual map:
+		# no corpse, spent extraction or failed result may trap the player.
+		graveyard_exit_button=button(self,"맵으로 나가기",Vector2(774,627),Vector2(248,55),func():
+			if not busy: leave_to_map.emit())
+		graveyard_exit_button.name="GraveyardExitToMap"
+		graveyard_exit_button.z_index=10
+		for state in ["normal","hover","pressed","focus","disabled"]:
+			graveyard_exit_button.add_theme_stylebox_override(state,close_style)
+		graveyard_exit_button.add_theme_color_override("font_color",Color("3f2818"))
+		graveyard_exit_button.add_theme_font_size_override("font_size",18)
 	elif type=="forest":
 		action_button=button(self,"이동 확정",Vector2(525,478),Vector2(230,44),confirm_hill_route)
 		action_button.disabled=true

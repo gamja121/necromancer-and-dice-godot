@@ -1,0 +1,57 @@
+name: Graveyard Extraction Exit Regression
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_graveyard_extraction_exit.gd"
+      - "scripts/test_ui_graveyard_event_parity.gd"
+      - ".github/workflows/graveyard-extraction-exit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_graveyard_extraction_exit.gd"
+      - "scripts/test_ui_graveyard_event_parity.gd"
+      - ".github/workflows/graveyard-extraction-exit.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  graveyard-exit:
+    name: Escape after corpse extraction and re-entry
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import original Godot assets and parse scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Cemetery extraction close, direct map return, empty return and save replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_graveyard_extraction_exit.gd 2>&1 | tee graveyard-exit.log
+          grep -E '^GRAVEYARD_EXTRACTION_EXIT: [0-9]+ passed, 0 failed$' graveyard-exit.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL graveyard-exit:' graveyard-exit.log; then exit 1; fi
+      - name: Existing story, corpse selection and one-time extraction parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_graveyard_event_parity.gd 2>&1 | tee graveyard-parity.log
+          grep -E '^UI_STAGE4_PARITY: [0-9]+ passed, 0 failed$' graveyard-parity.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-stage4:' graveyard-parity.log; then exit 1; fi
+      - name: Reject dirty whitespace or missing preserved assets
+        run: |
+          test -s assets/map/events/graveyard.jpg
+          test -s assets/map/ui/parchment_button_variant_04.png
+          git diff --check

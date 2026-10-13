@@ -912,6 +912,13 @@ func show_exploration_actions(index: int) -> void:
 			world = session.world
 			if index==MapState.HOME: show_home(true)
 			else: show_location(index)))
+	panel.leave_to_map.connect(func():
+		# Graveyard extraction should return to playable board in one click.
+		# Rebuild visuals only; the saved corpse/receipt state is untouched.
+		dismiss_overlay(func():
+			world = session.world
+			render()
+			status.text = "공동묘지 탐색을 마치고 맵으로 돌아왔습니다."))
 	panel.hill_route_chosen.connect(func(steps: int):
 		close_overlay()
 		move_from_hill(index,steps))
