@@ -237,8 +237,32 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 	else:
 		check(not target in world.cleared and world.contamination==3,label+": defeat neither clears tile nor changes contamination")
 		check(world.pending_reward.is_empty() and world.reward_receipts.size()==receipt_before,label+": defeat produces no capture/reward")
-		check(not battle.map_return.disabled,label+": defeat enables explicit return button")
-		battle.map_return.pressed.emit()
+		check(battle.map_return.disabled,label+": defeat forbids returning to active expedition")
+		check(not world.run_result.is_empty() and world.run_result.reason=="battle_defeat",label+": defeat atomically persists terminal expedition result")
+		check(is_instance_valid(map.game_over_screen),label+": actual map displays game-over dice cinematic")
+		if is_instance_valid(map.game_over_screen):
+			map.game_over_screen.finish_now()
+			check(map.game_over_screen.get_node_or_null("FinalExpeditionRecord")!=null,label+": game-over includes final actual run record")
+		var final_record: Dictionary=world.run_result.duplicate(true)
+		var committed_loss: Dictionary=world.snapshot().duplicate(true)
+		map.queue_free()
+		await process_frame
+		session.reload_world()
+		check(session.world.run_result==final_record,label+": terminal record survives whole save/reload")
+		check(session.world.run_result==final_record
+			and session.world.enemies_defeated==int(committed_loss.enemies_defeated)
+			and session.world.roster.size()==committed_loss.roster.size()
+			and session.world.graveyard_corpses.size()==committed_loss.graveyard_corpses.size(),
+			label+": terminal save round trip keeps final stats and permanent deaths")
+		var restored: Control=MapScene.instantiate()
+		root.add_child(restored)
+		await process_frame
+		await process_frame
+		check(is_instance_valid(restored.game_over_screen) and restored.game_over_screen.finished,label+": reopening terminal expedition skips replay and shows result")
+		check(not session.start_encounter(target,selected_ids),label+": ended expedition cannot start another battle")
+		restored.queue_free()
+		await process_frame
+		return
 	var returned: bool = await until_ready(func(): return map.embedded_battle == null and not map.battle_returning,16000)
 	check(returned,label+": finished battle returns to the original live Map scene")
 	check(map.world==session.world and map.buttons.size()==24 and map.dice.visible and not map.dice.disabled,label+": board and dice are interactive again")
