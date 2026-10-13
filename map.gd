@@ -1774,12 +1774,14 @@ func exit_home() -> void:
 	if moving: return
 	moving = true
 	close_overlay()
-	# Lock input, commit exactly one generated lap, and show a SINGLE
-	# weighty gear notch using the actual saved destination faces.
+	# Lock input, save exactly one generated lap, then gather two rings,
+	# turn ONE gear tooth and visibly exchange two actual tile pairs.
 	# A failed save never animates or reveals another map.
 	var input_lock: Control = presentation.effect(true)
 	dice.disabled = true
 	var contamination_before_exit: int = world.contamination
+	# Keep the pre-save identities for the visible gather/one-notch/swaps.
+	var previous_tiles: Array = world.tiles.duplicate()
 	var ok: bool = session.leave_home()
 	world = session.world
 	if ok:
@@ -1788,12 +1790,12 @@ func exit_home() -> void:
 			next_tile_textures.append(texture(tile_path(i)))
 		var gear = MapGearShift.new()
 		stage.add_child(gear)
-		if gear.prepare(buttons,next_tile_textures):
-			await gear.play_once()
+		if gear.prepare(buttons,next_tile_textures,previous_tiles,world.tiles,world.map_serial):
+			await gear.play_once(next_tile_textures)
 			gear.clean_up()
 		gear.queue_free()
-		# No flip or secret replacement on landing: each travelling tile has
-		# displayed its persisted destination face throughout the one shift.
+		# Ring travel and swaps use the saved source->target manifest.
+		# No post-landing flip, reroll or unrelated texture replacement.
 		render()
 	# On save failure, persist_change() already restored the prior map.
 	input_lock.queue_free()
