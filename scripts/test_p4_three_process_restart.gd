@@ -44,9 +44,12 @@ func open_session(path: String, fresh: bool = false):
 	if fresh:
 		wipe(path)
 		s.start_new_world()
-		# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-		s.world.contamination = 100
-		s.world.reveal_boss_at_threshold()
+		# Only the story restart branch needs the high contamination gate.
+		# Chest and movement tests must keep the natural first-lap board:
+		# revealing the boss here can replace the sole treasure tile.
+		if path == STORY_SAVE:
+			s.world.contamination = 100
+			s.world.reveal_boss_at_threshold()
 	else:
 		check(s.has_save(), "previous process saved this isolated transaction")
 		s.reload_world()
