@@ -46,6 +46,14 @@ func geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
 	var pivot = Vector2(dimensions.x/2.0,(float(m.bottom)+1.0)*factor)
 	return {"size":dimensions,"pivot":pivot,"position":Vector2(x,foot)-pivot,"scale":factor,"foot":Vector2(x,foot),"wrap":wrap,"z":layer_z,"effect":Vector2(x,surface.y*(0.22+0.69*0.13)+wrap.y/2.0-wrap.y*0.05*depth+wrap.y*offset)}
 
+# Follow the ground-plane diagonal without moving the HUD/card row.
+# The health indicator is HUD chrome (above sprites), not a depth layer.
+func health_bar_y(unit: Dictionary, surface: Vector2) -> float:
+	var slot: int = clampi(int(unit.get("slot",0)),0,4)
+	var ally: bool = str(unit.get("team","ally"))=="ally"
+	var offset: float = (ALLY_OFFSET if ally else ENEMY_OFFSET)[slot]
+	return surface.y*0.3028 + surface.y*0.69*0.87*offset*0.65
+
 
 class HealthBar extends Range:
 	var fill_texture: Texture2D
