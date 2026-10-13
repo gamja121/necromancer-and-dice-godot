@@ -57,7 +57,7 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	# Do not request Web audio during _ready: the browser may still have a
 	# suspended AudioContext. Start it from the FIRST genuine tap/click/key.
-	if OS.has_feature("web") and not web_audio_started and is_audio_unlock_gesture(event):
+	if should_unlock_web_audio(OS.has_feature("web"), web_audio_started, event):
 		web_audio_started = true
 		if title_music.stream != null:
 			title_music.play()
@@ -73,6 +73,11 @@ func _input(event: InputEvent) -> void:
 		touch_active = true
 		pointer_seen = true
 		_set_pointer(event.position)
+
+## Pure gate: browsers need one user action, native and repeat events
+## must not restart music or block existing title navigation.
+static func should_unlock_web_audio(web: bool, started: bool, event: InputEvent) -> bool:
+	return web and not started and is_audio_unlock_gesture(event)
 
 ## Separate pure gesture detection so mouse, touch and keyboard paths are
 ## testable on non-Web headless CI without faking the audio browser driver.
