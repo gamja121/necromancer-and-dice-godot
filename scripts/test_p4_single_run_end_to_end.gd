@@ -260,7 +260,7 @@ func return_home_and_advance(session: Node, map: Control) -> bool:
 	leave.pressed.emit()
 	var completed: bool = await until_ready(func(): return not map.moving and world.map_serial==before_serial+1,65000)
 	check(completed,"original stone gather/rotation/scatter and new board complete")
-	check(world.laps==before_laps+1 and world.contamination==mini(100,before_contamination+4),"exactly one next lap and +4 contamination")
+	check(world.laps==before_laps+1 and world.contamination==mini(100,before_contamination+7),"exactly one next lap and +7 contamination")
 	check(world.tiles.size()==24 and world.cleared.is_empty() and not world.lap_ready,"next lap clears previous cleared tiles without changing board count")
 	check(world.tiles[0]=="fortune-teller-camp" and world.tiles[8]=="village" and world.tiles[MapState.HOME]=="home","all three anchored locations stay fixed")
 	check(world.reward_receipts==receipts,"battle and treasure reward receipts survive next-lap reshuffle")
