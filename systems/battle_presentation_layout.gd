@@ -3,11 +3,22 @@ extends RefCounted
 const DEPTH = [0.94,1.01,1.08,1.14,0.88]
 const OFFSET = [-0.03,0.02,0.07,0.11,-0.06]
 const Z = [13,15,17,18,12]
+# The prebattle four-card lineup reads LEFT to RIGHT as slot 1, 2, 3, 4.
+# Center those same four allies above their map-tile dock cards in combat.
+# Column 2 is reserved for a possible fifth summoned ally.
+const ALLY_COLUMNS = [3,4,5,6,2]
+const ENEMY_COLUMNS = [2,3,4,5,1]
 const RATIOS = {"bone-golem":1.5,"death-knight":1.0,"plague-frog":0.5,"grave-worm":0.5,"spider-knight":2.0,"stone-golem":2.0,"flesh-golem":1.5,"skeleton-cavalry":1.5,"spiderling":0.5,"guardian-seed":0.5,"goblin-chief":1.5,"kraken":2.0,"minotaur":1.5,"goblin-rider":1.0,"yeti":1.5,"orc-warrior":1.5,"hydra":2.0,"boulder-ogre":1.5,"abyss-claw-hunter":1.5,"corpse-slime":1.0}
 var metrics: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/battle_visual_metrics.json"))
 
 func frames(slug: String, motion: String) -> Array:
 	return metrics.get(slug,{}).get(motion,[1])
+
+func horizontal_center(unit: Dictionary, surface: Vector2) -> float:
+	var slot: int = clampi(int(unit.get("slot",0)),0,4)
+	var ally: bool = str(unit.get("team","ally"))=="ally"
+	var column: int = ALLY_COLUMNS[slot] if ally else ENEMY_COLUMNS[slot]
+	return (0.0 if ally else surface.x*0.52)+(float(column)-0.5)*(surface.x*0.48/5.0)
 
 func geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
 	var m: Dictionary = metrics.get(unit.slug,{"width":320,"height":320,"top":0,"bottom":319})
@@ -20,8 +31,7 @@ func geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
 	var factor = image_size.x*(210.0/320.0)*RATIOS.get(unit.slug,1.0)/body*DEPTH[slot]
 	var local_foot = wrap.y-image_size.y+(image_size.y-float(m.height)*fit)/2.0+(float(m.bottom)+1.0)*fit
 	var foot = surface.y*(0.22+0.69*0.13)+wrap.y/2.0+(local_foot-wrap.y/2.0)*DEPTH[slot]+wrap.y*OFFSET[slot]
-	var columns = [4,3,2,1,5] if unit.team=="ally" else [2,3,4,5,1]
-	var x = (0.0 if unit.team=="ally" else surface.x*0.52)+(columns[slot]-0.5)*cell
+	var x = horizontal_center(unit,surface)
 	var dimensions = Vector2(m.width,m.height)*factor
 	var pivot = Vector2(dimensions.x/2.0,(float(m.bottom)+1.0)*factor)
 	return {"size":dimensions,"pivot":pivot,"position":Vector2(x,foot)-pivot,"scale":factor,"foot":Vector2(x,foot),"wrap":wrap,"z":Z[slot],"effect":Vector2(x,surface.y*(0.22+0.69*0.13)+wrap.y/2.0-wrap.y*0.05*DEPTH[slot]+wrap.y*OFFSET[slot])}
