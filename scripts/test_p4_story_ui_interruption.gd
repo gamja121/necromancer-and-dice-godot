@@ -44,6 +44,7 @@ func fresh(session: Node, tag: String) -> void:
 	# Story-only fixture: keep all quest flags genuine while unlocking the
 	# new contamination story thresholds for this existing journey test.
 	session.world.contamination = 80
+	session.world.reveal_boss_at_threshold()  # match real save-reload migration at >=20
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		tag+": isolated post-first-lap fixture has one unlocked graveyard")
 
