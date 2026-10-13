@@ -4,6 +4,7 @@ on:
     paths:
       - "battlefield.gd"
       - "systems/battle_presentation_layout.gd"
+      - "systems/battle_visuals.gd"
       - "scripts/test_battle_formation_order.gd"
       - ".github/workflows/battle-formation-order.yml"
   push:
@@ -11,6 +12,7 @@ on:
     paths:
       - "battlefield.gd"
       - "systems/battle_presentation_layout.gd"
+      - "systems/battle_visuals.gd"
       - "scripts/test_battle_formation_order.gd"
       - ".github/workflows/battle-formation-order.yml"
   workflow_dispatch:
