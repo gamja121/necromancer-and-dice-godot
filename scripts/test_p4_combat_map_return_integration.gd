@@ -120,15 +120,18 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 		label+": original bottom-right deck stays at the map position and remains clickable")
 	check(battle.dice_cards_button==null and battle.external_dice_deck_button==map.deck_button,
 		label+": no duplicate deck button exists within the battlefield")
-	# A monster card must exist ON the lower map tile row, not just below
-	# the battle art inside BattleViewport or hovering above the tile row.
+	# Map-stage cards are enlarged, so their TOP edge may enter the
+	# battle border slightly while their center remains on the lower tile row.
+	# The bottom of every card must still remain inside the playable board.
 	var lower_tile_y: float = map.center(12).y
 	var border_bottom: float = map.overlay.position.y+map.overlay.size.y
 	var external_cards_ok: bool = battle.uses_map_tile_dock() and battle.cards.size()==battle.rules.units.size()
 	var every_card_overlaps_tile: bool = true
 	for card in battle.cards.values():
 		external_cards_ok = external_cards_ok and (card.get_parent()==map.stage
-			and card.position.y>=border_bottom and absf((card.position.y+card.size.y*0.5)-lower_tile_y)<12.0)
+			and card.position.y>=border_bottom-card.size.y*0.25
+			and card.position.y+card.size.y<=map.stage.size.y
+			and absf((card.position.y+card.size.y*0.5)-lower_tile_y)<12.0)
 		var overlaps_bottom_tile: bool = false
 		for tile_index in range(12,19):
 			var tile: TextureButton = map.buttons[tile_index]
@@ -136,7 +139,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				overlaps_bottom_tile = true
 				break
 		every_card_overlaps_tile = every_card_overlaps_tile and overlaps_bottom_tile
-	check(external_cards_ok,label+": every battle monster card renders on map stage outside battle frame")
+	check(external_cards_ok,label+": enlarged battle cards anchor on lower tile row and remain inside the map")
 	check(every_card_overlaps_tile,label+": monster portraits cover actual bottom map tile rectangles")
 	battle.set_card_phase(true)
 	await create_timer(0.25).timeout
