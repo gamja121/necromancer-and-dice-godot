@@ -52,7 +52,7 @@ func _run() -> void:
 	check(clicks[0] == 1, "shared frame does not suppress action callbacks")
 	check(session.world.snapshot() == before, "art and button fixture do not alter saved state")
 	var source = FileAccess.get_file_as_string("res://map.gd")
-	for fn in ["show_village_rumor_beat","show_knight_commander_beat","show_monster_hunter_beat","show_cultist_rumor_beat","show_monster_king_hunt_beat","show_ritual_portal_beat","show_ritual_portal_aftermath","show_cultist_altar_beat","show_cultist_altar_followup"]:
+	for fn in ["show_village_rumor_beat","show_knight_commander_beat","show_monster_hunter_beat","show_cultist_rumor_beat","show_monster_king_hunt_beat","show_ritual_portal_beat","show_ritual_portal_aftermath","show_cultist_altar_beat","show_cultist_altar_followup","show_story_battle_result"]:
 		var begin = source.find("func " + fn + "(")
 		var end = source.find("\nfunc ",begin + 5)
 		var body = source.substr(begin,end - begin) if begin >= 0 and end > begin else ""
