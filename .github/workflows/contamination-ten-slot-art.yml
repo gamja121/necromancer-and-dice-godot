@@ -4,6 +4,11 @@ on:
     paths:
       - "assets/map/ui/contamination_crow_tile_10.webp"
       - "systems/contamination_hud.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_contamination_gradient_lap.gd"
+      - "scripts/test_p4_natural_home_lap.gd"
+      - "scripts/test_p4_reward_home_lap_integration.gd"
+      - "scripts/test_map_shuffle_acceptance.gd"
       - "systems/dice_animation.gd"
       - "map.gd"
       - "scripts/test_contamination_dice_wall.gd"
@@ -17,6 +22,11 @@ on:
     paths:
       - "assets/map/ui/contamination_crow_tile_10.webp"
       - "systems/contamination_hud.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_contamination_gradient_lap.gd"
+      - "scripts/test_p4_natural_home_lap.gd"
+      - "scripts/test_p4_reward_home_lap_integration.gd"
+      - "scripts/test_map_shuffle_acceptance.gd"
       - "systems/dice_animation.gd"
       - "map.gd"
       - "scripts/test_contamination_dice_wall.gd"
@@ -53,6 +63,13 @@ jobs:
           timeout 160s godot --headless --path . --script res://scripts/test_contamination_ten_slot_hud.gd 2>&1 | tee hud.log
           grep -E '^CONTAMINATION_TEN_SLOT_HUD: [0-9]+ passed, 0 failed$' hud.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL contamination-10-slot:' hud.log; then exit 1; fi
+      - name: Gradient continuity, seven-point laps and save round-trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_contamination_gradient_lap.gd 2>&1 | tee gradient-lap.log
+          grep -E '^CONTAMINATION_GRADIENT_LAP: [0-9]+ passed, 0 failed$' gradient-lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL contamination-gradient-lap:' gradient-lap.log; then exit 1; fi
       - name: Compact HUD and four-direction die collision
         shell: bash
         run: |
