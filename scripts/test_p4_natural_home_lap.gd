@@ -9,6 +9,7 @@ extends SceneTree
 const MAP = preload("res://map.tscn")
 const STATE = preload("res://systems/map_state.gd")
 const SESSION = preload("res://systems/run_session.gd")
+const BattleDeck = preload("res://systems/battle_deck.gd")
 const SAFE = ["rest", "forest", "altar", "unknown", "basic", "swamp", "monster", "rare-monster"]
 
 var passed: int = 0
@@ -163,9 +164,15 @@ func perform_lap(session: Node) -> void:
 		check(world.position == destination and world.previous_map_roll == int(expected.face), "roll %d: original RNG face %d moves %d to %d" % [turns, int(expected.face), original_position, destination])
 		check(world.move_serial == previous_moves + 1 and world.pending_move.is_empty(), "roll %d: exactly one finalized movement transaction" % turns)
 		check(world.tiles == initial_tiles and world.map_serial == 1, "roll %d: all 24 tile types and ordering stay original" % turns)
+		# The original battle-deck editor deliberately HIDES the die so
+		# deck cards remain unobstructed. Its input is still disabled until
+		# the player decides to fight. New starter counts expose this path
+		# in the first natural lap much more often than the old rest-heavy map.
+		var die_should_show: bool=not (is_instance_valid(map.overlay) and map.overlay is BattleDeck)
 		check(map.selected == world.position and not map.moving
-			and map.dice.is_visible_in_tree() and map.dice.disabled==is_instance_valid(map.overlay),
-			"roll %d: shared die stays visible, only disables clicks while arrival panel is open" % turns)
+			and map.dice.is_visible_in_tree()==die_should_show
+			and map.dice.disabled==is_instance_valid(map.overlay),
+			"roll %d: shared die respects original battle-deck visibility and modal input lock" % turns)
 		check(session.encounter.is_empty() and world.pending_reward.is_empty() and world.reward_receipts == initial_receipts, "roll %d: no fabricated encounter or reward" % turns)
 		check(int(world.roster[0].current_hp) == (maxi(1, before_hp - 1) if kind == "swamp" else before_hp), "roll %d: natural HP change occurs only on swamp" % turns)
 		if destination == STATE.HOME:
