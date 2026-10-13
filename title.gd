@@ -30,6 +30,8 @@ var pointer_normalized := Vector2.ZERO
 var touch_active := false
 var pointer_seen := false
 var idle_time := 0.0
+# Mobile Web forbids autoplay until a real user press/touch/key event.
+var web_audio_started: bool = false
 var base_positions: Dictionary = {}
 # Production uses the same ConfigFile as map and battlefield. A test may
 # assign an isolated save path before adding this scene to the tree.
@@ -53,6 +55,12 @@ func _ready() -> void:
 	_start_title_music()
 
 func _input(event: InputEvent) -> void:
+	# Do not request Web audio during _ready: the browser may still have a
+	# suspended AudioContext. Start it from the FIRST genuine tap/click/key.
+	if OS.has_feature("web") and not web_audio_started and is_audio_unlock_gesture(event):
+		web_audio_started = true
+		if title_music.stream != null:
+			title_music.play()
 	if event is InputEventMouseMotion:
 		pointer_seen = true
 		_set_pointer(event.position)
@@ -65,6 +73,14 @@ func _input(event: InputEvent) -> void:
 		touch_active = true
 		pointer_seen = true
 		_set_pointer(event.position)
+
+## Separate pure gesture detection so mouse, touch and keyboard paths are
+## testable on non-Web headless CI without faking the audio browser driver.
+static func is_audio_unlock_gesture(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch: return event.pressed
+	if event is InputEventMouseButton: return event.pressed
+	if event is InputEventKey: return event.pressed and not event.echo
+	return false
 
 func _process(delta: float) -> void:
 	idle_time += delta
@@ -198,7 +214,10 @@ func _start_title_music() -> void:
 	title_music.stream = load(TITLE_MUSIC)
 	title_music.volume_db = linear_to_db(0.34)
 	title_music.finished.connect(title_music.play)
-	if DisplayServer.get_name() != "headless":
+	# Native can play immediately. Browsers must wait until _input()
+	# receives a real user activation; otherwise the first audio stream may
+	# be blocked permanently on Android Chrome / mobile embedded browsers.
+	if DisplayServer.get_name() != "headless" and not OS.has_feature("web"):
 		title_music.play()
 
 func _show_options() -> void:
