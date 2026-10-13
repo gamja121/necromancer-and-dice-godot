@@ -117,7 +117,11 @@ func _run() -> void:
 		await process_frame
 		await process_frame
 		preserved_pose(map,battle_pose,battle_rotation,"after full save reload")
+	# The rebuilt map audio panel has a two-frame asynchronous _ready().
+	# Let it finish before destroying its tree during this test teardown.
+	for frame in range(8): await process_frame
 	map.queue_free()
+	await process_frame
 	await process_frame
 	session.save_file_path=old_path
 	if created: session.queue_free()
