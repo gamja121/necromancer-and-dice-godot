@@ -1,13 +1,17 @@
 extends RefCounted
-# Ported from V2UnitSize and the web battlefield slot CSS.
-const DEPTH = [0.94,1.01,1.08,1.14,0.88]
-const OFFSET = [-0.03,0.02,0.07,0.11,-0.06]
-const Z = [13,15,17,18,12]
-# The player's deck selection is left-to-right: slot 0 is the leftmost
-# ally on the battlefield, slot 3 is the rightmost selected ally.
-# Sprite, HP bar and dock card share horizontal_center(), so never reverse
-# those positions after the deck is confirmed. Slot 4 is reserved for summons.
-# Enemy formation, depth and target probabilities are independent.
+# Render-only stage perspective. The player's confirmed deck order stays
+# left-to-right (ally slots 0..3). Allies stand diagonally from the LEFT/front
+# toward the CENTER/back; enemies mirror this from the RIGHT/front to center.
+# Rear units are slightly smaller, higher on the floor and always draw behind
+# nearer units. These arrays never alter targeting, turn order or save data.
+const ALLY_DEPTH = [1.06,1.02,0.98,0.94,0.88]
+const ENEMY_DEPTH = [0.94,0.98,1.02,1.06,0.88]
+const ALLY_OFFSET = [0.06,0.025,-0.01,-0.045,-0.08]
+const ENEMY_OFFSET = [-0.045,-0.01,0.025,0.06,-0.08]
+const ALLY_Z = [18,17,16,15,14]
+const ENEMY_Z = [15,16,17,18,14]
+# Sprite, HP bar and bottom deck card keep horizontal_center() fixed.
+# Summoned slot 4 remains a rear-side auxiliary slot for both teams.
 const ALLY_COLUMNS = [1,2,3,4,5]
 const ENEMY_COLUMNS = [2,3,4,5,1]
 const RATIOS = {"bone-golem":1.5,"death-knight":1.0,"plague-frog":0.5,"grave-worm":0.5,"spider-knight":2.0,"stone-golem":2.0,"flesh-golem":1.5,"skeleton-cavalry":1.5,"spiderling":0.5,"guardian-seed":0.5,"goblin-chief":1.5,"kraken":2.0,"minotaur":1.5,"goblin-rider":1.0,"yeti":1.5,"orc-warrior":1.5,"hydra":2.0,"boulder-ogre":1.5,"abyss-claw-hunter":1.5,"corpse-slime":1.0}
@@ -24,19 +28,23 @@ func horizontal_center(unit: Dictionary, surface: Vector2) -> float:
 
 func geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
 	var m: Dictionary = metrics.get(unit.slug,{"width":320,"height":320,"top":0,"bottom":319})
-	var slot = mini(int(unit.slot),4)
+	var slot: int = clampi(int(unit.get("slot",0)),0,4)
+	var ally: bool = str(unit.get("team","ally"))=="ally"
+	var depth: float = (ALLY_DEPTH if ally else ENEMY_DEPTH)[slot]
+	var offset: float = (ALLY_OFFSET if ally else ENEMY_OFFSET)[slot]
+	var layer_z: int = (ALLY_Z if ally else ENEMY_Z)[slot]
 	var cell = surface.x*0.48/5.0
 	var wrap = Vector2(cell*1.56,surface.y*0.69*0.87)
 	var image_size = wrap*Vector2(1.16,0.96)
 	var fit = minf(image_size.x/float(m.width),image_size.y/float(m.height))
 	var body = maxi(int(m.bottom)-int(m.top)+1,1)
-	var factor = image_size.x*(210.0/320.0)*RATIOS.get(unit.slug,1.0)/body*DEPTH[slot]
+	var factor = image_size.x*(210.0/320.0)*RATIOS.get(unit.slug,1.0)/body*depth
 	var local_foot = wrap.y-image_size.y+(image_size.y-float(m.height)*fit)/2.0+(float(m.bottom)+1.0)*fit
-	var foot = surface.y*(0.22+0.69*0.13)+wrap.y/2.0+(local_foot-wrap.y/2.0)*DEPTH[slot]+wrap.y*OFFSET[slot]
+	var foot = surface.y*(0.22+0.69*0.13)+wrap.y/2.0+(local_foot-wrap.y/2.0)*depth+wrap.y*offset
 	var x = horizontal_center(unit,surface)
 	var dimensions = Vector2(m.width,m.height)*factor
 	var pivot = Vector2(dimensions.x/2.0,(float(m.bottom)+1.0)*factor)
-	return {"size":dimensions,"pivot":pivot,"position":Vector2(x,foot)-pivot,"scale":factor,"foot":Vector2(x,foot),"wrap":wrap,"z":Z[slot],"effect":Vector2(x,surface.y*(0.22+0.69*0.13)+wrap.y/2.0-wrap.y*0.05*DEPTH[slot]+wrap.y*OFFSET[slot])}
+	return {"size":dimensions,"pivot":pivot,"position":Vector2(x,foot)-pivot,"scale":factor,"foot":Vector2(x,foot),"wrap":wrap,"z":layer_z,"effect":Vector2(x,surface.y*(0.22+0.69*0.13)+wrap.y/2.0-wrap.y*0.05*depth+wrap.y*offset)}
 
 
 class HealthBar extends Range:
