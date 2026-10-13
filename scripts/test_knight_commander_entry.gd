@@ -40,6 +40,9 @@ func fresh(label: String):
 	clean(path)
 	s.save_file_path=path
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	return s
 
 func resolve_child(s, rescue: bool) -> void:

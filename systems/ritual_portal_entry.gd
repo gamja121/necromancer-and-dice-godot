@@ -1,4 +1,5 @@
 extends RefCounted
+const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 ## P1-05J-6: after an acknowledged fight, explicitly complete the ritual.
 ## The revival form, ended ritual quest and new hunt are atomic receipts.
 const CultistAltar = preload("res://systems/cultist_altar_entry.gd")
@@ -37,6 +38,7 @@ const FIRST_BEAT = {
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var w = session.world
+	if not ContaminationGate.allows(session,EVENT_ID): return false
 	if index<0 or index>=w.tiles.size() or index!=w.position: return false
 	if w.tiles[index] not in ["forest","event"]: return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty(): return false

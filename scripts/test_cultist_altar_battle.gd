@@ -42,6 +42,9 @@ func fixture(suffix: String,on_event_tile: bool=false):
 	cleanup(path)
 	s.save_file_path=path
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	s.world.story_events[Rumor.EVENT_ID]={"status":"complete","choice":"","battle_result":""}
 	s.world.event_flags[Rumor.SEEN_FLAG]=true
 	s.world.event_flags[Rumor.COMPLETE_FLAG]=true

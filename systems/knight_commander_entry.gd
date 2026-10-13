@@ -1,4 +1,5 @@
 extends RefCounted
+const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 const CommanderBeats = preload("res://systems/knight_commander_beats.gd")
 ## P1-05D: complete source dialogue, saved beat progression and atomic quest acceptance.
 ## Monster-hunter meeting remains a separate event.
@@ -21,6 +22,7 @@ const FIRST_BEAT = {"id":"arrival","effect":"길목에서 무장한 기사가 �
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var w = session.world
+	if not ContaminationGate.allows(session,EVENT_ID): return false
 	if index<0 or index>=w.tiles.size() or w.position!=index: return false
 	if w.tiles[index] not in ["village","event"]: return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty(): return false

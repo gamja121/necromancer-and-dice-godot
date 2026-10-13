@@ -1,4 +1,5 @@
 extends RefCounted
+const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 const AltarBeats = preload("res://systems/cultist_altar_beats.gd")
 ## P1-05I-5: original fight, pass, battle outcome and ritual-tracking handoff.
 ## The separate later ritual portal / monster-king revival remains locked.
@@ -85,6 +86,7 @@ static func progress_flag(index: int) -> String:
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var w = session.world
+	if not ContaminationGate.allows(session,EVENT_ID): return false
 	if index<0 or index>=w.tiles.size() or index!=w.position: return false
 	if w.tiles[index] not in ["altar","event"]: return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty(): return false

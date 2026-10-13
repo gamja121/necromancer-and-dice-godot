@@ -39,6 +39,9 @@ func fresh_session(suffix: String):
 	delete_file(path)
 	s.save_file_path = path
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	# Story contract tests begin at the first naturally unlocked cemetery.
 	s.world.lap_ready=true
 	s.world.leave_home()

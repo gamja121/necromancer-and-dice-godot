@@ -1,4 +1,5 @@
 extends RefCounted
+const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 const HunterBeats = preload("res://systems/monster_hunter_beats.gd")
 ## P1-05F: source-canonical hunter encounter with durable beat-by-beat progress.
 ## The human involvement clue and hunter quest completion are granted only
@@ -27,6 +28,7 @@ const FIRST_BEAT = {
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var w = session.world
+	if not ContaminationGate.allows(session,EVENT_ID): return false
 	if index<0 or index>=w.tiles.size() or w.position!=index: return false
 	if w.tiles[index] not in ["unknown","event"]: return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty(): return false

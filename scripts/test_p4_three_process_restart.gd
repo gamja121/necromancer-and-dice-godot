@@ -44,6 +44,9 @@ func open_session(path: String, fresh: bool = false):
 	if fresh:
 		wipe(path)
 		s.start_new_world()
+		# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+		s.world.contamination = 100
+		s.world.reveal_boss_at_threshold()
 	else:
 		check(s.has_save(), "previous process saved this isolated transaction")
 		s.reload_world()

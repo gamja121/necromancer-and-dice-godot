@@ -42,6 +42,9 @@ func _make(suffix: String):
 	_delete(path)
 	s.save_file_path = path
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	s.world.position = s.world.tiles.find("graveyard")
 	_check(StoryEntry.begin(s,s.world.position),"graveyard entry")
 	_check(StoryEntry.choose(s,s.world.position,"protect_child"),"rescue chosen")

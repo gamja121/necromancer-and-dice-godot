@@ -1,4 +1,5 @@
 extends RefCounted
+const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 ## P1-03A: discover the graveyard child on the first eligible landing.
 ## Actual choices, battle entry and event completion belong to later steps.
 
@@ -41,6 +42,7 @@ static func advance(session, index: int, shown_beat: int) -> bool:
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var world = session.world
+	if not ContaminationGate.allows(session,EVENT_ID): return false
 	# A map tile preview must never advance the hero's story.
 	if index < 0 or index >= world.tiles.size() or index != world.position: return false
 	if not world.tiles[index] in ["graveyard","event"]: return false

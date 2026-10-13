@@ -30,6 +30,9 @@ func _new_session(suffix: String):
 	session.save_file_path = test_save
 	_delete_path(test_save)
 	session.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	session.world.contamination = 100
+	session.world.reveal_boss_at_threshold()
 	_check(session.has_save(),"test save created separately")
 	return session
 

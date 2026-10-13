@@ -1,0 +1,54 @@
+name: Story First-Discovery Contamination Gates
+on:
+  pull_request:
+    paths:
+      - 'systems/story_contamination_gate.gd'
+      - 'systems/story_event_entry.gd'
+      - 'systems/village_rumor_entry.gd'
+      - 'systems/knight_commander_entry.gd'
+      - 'systems/monster_hunter_entry.gd'
+      - 'systems/cultist_rumor_entry.gd'
+      - 'systems/cultist_altar_entry.gd'
+      - 'systems/ritual_portal_entry.gd'
+      - 'systems/monster_king_hunt_entry.gd'
+      - 'scripts/test_story_contamination_thresholds.gd'
+      - '.github/workflows/story-contamination-thresholds.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'systems/story_contamination_gate.gd'
+      - 'systems/story_event_entry.gd'
+      - 'systems/village_rumor_entry.gd'
+      - 'systems/knight_commander_entry.gd'
+      - 'systems/monster_hunter_entry.gd'
+      - 'systems/cultist_rumor_entry.gd'
+      - 'systems/cultist_altar_entry.gd'
+      - 'systems/ritual_portal_entry.gd'
+      - 'systems/monster_king_hunt_entry.gd'
+      - 'scripts/test_story_contamination_thresholds.gd'
+      - '.github/workflows/story-contamination-thresholds.yml'
+permissions:
+  contents: read
+jobs:
+  thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse Godot sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify all nine thresholds first discovery and saved continuation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_story_contamination_thresholds.gd 2>&1 | tee thresholds.log
+          grep -E 'STORY_CONTAMINATION_THRESHOLDS: [0-9]+ passed, 0 failed' thresholds.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL contamination-story:' thresholds.log; then exit 1; fi
