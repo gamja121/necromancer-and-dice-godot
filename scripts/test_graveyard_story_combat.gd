@@ -43,6 +43,7 @@ func _make(suffix: String):
 	session.start_new_world()
 	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
 	session.world.contamination = 100
+	session.world.reveal_boss_at_threshold()
 	session.world.position = session.world.tiles.find("graveyard")
 	_check(session.has_save(),"isolated save exists")
 	_check(StoryEntry.begin(session,session.world.position),"first discovery persisted")
