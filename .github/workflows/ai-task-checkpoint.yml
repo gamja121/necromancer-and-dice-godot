@@ -1,0 +1,56 @@
+name: AI Task Checkpoint (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number created by repository owner"
+        required: true
+        type: number
+      phase:
+        description: "Task state"
+        required: true
+        default: ready
+        type: choice
+        options: [ready, running, checkpoint, recoverable, blocked, complete]
+      step:
+        description: "Current or next step"
+        required: true
+        type: string
+      branch:
+        description: "Work branch"
+        required: false
+        type: string
+      commit_sha:
+        description: "Last verified checkpoint SHA"
+        required: false
+        type: string
+      attempt:
+        description: "Attempt; 0 retains previous attempt"
+        required: true
+        default: 0
+        type: number
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: ai-checkpoint-${{ github.event.inputs.issue_number }}
+  cancel-in-progress: false
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Append a validated, durable checkpoint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE: ${{ inputs.issue_number }}
+          PHASE: ${{ inputs.phase }}
+          STEP: ${{ inputs.step }}
+          BRANCH: ${{ inputs.branch }}
+          COMMIT: ${{ inputs.commit_sha }}
+          ATTEMPT: ${{ inputs.attempt }}
+        run: |
+          python3 tools/ai_runner/checkpoints.py record \
+            --issue "$ISSUE" --phase "$PHASE" --step "$STEP" \
+            --branch "$BRANCH" --commit "$COMMIT" --attempt "$ATTEMPT"

@@ -1,0 +1,25 @@
+name: AI Task Ledger Tests
+on:
+  pull_request:
+    paths:
+      - "tools/ai_runner/**"
+      - "tests/test_ai_runner_checkpoints.py"
+      - ".github/workflows/ai-task-*.yml"
+      - ".github/ISSUE_TEMPLATE/ai-development-task.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/ai_runner/**"
+      - "tests/test_ai_runner_checkpoints.py"
+      - ".github/workflows/ai-task-*.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tests -p test_ai_runner_checkpoints.py -v
+      - run: python3 -m compileall -q tools/ai_runner
