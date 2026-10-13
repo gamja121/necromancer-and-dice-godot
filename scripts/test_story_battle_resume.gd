@@ -43,6 +43,7 @@ func setup(suffix: String):
 	s.start_new_world()
 	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
 	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	s.world.position=s.world.tiles.find("graveyard")
 	check(StoryEntry.begin(s,s.world.position),"first discovery")
 	check(StoryEntry.choose(s,s.world.position,"protect_child"),"rescue choice stored")
