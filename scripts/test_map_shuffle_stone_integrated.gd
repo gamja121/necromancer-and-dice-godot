@@ -1,180 +1,128 @@
 extends SceneTree
-## Final stone-slab acceptance: observe the COMPLETE real home-exit
-## choreography rather than calling its visual stages in isolation.
-## Run: godot --headless --path . --script res://scripts/test_map_shuffle_stone_integrated.gd
-
+## Real home-exit regression for the 2026-10-13 one-notch stone gear.
+## Prior counterrotating gather/scatter/flip visuals are deliberately
+## replaced in LIVE gameplay, while independent legacy geometry tests remain.
 const MapScene = preload("res://map.tscn")
 const MapState = preload("res://systems/map_state.gd")
-const Gather = preload("res://systems/map_shuffle_gather.gd")
-const Layout = preload("res://systems/map_shuffle_layout.gd")
-const SAVE_PATH = "user://stone_shuffle_final_qa.json"
-
-var passed := 0
-var failed := 0
-
+const Gear = preload("res://systems/map_gear_shift.gd")
+const SAVE_PATH = "user://stone_shuffle_one_notch_integrated.json"
+var passed: int=0
+var failed: int=0
 
 func _initialize() -> void:
 	call_deferred("_run")
 
-
-func check(condition: bool, description: String) -> void:
-	if condition:
-		passed += 1
-		print("PASS stone-integrated: ", description)
+func check(ok: bool, description: String) -> void:
+	if ok:
+		passed+=1
+		print("PASS stone-integrated: ",description)
 	else:
-		failed += 1
-		printerr("FAIL stone-integrated: ", description)
+		failed+=1
+		printerr("FAIL stone-integrated: ",description)
 
-
-func new_observation() -> Dictionary:
-	return {
-		"predeparture": false, "travel": false, "rotation": false,
-		"scatter": false, "reveal": false, "dust": false,
-		"aura": false, "locks_ok": true, "die_ok": true,
-		"no_dust_during_scatter": true, "max_visuals": 0,
-		"max_dust_points": 0, "max_audio": [], "saw_shadows": false,
-		"max_players": 0, "frame_count": 0
-	}
-
-
-func sample(map: Control, observation: Dictionary, original_face: int) -> void:
-	if not is_instance_valid(map) or not is_instance_valid(map.stage):
-		return
-	var effect = null
-	for child in map.stage.get_children():
-		if child.get_script() == Gather:
-			effect = child
-			break
-	if effect == null:
-		return
-	observation["frame_count"] = int(observation["frame_count"]) + 1
-	if not map.moving or not map.dice.disabled:
-		observation["locks_ok"] = false
-	if map.world.last_face != original_face or map.dice.position != Vector2(602.0, 307.6):
-		observation["die_ok"] = false
-	observation["max_visuals"] = maxi(int(observation["max_visuals"]), effect.tile_visuals.size())
-	if effect.tile_shadows.size() == 21:
-		observation["saw_shadows"] = true
-	observation["max_players"] = maxi(int(observation["max_players"]), effect.cue_players.size())
-	if effect.played_audio_cues.size() > observation["max_audio"].size():
-		observation["max_audio"] = effect.played_audio_cues.duplicate()
-	# Headless Godot can finish this 90ms tween between sampled frames.
-	# Observe that the original, real transition completed its duration,
-	# instead of requiring a particular frame rate or at least two samples.
-	if effect.predeparture_tween != null and effect.predeparture_tween.get_total_elapsed_time() >= Gather.PREDEPARTURE_DURATION - 0.001:
-		observation["predeparture"] = true
-	if effect.gathering != null and effect.gathering.is_running():
-		observation["travel"] = true
-	if effect.rotation_tween != null and effect.rotation_tween.is_running():
-		observation["rotation"] = true
-	if effect.scatter_tween != null and effect.scatter_tween.is_running():
-		observation["scatter"] = true
-		if effect.dust_elapsed >= 0.0:
-			observation["no_dust_during_scatter"] = false
-	if effect.reveal_tween != null and effect.reveal_tween.is_running():
-		observation["reveal"] = true
-	if effect.dust_elapsed >= Gather.DUST_IMPACT_OFFSET:
-		observation["dust"] = true
-	if effect.dust_centers.size() > int(observation["max_dust_points"]):
-		observation["max_dust_points"] = effect.dust_centers.size()
-	if effect.aura_strength > 0.1:
-		observation["aura"] = true
-
-
-func finish_or_timeout(map: Control) -> bool:
-	var started: int = Time.get_ticks_msec()
-	while is_instance_valid(map) and map.moving and Time.get_ticks_msec() - started < 20000:
-		await process_frame
-	await process_frame
-	return is_instance_valid(map) and not map.moving
-
-
-func count_temp_nodes(map: Control) -> int:
-	var n := 0
+func gear_nodes(map: Control) -> Array:
+	var found: Array=[]
 	if is_instance_valid(map.stage):
-		for node in map.stage.get_children():
-			if node.get_script() == Gather:
-				n += 1
-	return n
+		for child in map.stage.get_children():
+			if child is Gear: found.append(child)
+	return found
 
+func wait_for_gear(map: Control) -> bool:
+	var started: int=Time.get_ticks_msec()
+	while map.moving and Time.get_ticks_msec()-started<14000:
+		await process_frame
+	return not map.moving
+
+func scene_board_matches(map: Control) -> bool:
+	if map.buttons.size()!=24: return false
+	for i in range(24):
+		if not map.buttons[i].visible or map.buttons[i].texture_normal!=map.texture(map.tile_path(i)): return false
+	return true
 
 func _run() -> void:
-	var session = root.get_node_or_null("RunSession")
-	if session == null:
-		check(false, "RunSession autoload available")
-		quit(1)
-		return
-	var previous_save_path: String = session.save_file_path
-	session.save_file_path = SAVE_PATH
+	var session=root.get_node_or_null("RunSession")
+	check(session!=null,"real autoload session available")
+	if session==null: quit(1); return
+	var previous_path: String=session.save_file_path
+	session.save_file_path=SAVE_PATH
 	session.start_new_world()
-	session.world.position = MapState.HOME
-	session.world.lap_ready = true
-	check(session.save_world(), "dedicated integration test save created")
-	var start_serial: int = session.world.map_serial
-	var start_laps: int = session.world.laps
-	var face: int = session.world.last_face
-	var map = MapScene.instantiate()
+	session.world.position=MapState.HOME
+	session.world.lap_ready=true
+	check(session.save_world(),"isolated home-exit run committed")
+	var map: Control=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
-	check(count_temp_nodes(map) == 0, "no stone clones on an idle map")
-
-	var bus_sfx: int = AudioServer.get_bus_index("SFX")
-	var bus_music: int = AudioServer.get_bus_index("Music")
-	var initial_mutes: Array = [AudioServer.is_bus_mute(0), AudioServer.is_bus_mute(bus_music), AudioServer.is_bus_mute(bus_sfx)]
-	var latest_success: Dictionary = {}
-	for lap in range(2):
-		session.world.position = MapState.HOME
-		session.world.lap_ready = true
-		var seen: Dictionary = new_observation()
-		var monitor: Callable = sample.bind(map, seen, face)
-		process_frame.connect(monitor)
+	var initial_serial: int=session.world.map_serial
+	var initial_laps: int=session.world.laps
+	var face_before: int=session.world.last_face
+	var die_pos: Vector2=map.dice.position
+	var die_rot: float=map.dice.rotation_degrees
+	for lap in range(3):
+		session.world.position=MapState.HOME
+		session.world.lap_ready=true
+		var previous_tiles: Array=session.world.tiles.duplicate()
+		var before_serial: int=session.world.map_serial
+		var seen: Dictionary={"visuals":0,"progress_monotone":true,"last_progress":0.0,"faces_stable":true,"movement":false,"frame_count":0,"active_frames":0,"input_locked":true}
+		var observer: Callable=func():
+			if not is_instance_valid(map) or not is_instance_valid(map.stage): return
+			var gears: Array=gear_nodes(map)
+			if gears.is_empty(): return
+			var effect: Control=gears[0]
+			seen["frame_count"]=int(seen["frame_count"])+1
+			seen["visuals"]=maxi(int(seen["visuals"]),effect.visuals.size())
+			if not map.moving or not map.dice.disabled: seen["input_locked"]=false
+			if effect.rotation_tween==null: return
+			seen["active_frames"]=int(seen["active_frames"])+1
+			if effect.last_progress<float(seen["last_progress"])-0.0001: seen["progress_monotone"]=false
+			seen["last_progress"]=effect.last_progress
+			if effect.last_progress>0.02 and effect.last_progress<0.99: seen["movement"]=true
+			for i in range(effect.visuals.size()):
+				var index: int=int(effect.target_indices[i])
+				if effect.visuals[i].texture!=map.texture(map.tile_path(index)): seen["faces_stable"]=false
+		process_frame.connect(observer)
 		map.exit_home()
 		map.exit_home()
-		var completed: bool = await finish_or_timeout(map)
-		process_frame.disconnect(monitor)
-		check(completed, "lap %d full stone animation finished" % (lap + 1))
-		if not completed:
-			break
-		latest_success = seen
-		check(bool(seen["predeparture"]) and bool(seen["travel"]), "lap %d observes resistance tremor and gathering" % (lap + 1))
-		check(bool(seen["rotation"]) and bool(seen["scatter"]), "lap %d observes heavy counterrotation and scatter" % (lap + 1))
-		check(bool(seen["reveal"]) and bool(seen["dust"]), "lap %d observes actual slab landing and dust" % (lap + 1))
-		check(bool(seen["aura"]) and bool(seen["saw_shadows"]), "lap %d observes magical glow and 21 contact shadows" % (lap + 1))
-		check(seen["max_visuals"] == 21 and seen["max_dust_points"] == 21, "lap %d uses precisely 21 temporary stone/dust locations" % (lap + 1))
-		check(seen["max_players"] == 3 and seen["max_audio"] == ["gather", "rotate", "land"], "lap %d plays exactly three stage effects, in order" % (lap + 1))
-		check(bool(seen["no_dust_during_scatter"]), "lap %d never emits dust during horizontal travel" % (lap + 1))
-		check(bool(seen["locks_ok"]) and bool(seen["die_ok"]), "lap %d keeps input locked and die unchanged during shuffle" % (lap + 1))
-		check(count_temp_nodes(map) == 0 and not map.dice.disabled, "lap %d cleans visuals, audio, dust and restores input" % (lap + 1))
-		check(session.world.map_serial == start_serial + lap + 1 and session.world.laps == start_laps + lap + 1, "lap %d saves one world update despite duplicate taps" % (lap + 1))
-		check(AudioServer.is_bus_mute(0) == initial_mutes[0] and AudioServer.is_bus_mute(bus_music) == initial_mutes[1] and AudioServer.is_bus_mute(bus_sfx) == initial_mutes[2], "lap %d preserves all sound bus mute settings" % (lap + 1))
-
-	# Failed writes must not trigger any of the three impact visuals/sounds.
-	if failed == 0:
-		session.world.position = MapState.HOME
-		session.world.lap_ready = true
-		var expected: Dictionary = session.world.snapshot().duplicate(true)
-		session.save_file_path = "user://nonexistent_stone_shuffle_final_qa/blocked.json"
-		var rollback: Dictionary = new_observation()
-		var failed_monitor: Callable = sample.bind(map, rollback, face)
-		process_frame.connect(failed_monitor)
+		var finished: bool=await wait_for_gear(map)
+		process_frame.disconnect(observer)
+		check(finished,"lap %d completes one heavy gear notch without double trigger" % (lap+1))
+		if not finished: break
+		check(session.world.map_serial==before_serial+1 and session.world.laps==initial_laps+lap+1,"lap %d increments world just once" % (lap+1))
+		check(session.world.contamination==mini(100,(lap+1)*7),"lap %d respects existing +7 contamination" % (lap+1))
+		check(scene_board_matches(map) and map.world==session.world,"lap %d shows exact persisted tile types" % (lap+1))
+		check(gear_nodes(map).is_empty() and not map.moving and not map.dice.disabled,"lap %d leaves no ghost tiles and releases input" % (lap+1))
+		check(int(seen["visuals"])==21 and bool(seen["movement"]) and int(seen["active_frames"])>1,"lap %d physically rotates all 21 tiles once" % (lap+1))
+		check(bool(seen["faces_stable"]) and bool(seen["progress_monotone"]),"lap %d has NO arriving face flip or reverse spin" % (lap+1))
+		check(bool(seen["input_locked"]),"lap %d blocks input during the moving gear" % (lap+1))
+		check(map.dice.position==die_pos and map.dice.rotation_degrees==die_rot and session.world.last_face==face_before,"lap %d does not move or reroll the die" % (lap+1))
+		var minimum_changes: int=Gear.changed_count(previous_tiles,session.world.tiles)
+		if lap==0: check(minimum_changes==1,"first lap converts only one tile into the required graveyard")
+		elif lap==1: check(minimum_changes==0,"second lap keeps all shifted tile identities")
+		elif lap==2: check(session.world.tiles[23]=="boss","third lap retains fixed boss slot at contamination 21")
+	check(session.world.map_serial==initial_serial+3,"three actual home exits were committed")
+	if failed==0:
+		session.world.position=MapState.HOME
+		session.world.lap_ready=true
+		var snap: Dictionary=session.world.snapshot().duplicate(true)
+		session.save_file_path="user://missing_gear_shuffle_directory/blocked.json"
 		map.exit_home()
-		var done: bool = await finish_or_timeout(map)
-		process_frame.disconnect(failed_monitor)
-		check(done, "failed-save transition exits safely")
-		check(bool(rollback["predeparture"]) and bool(rollback["rotation"]), "failed-save transition still protects its pre-save stages")
-		check(not rollback["scatter"] and not rollback["dust"], "save failure never reveals a false new board or dust")
-		check(rollback["max_audio"] == ["gather", "rotate"], "failed save cannot trigger heavy landing audio")
-		check(session.world.snapshot() == expected, "save failure restores full authoritative world")
-		check(not map.moving and not map.dice.disabled and count_temp_nodes(map) == 0, "save failure releases all input/scene resources")
-		check(is_instance_valid(map.overlay), "save failure returns to home so player can retry")
-
+		var aborted: bool=await wait_for_gear(map)
+		check(aborted,"failed save does not hang behind a transition")
+		check(session.world.snapshot()==snap,"failed save fully restores map, RNG, counts, lap and dice")
+		check(gear_nodes(map).is_empty(),"failed save creates no deceptive moving tile")
+		check(is_instance_valid(map.overlay),"failed save returns to retryable home")
+		check(not map.moving and map.dice.disabled,"failed save releases movement lock while retryable home modal still prevents die clicks")
+		map.close_overlay()
+		check(not map.dice.disabled,"closing failed-save home modal restores clickable die")
+	# Drain the new map's asynchronous audio controls before scene teardown.
+	for i in range(6): await process_frame
 	map.queue_free()
 	await process_frame
-	session.save_file_path = SAVE_PATH
+	session.save_file_path=SAVE_PATH
 	session.reload_world()
-	check(session.world.map_serial == start_serial + 2 and session.world.laps == start_laps + 2, "last successful stone laps reload from disk")
-	check(session.world.tiles.size() == 24 and session.world.last_face == face, "24 board tiles and die result survive reload")
-	session.save_file_path = previous_save_path
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
-	print("MAP_SHUFFLE_STONE_INTEGRATED: %d passed, %d failed" % [passed, failed])
-	quit(0 if failed == 0 else 1)
+	check(session.world.laps==initial_laps+3,"disk reload returns committed three laps")
+	session.save_file_path=previous_path
+	for suffix in ["",".tmp"]:
+		if FileAccess.file_exists(SAVE_PATH+suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH+suffix))
+	print("MAP_SHUFFLE_STONE_INTEGRATED: %d passed, %d failed" % [passed,failed])
+	quit(0 if failed==0 else 1)

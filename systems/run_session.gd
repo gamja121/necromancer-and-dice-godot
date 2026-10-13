@@ -1,4 +1,5 @@
 extends Node
+const MapGearShift = preload("res://systems/map_gear_shift.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
@@ -904,4 +905,8 @@ func leave_home() -> bool:
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.position = MapState.HOME
 	world.leave_home()
+	# Rotate the actual old tile identities one cog-notch. Reconcile only
+	# required tile COUNT changes before the same atomic world save, rather
+	# than rotating cosmetic tiles and replacing all 21 faces on landing.
+	world.tiles = MapGearShift.compose_board(before["tiles"],world.tiles)
 	return persist_change(before)

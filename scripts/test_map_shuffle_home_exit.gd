@@ -92,9 +92,11 @@ func _run() -> void:
 		if map.buttons[i].texture_normal != before_image[i]:
 			unchanged_images = false
 	check(unchanged_images, "failed save does not expose any new tile face")
-	check(not map.moving and not map.dice.disabled, "failed save restores dice controls")
+	check(not map.moving and map.dice.disabled, "failed save releases motion lock but home retry modal blocks die input")
 	check(is_instance_valid(map.overlay), "failed save restores home window for retry")
 	check(map.status.text.contains("저장"), "failed save shows a storage error")
+	map.close_overlay()
+	check(not map.dice.disabled, "closing retry modal returns map die input")
 	map.queue_free()
 	session.save_file_path = initial_save_path
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_save_path))

@@ -68,7 +68,8 @@ func _run() -> void:
 	var test_path := "user://boss_threshold_acceptance.json"
 	session.save_file_path = test_path
 	session.start_new_world()
-	session.world.contamination = 16
+	# Lap contamination is +7: start at 13 to cross the boss gate exactly at 20.
+	session.world.contamination = 13
 	session.world.position = MapState.HOME
 	session.world.lap_ready = true
 	check(session.save_world(), "dedicated test save prepared")

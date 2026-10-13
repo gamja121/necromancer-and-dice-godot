@@ -1,0 +1,80 @@
+name: One-Notch Tile Gear and Persisted Identity
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/run_session.gd"
+      - "systems/map_gear_shift.gd"
+      - "scripts/test_map_gear_identity.gd"
+      - "scripts/test_map_shuffle_stone_integrated.gd"
+      - "scripts/test_map_shuffle_home_exit.gd"
+      - "scripts/test_map_shuffle_acceptance.gd"
+      - "scripts/test_map_shuffle_boss_threshold.gd"
+      - ".github/workflows/map-one-notch-gear.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/run_session.gd"
+      - "systems/map_gear_shift.gd"
+      - "scripts/test_map_gear_identity.gd"
+      - "scripts/test_map_shuffle_stone_integrated.gd"
+      - "scripts/test_map_shuffle_home_exit.gd"
+      - "scripts/test_map_shuffle_acceptance.gd"
+      - "scripts/test_map_shuffle_boss_threshold.gd"
+      - ".github/workflows/map-one-notch-gear.yml"
+permissions:
+  contents: read
+jobs:
+  one-notch-gear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and source parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Gear per-type counts and visual stone identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_map_gear_identity.gd 2>&1 | tee gear.log
+          grep -E '^MAP_GEAR_IDENTITY: [0-9]+ passed, 0 failed$' gear.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL gear-identity:' gear.log; then exit 1; fi
+      - name: Three actual laps one cog-notch no face swap and rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_map_shuffle_stone_integrated.gd 2>&1 | tee live.log
+          grep -E '^MAP_SHUFFLE_STONE_INTEGRATED: [0-9]+ passed, 0 failed$' live.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL stone-integrated:' live.log; then exit 1; fi
+      - name: Original lap save-failure and die regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee exit.log
+          grep -E '^MAP_SHUFFLE_HOME_EXIT: [0-9]+ passed, 0 failed$' exit.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL shuffle-home:' exit.log; then exit 1; fi
+      - name: Existing three-lap acceptance and rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_map_shuffle_acceptance.gd 2>&1 | tee acceptance.log
+          grep -E '^MAP_SHUFFLE_ACCEPTANCE: [0-9]+ passed, 0 failed$' acceptance.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL map-acceptance:' acceptance.log; then exit 1; fi
+      - name: Boss tile and contamination threshold regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss.log
+          grep -E '^MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed$' boss.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' boss.log; then exit 1; fi
+      - name: Patch whitespace
+        run: git diff --check

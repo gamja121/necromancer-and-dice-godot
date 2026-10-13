@@ -127,9 +127,11 @@ func _run() -> void:
 		check(consistent_state(before, session.world.snapshot()), "failed save restores tiles, RNG, laps and dice result")
 		check(map.world == session.world and board_matches(map), "failed save keeps old board imagery")
 		check(active_shuffle_count(map) == 0, "failed save leaves no temporary visual or sound layers")
-		check(not map.moving and not map.dice.disabled, "failed save restores input and dice")
+		check(not map.moving and map.dice.disabled, "failed save releases motion lock; retry modal blocks die input")
 		check(is_instance_valid(map.overlay), "failed save presents home panel for retry")
 		check(map.status.text.contains("저장"), "failed save reports the save error")
+		map.close_overlay()
+		check(not map.dice.disabled, "closing failed-save retry modal restores die input")
 
 	# Read back the independently persisted file, not just the in-memory copy.
 	map.queue_free()

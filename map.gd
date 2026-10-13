@@ -1,6 +1,7 @@
 extends Control
 const MapPresentation = preload("res://systems/map_presentation.gd")
 const MapShuffleGather = preload("res://systems/map_shuffle_gather.gd")
+const MapGearShift = preload("res://systems/map_gear_shift.gd")
 var presentation
 var map_audio: Control
 var map_music: AudioStreamPlayer
@@ -1747,33 +1748,28 @@ func exit_home() -> void:
 	if moving: return
 	moving = true
 	close_overlay()
-	# Block the entire board, including inventory/options, during the shuffle.
+	# Lock input, commit exactly one generated lap, and show a SINGLE
+	# weighty gear notch using the actual saved destination faces.
+	# A failed save never animates or reveals another map.
 	var input_lock: Control = presentation.effect(true)
 	dice.disabled = true
-	var shuffle = MapShuffleGather.new()
-	stage.add_child(shuffle)
-	var prepared: bool = shuffle.prepare(buttons)
-	if prepared:
-		await shuffle.play_gather()
-		await shuffle.play_rotation()
-	# The authoritative map and save are updated exactly once, only after
-	# the old visuals have finished shuffling. No visual code writes game state.
 	var contamination_before_exit: int = world.contamination
 	var ok: bool = session.leave_home()
 	world = session.world
 	if ok:
-		if prepared:
-			var next_tile_textures: Array = []
-			for i in range(MapState.centers().size()):
-				next_tile_textures.append(texture(tile_path(i)))
-			await shuffle.play_scatter(next_tile_textures,true)
-		# Rebuild metadata, HUD, cleared flags and interaction targets from
-		# the saved board; even a failed visual effect must never hide it.
+		var next_tile_textures: Array = []
+		for i in range(MapState.centers().size()):
+			next_tile_textures.append(texture(tile_path(i)))
+		var gear = MapGearShift.new()
+		stage.add_child(gear)
+		if gear.prepare(buttons,next_tile_textures):
+			await gear.play_once()
+			gear.clean_up()
+		gear.queue_free()
+		# No flip or secret replacement on landing: each travelling tile has
+		# displayed its persisted destination face throughout the one shift.
 		render()
-	else:
-		# persist_change() has already restored the old world snapshot.
-		shuffle.restore_tiles()
-	shuffle.queue_free()
+	# On save failure, persist_change() already restored the prior map.
 	input_lock.queue_free()
 	moving = false
 	dice.disabled = false
