@@ -163,6 +163,18 @@ func fight_and_capture(session: Node, map: Control) -> bool:
 	var battle: Control = map.embedded_battle
 	var previous_receipts: int = world.reward_receipts.size()
 	force_allied_victory(battle)
+	# A fresh battlefield intentionally opens the real brand chart after
+	# the last monster arrives. A player must close it before the first die
+	# can roll; do not hang scripted natural-story tests on that UI signal.
+	check(await until_ready(func(): return not battle.entry_summon_active,18000),
+		"final allied monster arrival finishes before the brand overview")
+	check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open,
+		"initial combat brand chart appears after the last summoned monster")
+	if is_instance_valid(battle.brand_reference):
+		battle.brand_reference.close()
+		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference),13000),
+			"player closes initial brand chart before real combat dice")
+
 	var turns: int = 0
 	while battle.rules.winner().is_empty() and turns<8:
 		turns += 1
