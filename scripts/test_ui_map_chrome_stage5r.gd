@@ -17,7 +17,7 @@ func check(ok: bool, description: String) -> void:
 		failed += 1
 		printerr("FAIL ui-map-chrome: ", description)
 
-func chrome_hidden(map: Control, die_visible: bool = false) -> bool:
+func chrome_hidden(map: Control, die_visible: bool = true) -> bool:
 	if map.map_chrome.size() != 8: return false
 	for control in map.map_chrome:
 		if not is_instance_valid(control): return false
@@ -35,7 +35,7 @@ func chrome_visible(map: Control, die_visible: bool = true) -> bool:
 		if control.visible != expected or control.is_visible_in_tree() != expected: return false
 	return is_instance_valid(map.presentation.gauge) and map.presentation.gauge.visible
 
-func modal_and_chrome(map: Control, die_visible: bool = false) -> bool:
+func modal_and_chrome(map: Control, die_visible: bool = true) -> bool:
 	return is_instance_valid(map.overlay) and chrome_hidden(map,die_visible) and map.map_audio.modal_blocked
 
 func board_remains(map: Control) -> bool:
@@ -76,7 +76,7 @@ func _run() -> void:
 	var layer = map.modal()
 	check(layer == map.overlay and modal_and_chrome(map), "opening ordinary location modal hides all map chrome at once")
 	check(board_remains(map), "source map tile ring and hero are not hidden with its toolbar")
-	check(not map.dice.is_visible_in_tree() and map.dice.disabled and not map.book_button.is_visible_in_tree(), "inactive die is hidden and cannot intercept location dialogue clicks")
+	check(map.dice.is_visible_in_tree() and map.dice.disabled and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE and not map.book_button.is_visible_in_tree(), "inactive but visible die ignores location dialogue pointer input")
 	var saved_status: String = map.status.text
 	map.status.text = "Stage5R temporary status"
 	map.close_overlay()
@@ -117,7 +117,7 @@ func _run() -> void:
 	map.show_inventory("unit")
 	# The inventory book intentionally keeps board chrome visible behind its input shield.
 	# Unlike location actions, the inventory is an overlay on the real board.
-	check(is_instance_valid(map.overlay) and map.map_audio.modal_blocked and chrome_visible(map,false), "book inventory keeps HUD but hides inactive die")
+	check(is_instance_valid(map.overlay) and map.map_audio.modal_blocked and chrome_visible(map), "book inventory keeps original HUD and the inactive die")
 	map.close_overlay()
 	check(chrome_visible(map), "book inventory close restores map controls")
 	map.show_inventory("dice")
@@ -129,7 +129,7 @@ func _run() -> void:
 	check(monster >= 0, "board has a normal prebattle tile")
 	if monster >= 0:
 		map.show_battle_deck(monster)
-		check(modal_and_chrome(map), "prebattle deck panel hides board toolbar without starting a fight")
+		check(modal_and_chrome(map,false) and not map.dice.is_visible_in_tree(), "prebattle deck hides inactive die and toolbar without starting a fight")
 		check(session.encounter.is_empty(), "opening deck remains a UI-only operation")
 		map.close_overlay()
 		check(chrome_visible(map), "canceling prebattle deck restores board chrome")
