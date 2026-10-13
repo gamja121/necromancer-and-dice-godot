@@ -3,6 +3,7 @@ extends SceneTree
 ## mapping, minimum required type changes, fixed nodes, and no hidden flips.
 const Gear = preload("res://systems/map_gear_shift.gd")
 const State = preload("res://systems/map_state.gd")
+const Session = preload("res://systems/run_session.gd")
 const Layout = preload("res://systems/map_shuffle_layout.gd")
 var passed: int = 0
 var failed: int = 0
@@ -27,10 +28,19 @@ func _initialize() -> void:
 func _run() -> void:
 	var moving: Array[int]=Layout.moving_indices()
 	check(moving.size()==21 and Layout.FIXED_INDICES==[0,8,15],"21 movable tiles and 3 fixed source positions")
-	var minimum_conversion: int=0
+	var session: Node=root.get_node_or_null("RunSession")
+	var owns: bool=session==null
+	if owns:
+		session=Session.new()
+		session.name="RunSession"
+		root.add_child(session)
+	var saved_path: String=session.save_file_path
+	session.save_file_path="user://map_gear_identity_%d.json" % OS.get_process_id()
 	for scenario in range(9):
-		# A real initial world is built with original authoritative counts.
-		var world:=State.new({},10000+scenario)
+		# Build real original worlds with valid unit definitions and fixed tile counts.
+		session.start_new_world()
+		var world=session.world
+		world.rng.seed=10000+scenario
 		var previous: Array=world.tiles.duplicate()
 		for lap in range(1,6):
 			world.lap_ready=true
@@ -56,6 +66,12 @@ func _run() -> void:
 				check(changed==1,"first lap changes exactly one road into required new graveyard")
 			world.tiles=next
 			previous=next.duplicate()
+	session.save_file_path=saved_path
+	if owns: session.queue_free()
+	var temp_save: String="user://map_gear_identity_%d.json" % OS.get_process_id()
+	for suffix in ["",".tmp"]:
+		if FileAccess.file_exists(temp_save+suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(temp_save+suffix))
 	# The rotated original tile must be the EXACT target artwork throughout.
 	var image:=Image.create(4,4,false,Image.FORMAT_RGBA8)
 	image.fill(Color(0.44,0.32,0.22))
