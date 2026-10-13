@@ -90,6 +90,8 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	clear_save(path)
 	session.save_file_path=path
 	session.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	session.world.contamination = 100
 	var world=session.world
 	# The preceding rumor is completed in this fixture, then the REAL altar
 	# entry/three beats/pass/Finish commits the ritual-tracking prerequisite.
