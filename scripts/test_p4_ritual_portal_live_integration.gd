@@ -92,6 +92,7 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	session.start_new_world()
 	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
 	session.world.contamination = 100
+	session.world.reveal_boss_at_threshold()
 	var world=session.world
 	# The preceding rumor is completed in this fixture, then the REAL altar
 	# entry/three beats/pass/Finish commits the ritual-tracking prerequisite.
