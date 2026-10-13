@@ -85,6 +85,23 @@ func check_action_frame(map: Control, panel: Control, tag: String, expected_art:
 		check(frame.position.distance_to(map.LOCATION_EVENT_FRAME_RECT.position) < 0.2 and (frame.size * frame.scale).distance_to(map.LOCATION_EVENT_FRAME_RECT.size) < 0.2, tag + " keeps the 1024x450 border footprint")
 		check(frame.patch_margin_left == 170 and frame.patch_margin_right == 170 and frame.patch_margin_top == 150 and frame.patch_margin_bottom == 150 and not frame.draw_center, tag + " keeps the battle nine-patch settings")
 
+# The production first lap deliberately omits altar, world tree and graveyard.
+# Inject absent types into one road tile only for this isolated visual test.
+# Restore the original road before inspecting the next location or save state.
+func location_fixture(session, tile_name: String) -> Dictionary:
+	var existing: int = session.world.tiles.find(tile_name)
+	if existing >= 0:
+		return {"index": existing, "temporary": false}
+	var spare: int = session.world.tiles.find("basic")
+	if spare < 0:
+		return {"index": -1, "temporary": false}
+	session.world.tiles[spare] = tile_name
+	return {"index": spare, "temporary": true}
+
+func restore_location_fixture(session, fixture: Dictionary) -> void:
+	if bool(fixture.get("temporary", false)):
+		session.world.tiles[int(fixture.index)] = "basic"
+
 func cleanup() -> void:
 	for suffix in ["", ".tmp"]:
 		if FileAccess.file_exists(save_path + suffix):
@@ -117,8 +134,9 @@ func _run() -> void:
 	check(map.TILE_EVENT_ACTION_RECT == Rect2(515,595,216,58), "primary action lies below battle-sized image")
 	check(map.TILE_EVENT_EXIT_RECT == Rect2(765,595,216,58), "exit is alongside the action without covering art")
 	for target in SOURCE:
-		var idx: int = session.world.tiles.find(str(target.tile))
-		check(idx >= 0, str(target.tile) + " exists on actual board")
+		var fixture: Dictionary = location_fixture(session, str(target.tile))
+		var idx: int = int(fixture.index)
+		check(idx >= 0, str(target.tile) + " can be inspected without changing the first-lap tile rules")
 		if idx < 0: continue
 		map.show_location(idx)
 		check_frame(map,str(target.tile),str(target.button),map.TILE_EVENT_ACTION_RECT)
@@ -130,12 +148,14 @@ func _run() -> void:
 		map.close_overlay()
 		check(map.overlay == null and not map.map_audio.modal_blocked, str(target.tile) + " close removes foreground and restores audio icon")
 		check(map.presentation.gauge.visible and map.map_chrome.size() == 8, str(target.tile) + " close restores source map HUD")
+		restore_location_fixture(session, fixture)
 	# Enter the functional panels via the real scene buttons, not merely
 	# direct setup: prior builds replaced the wide framed painting with 1040x480 art.
 	for target in SOURCE:
 		var tile_name: String = str(target.tile)
 		if tile_name == "rest": continue
-		var idx: int = session.world.tiles.find(tile_name)
+		var fixture: Dictionary = location_fixture(session, tile_name)
+		var idx: int = int(fixture.index)
 		if idx < 0: continue
 		map.show_location(idx)
 		var button = get_button(map.overlay,str(target.button))
@@ -147,6 +167,7 @@ func _run() -> void:
 		map.show_location(idx)
 		check_frame(map,tile_name + " return","전체 회복" if tile_name == "rest" else str(target.button),map.TILE_EVENT_ACTION_RECT)
 		map.close_overlay()
+		restore_location_fixture(session, fixture)
 	# The house also has two distinct functional screens: patrol and inheritance.
 	map.show_exploration_actions(map.MapState.HOME)
 	check_action_frame(map,map.overlay,"house patrol","home-interior")
