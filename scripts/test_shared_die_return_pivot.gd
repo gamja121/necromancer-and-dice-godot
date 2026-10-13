@@ -63,7 +63,6 @@ func _run() -> void:
 	session.world.dice_visual_position=[int(pose.x),int(pose.y)]
 	session.world.dice_visual_rotation=rotation
 	check(session.save_world(),"persisted rotated die pose without rolling")
-	var rng_before: int=session.world.rng.state
 	var map: Control=MAP.instantiate()
 	root.add_child(map)
 	await process_frame
@@ -94,6 +93,8 @@ func _run() -> void:
 		session.world.position=monster
 		var ids: Array=[str(session.world.roster[0].id),str(session.world.roster[1].id)]
 		check(session.start_encounter(monster,ids),"isolated battle starts from real units")
+		# Enemy selection legitimately consumes RNG; returns/redraws must not.
+		var rng_before_return: int=session.world.rng.state
 		map.open_embedded_battle(false)
 		await process_frame
 		check(is_instance_valid(map.embedded_battle) and map.embedded_battle.dice==map.dice,"battle reuses original single stage die")
@@ -108,7 +109,7 @@ func _run() -> void:
 		check(returned,"battle UI closes and map stage redraws")
 		if returned: preserved_pose(map,battle_pose,battle_rotation,"after battle return")
 		check(session.world.dice_visual_position==[int(battle_pose.x),int(battle_pose.y)] and session.world.dice_visual_rotation==battle_rotation,"battle return does not rewrite saved visual coordinates")
-		check(session.world.rng.state==rng_before,"exit and redraw do not consume gameplay random values")
+		check(session.world.rng.state==rng_before_return,"exit and redraw do not consume gameplay random values")
 		check(session.save_world(),"returned pose saved for reload")
 		session.reload_world()
 		map.world=session.world
