@@ -338,6 +338,12 @@ func render() -> void:
 	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % world.dice_visual_face)
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	dice.size = Vector2(76,76)
+	# roll_map() rotates the same die around its centre. Restoring a saved
+	# rotation with Godot's default (0,0) pivot makes the painted die jump
+	# relative to its saved stage-space position after location exit,
+	# battlefield return, board redraw, or save/reload.
+	# Establish the same pivot BEFORE assigning the restored rotation.
+	dice.pivot_offset = dice.size*0.5
 	dice.position = shared_dice_position()
 	dice.rotation_degrees = world.dice_visual_rotation
 	dice.z_index = DIE_FOREGROUND_Z
