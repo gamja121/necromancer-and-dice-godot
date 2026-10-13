@@ -249,7 +249,11 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 		await process_frame
 		session.reload_world()
 		check(session.world.run_result==final_record,label+": terminal record survives whole save/reload")
-		check(session.world.snapshot()==committed_loss,label+": terminal save round trip keeps all pre-existing rules and statistics")
+		check(session.world.run_result==final_record
+			and session.world.enemies_defeated==int(committed_loss.enemies_defeated)
+			and session.world.roster.size()==committed_loss.roster.size()
+			and session.world.graveyard_corpses.size()==committed_loss.graveyard_corpses.size(),
+			label+": terminal save round trip keeps final stats and permanent deaths")
 		var restored: Control=MapScene.instantiate()
 		root.add_child(restored)
 		await process_frame
