@@ -70,7 +70,8 @@ func _run() -> void:
 	audio.volume_slider.value=45
 	check(absf(db_to_linear(AudioServer.get_bus_volume_db(0))*100.0-45)<0.2,"advanced master volume still updates actual audio bus")
 	check(cfg.load(test_file)==OK and absf(float(cfg.get_value("audio","volume",0))-0.45)<0.02,"native master volume persists while maintaining source toggles")
-	check(not cfg.has_section_key("audio","output"),"new audio saves remove legacy machine-specific output device name")
+	var migrated_cfg = ConfigFile.new()
+	check(migrated_cfg.load(test_file)==OK and not migrated_cfg.has_section_key("audio","output"),"new audio saves remove legacy machine-specific output device name")
 	audio.advanced_button.pressed.emit()
 	check(not audio.advanced_content.visible,"advanced fold closes without losing source switches")
 	audio.close_button.pressed.emit()
