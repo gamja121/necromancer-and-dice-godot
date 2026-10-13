@@ -1,0 +1,46 @@
+name: Graveyard dialogue threshold and visual fixture
+on:
+  pull_request:
+    paths:
+      - "scripts/test_ui_grave_dialogue_stage5p.gd"
+      - ".github/workflows/graveyard-dialogue-threshold-fixture.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_ui_grave_dialogue_stage5p.gd"
+      - ".github/workflows/graveyard-dialogue-threshold-fixture.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dialogue-threshold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import existing production resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Respect story unlock gate and test actual graveyard dialogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210s godot --headless --path . --script res://scripts/test_ui_grave_dialogue_stage5p.gd 2>&1 | tee grave-dialogue.log
+          grep -E '^UI_GRAVE_DIALOGUE_FRAME_PARITY: [0-9]+ passed, 0 failed$' grave-dialogue.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-grave-dialogue:' grave-dialogue.log; then exit 1; fi
+      - name: Ensure story contamination gate remains in force
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 155s godot --headless --path . --script res://scripts/test_story_contamination_thresholds.gd 2>&1 | tee story-gates.log
+          grep -E '^STORY_CONTAMINATION_THRESHOLDS: [0-9]+ passed, 0 failed$' story-gates.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' story-gates.log; then exit 1; fi
+      - name: Verify diff whitespace
+        run: git diff --check
