@@ -104,8 +104,10 @@ func setup(map_scene, tile_index: int) -> void:
 		close_button.text="닫기"
 		close_button.position=Vector2(430,561)
 		close_button.size=Vector2(128,36)
-		status.position=Vector2(145,515)
-		status.size=Vector2(722,42)
+		# Keep the selection status BELOW the +/- click targets; the
+		# former y=515 label obscured quantity buttons on smaller screens.
+		status.position=Vector2(145,606)
+		status.size=Vector2(722,41)
 		status.add_theme_font_size_override("font_size",13)
 		action_button=button(self,"경로 확정",Vector2(614,561),Vector2(160,36),confirm_route)
 		action_button.name="PatrolRouteConfirm"
