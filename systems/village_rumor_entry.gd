@@ -1,4 +1,5 @@
 extends RefCounted
+const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 const RumorBeats = preload("res://systems/village_rumor_beats.gd")
 ## P1-05B: village rumor entry plus persisted beat-by-beat progression.
 ## Commander/hunter follow-up is a separate step.
@@ -40,6 +41,7 @@ static func eligible_event_id(session, index: int) -> String:
 	if rescued and (graveyard.choice!="protect_child" or graveyard.battle_result!="won"): return ""
 	if abandoned and graveyard.choice!="leave": return ""
 	var event_id: String = RESCUED_ID if rescued else ABANDONED_ID
+	if not ContaminationGate.allows(session,event_id): return ""
 	if world.event_flags.get(complete_flag(event_id),false)==true: return ""
 	if session.get_story_event(event_id).status=="complete": return ""
 	return event_id
