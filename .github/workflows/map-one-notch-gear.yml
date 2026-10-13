@@ -1,4 +1,4 @@
-name: One-Notch Tile Gear and Persisted Identity
+name: Two-Ring One-Notch Gear and Real Tile Pair Swaps
 on:
   pull_request:
     paths:
@@ -41,14 +41,14 @@ jobs:
           set -euo pipefail
           timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
-      - name: Gear per-type counts and visual stone identity
+      - name: Real pair permutation, tile types and original stone identity
         shell: bash
         run: |
           set -euo pipefail
           timeout 120s godot --headless --path . --script res://scripts/test_map_gear_identity.gd 2>&1 | tee gear.log
           grep -E '^MAP_GEAR_IDENTITY: [0-9]+ passed, 0 failed$' gear.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL gear-identity:' gear.log; then exit 1; fi
-      - name: Three actual laps one cog-notch no face swap and rollback
+      - name: Three real laps gather rotate swap scatter with accurate saves
         shell: bash
         run: |
           set -euo pipefail
