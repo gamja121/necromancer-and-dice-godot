@@ -878,6 +878,9 @@ func show_place_actions(index: int) -> void:
 	stage.add_child(panel)
 	overlay = panel
 	panel.setup(self,index)
+	# Type/action controls are initialized in setup, AFTER overlay's setter.
+	# Now restore the die only for this panel's actual click-to-roll action.
+	_sync_map_chrome()
 	panel.closed.connect(func(): dismiss_overlay(func():
 		world = session.world
 		presentation.refresh()
@@ -888,6 +891,7 @@ func show_exploration_actions(index: int) -> void:
 	stage.add_child(panel)
 	overlay = panel
 	panel.setup(self,index)
+	_sync_map_chrome()
 	panel.closed.connect(func():
 		highlight(world.position)
 		dismiss_overlay(func():
