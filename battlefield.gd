@@ -2,11 +2,14 @@ extends Control
 
 signal finished
 signal entry_summon_finished
+signal entry_brand_dismissed
 
 var embedded = false
 # Set only by freshly confirmed deck; saved/reloaded encounters skip the intro.
 var play_entry_summon: bool = false
 var entry_summon_active: bool = false
+# One presentation-only overview after a fresh encounter's final summon.
+var entry_brand_auto_open: bool = false
 var detail_parent: Control
 var surface_size = Vector2(1280,720)
 
@@ -392,9 +395,14 @@ func _play_entry_summon(ids: Array) -> void:
 	if is_instance_valid(capture_panel):
 		refresh_after_entry_capture()
 	else:
-		dice.disabled=false
-		set_deck_disabled(false)
-		for card in cards.values(): card.disabled=false
+		# The final allied monster and HP bars are fully visible before
+		# the existing six-face/8-unit brand chart appears exactly once.
+		# Hold the first roll and deck behind this dismissible overview.
+		show_brand_reference()
+		entry_brand_auto_open=is_instance_valid(brand_reference)
+		dice.disabled=entry_brand_auto_open
+		set_deck_disabled(entry_brand_auto_open)
+		for card in cards.values(): card.disabled=entry_brand_auto_open
 	entry_summon_finished.emit()
 
 func refresh_after_entry_capture() -> void:
@@ -570,6 +578,10 @@ func roll_round(instance_id: String = "") -> void:
 	# running; queue it behind the visual gate rather than dropping the roll.
 	if entry_summon_active:
 		await entry_summon_finished
+	# A queued script/roll cannot skip the mandatory first brand overview.
+	if entry_brand_auto_open and is_instance_valid(brand_reference):
+		await entry_brand_dismissed
+		if not is_inside_tree(): return
 	if busy or is_instance_valid(capture_panel) or is_instance_valid(brand_reference): return
 	if not map_mode and not rules.winner().is_empty(): return
 	var phase = str(session.encounter.get("phase","ready")) if map_mode else "ready"
@@ -898,7 +910,18 @@ func show_brand_reference() -> void:
 	brand_reference.closed.connect(close_brand_reference)
 
 func close_brand_reference() -> void:
+	var ending_entry_overview: bool=entry_brand_auto_open
+	entry_brand_auto_open=false
 	if is_instance_valid(brand_reference):
 		brand_reference.get_parent().remove_child(brand_reference)
 		brand_reference.queue_free()
 	brand_reference = null
+	if ending_entry_overview:
+		# Only the auto-opened introduction owns this input gate. Manual
+		# reference views still use their existing close semantics.
+		if is_inside_tree() and not busy and not is_instance_valid(capture_panel) and rules!=null and rules.winner().is_empty():
+			if is_instance_valid(dice): dice.disabled=false
+			set_deck_disabled(false)
+			for card in cards.values():
+				if is_instance_valid(card): card.disabled=false
+		entry_brand_dismissed.emit()
