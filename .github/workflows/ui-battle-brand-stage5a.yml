@@ -1,11 +1,19 @@
 name: Battle Brand Reference HTML Visual Port 5A
 on:
+  pull_request:
+    paths:
+      - "systems/brand_reference.gd"
+      - "battlefield.gd"
+      - "scripts/test_ui_battle_brand_parity.gd"
+      - "assets/map/ui/inheritance_info.webp"
+      - ".github/workflows/ui-battle-brand-stage5a.yml"
   push:
     branches:
       - feature/ui-parity-battle-brand-stage5a-20261011
       - main
     paths:
       - "systems/brand_reference.gd"
+      - "battlefield.gd"
       - "scripts/test_ui_battle_brand_parity.gd"
       - "assets/map/ui/inheritance_info.webp"
       - ".github/workflows/ui-battle-brand-stage5a.yml"

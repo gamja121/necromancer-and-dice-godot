@@ -9,6 +9,11 @@ var closing = false
 ## HTML reference: v2-auto-battle-practice.html / .brand-reference-grid.
 ## Presentation-only: never change the incoming rules or the curse-first resolver.
 const DICE_RESULT_PATH = "res://assets/battle/dice/result-%02d.png"
+# Use native Korean glyphs present in the bundled Nanum Gothic font.
+# Decorative Unicode symbols (✦, ☠) rendered as missing-glyph squares on Web.
+const BLESSING_GLYPH = "축"
+const CURSE_GLYPH = "저"
+const LEGEND_TEXT = "축: 축복 · 저: 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다."
 const FRAME_PATH = "res://assets/map/ui/inheritance_info.webp"
 const GRID_WIDTH = 938.0
 const FIRST_COL = 230.0
@@ -124,11 +129,15 @@ func setup(rules) -> void:
 				cell.name="BrandFace%02d" % face
 				cell.set_meta("face",face)
 				cell.set_meta("mode",mode)
-				cell.text="✦" if mode=="blessing" else ("☠" if mode=="curse" else "")
+				cell.text=BLESSING_GLYPH if mode=="blessing" else (CURSE_GLYPH if mode=="curse" else "")
 				cell.custom_minimum_size=Vector2(FACE_COL,ROW_HEIGHT)
 				cell.disabled=mode=="normal"
 				cell.tooltip_text="%s · %d번 · %s" % [str(u.name),face,"축복" if mode=="blessing" else ("저주" if mode=="curse" else "발동 없음")]
-				cell.add_theme_color_override("font_color",Color("35692c") if mode=="blessing" else Color("752d25"))
+				var ink_color: Color = Color("35692c") if mode=="blessing" else Color("752d25")
+				cell.add_theme_font_size_override("font_size",18)
+				cell.add_theme_color_override("font_color",ink_color)
+				cell.add_theme_color_override("font_hover_color",ink_color)
+				cell.add_theme_color_override("font_pressed_color",ink_color)
 				apply_cell_style(cell,Color("c6d0a1") if mode=="blessing" else (Color("d4afa2") if mode=="curse" else Color("dec9a9")))
 				cell.pressed.connect(func(): describe(u,marks,face))
 				row.add_child(cell)
@@ -145,7 +154,8 @@ func setup(rules) -> void:
 	detail_style.set_border_width_all(1)
 	detail_frame.add_theme_stylebox_override("panel",detail_style)
 	add_child(detail_frame)
-	var note=label_at(self,"✦ 축복 · ☠ 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다.",Vector2(171,514),Vector2(942,23),13)
+	var note=label_at(self,LEGEND_TEXT,Vector2(171,514),Vector2(942,23),13)
+	note.name="BrandReferenceLegend"
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	detail_scroll=ScrollContainer.new()
 	detail_scroll.name="BrandReferenceDescription"
@@ -188,9 +198,9 @@ func describe(u: Dictionary, marks: Array, face: int = 0) -> void:
 		if face==0:
 			lines.append("%s · 축복 [%s] / 저주 [%s]" % [definition.name,", ".join(mark.bless.map(func(n): return str(n))),", ".join(mark.curse.map(func(n): return str(n)))])
 		elif mode=="curse" and face in mark.curse:
-			lines.append("☠ %s · %s" % [definition.name,definition.penalty])
+			lines.append("%s %s · %s" % [CURSE_GLYPH,definition.name,definition.penalty])
 		elif mode=="blessing" and face in mark.bless:
-			lines.append("✦ %s · %s" % [definition.name,definition.blessing])
+			lines.append("%s %s · %s" % [BLESSING_GLYPH,definition.name,definition.blessing])
 	if lines.size()==1: lines.append("낙인 없음" if face==0 else "발동 없음")
 	summary.text = "\n".join(lines)
 	# Always start at the selected mark name rather than retaining the previous scroll offset.

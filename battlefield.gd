@@ -331,7 +331,7 @@ void fragment() {
 			count.text="%d/5" % session.world.dice_cards.size()
 			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			dice_cards_button.add_child(count)
-	brand_reference_button = button(layer,"✦☠ 낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
+	brand_reference_button = button(layer,"낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
 	for team in ["ally","enemy"]:
 		var title = text(layer,"아군 활성 군단" if team == "ally" else "적군 활성 군단",Vector2(25.6 if team == "ally" else 1054.4,53),Vector2(200,26),16)
 		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
