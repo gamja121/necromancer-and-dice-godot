@@ -81,7 +81,11 @@ func _run() -> void:
 	map.queue_free()
 	await process_frame
 	s.reload_world()
-	check(s.world.snapshot()==committed and not s.world.run_result.is_empty(),"restarting the process does not revive lost expedition")
+	check(s.world.run_result==committed.run_result and s.world.active_encounter.is_empty()
+		and s.world.roster.size()==committed.roster.size()
+		and s.world.graveyard_corpses.size()==committed.graveyard_corpses.size()
+		and s.world.enemies_defeated==int(committed.enemies_defeated),
+		"restarting the process preserves the terminal result, permanent dead, and kill tally")
 	var resumed: Control=MAP.instantiate()
 	root.add_child(resumed)
 	await process_frame
