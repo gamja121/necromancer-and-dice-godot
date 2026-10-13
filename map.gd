@@ -1738,13 +1738,18 @@ func show_story_battle_result(event_id: String) -> void:
 	InkSceneReveal.play(art)
 	if not str(view.overlay).is_empty():
 		image(panel,str(view.overlay),Vector2(243.2,136.8),Vector2(793.6,446.4))
+	shared_story_frame(panel)
 	var heading = label_at(panel,str(view.title),Vector2(360,84),Vector2(568,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var narrative = label_at(panel,str(view.narration),Vector2(285,558),Vector2(710,62),18)
+	narrative.add_theme_color_override("font_color", Color("271a10"))
+	narrative.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	narrative.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	narrative.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if not str(view.dialogue).is_empty():
 		var dialogue = label_at(panel,str(view.dialogue),Vector2(396,619),Vector2(492,26),17 if not view.retry else 16)
+		dialogue.add_theme_color_override("font_color", Color("271a10"))
+		dialogue.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		dialogue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if view.retry and not world.roster.is_empty():
 		location_button(panel,"다시 도전",Vector2(637,653),Vector2(206,48),func(): acknowledge_story_battle_result_ui(event_id,true),1)
