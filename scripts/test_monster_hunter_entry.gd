@@ -43,6 +43,8 @@ func fresh(suffix: String):
 	clear(path)
 	s.save_file_path=path
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
 	return s
 
 func resolve_graveyard(s, rescued: bool) -> void:
