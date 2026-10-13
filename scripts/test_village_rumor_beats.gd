@@ -39,6 +39,8 @@ func make(suffix: String, rescued: bool):
 	remove_file(path)
 	s.save_file_path=path
 	s.start_new_world()
+	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
+	s.world.contamination = 100
 	var graveyard: int=s.world.tiles.find("graveyard")
 	check(graveyard>=0,"graveyard found "+suffix)
 	s.world.position=graveyard
