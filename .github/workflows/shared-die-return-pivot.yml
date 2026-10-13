@@ -1,0 +1,54 @@
+name: Shared Die Pose Across Map and Battle Returns
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/dice_animation.gd"
+      - "scripts/test_shared_die_return_pivot.gd"
+      - ".github/workflows/shared-die-return-pivot.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/dice_animation.gd"
+      - "scripts/test_shared_die_return_pivot.gd"
+      - ".github/workflows/shared-die-return-pivot.yml"
+permissions:
+  contents: read
+jobs:
+  shared-die-return:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot headless editor import and script parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Real tile exit battle return and reload preserve painted die pose
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_shared_die_return_pivot.gd 2>&1 | tee pose.log
+          grep -E 'SHARED_DIE_RETURN_PIVOT: [0-9]+ passed, 0 failed' pose.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL die-return-pivot:' pose.log; then exit 1; fi
+      - name: Existing shared die collision and single-button safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_shared_die_safety.gd 2>&1 | tee safety.log
+          grep -E 'SHARED_DIE_SAFETY: [0-9]+ passed, 0 failed' safety.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL shared-die-safety:' safety.log; then exit 1; fi
+      - name: Existing location art draw order and die usability
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_location_die_layer_stack.gd 2>&1 | tee location.log
+          grep -E 'LOCATION_DIE_LAYER_STACK: [0-9]+ passed, 0 failed' location.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL location-layer-stack:' location.log; then exit 1; fi
