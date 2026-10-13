@@ -449,9 +449,9 @@ func card_action_y() -> float:
 	return surface_size.y-20.0
 
 func unit_x(u: Dictionary) -> float:
-	# Both the V2-staggered summon sprites and their bottom cards follow
-	# the SAME physical slot. The source lineup places slot 1 nearest the
-	# center and slot 4 at the rear, without changing selected unit IDs.
+	# The clicked deck order is physical left-to-right (slots 0, 1, 2, 3).
+	# Sprite, HP bar and bottom card must all resolve the same slot center.
+	# Summoned slot 4 and enemy columns keep their own placement.
 	return presentation_layout.horizontal_center(u,surface_size)
 
 func frame_path(u: Dictionary, motion: String, index: int) -> String:
