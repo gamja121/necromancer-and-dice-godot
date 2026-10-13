@@ -47,6 +47,7 @@ func make(suffix: String):
 	s.start_new_world()
 	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
 	s.world.contamination = 100
+	s.world.reveal_boss_at_threshold()
 	return s
 
 func complete_rescue_and_commander(s) -> void:
