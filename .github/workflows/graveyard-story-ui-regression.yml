@@ -1,0 +1,44 @@
+name: Graveyard Story UI Gate Regression
+
+on:
+  pull_request:
+    paths:
+      - "scripts/test_ui_grave_dialogue_stage5p.gd"
+      - "systems/story_contamination_gate.gd"
+      - "systems/story_event_entry.gd"
+      - ".github/workflows/graveyard-story-ui-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_ui_grave_dialogue_stage5p.gd"
+      - "systems/story_contamination_gate.gd"
+      - "systems/story_event_entry.gd"
+      - ".github/workflows/graveyard-story-ui-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  graveyard-story-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot scripts and original dialogue texture
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Test saved graveyard dialogue and first-discovery threshold
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_grave_dialogue_stage5p.gd 2>&1 | tee grave.log
+          grep -E '^UI_GRAVE_DIALOGUE_FRAME_PARITY: [0-9]+ passed, 0 failed$' grave.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-grave-dialogue:' grave.log; then exit 1; fi
