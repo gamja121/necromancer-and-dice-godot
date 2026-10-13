@@ -1,12 +1,12 @@
 extends SceneTree
-## Stage 5P: original 12KB frozen HTML graveyard dialogue WebP, real
+## Stage 5P: shared transparent graveyard dialogue frame, real
 ## Continue controls, save/restart and no automatic choice or combat.
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const STORY = preload("res://systems/story_event_entry.gd")
 const GATE = preload("res://systems/story_contamination_gate.gd")
 const BEATS = preload("res://systems/graveyard_story_beats.gd")
-const SOURCE = "res://assets/map/ui/intro-dialogue-box.webp"
+const SOURCE = "res://assets/map/ui/shared_dialogue_panel.svg"
 var passed: int = 0
 var failed: int = 0
 var save: String = ""
@@ -53,7 +53,7 @@ func _run() -> void:
 		if idx>=0: session.world.tiles[idx]="graveyard"
 	check(idx>=0,"unlocked graveyard event can be tested without altering first-lap rules")
 	var source=load(SOURCE) as Texture2D
-	check(source!=null,"source-based recovered dialogue WebP imports into Godot")
+	check(source!=null,"shared transparent dialogue artwork imports into Godot")
 	if idx<0 or source==null:
 		session.save_file_path=original_path
 		if created: session.queue_free()
@@ -61,7 +61,7 @@ func _run() -> void:
 		print("UI_GRAVE_DIALOGUE_FRAME_PARITY: %d passed, %d failed" % [passed,failed])
 		quit(1)
 		return
-	check(source.get_width()>50 and source.get_height()>20,"source WebP decodes original nonempty frame")
+	check(source.get_width()>50 and source.get_height()>20,"shared artwork decodes to nonempty frame")
 	session.world.position=idx
 	# The production story gate intentionally prevents FIRST discovery at
 	# contamination 0. The prior fixture forgot to unlock its own story,
@@ -93,8 +93,8 @@ func _run() -> void:
 	var frame=panel.get_node_or_null("StoryDialogueFrame") as TextureRect
 	check(frame!=null,"spoken child scene creates dedicated original dialogue artwork node")
 	if frame!=null:
-		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame references verified recovered source image")
-		check(frame.stretch_mode==TextureRect.STRETCH_SCALE,"source frame stretches to map dialogue window without letterboxing")
+		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame uses the shared blank parchment asset")
+		check(frame.stretch_mode==TextureRect.STRETCH_SCALE,"shared blank frame stretches to map dialogue window without letterboxing")
 		# PanelEffectsModule moves all non-backdrop children by 6 px during
 		# the 200 ms entrance; compare settled coordinates, not mid-tween.
 		await create_timer(0.29).timeout
@@ -107,7 +107,7 @@ func _run() -> void:
 	if words!=null:
 		check(words.get_theme_color("font_color")==Color("21150d"),"child speech uses source dark ink on original frame")
 	check(panel.get_node_or_null("StoryDialogueNext") is Label,"nonchoice dialogue hints explicit next action")
-	check(button(map,"계속")!=null and button(map,"나가기")!=null,"source dialog preserves existing real Continue and Exit buttons")
+	check(button(map,"계속")!=null and button(map,"나가기")!=null,"separate source Continue and Exit buttons remain functional above art")
 	check(session.encounter.is_empty() and session.world.pending_reward.is_empty(),"visual-only dialogue does not start fight or reward")
 	var before_reopen: Dictionary=session.world.snapshot().duplicate(true)
 	for i in range(3): await process_frame
