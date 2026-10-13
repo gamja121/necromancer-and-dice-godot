@@ -80,6 +80,16 @@ func resolve_wall_bounce(previous: Vector2, proposed: Vector2, velocity: Vector2
 				motion.x=absf(motion.x)*0.78
 	return {"center":location,"velocity":motion,"bounced":true}
 
+## Keep restored poses inside the rotating die's safe painted footprint.
+func safe_rest_position(position: Vector2, die_size: Vector2, area: Rect2, collision_wall: Rect2 = Rect2()) -> Vector2:
+	var radius: float = die_size.length()*0.55
+	var minimum: Vector2 = area.position+Vector2.ONE*radius
+	var maximum: Vector2 = area.end-Vector2.ONE*radius
+	var center: Vector2 = (position+die_size*0.5).clamp(minimum,maximum)
+	if collision_wall.has_area() and collision_wall.grow(radius).has_point(center):
+		center = (Vector2(602,308)+die_size*0.5).clamp(minimum,maximum)
+	return center-die_size*0.5
+
 func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callable, play_sound: Callable, collision_wall: Rect2 = Rect2()) -> void:
 	button.pivot_offset = button.size*0.5
 	var radius = button.size.length()*0.55
@@ -129,6 +139,7 @@ func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callab
 		var wall_hit: Dictionary=resolve_wall_bounce(previous_center,center,velocity,radius,collision_wall)
 		center=wall_hit["center"]
 		velocity=wall_hit["velocity"]
+		center=center.clamp(minimum,maximum)
 		bounced=bounced or bool(wall_hit["bounced"])
 		if bounced and sound_clock>0.085 and play_sound.is_valid():
 			play_sound.call("dice-tick")
