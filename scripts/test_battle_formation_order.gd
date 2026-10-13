@@ -1,7 +1,7 @@
 extends SceneTree
-## Restore the ORIGINAL V2 allied perspective columns [4,3,2,1,5].
-## Confirmed selection identity remains stable and each bottom card follows
-## its actual battlefield creature, not a newly invented left-to-right line.
+## Confirmed deck order must be physical LEFT-TO-RIGHT [1,2,3,4] in battle.
+## Every allied sprite, HP bar and card follows the same chosen slot.
+## Preserve enemy slots, perspective depth and combat target probabilities.
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const LAYOUT = preload("res://systems/battle_presentation_layout.gd")
@@ -71,8 +71,8 @@ func scenario(session: Node, count: int) -> void:
 	var larger_cards: bool=true
 	var card_rectangles: Array[Rect2]=[]
 	var no_card_overlap: bool=true
-	var old_columns: Array=[4,3,2,1,5]
-	var original_positions: bool=true
+	var deck_order_columns: Array=[1,2,3,4,5]
+	var selected_positions: bool=true
 	var original_depth: bool=true
 	var enemies_unaltered: bool=true
 	var layout=LAYOUT.new()
@@ -87,8 +87,8 @@ func scenario(session: Node, count: int) -> void:
 		geometry_matches=geometry_matches and absf(sprite.position.x+sprite.pivot_offset.x-unit_center)<7.0
 		centers.append(unit_center)
 		var slot_cell: float=battle.surface_size.x*0.48/5.0
-		var old_x: float=(float(old_columns[i])-0.5)*slot_cell
-		original_positions=original_positions and absf(unit_center-old_x)<0.2
+		var deck_x: float=(float(deck_order_columns[i])-0.5)*slot_cell
+		selected_positions=selected_positions and absf(unit_center-deck_x)<0.2
 		original_depth=original_depth and absf(float(geometry.z)-float([13,15,17,18,12][i]))<0.01
 		var card: TextureButton=battle.cards[u.id]
 		dock_centers.append(card.position.x+card.size.x*0.5)
@@ -116,18 +116,18 @@ func scenario(session: Node, count: int) -> void:
 			var original_x: float=665.6+(float(enemy_columns[mini(int(u.slot),4)])-0.5)*122.88
 			enemies_unaltered=enemies_unaltered and absf(battle.unit_x(u)-original_x)<0.2
 	check(same_unit_ids,"%d cards: battle slot ID order exactly matches clicked deck order" % count)
-	var descending: bool=true
+	var ascending: bool=true
 	for i in range(1,centers.size()):
-		descending=descending and centers[i]<centers[i-1]
-	check(centers.size()==count and descending,"%d cards: original V2 slots stagger back toward left 1->%d" % [count,count])
-	check(original_positions,"%d cards: original source columns [4,3,2,1] used without newly invented spread" % count)
+		ascending=ascending and centers[i]>centers[i-1]
+	check(centers.size()==count and ascending,"%d cards: chosen units appear left-to-right in the same 1-to-%d order as the deck" % [count,count])
+	check(selected_positions,"%d cards: deck positions map exactly onto battlefield columns [1,2,3,4]" % count)
 	check(original_depth,"%d cards: original perspective layer values retained" % count)
 	check(geometry_matches,"%d cards: monster sprite center agrees with battle slot geometry" % count)
 	check(dock_matches,"%d cards: each bottom card is exactly under its summoned unit" % count)
-	var descending_dock: bool=true
+	var ascending_dock: bool=true
 	for i in range(1,dock_centers.size()):
-		descending_dock=descending_dock and dock_centers[i]<dock_centers[i-1]
-	check(dock_centers.size()==count and descending_dock,"%d cards: lower cards retain original V2 staggered order" % count)
+		ascending_dock=ascending_dock and dock_centers[i]>dock_centers[i-1]
+	check(dock_centers.size()==count and ascending_dock,"%d cards: bottom dock cards keep the selected left-to-right deck order" % count)
 	check(card_inside_board,"%d cards: all enlarged cards remain inside playable board bounds" % count)
 	check(larger_cards,"%d cards: both teams' mapped dock cards are enlarged to 120px, 42 percent over previous size" % count)
 	check(no_card_overlap,"%d cards: enlarged card clickable rectangles do not intersect" % count)
