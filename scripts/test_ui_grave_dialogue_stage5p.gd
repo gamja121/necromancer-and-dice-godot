@@ -4,6 +4,7 @@ extends SceneTree
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const STORY = preload("res://systems/story_event_entry.gd")
+const GATE = preload("res://systems/story_contamination_gate.gd")
 const BEATS = preload("res://systems/graveyard_story_beats.gd")
 const SOURCE = "res://assets/map/ui/intro-dialogue-box.webp"
 var passed: int = 0
@@ -62,7 +63,13 @@ func _run() -> void:
 		return
 	check(source.get_width()>50 and source.get_height()>20,"source WebP decodes original nonempty frame")
 	session.world.position=idx
-	check(session.save_world(),"test-only graveyard position persisted")
+	# The production story gate intentionally prevents FIRST discovery at
+	# contamination 0. The prior fixture forgot to unlock its own story,
+	# causing an unrelated UI test to fail and dereference a null overlay.
+	check(not STORY.can_enter(session,idx),"new graveyard discovery is blocked below its intended contamination threshold")
+	session.world.contamination=int(GATE.MINIMUMS[STORY.EVENT_ID])
+	check(STORY.can_enter(session,idx),"test fixture unlocks the real graveyard contamination gate without weakening production rules")
+	check(session.save_world(),"test-only graveyard position and threshold persisted")
 	check(STORY.begin(session,idx),"canonical production graveyard story discovered by explicit action")
 	var map=MAP.instantiate()
 	root.add_child(map)
