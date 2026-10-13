@@ -174,6 +174,10 @@ var dice_count_label: Label
 # Track only chrome created by render(), so rebuilt boards cannot retain old nodes.
 var map_chrome: Array[Control] = []
 
+func raise_shared_die_for_input() -> void:
+	if is_instance_valid(dice) and is_instance_valid(stage) and dice.visible and dice.get_parent()==stage:
+		stage.move_child(dice,stage.get_child_count()-1)
+
 func _sync_map_chrome() -> void:
 	# The map keeps its single die node, but modal card/location screens must
 	# never show a disabled die ON TOP of their choices or consume their clicks.
@@ -188,8 +192,7 @@ func _sync_map_chrome() -> void:
 	# z_index draws the die over the battle art but does NOT determine GUI
 	# hit-testing order. Put it last among stage siblings so its pressed
 	# signal is actually reachable inside CentralBattle and action panels.
-	if show_die and is_instance_valid(dice) and dice.get_parent()==stage:
-		stage.move_child(dice,stage.get_child_count()-1)
+	if show_die: raise_shared_die_for_input()
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		presentation.gauge.visible = show_board_controls
 	# During scene switches do not reenable a currently rolling die.
