@@ -60,6 +60,7 @@ const DiceHand = preload("res://systems/dice_control_hand.gd")
 const InventoryPanel = preload("res://systems/inventory_panel.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
 const Battlefield = preload("res://battlefield.tscn")
+const GameOverScreen = preload("res://systems/game_over_screen.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
@@ -80,6 +81,7 @@ const SHARED_DIE_AREA = Rect2(150.0,140.0,980.0,416.0)
 const DIE_FOREGROUND_Z = 96
 const DIE_BEHIND_LOCATION_Z = 20
 var shared_die_busy: bool = false
+var game_over_screen: Control
 var status: Label
 
 func shared_dice_position() -> Vector2:
@@ -243,7 +245,9 @@ func _ready() -> void:
 		session.notice = ""
 	if world.roster.is_empty(): status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
 	session.save_world()
-	if world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
+	if not world.run_result.is_empty():
+		call_deferred("show_game_over",true)
+	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
@@ -778,7 +782,29 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	var entry = create_tween()
 	entry.tween_property(host,"modulate:a",1.0,0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
+# The defeated expedition is committed in the same save as the battle loss.
+# An archived defeat must never resume normal map interactions.
+func show_game_over(instant: bool = false) -> void:
+	if is_instance_valid(game_over_screen) or world.run_result.is_empty(): return
+	var footprints: Array=[]
+	if is_instance_valid(embedded_battle):
+		for unit in embedded_battle.rules.units:
+			if unit.team!="ally" or int(unit.slot)>=4: continue
+			var point: Vector2=embedded_battle.presentation_layout.geometry(unit,embedded_battle.surface_size).foot
+			var global_point: Vector2=embedded_battle.get_global_transform_with_canvas()*point
+			footprints.append(stage.get_global_transform_with_canvas().affine_inverse()*global_point)
+	game_over_screen=GameOverScreen.new()
+	stage.add_child(game_over_screen)
+	game_over_screen.setup(session,dice,footprints,instant)
+	if is_instance_valid(map_music): map_music.stream_paused=true
+	if is_instance_valid(embedded_battle):
+		embedded_battle.dice.disabled=true
+		embedded_battle.set_deck_disabled(true)
+
 func finish_embedded_battle() -> void:
+	if not world.run_result.is_empty():
+		show_game_over()
+		return
 	if battle_returning: return
 	battle_returning = true
 	var completed_story_event_id: String = returning_story_event_id
