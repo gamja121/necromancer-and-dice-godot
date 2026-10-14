@@ -137,7 +137,7 @@ func run_case(session: Node, victor: String, corruption: int, laps: int) -> void
 	session.reload_world()
 	world = session.world
 	check(world.snapshot()==outcome,victor+": final result survives JSON save/restart without extra rewards")
-	if victor=="enemy": check(not world.run_result.is_empty() and not session.start_encounter(gem,[str(world.roster[0].id)]),"ended run refuses any further battles")
+	if victor=="enemy": check(not world.run_result.is_empty() and not session.start_encounter(gem,[id]),"ended run refuses any further battles")
 	map.queue_free()
 	await process_frame
 	for suffix in ["",".tmp"]:
