@@ -1,7 +1,7 @@
 extends SceneTree
 ## P4-02C: real Map die -> source five-scene portal -> hero-led four-enemy
-## embedded battle -> outcome acknowledgement -> explicit weak/full revival
-## -> saved first world-tree king-hunt scene (both independent outcomes).
+## embedded battle -> victory acknowledgement -> weakened revival and hunt.
+## Losing any battle is terminal: game-over and no continuation/king hunt.
 ## Disposable user:// save per scenario, with deterministic test-only battle
 ## combatants, and swaps of ordinary (non-anchor) tiles for die landings.
 const MAP_SCENE = preload("res://map.tscn")
@@ -90,9 +90,15 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	clear_save(path)
 	session.save_file_path=path
 	session.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	session.world.contamination = 100
-	session.world.reveal_boss_at_threshold()
+	# Generate an actual post-home-exit board with the final contamination.
+	# Revealing the boss AFTER generation could erase the only story/event
+	# or forest tile at slot 23 and make this route seed-dependent.
+	session.world.contamination = 93
+	session.world.lap_ready = true
+	session.world.leave_home()
+	check(session.world.contamination==100 and session.world.tiles[MAP_STATE.BOSS_TILE_INDEX]=="boss"
+		and session.world.tiles.has("event") and session.world.tiles.has("forest"),
+		tag+": boss generation preserves required event and forest tiles")
 	var world=session.world
 	# The preceding rumor is completed in this fixture, then the REAL altar
 	# entry/three beats/pass/Finish commits the ritual-tracking prerequisite.
@@ -179,6 +185,16 @@ func actual_story_battle(session: Node, map: Control, victor: String, label: Str
 	check(PORTAL_ENEMIES.valid(session.world.definitions,slugs),label+": exactly four distinct original hero-led source enemies")
 	check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG) and not session.event_flag_is_set(PORTAL.HUNT_FLAG),label+": entering fight does not revive king or unlock hunt")
 	deterministic_battle(battle,victor,label)
+	# The actual combat presentation opens the brand-reference overlay after
+	# the last summoning animation. The player must close it before rolling.
+	check(await until_ready(func(): return not battle.entry_summon_active,18000),
+		label+": all summoned allies finish their entry animation")
+	check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open,
+		label+": mandatory first brand chart opens before any battle dice")
+	if is_instance_valid(battle.brand_reference):
+		battle.brand_reference.close()
+		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference),13000),
+			label+": brand chart closed via original UI interaction")
 	var rounds: int=0
 	while battle.rules.winner().is_empty() and rounds<9:
 		rounds+=1
@@ -186,11 +202,16 @@ func actual_story_battle(session: Node, map: Control, victor: String, label: Str
 	check(battle.rules.winner()==victor,label+": real dice/actions settle %s in %d round(s)" % [victor,rounds])
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),label+": portal outcome clears both battle checkpoints")
 	check(session.world.pending_reward.is_empty(),label+": event battle cannot issue normal soul capture")
-	check(not battle.map_return.disabled,label+": battle end unlocks return control")
+	if victor=="enemy":
+		var terminal: bool=await until_ready(func(): return session.world.run_result.get("reason","")=="battle_defeat" and is_instance_valid(map.game_over_screen),20000)
+		check(terminal,label+": defeated expedition opens game over instead of result modal")
+		check(battle.map_return.disabled,label+": game over blocks return-to-map")
+		return terminal
+	check(not battle.map_return.disabled,label+": victory unlocks return control")
 	battle.map_return.pressed.emit()
 	var shown: bool=await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and button_in(map,"부활 확인")!=null,21000)
-	check(shown,label+": actual original portal battle result UI opens on map")
-	check(button_in(map,"다시 도전")==null,label+": portal defeat is final, with no uncanonical retry option")
+	check(shown,label+": winning portal battle opens original result UI on map")
+	check(button_in(map,"다시 도전")==null,label+": portal victory has no retry action")
 	return shown
 
 func enter_epilogue(session: Node, map: Control, result: String, label: String) -> Dictionary:
@@ -285,7 +306,18 @@ func scenario(session: Node, victor: String) -> void:
 	check(deck,tag+": omen reveal opens original deck only after decision")
 	if not deck: return
 	if not await actual_story_battle(session,map,victor,tag): return
-	var aftermath: Dictionary=await enter_epilogue(session,map,"won" if victor=="ally" else "lost",tag)
+	if victor=="enemy":
+		check(session.world.run_result.get("reason","")=="battle_defeat" and session.world.run_result.get("ended",false)==true,
+			tag+": defeated player has permanent saved expedition end")
+		check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG) and not session.event_flag_is_set(PORTAL.HUNT_FLAG),
+			tag+": terminal loss never unlocks king hunt or resurrection")
+		map.queue_free()
+		await process_frame
+		session.reload_world()
+		check(session.world.run_result.get("reason","")=="battle_defeat",
+			tag+": game over persists across reload, with no story continuation")
+		return
+	var aftermath: Dictionary=await enter_epilogue(session,map,"won",tag)
 	if aftermath.is_empty(): return
 	map=aftermath.map
 	if not await complete_revive(session,map,victor=="ally",tag): return
