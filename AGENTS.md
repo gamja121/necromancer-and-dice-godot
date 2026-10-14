@@ -10,6 +10,13 @@
 - Commit only intended, tested changes when authorized. Push only to an explicitly authorized remote/branch. Never force-push, rewrite history, or delete source assets without authorization.
 - Never commit credentials, personal assistant data, or machine-specific secrets. Do not disable antivirus, the sandbox, or AnyDesk to speed up development.
 
+## Canonical automatic swamp thresholds — user correction (2026-10-14)
+
+- **Current final swamp rule:** contamination **0–14 = 0 swamp**, **15–29 = 1 swamp**, **30–100 = 2 swamps (hard cap)** for newly generated boards. The former **40/80 swamp spawn milestones are RETIRED**. Do not reuse them for swamp counts, even though the separate high-contamination extra-monster conversions still use 40/80.
+- On a mid-lap increase that crosses 15 or 30, convert eligible ordinary road tiles immediately and atomically with the contamination save. Only two existing reserved road slots may become swamps; do not replace fixed/story/boss/player tiles. Existing swamp terrain damage, persistence and rollback remain unchanged.
+- Existing two-swamp legacy patrol saves are preserved without duplication. Current-board swamp tiles aren't removed by minor purification until the next home map generation. Boss **stages** remain contamination 20/40/60 plus an as-yet-unspecified final boss, independent of swamp thresholds.
+- Tests: `scripts/test_contamination_auto_swamp.gd` and `scripts/test_patrol_six_slots_unlocks.gd`.
+
 ## Canonical boss design — contamination stages, NOT lap milestones (2026-10-14 user clarification)
 
 - **Authoritative user rule: multiple boss stages at contamination 20, 40 and 60, followed by a separate final boss.** NEVER conflate these thresholds with completed laps, nor say the 20/40/60 boss *stages* were discarded. Only the prior **lap-based interpretation** (20/40/60 completed circuits) was discarded.
