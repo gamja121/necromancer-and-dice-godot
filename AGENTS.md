@@ -18,6 +18,14 @@
 - `LAP_CONTAMINATION_GAIN = 7` increases contamination when leaving home after a completed lap; laps are **not** boss appearance thresholds. Preserve unrelated lap mechanics, other collaborators' changes and saved runs.
 - Read `docs/map_port.md` before work on boss trigger, encounter, progress flags, save/migration or UI. Gameplay implementation needs Trigger/Information/Interaction/Visual/State review and regression tests. Do not implement an invented final threshold.
 
+## Event-tile discovery unlock rule — user decision (2026-10-14)
+
+- **Existing story events ALWAYS have priority** over unlock discoveries when the player **actually lands** on a generic `event` tile. Reuse the existing `map.gd:show_tile` story guard order, including active/resumable narratives. A failed story save/entry is **NOT** permission to award an unlock.
+- **Only if no currently eligible/resumable original event exists**, an event tile may reveal one not-yet-discovered place, e.g., **"언덕을 발견했다."**. The discovered tile unlocks persistently, without repeating grants.
+- **Preferred proposal (pending placement confirmation):** show discovery immediately, but choose/use the unlocked tile at HOME and place it when the next board is generated; visually change eligible ordinary road(s) during the existing shuffle. Do not spontaneously overwrite existing fixed/story/boss/protected-swamp tiles mid-move.
+- The existing code currently auto-creates one `forest` tile on the opening board, unlocks one `graveyard` after the first lap, and separately unlocks `rest` at HOME after the first lap. These **conflict** with the new event-based discovery intent. Do not claim implementation is done, and do not silently change code before preserving story parity, map invariants, old saves and testing.
+- Design specification and implementation gaps: `docs/event_tile_unlock_design.md`. Remaining tile order/caps and final placement choice are unconfirmed.
+
 ## Primary objective — finish migration, then retire the web prototype (2026-10-11)
 
 - The user's overriding development priority is to **finish migrating the fixed HTML/JS web prototype to Godot as quickly as safely possible, verify complete feature/rule/art/save parity, archive its source, then delete the obsolete web prototype repository**. This is not a request to invent additional story, boss combat or features that were not in the frozen source.
