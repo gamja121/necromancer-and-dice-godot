@@ -54,9 +54,19 @@ func ensure_world() -> void:
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
-			if (boss_upgraded or swamp_upgraded > 0) and not save_world():
+			# The 2026-10-14 version saved only card_shown, not a hill.
+			# Retrofit one real road for those existing players instead of
+			# locking them out permanently from the new event-only award.
+			var hill_upgraded: bool = false
+			if event_flag_is_set("event:discovery:forest:card_shown") and not event_flag_is_set(MapState.HILL_UNLOCK_FLAG):
+				var hill_index: int=world.reveal_discovered_hill()
+				if hill_index>=0:
+					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
+					world.event_flags[MapState.HILL_HOME_NOTICE]=true
+					hill_upgraded=true
+			if (boss_upgraded or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
-				notice = "오염된 타일 갱신 저장에 실패했습니다. 다시 시도하세요."
+				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
 
 func save_world() -> bool:
@@ -85,6 +95,27 @@ func set_event_flag(flag: String, enabled: bool = true) -> bool:
 	world.event_flags[flag] = enabled
 	# persist_change restores the original snapshot on save failure.
 	return persist_change(before)
+
+## Commit the on-board empty-road change, discovery receipt and pending
+## HOME unlock notification atomically. UI must never claim an unlock if
+## the durable save fails. No second discovery is allowed in this run.
+func discover_hill_on_event(index: int) -> Dictionary:
+	if world == null or not world.run_result.is_empty(): return {"ok":false}
+	if world.tiles.size()!=24 or index!=world.position or world.tiles[index]!="event" or world.laps<1:
+		return {"ok":false,"reason":"발견 조건을 확인할 수 없습니다."}
+	if event_flag_is_set(MapState.HILL_UNLOCK_FLAG) or event_flag_is_set("event:discovery:forest:card_shown"):
+		return {"ok":false,"reason":"언덕은 이미 발견했습니다."}
+	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty():
+		return {"ok":false,"reason":"이동·전투·보상을 먼저 완료하세요."}
+	var before: Dictionary = world.snapshot().duplicate(true)
+	var converted: int = world.reveal_discovered_hill()
+	if converted<0:
+		return {"ok":false,"reason":"변경 가능한 빈 길이 없어 언덕 해금을 보류합니다."}
+	world.event_flags[MapState.HILL_UNLOCK_FLAG] = true
+	world.event_flags["event:discovery:forest:card_shown"] = true
+	world.event_flags[MapState.HILL_HOME_NOTICE] = true
+	if not persist_change(before): return {"ok":false,"reason":notice}
+	return {"ok":true,"index":converted}
 
 ## A missing event has the implicit "unseen" state.
 func get_story_event(event_id: String) -> Dictionary:
@@ -925,6 +956,10 @@ func confirm_patrol(plan: Dictionary) -> Dictionary:
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.patrol_plan = plan.duplicate(true)
 	world.reward_receipts.append(visit)
+	# The unlock remains permanent; acknowledging its NEW home highlight is
+	# part of the same successful patrol-confirm transaction.
+	if world.event_flags.get(MapState.HILL_HOME_NOTICE,false)==true:
+		world.event_flags[MapState.HILL_HOME_NOTICE]=false
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"순찰경로 저장 완료 · 다음 타일 배치에 적용"}
 

@@ -26,14 +26,30 @@ func _run() -> void:
 	check(card.get_node_or_null("EventDiscoveryDescription") != null, "description is live Label")
 	check(card.get_node_or_null("EventDiscoveryIllustration") is TextureRect, "art is live TextureRect")
 	check(card.get_node_or_null("EventDiscoveryTile") is TextureRect, "actual board tile is shown")
-	check(card.get_node_or_null("EventDiscoveryClose") is Button, "close action exists")
+	check(card.get_node_or_null("EventDiscoveryClose") == null, "no confirmation button anywhere on card")
+	check(card.get_node_or_null("EventDiscoveryDismissHint") is Label, "single-click dismissal is communicated")
 	check(card.get_node("EventDiscoveryIllustration").texture != null, "fallback art can load")
 	check(card.get_node("EventDiscoveryTile").texture != null, "in-game forest tile can load")
 	check(card.get_node("EventDiscoveryTitle").text == "언덕 발견", "Korean text is not baked into image")
 	var acknowledged := [false]
 	card.closed.connect(func(): acknowledged[0] = true)
-	card.get_node("EventDiscoveryClose").pressed.emit()
-	check(acknowledged[0], "confirm action emits close")
+	var first_click := InputEventMouseButton.new()
+	first_click.button_index = MOUSE_BUTTON_LEFT
+	first_click.pressed = true
+	card._gui_input(first_click)
+	check(acknowledged[0], "left click anywhere on parchment dismisses card")
+	acknowledged[0] = false
+	card._gui_input(first_click)
+	check(not acknowledged[0], "repeated click never closes twice")
+	var touch_card = EventCard.new()
+	root.add_child(touch_card)
+	touch_card.setup("발견","언덕 발견","설명","언덕 타일 해금")
+	var touch_closed = [false]
+	touch_card.closed.connect(func(): touch_closed[0] = true)
+	var tap = InputEventScreenTouch.new()
+	tap.pressed = true
+	touch_card._gui_input(tap)
+	check(touch_closed[0], "Android touch anywhere on card dismisses it")
 	print("DISCOVERY_CARD_UI: %d failure(s)" % failures)
 	root.queue_free()
 	quit(0 if failures == 0 else 1)

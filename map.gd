@@ -614,10 +614,11 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 			if blocked_by_story:
 				status.text = session.notice if not session.notice.is_empty() else "기존 사건을 다시 확인하세요."
 				return
-			# The visual preview is recorded once; this is not yet the actual
-			# location unlock. The map currently generates forest by default.
-			if not session.set_event_flag("event:discovery:forest:card_shown"):
-				status.text = "발견 카드 기록 저장 실패 · 다음 사건 타일에서 재시도하세요."
+			# A real discovery is a single durable state transition: one empty
+			# road becomes a forest, and HOME receives the unlocked hint.
+			var discovered: Dictionary = session.discover_hill_on_event(index)
+			if not bool(discovered.get("ok",false)):
+				status.text = str(discovered.get("reason","언덕 해금 저장 실패"))
 				return
 			show_first_discovery_card()
 			return
@@ -644,16 +645,26 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 	button(panel,"돌아가기",Vector2(550,574),Vector2(180,42),dismiss_overlay)
 
 func show_first_discovery_card() -> void:
-	# Real Godot modal, not a screenshot/mockup. The high-resolution approved
-	# hill illustration is loaded if installed, otherwise an existing forest
-	# event painting is used until the new binary asset is synchronized.
+	# Discovery was ALREADY committed atomically before opening this modal.
+	# Clicking the parchment or dark area only dismisses the art, never
+	# grants the tile twice.
 	var panel = modal()
 	var card = EventDiscoveryCard.new()
 	panel.add_child(card)
-	card.setup("발견", "언덕 발견", "낡은 길 너머 작은 언덕을 발견했다.", "언덕 타일 발견")
+	card.setup("발견", "언덕 발견", "낡은 길 너머 작은 언덕을 발견했다.", "언덕 타일 해금")
+	var dark_area = panel.get_child(0) as Control
+	if is_instance_valid(dark_area):
+		dark_area.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
+				card.dismiss()
+			elif event is InputEventScreenTouch and event.pressed:
+				card.dismiss())
 	card.closed.connect(func():
-		dismiss_overlay(func():
-			status.text = "언덕 발견 카드 확인 · 집의 실제 타일 해금은 후속 구현 예정"))
+		# Redraw after the overlay is removed so the formerly empty road
+		# visibly has the forest artwork. Fixed/story/boss tiles stay intact.
+		close_overlay()
+		render()
+		status.text = "언덕 타일 해금! 길 한 칸이 언덕으로 변했습니다 · 집에서 확인하세요.")
 
 func show_roster() -> void:
 	show_inventory("unit")
@@ -932,6 +943,18 @@ func show_home(interior: bool = false) -> void:
 		InkSceneReveal.play(home_art)
 	var title = label_at(panel,"우리집 · 실내" if interior else "우리집",Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if session.event_flag_is_set(MapState.HILL_UNLOCK_FLAG):
+		var forest_icon = image(panel,"res://assets/map/tiles/forest.png",Vector2(243,468),Vector2(74,66))
+		forest_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		forest_icon.z_index=13
+		var announcement = label_at(panel,"언덕 타일 해금 · 맵에 자동 배치",Vector2(320,475),Vector2(450,42),19)
+		announcement.add_theme_color_override("font_color",Color("ffe4ad"))
+		announcement.add_theme_color_override("font_shadow_color",Color.BLACK)
+		announcement.add_theme_constant_override("shadow_offset_y",2)
+		announcement.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		announcement.z_index=13
+		if session.event_flag_is_set(MapState.HILL_HOME_NOTICE):
+			UnlockNoticeBadge.attach(forest_icon,"NEW")
 	location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
 	if not interior:
 		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
@@ -951,6 +974,8 @@ func show_home(interior: bool = false) -> void:
 			close_overlay()
 			show_exploration_actions(MapState.HOME))
 		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
+		if session.event_flag_is_set(MapState.HILL_HOME_NOTICE):
+			UnlockNoticeBadge.attach(patrol,"NEW")
 		if not allowed.ok:
 			var hint = label_at(panel,str(allowed.reason),Vector2(350,665),Vector2(580,30),15)
 			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
