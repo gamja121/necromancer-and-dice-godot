@@ -5,12 +5,16 @@ const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
 const BOSS_CONTAMINATION = 20
 const LAP_CONTAMINATION_GAIN = 7
+# Reuse the existing 40/80 contamination corruption steps for automatic swamps.
+# This is independent of the boss progression thresholds.
+const FIRST_SWAMP_CONTAMINATION = 40
+const SECOND_SWAMP_CONTAMINATION = 80
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
 ## First expedition: five guaranteed monster tiles; one event; no
 ## rests or swamps. Removed tile types become visually empty roads.
-## Two of those roads are always RESERVED for a future contamination swamp
-## rule; optional patrol picks and automatic corruptions may not spend them.
+## Two ordinary roads are reserved for contamination swamps (one at 40,
+## another at 80); optional patrol picks and monster conversions cannot take them.
 const COUNTS = {"basic":11,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":1,"swamp":0,"warp":2}
 const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
 var definitions: Dictionary
@@ -78,6 +82,9 @@ static func centers() -> Array:
 	for i in range(5): result.append(Vector2(6,69-i*13.5))
 	return result
 
+static func required_swamp_count(level: int) -> int:
+	return 2 if level >= SECOND_SWAMP_CONTAMINATION else (1 if level >= FIRST_SWAMP_CONTAMINATION else 0)
+
 func generate() -> void:
 	map_serial += 1
 	var counts = COUNTS.duplicate()
@@ -95,6 +102,12 @@ func generate() -> void:
 	var conversion = mini(requested_conversion,maxi(0,int(counts.basic)-RoutePlan.RESERVED_SWAMP_ROADS))
 	counts.basic -= conversion
 	counts.monster += conversion
+	# Use only the two protected roads for the new automatically corrupted
+	# marsh tiles. Legacy route plans already contain two swamps; never add
+	# duplicates, and keep the total number of board slots unchanged.
+	var added_swamps: int = mini(maxi(0,required_swamp_count(contamination)-int(counts.swamp)),maxi(0,int(counts.basic)))
+	counts.basic -= added_swamps
+	counts.swamp += added_swamps
 	if contamination>=BOSS_CONTAMINATION: counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
@@ -132,6 +145,26 @@ func reveal_boss_at_threshold() -> bool:
 		scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
 	return true
 
+
+## Reveal newly corrupted roads immediately when pollution rises mid-lap
+## (e.g. a failed world-tree prayer), without rerolling or changing RNG.
+## Existing story, home, boss, warp, monster and current hero tiles are safe.
+## Caller must persist this in the same transaction as contamination change.
+func reveal_swamps_for_contamination() -> int:
+	if tiles.size() != 24: return 0
+	var needed: int = maxi(0,required_swamp_count(contamination)-tiles.count("swamp"))
+	if needed == 0: return 0
+	var changed: int = 0
+	# Rotate the preferred road per map/movement without advancing RNG state.
+	var start: int = (map_serial * 7 + move_serial * 3) % tiles.size()
+	for offset in range(tiles.size()):
+		if changed >= needed: break
+		var i: int = (start+offset)%tiles.size()
+		if i == position or tiles[i] != "basic": continue
+		tiles[i] = "swamp"
+		cleared.erase(i)
+		changed += 1
+	return changed
 
 func move_path(face: int) -> Array:
 	move_serial += 1
