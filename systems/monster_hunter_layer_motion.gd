@@ -2,8 +2,8 @@ extends RefCounted
 ## Frozen v2-map-practice.css: hunter-story-scene-layer and
 ## hunter-story-portrait-layer; player uses the shared Stage 5V source
 ## portrait geometry. No save, RNG or story mutations.
-const SCENE_FRACTIONS = Rect2(0.13,0.06,0.74,0.92) # left 13%, bottom 2%
-const PORTRAIT_FRACTIONS = Rect2(0.40,-0.03,0.58,0.78) # right 2%, bottom 25%
+const SCENE_FRACTIONS = Rect2(0.13,0.04,0.74,0.80) # beast stays above parchment (bottom 84%)
+const PORTRAIT_FRACTIONS = Rect2(0.40,0.01,0.58,0.74) # portrait stays inside image and below heading
 const SCENE_ENTRY_SECONDS = 0.52
 const PORTRAIT_ENTRY_SECONDS = 0.48
 const SCENE_START_OFFSET = Vector2(0.0,0.03)

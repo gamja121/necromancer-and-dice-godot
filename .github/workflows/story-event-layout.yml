@@ -1,0 +1,71 @@
+name: Story Event Layout and Layer Safety (Godot)
+
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/cultist_story_layer_motion.gd"
+      - "systems/monster_hunter_layer_motion.gd"
+      - "scripts/test_story_event_layout.gd"
+      - "scripts/test_ui_grave_dialogue_stage5p.gd"
+      - "scripts/test_ui_cultist_layers_stage5x.gd"
+      - "scripts/test_ui_hunter_layers_stage5w.gd"
+      - "scripts/test_ui_king_hunt_layers_stage5z.gd"
+      - ".github/workflows/story-event-layout.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/cultist_story_layer_motion.gd"
+      - "systems/monster_hunter_layer_motion.gd"
+      - "scripts/test_story_event_layout.gd"
+      - "scripts/test_ui_grave_dialogue_stage5p.gd"
+      - "scripts/test_ui_cultist_layers_stage5x.gd"
+      - "scripts/test_ui_hunter_layers_stage5w.gd"
+      - "scripts/test_ui_king_hunt_layers_stage5z.gd"
+      - ".github/workflows/story-event-layout.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  event-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify parchment, layered art and existing story presentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for pair in \
+            "test_story_event_layout.gd|STORY_EVENT_LAYOUT" \
+            "test_ui_grave_dialogue_stage5p.gd|UI_GRAVE_DIALOGUE_FRAME_PARITY" \
+            "test_ui_hunter_layers_stage5w.gd|UI_HUNTER" \
+            "test_ui_cultist_layers_stage5x.gd|UI_CULTIST" \
+            "test_ui_king_hunt_layers_stage5z.gd|UI_KING"; do
+            file="${pair%%|*}"
+            prefix="${pair##*|}"
+            echo "::group::${file}"
+            timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script "res://scripts/${file}" 2>&1 | tee "check-${file}.log"
+            grep -E "${prefix}[^:]*: [0-9]+ passed, 0 failed" "check-${file}.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ' "check-${file}.log"; then exit 1; fi
+            echo "::endgroup::"
+          done

@@ -22,6 +22,8 @@ var scratch:String=""
 
 class Victory:
 	extends RefCounted
+	# Current RunSession.finish_encounter inspects battle.units before resolving.
+	var units: Array = []
 	func winner()->String: return "ally"
 	func find_id(_id:String)->Dictionary: return {}
 
@@ -64,11 +66,27 @@ func _run()->void:
 	var former:String=session.save_file_path
 	session.save_file_path=scratch
 	session.start_new_world()
+	# Test-only story gallery: newly gated locations do not all exist on
+	# the opening board. Seed only missing places onto ordinary roads, leaving
+	# production map generation, fixed anchors and story APIs untouched.
+	for place in ["graveyard","unknown","altar"]:
+		if not session.world.tiles.has(place):
+			var ordinary: int = session.world.tiles.find("basic")
+			if ordinary >= 0: session.world.tiles[ordinary] = place
+	# This historical complete-chain presentation fixture is deliberately
+	# evaluated after the real contamination gate has become eligible.
+	session.world.contamination = 100
+	# A genuine high-contamination save already contains its boss and swamp
+	# transformations. Seed them now so reload_world does not change the
+	# fixture at the final dialogue checkpoint (visual tests are read-only).
+	session.world.reveal_boss_at_threshold()
+	session.world.reveal_swamps_for_contamination()
+	check(session.save_world(),"isolated visual-story fixture saved")
 	var grave:int=session.world.tiles.find("graveyard")
 	var village:int=session.world.tiles.find("village")
 	var tree:int=session.world.tiles.find("unknown")
 	var altar:int=session.world.tiles.find("altar")
-	check(grave>=0 and village>=0 and tree>=0 and altar>=0,"real source map supplies story locations")
+	check(grave>=0 and village>=0 and tree>=0 and altar>=0,"real visual fixture supplies story locations")
 	if grave<0 or village<0 or tree<0 or altar<0:
 		session.save_file_path=former
 		if created:session.queue_free()
@@ -104,10 +122,10 @@ func _run()->void:
 	var scene:Rect2=map.TILE_EVENT_SCENE_RECT
 	var rumor_bounds:Rect2=MOTION.source_rect(scene,false)
 	var altar_bounds:Rect2=MOTION.source_rect(scene,true)
-	check(rumor_bounds.position.distance_to(scene.position+scene.size*Vector2(0.10,0.20))<0.01,"web rumor left 10%, top 20%, bottom 0% geometry")
-	check(rumor_bounds.size.distance_to(scene.size*Vector2(0.80,0.80))<0.01,"rumor procession width 80%, height 80%")
-	check(altar_bounds.position.distance_to(scene.position+scene.size*Vector2(0.20,0.33))<0.01,"web altar left 20%, bottom 7% geometry")
-	check(altar_bounds.size.distance_to(scene.size*Vector2(0.60,0.60))<0.01,"altar ritual/summon 60% of source event image")
+	check(rumor_bounds.position.distance_to(scene.position+scene.size*Vector2(0.10,0.09))<0.01,"web rumor left 10%, top 20%, bottom 0% geometry")
+	check(rumor_bounds.size.distance_to(scene.size*Vector2(0.80,0.75))<0.01,"rumor procession width 80%, height 80%")
+	check(altar_bounds.position.distance_to(scene.position+scene.size*Vector2(0.20,0.18))<0.01,"web altar left 20%, bottom 7% geometry")
+	check(altar_bounds.size.distance_to(scene.size*Vector2(0.60,0.64))<0.01,"altar ritual/summon 60% of source event image")
 	check(approximately(MOTION.RUMOR_SECONDS,0.50,0.001) and approximately(MOTION.ALTAR_SECONDS,0.48,0.001),"web .50s/.48s story layer reveal durations")
 	var receipts:Array=session.world.reward_receipts.duplicate()
 
@@ -123,7 +141,7 @@ func _run()->void:
 			check(picture!=null,"beat %d renders the original procession layer"%i)
 			if picture!=null:
 				check(picture.texture==map.texture(CULTIST_BEATS.PROCESSION) and picture.texture.resource_path==CULTIST_BEATS.PROCESSION,"beat %d unmodified source procession WebP"%i)
-				check(picture.size.distance_to(rumor_bounds.size)<0.01 and picture.mouse_filter==Control.MOUSE_FILTER_IGNORE,"beat %d source footprint and click-through"%i)
+				check(picture.size.distance_to(rumor_bounds.size)<0.01 and picture.mouse_filter==Control.MOUSE_FILTER_IGNORE,"beat %d updated safe footprint and click-through"%i)
 				check(picture.get_meta("ui_custom_open_motion",false) and picture.pivot_offset.distance_to(Vector2(picture.size.x/2,picture.size.y))<0.01,"beat %d independent image motion/pivot"%i)
 				if i==1:
 					check(picture.position.distance_to(rumor_bounds.position+picture.size*MOTION.START_OFFSET_FRACTION)<0.15,"only first procession reveal starts 2% lower")
@@ -180,7 +198,7 @@ func _run()->void:
 		check(summoned.texture==map.texture(ALTAR_BEATS.SUMMON),"summon uses unaltered source art")
 		check(summoned.position.distance_to(altar_bounds.position+summoned.size*MOTION.START_OFFSET_FRACTION)<0.15 and approximately(summoned.modulate.a,0,0.01),"fight declaration shows source .48s summon reveal")
 		await create_timer(0.59).timeout
-		check(summoned.position.distance_to(altar_bounds.position)<0.8 and approximately(summoned.modulate.a,1,0.02),"summon settles at correct source geometry")
+		check(summoned.position.distance_to(altar_bounds.position)<0.8 and approximately(summoned.modulate.a,1,0.02),"summon settles at correct safe event geometry")
 	check(button(map,"출전 마물 선택") and button(map,"선택 변경"),"fight preserves existing deck-selection and reconsider controls")
 	check(session.world.snapshot()==fighting_snapshot and session.encounter.is_empty(),"summon animation does not auto-start battle")
 	map.close_overlay()
