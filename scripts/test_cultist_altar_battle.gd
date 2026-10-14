@@ -42,9 +42,16 @@ func fixture(suffix: String,on_event_tile: bool=false):
 	cleanup(path)
 	s.save_file_path=path
 	s.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	s.world.contamination = 100
-	s.world.reveal_boss_at_threshold()
+	# First completed lap retains the event and forest stones when the
+	# boss tile is generated at high contamination.
+	s.world.contamination = 93
+	s.world.lap_ready = true
+	s.world.leave_home()
+	# Dedicated altars are absent from the modern generated board but are
+	# still valid in historical saves; exercise that compatibility contract.
+	var legacy_altar_index: int = s.world.tiles.find("basic")
+	assert(legacy_altar_index>=0)
+	s.world.tiles[legacy_altar_index] = "altar"
 	s.world.story_events[Rumor.EVENT_ID]={"status":"complete","choice":"","battle_result":""}
 	s.world.event_flags[Rumor.SEEN_FLAG]=true
 	s.world.event_flags[Rumor.COMPLETE_FLAG]=true
