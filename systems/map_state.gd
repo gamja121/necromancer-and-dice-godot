@@ -5,16 +5,16 @@ const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
 const BOSS_CONTAMINATION = 20
 const LAP_CONTAMINATION_GAIN = 7
-# Reuse the existing 40/80 contamination corruption steps for automatic swamps.
-# This is independent of the boss progression thresholds.
-const FIRST_SWAMP_CONTAMINATION = 40
-const SECOND_SWAMP_CONTAMINATION = 80
+# Swamp growth: 15 -> 1 tile, 30 -> 2 tiles (maximum).
+# Boss stages and the separate 40/80 extra-monster conversions are unchanged.
+const FIRST_SWAMP_CONTAMINATION = 15
+const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
 ## First expedition: five guaranteed monster tiles; one event; no
 ## rests or swamps. Removed tile types become visually empty roads.
-## Two ordinary roads are reserved for contamination swamps (one at 40,
-## another at 80); optional patrol picks and monster conversions cannot take them.
+## Two ordinary roads are reserved for contamination swamps (one at 15,
+## another at 30); optional patrol picks and monster conversions cannot take them.
 const COUNTS = {"basic":11,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":1,"swamp":0,"warp":2}
 const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
 var definitions: Dictionary
@@ -97,7 +97,7 @@ func generate() -> void:
 	counts.basic += int(counts.graveyard)-unlocked_graveyards
 	counts.graveyard = unlocked_graveyards
 	var requested_conversion = 2 if contamination>=80 else (1 if contamination>=40 else 0)
-	# Two roads belong to later swamp corruption; never use those slots for
+	# Two roads belong to 15/30 swamp corruption; never use those slots for
 	# patrol monsters/rests or higher-contamination extra monster stones.
 	var conversion = mini(requested_conversion,maxi(0,int(counts.basic)-RoutePlan.RESERVED_SWAMP_ROADS))
 	counts.basic -= conversion

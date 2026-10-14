@@ -1,7 +1,7 @@
 extends SceneTree
 ## New map counts, six *optional* patrol slots, automatic five monster
 ## tiles, locked first rest reward (max 3), and two reserved roads
-## that become automatic swamps at contamination 40 and 80.
+## that become automatic swamps at contamination 15 and 30.
 const Plan=preload("res://systems/route_plan.gd")
 const State=preload("res://systems/map_state.gd")
 const Session=preload("res://systems/run_session.gd")
@@ -48,7 +48,7 @@ func _run() -> void:
 	check(Plan.total_selected(plan)==5 and Plan.available(plan)==1,"minus click restores exactly one free road")
 	var chosen: Dictionary=Plan.default_plan()
 	chosen.selection["monster"]=6
-	for stage in [0,1,20,40,80,100]:
+	for stage in [0,1,14,15,20,29,30,40,80,100]:
 		var state=State.new(defs,642+stage,chosen)
 		state.laps=0 if stage==0 else 12
 		state.contamination=stage
@@ -73,9 +73,9 @@ func _run() -> void:
 	var state2=State.new(defs,31415,unlocked)
 	check(state2.tiles.count("rest")==3 and state2.tiles.count("monster")==8 and state2.tiles.count("basic")==5,"future unlocked choices replace exactly 6 roads, preserve five auto monsters")
 	state2.laps=12
-	state2.contamination=80
+	state2.contamination=30
 	state2.generate()
-	check(state2.tiles.count("basic")>=0 and state2.tiles.count("swamp")==2,"two reserved roads convert to swamp by contamination 80 without consuming optional monsters or rest")
+	check(state2.tiles.count("basic")>=0 and state2.tiles.count("swamp")==2,"two reserved roads convert to swamp by contamination 30 without consuming optional monsters or rest")
 	var session: Node=root.get_node_or_null("RunSession")
 	var own: bool=session==null
 	if own:
