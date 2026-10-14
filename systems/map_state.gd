@@ -273,6 +273,12 @@ func restore(saved: Dictionary) -> bool:
 		for k in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			run_result[k] = int(run_result[k])
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
+	# The unopened 10% mimic chest is a durable reward like a treasure.
+	# Godot JSON converts the native enemy count and gem index into floats;
+	# restoring ints avoids a false state change (and keeps restart parity).
+	if pending_reward.get("kind","")=="mimic":
+		pending_reward["index"] = int(pending_reward.get("index",-1))
+		pending_reward["count"] = int(pending_reward.get("count",0))
 	# JSON parses numeric card faces as floats. A chest's selected index,
 	# as well as blessing/curse faces inside its *offered brand cards*, must
 	# round-trip as integers. Normalizing only the selected index left a

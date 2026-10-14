@@ -45,17 +45,20 @@ def verify():
         ):
             if expectation not in content:
                 failed.append(f"{name}: missing {expectation!r}")
-    # The frequent map/system push must use ONE Godot import while keeping
-    # both distinct original natural story assertions. The standalone runner
-    # is retained for manual/targeted diagnostics only.
+    # The frequent map/system push must use ONE Godot import and require
+    # all three gates: natural commander, stochastic travel, and COMPLETE
+    # source-story stages. Independent mimic combat has a separate workflow.
     full = (WF / "p4-natural-full-story.yml").read_text(encoding="utf-8")
     commander = (WF / "p4-natural-commander-hunter.yml").read_text(encoding="utf-8")
     full_trigger = full.split("jobs:", 1)[0]
     commander_trigger = commander.split("jobs:", 1)[0]
     if ("test_p4_natural_commander_hunter.gd" not in full
             or "test_p4_natural_full_story.gd" not in full
-            or "COMMANDER_OUTCOME" not in full or "FULL_STORY_OUTCOME" not in full):
-        failed.append("Shared natural story gate must verify BOTH original scripts")
+            or "test_p4_full_source_story_chain.gd" not in full
+            or "COMMANDER_OUTCOME" not in full
+            or "NATURAL_TRAVEL_OUTCOME" not in full
+            or "FULL_SOURCE_OUTCOME" not in full):
+        failed.append("Shared natural story gate must verify natural commander/travel AND complete source-story chain")
     if commander_trigger.count('"map.gd"') or "systems/" in commander_trigger:
         failed.append("Standalone natural commander job must not duplicate map/system pushes")
     if ".github/workflows/p4-natural-commander-hunter.yml" not in full_trigger:
