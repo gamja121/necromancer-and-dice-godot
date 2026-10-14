@@ -8,6 +8,7 @@ on:
       - 'assets/map/ui/discovery_card_base.png'
       - 'assets/map/events/discovery_hill.png'
       - 'scripts/test_event_discovery_card_ui.gd'
+      - 'scripts/test_event_discovery_arrival_integration.gd'
       - '.github/workflows/event-discovery-card.yml'
   push:
     branches: [main]
@@ -18,6 +19,7 @@ on:
       - 'assets/map/ui/discovery_card_base.png'
       - 'assets/map/events/discovery_hill.png'
       - 'scripts/test_event_discovery_card_ui.gd'
+      - 'scripts/test_event_discovery_arrival_integration.gd'
       - '.github/workflows/event-discovery-card.yml'
 jobs:
   discovery-card:
@@ -40,3 +42,10 @@ jobs:
           timeout 180s godot --headless --path . --script res://scripts/test_event_discovery_card_ui.gd 2>&1 | tee discovery.log
           grep -E '^DISCOVERY_CARD_UI: 0 failure\(s\)$' discovery.log
           if grep -E 'SCRIPT ERROR|Parse Error|FAIL discovery-card:|Invalid call' discovery.log; then exit 1; fi
+
+      - name: Verify real event arrival, story priority, one-time save and no preview award
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_event_discovery_arrival_integration.gd 2>&1 | tee arrival.log
+          grep -E '^DISCOVERY_ARRIVAL_INTEGRATION: [0-9]+ passed, 0 failed$' arrival.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL discovery-arrival:|Invalid call' arrival.log; then exit 1; fi
