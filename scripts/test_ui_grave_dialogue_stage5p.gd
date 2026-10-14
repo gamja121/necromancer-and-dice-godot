@@ -98,14 +98,14 @@ func _run() -> void:
 		# PanelEffectsModule moves all non-backdrop children by 6 px during
 		# the 200 ms entrance; compare settled coordinates, not mid-tween.
 		await create_timer(0.29).timeout
-		check(frame.position.distance_to(Vector2(102.4,489.6))<0.5 and frame.size.distance_to(Vector2(1075.2,216.0))<0.5,"8%-margins/2%-bottom/30%-height settled source footprint")
+		check(frame.position.distance_to(Vector2(205.0,516.0))<0.5 and frame.size.distance_to(Vector2(870.0,132.0))<0.5,"8%-margins/2%-bottom/30%-height settled updated safe footprint")
 		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE,"visual-only dialogue frame cannot consume touch or mouse input")
 	var name=panel.get_node_or_null("StoryDialogueName") as Label
 	var words=panel.get_node_or_null("StoryDialogueText") as Label
 	check(name!=null and name.text=="아이","speaker explicitly labels original child")
 	check(words!=null and words.text==str(BEATS.beat(2).dialogue),"source child dialogue appears on parchment independently of narration")
 	if words!=null:
-		check(words.get_theme_color("font_color")==Color("21150d"),"child speech uses source dark ink on original frame")
+		check(words.get_theme_color("font_color")==Color("21150d"),"child speech uses source dark ink on shared event frame")
 	check(panel.get_node_or_null("StoryDialogueNext") is Label,"nonchoice dialogue hints explicit next action")
 	check(button(map,"계속")!=null and button(map,"나가기")!=null,"separate source Continue and Exit buttons remain functional above art")
 	check(session.encounter.is_empty() and session.world.pending_reward.is_empty(),"visual-only dialogue does not start fight or reward")
