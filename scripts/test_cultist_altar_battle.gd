@@ -157,8 +157,17 @@ func fight(winner: String,on_event_tile: bool) -> void:
 	check(Altar.can_enter(s,at),"completed combat history still readable for later follow-up")
 	check(Altar.current_beat(s)==2,"reopening keeps same ritual choice checkpoint")
 	if winner=="enemy":
-		check(s.start_story_encounter(Altar.EVENT_ID,at,[unit]),"loss can retry after acknowledgement")
-		check(s.get_story_event(Altar.EVENT_ID).battle_result.is_empty(),"retry clears previous loss only on new committed battle")
+		# A lost story battle is terminal for the whole expedition. Preserve
+		# the original loss receipt, and reject retries even after reload.
+		check(s.world.run_result.get("ended",false) and s.world.run_result.get("reason","")=="battle_defeat",
+			"loss ends expedition instead of allowing a retry")
+		check(not s.start_story_encounter(Altar.EVENT_ID,at,[unit]),
+			"terminal expedition cannot retry after acknowledgement")
+		check(s.get_story_event(Altar.EVENT_ID).battle_result=="lost",
+			"terminal defeat retains the first loss record")
+		s.reload_world()
+		check(s.world.run_result.get("ended",false) and not s.start_story_encounter(Altar.EVENT_ID,at,[unit]),
+			"reloaded terminal expedition cannot retry")
 	else:
 		check(not s.start_story_encounter(Altar.EVENT_ID,at,[unit]),"win cannot duplicate battle")
 	s.free()
