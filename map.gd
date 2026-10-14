@@ -56,6 +56,7 @@ const ExplorationActions = preload("res://systems/exploration_actions.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const MapState = preload("res://systems/map_state.gd")
+const EventDiscoveryCard = preload("res://systems/event_discovery_card.gd")
 const TreasureReward = preload("res://systems/treasure_reward.gd")
 const DiceHand = preload("res://systems/dice_control_hand.gd")
 const InventoryPanel = preload("res://systems/inventory_panel.gd")
@@ -490,7 +491,7 @@ func resume_map_move() -> void:
 	dice.disabled = false
 	var type: String = world.tiles[world.position]
 	if type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
-	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position)
+	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
 
 func select_tile(index: int) -> void:
 	if moving or is_instance_valid(overlay) or not world.pending_move.is_empty(): return
@@ -537,7 +538,7 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 		close_overlay()
 		if after.is_valid(): after.call())
 
-func show_tile(index: int) -> void:
+func show_tile(index: int, actual_landing: bool = false) -> void:
 	var type: String = world.tiles[index]
 	# Dispatch the earliest available story before generic location actions.
 	# can_enter blocks previewing other tiles and saves on an actual landing.
@@ -600,6 +601,22 @@ func show_tile(index: int) -> void:
 	if type in ["unknown","event"] and MonsterKingHuntEntry.can_resume_completion(session,index):
 		show_monster_king_hunt_beat(index)
 		return
+	# Real event arrival only: display the first discovery card after all
+	# canonical story entries/resumable results have had priority. Map tile
+	# preview clicks never trigger a new event or persist a receipt.
+	if type == "event" and actual_landing and index == world.position and world.laps >= 1:
+		if not session.event_flag_is_set("event:discovery:forest:card_shown"):
+			var blocked_by_story: bool = StoryEventEntry.can_enter(session,index) or not VillageRumorEntry.eligible_event_id(session,index).is_empty() or KnightCommanderEntry.can_enter(session,index) or MonsterHunterEntry.can_enter(session,index) or CultistRumorEntry.can_enter(session,index) or CultistAltarEntry.can_enter(session,index) or RitualPortalEntry.can_enter(session,index) or MonsterKingHuntEntry.can_enter(session,index) or MonsterKingHuntEntry.can_resume_completion(session,index)
+			if blocked_by_story:
+				status.text = session.notice if not session.notice.is_empty() else "기존 사건을 다시 확인하세요."
+				return
+			# The visual preview is recorded once; this is not yet the actual
+			# location unlock. The map currently generates forest by default.
+			if not session.set_event_flag("event:discovery:forest:card_shown"):
+				status.text = "발견 카드 기록 저장 실패 · 다음 사건 타일에서 재시도하세요."
+				return
+			show_first_discovery_card()
+			return
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -621,6 +638,18 @@ func show_tile(index: int) -> void:
 	var title = label_at(panel,MapState.NAMES[type],Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button(panel,"돌아가기",Vector2(550,574),Vector2(180,42),dismiss_overlay)
+
+func show_first_discovery_card() -> void:
+	# Real Godot modal, not a screenshot/mockup. The high-resolution approved
+	# hill illustration is loaded if installed, otherwise an existing forest
+	# event painting is used until the new binary asset is synchronized.
+	var panel = modal()
+	var card = EventDiscoveryCard.new()
+	panel.add_child(card)
+	card.setup("발견", "언덕 발견", "낡은 길 너머 작은 언덕을 발견했다.", "언덕 타일 발견")
+	card.closed.connect(func():
+		dismiss_overlay(func():
+			status.text = "언덕 발견 카드 확인 · 집의 실제 타일 해금은 후속 구현 예정"))
 
 func show_roster() -> void:
 	show_inventory("unit")
