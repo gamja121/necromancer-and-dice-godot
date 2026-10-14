@@ -38,6 +38,7 @@ var reserve_options: Array = []
 var route_plus_buttons: Dictionary = {}
 var route_minus_buttons: Dictionary = {}
 var route_count_labels: Dictionary = {}
+var route_unlock_button: Button
 var hill_selected_steps: int = 0
 var hill_choice_buttons: Array = []
 
@@ -139,7 +140,10 @@ func style_patrol_button(control: Button, is_exit: bool = false) -> void:
 
 func reset_route() -> void:
 	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
+	# Reset selection only. The user's earned unlock is irreversible.
+	var unlocked: bool=bool(session.world.patrol_plan.get("rest_unlocked",false))
 	plan=RoutePlan.default_plan()
+	plan["rest_unlocked"]=unlocked
 	selected_current=-1
 	selected_reserve=-1
 	render_route()
@@ -296,6 +300,7 @@ func render_route() -> void:
 	route_plus_buttons.clear()
 	route_minus_buttons.clear()
 	route_count_labels.clear()
+	route_unlock_button=null
 	var used: bool=session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts
 	var total: int=RoutePlan.total_selected(plan)
 	var remaining: int=RoutePlan.available(plan)
@@ -366,6 +371,14 @@ func render_route() -> void:
 		route_minus_buttons[kind]=minus
 		route_plus_buttons[kind]=plus
 		route_count_labels[kind]=quantity
+		if kind=="rest" and not unlocked:
+			# This is a separate explicit unlock, NOT one of six optional
+			# selections, and cannot be obtained through the confirm payload.
+			minus.visible=false
+			quantity.visible=false
+			plus.visible=false
+			route_unlock_button=button(content,"숙영 해금",Vector2(x+80,506),Vector2(179,45),unlock_rest)
+			route_unlock_button.name="PatrolUnlockRest"
 	var sidebar_title=label_at(content,"자동 배치",Vector2(950,159),Vector2(240,37),21)
 	sidebar_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	sidebar_title.add_theme_color_override("font_color",Color("382416"))
@@ -385,7 +398,21 @@ func render_route() -> void:
 		value.add_theme_color_override("font_color",Color("382719"))
 	action_button.disabled=used
 	route_reset_button.disabled=used
-	status.text="이번 방문은 확정 완료 · 다음 바퀴부터 반영" if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 해금 후 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
+	status.text=("이번 방문 편성 확정 · 숙영 해금은 즉시 가능하지만 편성은 다음 방문부터" if not rest_unlocked else "이번 방문은 확정 완료 · 다음 바퀴부터 반영") if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
+
+func unlock_rest() -> void:
+	if type!="home" or bool(session.world.patrol_plan.get("rest_unlocked",false)): return
+	var result: Dictionary=session.unlock_rest_tile()
+	if not bool(result.get("ok",false)):
+		status.text=str(result.get("reason","해금에 실패했습니다."))
+		return
+	# Keep any unconfirmed monster selections when the unlock is saved,
+	# then let the player choose up to 3 rest tiles normally.
+	if not RoutePlan.is_new(plan):
+		plan=RoutePlan.default_plan()
+	plan["rest_unlocked"]=true
+	render_route()
+	status.text=str(result.reason)
 
 func adjust_route_tile(kind: String, difference: int) -> void:
 	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
