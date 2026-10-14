@@ -64,11 +64,22 @@ func _run()->void:
 	var former:String=session.save_file_path
 	session.save_file_path=scratch
 	session.start_new_world()
+	# Test-only story gallery: newly gated locations do not all exist on
+	# the opening board. Seed only missing places onto ordinary roads, leaving
+	# production map generation, fixed anchors and story APIs untouched.
+	for place in ["graveyard","unknown","altar"]:
+		if not session.world.tiles.has(place):
+			var ordinary: int = session.world.tiles.find("basic")
+			if ordinary >= 0: session.world.tiles[ordinary] = place
+	# This historical complete-chain presentation fixture is deliberately
+	# evaluated after the real contamination gate has become eligible.
+	session.world.contamination = 100
+	check(session.save_world(),"isolated visual-story fixture saved")
 	var grave:int=session.world.tiles.find("graveyard")
 	var village:int=session.world.tiles.find("village")
 	var tree:int=session.world.tiles.find("unknown")
 	var altar:int=session.world.tiles.find("altar")
-	check(grave>=0 and village>=0 and tree>=0 and altar>=0,"real source map supplies story locations")
+	check(grave>=0 and village>=0 and tree>=0 and altar>=0,"real visual fixture supplies story locations")
 	if grave<0 or village<0 or tree<0 or altar<0:
 		session.save_file_path=former
 		if created:session.queue_free()
