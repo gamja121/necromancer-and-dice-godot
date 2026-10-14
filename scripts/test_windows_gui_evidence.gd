@@ -273,6 +273,12 @@ func _run() -> void:
 	session.world.contamination = 100
 	session.world.reveal_boss_at_threshold()
 	session.world.reveal_swamps_for_contamination()
+	# The fixed boss slot might have replaced this run's only forest.
+	# A CI gallery needs its portal location regardless of shuffled art slots.
+	if not session.world.tiles.has("forest"):
+		var spare_road: int = session.world.tiles.find("basic")
+		check(spare_road >= 0,"story gallery can restore the forest scene")
+		if spare_road >= 0: session.world.tiles[spare_road] = "forest"
 	# This visual gallery starts AFTER a separately completed child rescue and
 	# rescued-child rumor. Only this test save has the setup state.
 	session.world.story_events["graveyard_child_ambush_01"] = {"status":"complete","choice":"protect_child","battle_result":"won"}
