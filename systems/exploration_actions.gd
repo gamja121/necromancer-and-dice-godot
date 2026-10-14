@@ -4,6 +4,7 @@ signal leave_to_map
 signal hill_route_chosen(steps: int)
 const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
+const UnlockNoticeBadge = preload("res://systems/unlock_notice_badge.gd")
 const ROUTE_RESERVE_ART = "res://assets/map/ui/patrol-route-frame.webp"
 const ROUTE_CURRENT_ART = "res://assets/map/ui/patrol-route-current-frame.webp"
 const PATROL_ENTER_PARCHMENT = "res://assets/map/events/enter-parchment.png"
@@ -368,6 +369,8 @@ func render_route() -> void:
 		var plus=button(content,"+",Vector2(x+206,506),Vector2(53,45),func(): adjust_route_tile(kind,1))
 		plus.name="PatrolPlus_"+kind
 		plus.disabled=used or not unlocked or remaining<=0 or (kind=="rest" and count>=RoutePlan.REST_LIMIT)
+		if kind=="rest" and unlocked and session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
+			UnlockNoticeBadge.attach(plus,"NEW")
 		route_minus_buttons[kind]=minus
 		route_plus_buttons[kind]=plus
 		route_count_labels[kind]=quantity
