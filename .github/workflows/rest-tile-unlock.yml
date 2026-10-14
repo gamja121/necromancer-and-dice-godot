@@ -1,0 +1,63 @@
+name: Rest Tile Unlock and Next-Lap Application
+on:
+  pull_request:
+    paths:
+      - "systems/exploration_actions.gd"
+      - "systems/run_session.gd"
+      - "scripts/test_rest_unlock_application.gd"
+      - ".github/workflows/rest-tile-unlock.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/exploration_actions.gd"
+      - "systems/run_session.gd"
+      - "scripts/test_rest_unlock_application.gd"
+      - ".github/workflows/rest-tile-unlock.yml"
+permissions:
+  contents: read
+jobs:
+  unlock-rest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and script parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 155s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Unlock UI, persistent 3 rests, next lap and disk failure rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_rest_unlock_application.gd 2>&1 | tee unlock.log
+          grep -E '^REST_UNLOCK_APPLICATION: [0-9]+ passed, 0 failed$' unlock.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL rest-unlock:' unlock.log; then exit 1; fi
+      - name: Existing 6-slot plan and map quantity invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_patrol_six_slots_unlocks.gd 2>&1 | tee plan.log
+          grep -E '^PATROL_SIX_SLOTS: [0-9]+ passed, 0 failed$' plan.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL patrol-six-slots:' plan.log; then exit 1; fi
+      - name: Existing patrol parchment control and save
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_ui_patrol_parchment_stage5o.gd 2>&1 | tee ui.log
+          grep -E '^UI_PATROL_PARCHMENT_PARITY: [0-9]+ passed, 0 failed$' ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-patrol-parchment:' ui.log; then exit 1; fi
+      - name: Existing inheritance UI and saved route
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee inheritance.log
+          grep -E '^UI_STAGE3_PARITY: [0-9]+ passed, 0 failed$' inheritance.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-stage3:' inheritance.log; then exit 1; fi
+      - name: Whitespace
+        run: git diff --check
