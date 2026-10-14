@@ -42,6 +42,32 @@ class PreviewMap:
 	var session
 	func _init(fake_session) -> void:
 		session = fake_session
+	# The production PlaceActions now asks its Map host to paint the shared
+	# location scene. Keep this preview double in sync so the altar screenshot
+	# actually contains the same artwork and frame instead of script errors.
+	func location_scene_image(parent: Control, path: String) -> TextureRect:
+		var scene_art := TextureRect.new()
+		scene_art.name = "LocationSceneImage"
+		scene_art.texture = load(path)
+		scene_art.position = Vector2(150,148)
+		scene_art.size = Vector2(980,406)
+		scene_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		scene_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		parent.add_child(scene_art)
+		var frame := NinePatchRect.new()
+		frame.name = "LocationBattleFrame"
+		frame.texture = load("res://assets/map/ui/battle_frame.png")
+		frame.position = Vector2(128,126)
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.draw_center = false
+		frame.scale = Vector2.ONE * 0.22
+		frame.size = Vector2(1024,450) / 0.22
+		frame.patch_margin_left = 170
+		frame.patch_margin_right = 170
+		frame.patch_margin_top = 150
+		frame.patch_margin_bottom = 150
+		parent.add_child(frame)
+		return scene_art
 
 func _initialize() -> void:
 	call_deferred("_run")
