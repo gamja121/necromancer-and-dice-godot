@@ -9,7 +9,7 @@ const LOCATIONS = {
 		"reward":"언덕 타일 해금", "illustration":"res://assets/map/events/forest.jpg"},
 	"rest":{
 		"title":"숙영지 발견", "description":"이끼 낀 길 끝에서 버려진 숙영지를 발견했다.",
-		"reward":"숙영 타일 해금", "illustration":"res://assets/map/events/home.jpg"},
+		"reward":"숙영 타일 해금", "illustration":"res://assets/map/events/camp.jpg"},
 	"graveyard":{
 		"title":"공동묘지 발견", "description":"성벽 바깥 오래된 공동묘지를 발견했다.",
 		"reward":"공동묘지 타일 해금", "illustration":"res://assets/map/events/graveyard.jpg"},
