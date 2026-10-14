@@ -41,9 +41,12 @@ func _make(suffix: String):
 	_clear(path)
 	session.save_file_path = path
 	session.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	session.world.contamination = 100
-	session.world.reveal_boss_at_threshold()
+	# The current map unlocks the cemetery after one completed lap.
+	# Generate high contamination BEFORE the boss tile is assigned so unique
+	# event/forest tiles are preserved instead of overwritten at position 23.
+	session.world.contamination = 93
+	session.world.lap_ready=true
+	session.world.leave_home()
 	session.world.position = session.world.tiles.find("graveyard")
 	_check(session.has_save(),"isolated save exists")
 	_check(StoryEntry.begin(session,session.world.position),"first discovery persisted")
