@@ -28,6 +28,7 @@ const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
+const OptionalBattleVFX = preload("res://systems/optional_battle_vfx_adapter.gd")
 const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","ghoul","ancient-treant","goblin-rider","minotaur","plague-doctor","spider-knight","siren","dracula","soul-reaper"]
 const ENEMIES = ["goblin-rider","orc-warrior","boulder-ogre","minotaur"]
 const RATIOS = {"ancient-treant":1.0,"minotaur":1.5,"orc-warrior":1.5,"boulder-ogre":1.5,"spider-knight":2.0,"spiderling":0.5,"hydra":2.0}
@@ -80,6 +81,7 @@ var map_mode = false
 var map_return: Button
 var world_layer: Control
 var visuals
+var optional_vfx
 var cues
 var capture_panel: Control
 var session
@@ -282,6 +284,9 @@ void fragment() {
 	visuals = BattleVisuals.new()
 	world_layer.add_child(visuals)
 	visuals.setup(self,world_layer)
+	optional_vfx = OptionalBattleVFX.new()
+	world_layer.add_child(optional_vfx)
+	optional_vfx.setup(self)
 	var header = Panel.new()
 	header.position = Vector2(312,14)
 	header.size = Vector2(461,36)
