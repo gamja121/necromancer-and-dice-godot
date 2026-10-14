@@ -18,6 +18,7 @@ on:
       - "scripts/test_p4_natural_commander_hunter.gd"
       - "scripts/test_p4_natural_story_arrival.gd"
       - ".github/workflows/p4-natural-full-story.yml"
+      - ".github/workflows/p4-natural-commander-hunter.yml"
       - "map.gd"
       - "systems/**"
       - "docs/port_audit/migration_work_queue.tsv"
@@ -59,26 +60,8 @@ jobs:
         run: |
           set -euo pipefail
           timeout --signal=TERM --kill-after=5s 720s godot --headless --path . --script res://scripts/test_p4_natural_commander_hunter.gd 2>&1 | tee p4-natural-commander.log
-          grep -E '^P4_NATURAL_COMMANDER_HUNTER: [0-9]+ passed, 0 failed        shell: bash
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=5s 960s godot --headless --path . --script res://scripts/test_p4_natural_full_story.gd 2>&1 | tee p4-natural-full-story.log
-          grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full-story.log
-          grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full-story.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
-            exit 1
-          fi
- p4-natural-commander.log
-          grep -E '^P4_NATURAL_COMMANDER_HUNTER_ROUTE: [0-9]+ commander rolls, [0-9]+ hunter rolls, [0-9]+ original house shuffles        shell: bash
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=5s 960s godot --headless --path . --script res://scripts/test_p4_natural_full_story.gd 2>&1 | tee p4-natural-full-story.log
-          grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full-story.log
-          grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full-story.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
-            exit 1
-          fi
- p4-natural-commander.log
+          grep -E '^P4_NATURAL_COMMANDER_HUNTER: [0-9]+ passed, 0 failed$' p4-natural-commander.log
+          grep -E '^P4_NATURAL_COMMANDER_HUNTER_ROUTE: [0-9]+ commander rolls, [0-9]+ hunter rolls, [0-9]+ original house shuffles$' p4-natural-commander.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-commander.log; then
             exit 1
           fi
