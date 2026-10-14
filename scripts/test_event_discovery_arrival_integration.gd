@@ -135,6 +135,17 @@ func _run() -> void:
 	check(not session.event_flag_is_set(State.HILL_UNLOCK_FLAG) and world.tiles.count("forest")==forest_before, "main story never mutates a road into a hill")
 	story_map.queue_free()
 	await process_frame
+	# The unlock receipt and transformed road MUST roll back together if the
+	# same save cannot be committed; no phantom card/NEW hint is allowed.
+	session.start_new_world()
+	world=session.world
+	event_index=world.tiles.find("event")
+	world.position=event_index
+	world.laps=1
+	var rollback_before: Dictionary=world.snapshot().duplicate(true)
+	session.save_file_path="user://missing_discovery_save_dir/forbidden.json"
+	var denied: Dictionary=session.discover_hill_on_event(event_index)
+	check(not bool(denied.get("ok",false)) and world.snapshot()==rollback_before,"failed save rolls back new hill, receipt and HOME NEW badge atomically")
 	session.save_file_path = previous_path
 	session.world = null
 	cleanup()
