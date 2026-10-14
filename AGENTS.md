@@ -10,6 +10,13 @@
 - Commit only intended, tested changes when authorized. Push only to an explicitly authorized remote/branch. Never force-push, rewrite history, or delete source assets without authorization.
 - Never commit credentials, personal assistant data, or machine-specific secrets. Do not disable antivirus, the sandbox, or AnyDesk to speed up development.
 
+## Canonical boss trigger — contamination, NOT lap milestones (2026-10-14)
+
+- **The former 'boss on laps 20/40/60, final boss on lap 60' design is retired. NEVER present it as an active game rule.** Boss-tile appearance is controlled by **contamination level**, not lap count.
+- As implemented on main, `systems/map_state.gd` uses `BOSS_CONTAMINATION = 20`: at or above that contamination the existing boss tile occupies index 23, including mid-lap threshold crossings via `reveal_boss_at_threshold()`/`systems/run_session.gd`. `LAP_CONTAMINATION_GAIN = 7` only raises contamination after a completed lap; it is NOT a boss appearance timer.
+- Older design notes / map-port documentation also cited **contamination 80**. The final user-approved numerical threshold between 20 and 80 is not independently established by these sources. **Do not silently change gameplay to either value**. State the current implemented value accurately and flag that historical design inconsistency if threshold balancing is requested.
+- Read `docs/map_port.md` for the current versus historical distinction. Keep lap count separate from the boss trigger in plans, issues, reports, UI descriptions, and assistant replies.
+
 ## Primary objective — finish migration, then retire the web prototype (2026-10-11)
 
 - The user's overriding development priority is to **finish migrating the fixed HTML/JS web prototype to Godot as quickly as safely possible, verify complete feature/rule/art/save parity, archive its source, then delete the obsolete web prototype repository**. This is not a request to invent additional story, boss combat or features that were not in the frozen source.
