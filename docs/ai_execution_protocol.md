@@ -10,8 +10,8 @@
 
 ## 기존에 구축되어 작동하는 요소
 
-- PR #154: Issue 양식, `tools/ai_runner/checkpoints.py`, 수동 체크포인트 기록, 매시간 중단 감시, 오프라인 검증 테스트.
-- 워치독은 최신 `running` 댓글 이후 약 90분 무응답이면 `recoverable` 또는 `blocked`를 기록한다. GitHub schedule 지연/실패 가능.
+- PR #154: Issue 양식, `tools/ai_runner/checkpoints.py`, 수동 체크포인트 기록, 15분마다 중단 점검, 오프라인 검증 테스트.
+- 워치독은 최신 `running` 댓글 이후 20분 이상 무응답이면 `recoverable` 또는 `blocked`를 기록한다. 15분 간격으로 예약 점검하지만 GitHub schedule 지연/실패 가능하며 정확한 탐지시각을 보장하지 않는다. ChatGPT 알림 자동화는 최대 시간당 한 번 실행되므로 감지 직후 휴대폰 알림 발송은 보장하지 않는다.
 - ChatGPT는 정상 작업 중 인증된 GitHub 연결로 코드·Issue를 읽고 수정·커밋·검증할 수 있다.
 
 ## 새로운 작업 절차
