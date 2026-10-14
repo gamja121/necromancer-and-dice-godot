@@ -962,18 +962,26 @@ func show_home(interior: bool = false) -> void:
 		InkSceneReveal.play(home_art)
 	var title = label_at(panel,"우리집 · 실내" if interior else "우리집",Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if session.event_flag_is_set(MapState.HILL_UNLOCK_FLAG):
-		var forest_icon = image(panel,"res://assets/map/tiles/forest.png",Vector2(243,468),Vector2(74,66))
-		forest_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		forest_icon.z_index=13
-		var announcement = label_at(panel,"언덕 타일 해금 · 맵에 자동 배치",Vector2(320,475),Vector2(450,42),19)
-		announcement.add_theme_color_override("font_color",Color("ffe4ad"))
-		announcement.add_theme_color_override("font_shadow_color",Color.BLACK)
-		announcement.add_theme_constant_override("shadow_offset_y",2)
-		announcement.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		announcement.z_index=13
-		if session.event_flag_is_set(MapState.HILL_HOME_NOTICE):
-			UnlockNoticeBadge.attach(forest_icon,"NEW")
+	# Every newly discovered real place is displayed inside HOME.
+	# Keep rows compact and away from the bottom action buttons.
+	var discovery_row: int = 0
+	for kind in Discovery.ORDER:
+		if not session.event_flag_is_set(Discovery.unlock_flag(kind)): continue
+		var y: float = 427.0 + float(discovery_row)*34.0
+		var place_icon = image(panel,"res://assets/map/tiles/%s.png" % kind,Vector2(245,y),Vector2(38,34))
+		place_icon.name = "HomeUnlocked_%s" % kind
+		place_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		place_icon.z_index=13
+		var message = label_at(panel,"%s 타일 해금 · 자동 배치" % MapState.NAMES[kind],Vector2(298,y),Vector2(430,33),16)
+		message.name = "HomeUnlockText_%s" % kind
+		message.add_theme_color_override("font_color",Color("ffe4ad"))
+		message.add_theme_color_override("font_shadow_color",Color.BLACK)
+		message.add_theme_constant_override("shadow_offset_y",2)
+		message.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		message.z_index=13
+		if session.event_flag_is_set(Discovery.home_flag(kind)):
+			UnlockNoticeBadge.attach(place_icon,"NEW")
+		discovery_row+=1
 	location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
 	if not interior:
 		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
@@ -993,7 +1001,7 @@ func show_home(interior: bool = false) -> void:
 			close_overlay()
 			show_exploration_actions(MapState.HOME))
 		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
-		if session.event_flag_is_set(MapState.HILL_HOME_NOTICE):
+		if Discovery.ORDER.any(func(kind): return session.event_flag_is_set(Discovery.home_flag(kind))):
 			UnlockNoticeBadge.attach(patrol,"NEW")
 		if not allowed.ok:
 			var hint = label_at(panel,str(allowed.reason),Vector2(350,665),Vector2(580,30),15)
@@ -1857,14 +1865,20 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 		status.text = session.notice
 		session.notice = ""
 
+func acknowledge_discovery_action(kind: String) -> void:
+	# Called only from enabled original location actions, never from preview.
+	var flag: String = "ui:unlock:%s:action_pending" % kind
+	if Discovery.exists(kind) and session.event_flag_is_set(flag):
+		session.set_event_flag(flag,false)
+
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
 	# Seeing a new location acknowledges the board marker; the action marker
 	# remains until that newly unlocked function has really been used.
-	if type=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING):
-		if session.set_event_flag(UnlockNoticeBadge.REST_TILE_PENDING,false):
+	if Discovery.exists(type) and session.event_flag_is_set("ui:unlock:%s:tile_pending" % type):
+		if session.set_event_flag("ui:unlock:%s:tile_pending" % type,false):
 			for button_index in range(buttons.size()):
-				if world.tiles[button_index]!="rest": continue
+				if world.tiles[button_index]!=type: continue
 				var marker = buttons[button_index].get_node_or_null("UnlockNewBadge")
 				if is_instance_valid(marker): marker.hide()
 	var panel = modal(false)
@@ -1890,13 +1904,23 @@ func show_location(index: int) -> void:
 	elif type in ["village","altar","fortune-teller-camp"]:
 		var names = {"village":"마물 상점","altar":"의식","fortune-teller-camp":"예언"}
 		var variant = {"village":1,"altar":2,"fortune-teller-camp":4}[type]
-		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func(): close_overlay(); show_place_actions(index),variant)
+		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
+			acknowledge_discovery_action(type)
+			close_overlay()
+			show_place_actions(index),variant)
+		if Discovery.exists(type) and session.event_flag_is_set("ui:unlock:%s:action_pending" % type):
+			UnlockNoticeBadge.attach(action,"NEW")
 		var key = "ritual" if type=="altar" else "prophecy"
 		if type!="village": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
 	elif type in ["unknown","graveyard","forest"]:
 		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"이동 위치 선택"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]
-		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func(): close_overlay(); show_exploration_actions(index),variant)
+		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
+			acknowledge_discovery_action(type)
+			close_overlay()
+			show_exploration_actions(index),variant)
+		if Discovery.exists(type) and session.event_flag_is_set("ui:unlock:%s:action_pending" % type):
+			UnlockNoticeBadge.attach(action,"NEW")
 		if type=="unknown": action.disabled = session.place_visit_id("purify",index) in world.reward_receipts
 		if type=="graveyard": action.disabled = world.graveyard_corpses.is_empty() or session.place_visit_id("grave-extract",index) in world.reward_receipts
 
