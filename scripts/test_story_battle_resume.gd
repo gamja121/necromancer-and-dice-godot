@@ -162,15 +162,22 @@ func test_pending_receipt_and_retry() -> void:
 	s.save_file_path=correct_path
 	check(s.acknowledge_story_battle_result(Registry.GRAVEYARD_ID),"acknowledge commits")
 	check(not s.graveyard_battle_result_pending(),"confirmed loss no longer pending")
-	check(s.start_story_encounter(Registry.GRAVEYARD_ID,idx,[s.world.roster[0].id]),"deliberate retry begins after acknowledgement")
-	check(s.get_story_event(Registry.GRAVEYARD_ID).battle_result.is_empty(),"new combat clears prior attempt result")
-	check(s.finish_encounter(BattleResult.new("ally")),"retry victory commits")
-	check(s.story_battle_result_pending(Registry.GRAVEYARD_ID),"new victory creates new receipt")
-	check(not s.start_story_encounter(Registry.GRAVEYARD_ID,idx,[s.world.roster[0].id]),"complete event cannot restart")
+	check(s.world.run_result.get("ended",false) and s.world.run_result.get("reason","")=="battle_defeat",
+		"defeat makes expedition terminal")
+	check(not s.start_story_encounter(Registry.GRAVEYARD_ID,idx,[s.world.roster[0].id]),
+		"acknowledgement cannot bypass game-over and retry")
+	check(s.get_story_event(Registry.GRAVEYARD_ID).battle_result=="lost",
+		"saved defeat history cannot be cleared by a fake retry")
+	check(s.encounter.is_empty() and s.world.active_encounter.is_empty(),
+		"terminal run creates no new combat checkpoint")
 	s.reload_world()
-	check(s.story_battle_result_pending(Registry.GRAVEYARD_ID),"victory receipt survives reload")
-	check(s.acknowledge_story_battle_result(Registry.GRAVEYARD_ID),"victory acknowledged")
-	check(s.story_battle_presentation(Registry.GRAVEYARD_ID).is_empty(),"acknowledged result no longer shown")
+	check(s.world.run_result.get("ended",false),"terminal status survives full disk reload")
+	check(not s.start_story_encounter(Registry.GRAVEYARD_ID,idx,[s.world.roster[0].id]),
+		"even after restart the dead expedition cannot retry")
+	check(not s.story_battle_result_pending(Registry.GRAVEYARD_ID),
+		"acknowledged defeat does not recreate a modal after restart")
+	check(s.story_battle_presentation(Registry.GRAVEYARD_ID).is_empty(),
+		"game-over does not show an acknowledged story victory")
 	s.free()
 
 func test_unregistered_and_normal_guards() -> void:

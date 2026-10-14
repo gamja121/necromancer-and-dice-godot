@@ -94,12 +94,15 @@ func _test_lose() -> void:
 	_check(s.acknowledge_graveyard_battle_result(),"player acknowledges loss")
 	_check(not s.graveyard_battle_result_pending(),"acknowledged loss hidden")
 	_check(s.get_story_event(StoryEntry.EVENT_ID).status=="active","loss acknowledgement keeps story open")
-	_check(_start(s),"retry starts after acknowledgement")
-	_check(not s.graveyard_battle_result_pending(),"no stale loss result in new battle")
-	_check(s.finish_encounter(Result.new("ally")),"winning retry commits")
-	_check(s.graveyard_battle_result_pending(),"retry win gets its own result panel")
-	_check(s.get_story_event(StoryEntry.EVENT_ID).battle_result=="won","retry result replaces previous loss")
-	_check(s.acknowledge_graveyard_battle_result(),"retry win acknowledgement")
+	_check(s.world.run_result.get("ended",false) and s.world.run_result.get("reason","")=="battle_defeat",
+		"defeat creates the permanent game-over receipt")
+	_check(not _start(s),"acknowledged loss can never restart the same expedition")
+	_check(not s.graveyard_battle_result_pending(),"loss receipt remains consumed after acknowledgement")
+	_check(s.get_story_event(StoryEntry.EVENT_ID).battle_result=="lost",
+		"defeat history is never overwritten by a forbidden retry")
+	s.reload_world()
+	_check(s.world.run_result.get("ended",false),"game-over persists after reload")
+	_check(not _start(s),"saved terminal run still blocks all attempted retries")
 	s.free()
 
 func _test_rollback() -> void:
