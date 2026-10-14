@@ -44,9 +44,15 @@ func fixture(tag: String, tile: String="forest"):
 	cleanup(path)
 	s.save_file_path=path
 	s.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	s.world.contamination = 100
-	s.world.reveal_boss_at_threshold()
+	# Generate the first post-home high-contamination board with its
+	# boss in place instead of deleting a unique event/forest story tile.
+	s.world.contamination = 93
+	s.world.lap_ready = true
+	s.world.leave_home()
+	# Test historical dedicated-altar saves as well as current event landings.
+	var legacy_altar_index: int = s.world.tiles.find("basic")
+	assert(legacy_altar_index>=0)
+	s.world.tiles[legacy_altar_index] = "altar"
 	s.world.story_events[Rumor.EVENT_ID]={"status":"complete","choice":"","battle_result":""}
 	s.world.event_flags[Rumor.SEEN_FLAG]=true
 	s.world.event_flags[Rumor.COMPLETE_FLAG]=true
