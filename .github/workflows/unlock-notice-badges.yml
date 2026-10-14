@@ -1,0 +1,48 @@
+name: Newly Unlocked Tile and Action Badges
+on:
+  pull_request:
+    paths:
+      - 'systems/unlock_notice_badge.gd'
+      - 'systems/exploration_actions.gd'
+      - 'systems/run_session.gd'
+      - 'map.gd'
+      - 'scripts/test_unlock_notice_badge.gd'
+      - '.github/workflows/unlock-notice-badges.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'systems/unlock_notice_badge.gd'
+      - 'systems/exploration_actions.gd'
+      - 'systems/run_session.gd'
+      - 'map.gd'
+      - 'scripts/test_unlock_notice_badge.gd'
+      - '.github/workflows/unlock-notice-badges.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and check Godot scripts
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify tile and button notification after genuine rest unlock
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_unlock_notice_badge.gd 2>&1 | tee unlock.log
+          grep -E '^UNLOCK_NOTICE_BADGE: [0-9]+ passed, 0 failed$' unlock.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL unlock-notice:|Invalid call' unlock.log; then exit 1; fi
+      - name: Preserve first patrol homecoming and rest unlock flow
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_rest_unlock_application.gd 2>&1 | tee rest.log
+          grep -E '^REST_UNLOCK_APPLICATION: [0-9]+ passed, 0 failed$' rest.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL rest-unlock:|Invalid call' rest.log; then exit 1; fi

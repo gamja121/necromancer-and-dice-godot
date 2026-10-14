@@ -57,6 +57,7 @@ const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const MapState = preload("res://systems/map_state.gd")
 const EventDiscoveryCard = preload("res://systems/event_discovery_card.gd")
+const UnlockNoticeBadge = preload("res://systems/unlock_notice_badge.gd")
 const TreasureReward = preload("res://systems/treasure_reward.gd")
 const DiceHand = preload("res://systems/dice_control_hand.gd")
 const InventoryPanel = preload("res://systems/inventory_panel.gd")
@@ -341,6 +342,9 @@ func render() -> void:
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
+		if world.tiles[i]=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING):
+			UnlockNoticeBadge.attach(node,"신규")
+			node.tooltip_text += " · 새로 해금된 장소"
 		if world.scout.scouted and not i in world.cleared and world.scout.intel.any(func(entry): return int(entry.index)==i):
 			var badge = label_at(node,"정찰",Vector2(78,0),Vector2(40,20),10)
 			badge.add_theme_color_override("font_color",Color("eed998"))
@@ -1812,6 +1816,14 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 
 func show_location(index: int) -> void:
 	var type: String = world.tiles[index]
+	# Seeing a new location acknowledges the board marker; the action marker
+	# remains until that newly unlocked function has really been used.
+	if type=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING):
+		if session.set_event_flag(UnlockNoticeBadge.REST_TILE_PENDING,false):
+			for button_index in range(buttons.size()):
+				if world.tiles[button_index]!="rest": continue
+				var marker = buttons[button_index].get_node_or_null("UnlockNewBadge")
+				if is_instance_valid(marker): marker.hide()
 	var panel = modal(false)
 	var scene_art = location_scene_image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type])
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
@@ -1827,6 +1839,9 @@ func show_location(index: int) -> void:
 			await presentation.full_heal()
 			close_overlay()
 			show_location(index))
+		heal.name = "RestHealAction"
+		if session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
+			UnlockNoticeBadge.attach(heal,"NEW")
 		heal.disabled = not allowed.ok
 		heal.tooltip_text = "" if allowed.ok else allowed.reason
 	elif type in ["village","altar","fortune-teller-camp"]:
