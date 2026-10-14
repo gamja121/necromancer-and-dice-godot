@@ -8,6 +8,7 @@ const DiceControl = preload("res://systems/dice_control.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
+const Discovery = preload("res://systems/location_discoveries.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
@@ -100,22 +101,37 @@ func set_event_flag(flag: String, enabled: bool = true) -> bool:
 ## HOME unlock notification atomically. UI must never claim an unlock if
 ## the durable save fails. No second discovery is allowed in this run.
 func discover_hill_on_event(index: int) -> Dictionary:
+	# Preserve original public/test API used by the first hill discovery.
+	return discover_location_on_event(index,"forest")
+
+func next_discovery_kind() -> String:
+	if world == null: return ""
+	return Discovery.next_eligible(world)
+
+## Triggered only by real story-free event arrival in map.gd.
+## One safe road, unique card receipt and HOME NEW alert commit atomically.
+func discover_location_on_event(index: int,kind: String) -> Dictionary:
 	if world == null or not world.run_result.is_empty(): return {"ok":false}
-	if world.tiles.size()!=24 or index!=world.position or world.tiles[index]!="event" or world.laps<1:
+	if world.tiles.size()!=24 or index!=world.position or world.tiles[index]!="event":
 		return {"ok":false,"reason":"발견 조건을 확인할 수 없습니다."}
-	if event_flag_is_set(MapState.HILL_UNLOCK_FLAG) or event_flag_is_set("event:discovery:forest:card_shown"):
-		return {"ok":false,"reason":"언덕은 이미 발견했습니다."}
+	if not Discovery.eligible(world,kind) or event_flag_is_set(Discovery.receipt_flag(kind)):
+		return {"ok":false,"reason":"아직 발견할 수 없거나 이미 해금한 장소입니다."}
 	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty():
 		return {"ok":false,"reason":"이동·전투·보상을 먼저 완료하세요."}
 	var before: Dictionary = world.snapshot().duplicate(true)
-	var converted: int = world.reveal_discovered_hill()
+	var converted: int = world.reveal_discovered_location(kind)
 	if converted<0:
-		return {"ok":false,"reason":"변경 가능한 빈 길이 없어 언덕 해금을 보류합니다."}
-	world.event_flags[MapState.HILL_UNLOCK_FLAG] = true
-	world.event_flags["event:discovery:forest:card_shown"] = true
-	world.event_flags[MapState.HILL_HOME_NOTICE] = true
+		return {"ok":false,"reason":"보호 길을 제외한 빈 칸이 없어 해금을 보류합니다."}
+	world.event_flags[Discovery.unlock_flag(kind)] = true
+	world.event_flags[Discovery.receipt_flag(kind)] = true
+	world.event_flags[Discovery.home_flag(kind)] = true
+	if kind=="rest":
+		if not RoutePlan.is_new(world.patrol_plan):
+			world.patrol_plan = RoutePlan.default_plan()
+		world.patrol_plan["rest_unlocked"] = true
+		world.patrol_plan["rest_discovered"] = true
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"index":converted}
+	return {"ok":true,"index":converted,"kind":kind}
 
 ## A missing event has the implicit "unseen" state.
 func get_story_event(event_id: String) -> Dictionary:
@@ -444,6 +460,10 @@ func finish_encounter(battle) -> bool:
 	return true
 
 func persist_change(before: Dictionary) -> bool:
+	# Historical discovery gates survive pollution purification and healing.
+	world.max_contamination_reached = maxi(int(world.max_contamination_reached),int(world.contamination))
+	if world.roster.any(func(unit): return int(unit.current_hp)<int(unit.max_hp)):
+		world.event_flags["discovery:ever_injured"] = true
 	# Any system that raises contamination across 20 (not only leaving
 	# home) must persist the first boss tile in the SAME save transaction.
 	# A failed write rolls the boss/swamp reveal back with everything else.
@@ -951,15 +971,16 @@ func confirm_patrol(plan: Dictionary) -> Dictionary:
 	if not RoutePlan.valid(plan): return {"ok":false,"reason":"추가 6칸 제한과 타일별 해금·수량 제한을 확인하세요."}
 	# The active unlock is owned by the persisted world, not by a crafted
 	# UI payload. Prevent forging an unlock or silently re-locking a tile.
-	if RoutePlan.is_new(plan) and bool(plan.get("rest_unlocked",false)) != bool(world.patrol_plan.get("rest_unlocked",false)):
+	if RoutePlan.is_new(plan) and (bool(plan.get("rest_unlocked",false)) != bool(world.patrol_plan.get("rest_unlocked",false)) or bool(plan.get("rest_discovered",false)) != bool(world.patrol_plan.get("rest_discovered",false))):
 		return {"ok":false,"reason":"숙영 해금 상태가 변경됐습니다. 편성 화면을 다시 열어주세요."}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.patrol_plan = plan.duplicate(true)
 	world.reward_receipts.append(visit)
 	# The unlock remains permanent; acknowledging its NEW home highlight is
 	# part of the same successful patrol-confirm transaction.
-	if world.event_flags.get(MapState.HILL_HOME_NOTICE,false)==true:
-		world.event_flags[MapState.HILL_HOME_NOTICE]=false
+	for kind in Discovery.ORDER:
+		if world.event_flags.get(Discovery.home_flag(kind),false)==true:
+			world.event_flags[Discovery.home_flag(kind)]=false
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"순찰경로 저장 완료 · 다음 타일 배치에 적용"}
 
