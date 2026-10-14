@@ -135,6 +135,25 @@ func _run() -> void:
 	check(not session.event_flag_is_set(State.HILL_UNLOCK_FLAG) and world.tiles.count("forest")==forest_before, "main story never mutates a road into a hill")
 	story_map.queue_free()
 	await process_frame
+	# Previously shipped one-shot discovery was visual-only. Loading that
+	# exact saved receipt should now grant the missing real tile once.
+	session.start_new_world()
+	world=session.world
+	event_index=world.tiles.find("event")
+	world.position=event_index
+	world.laps=1
+	world.event_flags[receipt]=true
+	var old_hill_count: int=world.tiles.count("forest")
+	check(session.save_world(),"old visual-only card fixture stored")
+	session.world=null
+	session.ensure_world()
+	world=session.world
+	check(session.event_flag_is_set(State.HILL_UNLOCK_FLAG) and session.event_flag_is_set(State.HILL_HOME_NOTICE),"legacy visual-only receipt automatically migrated to HOME unlock")
+	check(world.tiles.count("forest")==old_hill_count+1,"legacy card receipt restores one real new hill tile")
+	var old_tiles: Array=world.tiles.duplicate()
+	session.world=null
+	session.ensure_world()
+	check(session.world.tiles==old_tiles,"legacy discovery migration is idempotent across second reload")
 	# The unlock receipt and transformed road MUST roll back together if the
 	# same save cannot be committed; no phantom card/NEW hint is allowed.
 	session.start_new_world()
