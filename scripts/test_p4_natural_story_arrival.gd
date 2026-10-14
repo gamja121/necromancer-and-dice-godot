@@ -83,6 +83,10 @@ func create_run(session: Node) -> int:
 	# dedicated threshold test checks actual minimum contamination boundaries.
 	world.contamination = 80
 	world.reveal_boss_at_threshold()  # match real save-reload migration at >=20
+	# The fixture forces pollution upward without the real prayer/home action;
+	# mirror both automatic corruption thresholds before saving so reload
+	# does not legitimately migrate and change the test's expected board.
+	world.reveal_swamps_for_contamination()
 	check(world.laps==1 and world.tiles.count("graveyard")==1 and world.map_serial==2,
 		"one original first-lap exit unlocks one graveyard before the story")
 	check(world.position==STATE.HOME and world.tiles.size()==24 and world.tiles[8]=="village" and world.tiles[15]=="home", "second 24-tile board has unchanged canonical fixed anchors")

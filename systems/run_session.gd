@@ -52,9 +52,11 @@ func ensure_world() -> void:
 			# boss threshold. Upgrade the existing 24th tile in place without
 			# rerolling the board or changing other saved progress.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
-			if world.reveal_boss_at_threshold() and not save_world():
+			var boss_upgraded: bool = world.reveal_boss_at_threshold()
+			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
+			if (boss_upgraded or swamp_upgraded > 0) and not save_world():
 				world.restore(before_upgrade)
-				notice = "보스 타일 갱신 저장에 실패했습니다. 다시 시도하세요."
+				notice = "오염된 타일 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
 
 func save_world() -> bool:
@@ -413,9 +415,13 @@ func finish_encounter(battle) -> bool:
 func persist_change(before: Dictionary) -> bool:
 	# Any system that raises contamination across 20 (not only leaving
 	# home) must persist the first boss tile in the SAME save transaction.
-	# A failed write rolls the boss reveal back with the rest of the state.
+	# A failed write rolls the boss/swamp reveal back with everything else.
 	if int(before.get("contamination",0)) < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
 		world.reveal_boss_at_threshold()
+	# At 40/80, automatically change ordinary road tiles into swamps even
+	# before the next home shuffle. No RNG/encounter/story state is modified.
+	if world.contamination > int(before.get("contamination",0)) and world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
+		world.reveal_swamps_for_contamination()
 	if save_world(): return true
 	world.restore(before)
 	encounter = world.active_encounter.duplicate(true)

@@ -1,0 +1,56 @@
+name: Automatic Contamination Swamp Regression
+on:
+  pull_request:
+    paths:
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'scripts/test_contamination_auto_swamp.gd'
+      - 'scripts/test_patrol_six_slots_unlocks.gd'
+      - '.github/workflows/contamination-auto-swamp.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'scripts/test_contamination_auto_swamp.gd'
+      - 'scripts/test_patrol_six_slots_unlocks.gd'
+      - '.github/workflows/contamination-auto-swamp.yml'
+permissions:
+  contents: read
+jobs:
+  swamp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse Godot source
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify automatic swamp generation, mid-lap conversion, saved runs, real art
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_contamination_auto_swamp.gd 2>&1 | tee auto-swamp.log
+          grep -E '^AUTO_SWAMP_CONTAMINATION: [0-9]+ passed, 0 failed$' auto-swamp.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL auto-swamp:' auto-swamp.log; then exit 1; fi
+      - name: Preserve optional patrol, legacy route and reserved road contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_patrol_six_slots_unlocks.gd 2>&1 | tee patrol.log
+          grep -E '^PATROL_SIX_SLOTS: [0-9]+ passed, 0 failed$' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL patrol-six-slots:' patrol.log; then exit 1; fi
+      - name: Preserve boss contamination threshold independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss.log
+          grep -E '^MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed$' boss.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL boss-threshold:' boss.log; then exit 1; fi
