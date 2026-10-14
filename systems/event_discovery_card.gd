@@ -2,6 +2,21 @@ extends Control
 ## Reusable event/discovery card presented inside the real Godot map overlay.
 ## Content is UI-only: tile discovery eligibility and persistence belong to RunSession.
 signal closed
+var dismissed: bool = false
+
+func dismiss() -> void:
+	if dismissed: return
+	dismissed = true
+	closed.emit()
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		accept_event()
+		dismiss()
+	elif event is InputEventScreenTouch and event.pressed:
+		accept_event()
+		dismiss()
+
 
 const DEFAULT_ART = "res://assets/map/events/forest.jpg"
 const CUSTOM_ART = "res://" + "assets/map/events/" + "discovery_hill.png" # Optional HD art: fallback until installed
@@ -16,6 +31,7 @@ func _label(text_value: String, pos: Vector2, dimensions: Vector2, points: int, 
 	result.size = dimensions
 	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if title else HORIZONTAL_ALIGNMENT_LEFT
 	result.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	result.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result.add_theme_font_override("font", preload("res://assets/fonts/nanum_gothic_regular.ttf"))
 	result.add_theme_font_size_override("font_size", points)
@@ -38,6 +54,7 @@ func _picture(path: String, pos: Vector2, dimensions: Vector2, mode: TextureRect
 func setup(category: String, heading: String, description: String, reward: String,
 		illustration: String = CUSTOM_ART, tile_image: String = TILE_ART) -> void:
 	name = "EventDiscoveryCard"
+	dismissed = false
 	position = Vector2(414, 36)
 	size = Vector2(452, 630)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -62,11 +79,6 @@ func setup(category: String, heading: String, description: String, reward: Strin
 	_label(description, Vector2(54, 459), Vector2(344, 47), 17, true).name = "EventDiscoveryDescription"
 	_picture(tile_image, Vector2(47, 524), Vector2(58, 58), TextureRect.STRETCH_KEEP_ASPECT_CENTERED).name = "EventDiscoveryTile"
 	_label(reward, Vector2(135, 529), Vector2(264, 50), 20).name = "EventDiscoveryReward"
-	# This closes the event card without granting a reward a second time.
-	var confirm := Button.new()
-	confirm.name = "EventDiscoveryClose"
-	confirm.text = "확인"
-	confirm.position = Vector2(328, 583)
-	confirm.size = Vector2(85, 34)
-	confirm.pressed.connect(func(): closed.emit())
-	add_child(confirm)
+	# There is deliberately NO confirmation button. The entire parchment
+	# is one tap/click-to-close surface, including touch on the artwork/text.
+	_label("화면을 누르면 닫힙니다", Vector2(109, 579), Vector2(242, 30), 14, true).name = "EventDiscoveryDismissHint"
