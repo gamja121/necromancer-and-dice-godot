@@ -1,6 +1,8 @@
 extends RefCounted
 
 const RoutePlan = preload("res://systems/route_plan.gd")
+const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
+const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
 const BOSS_CONTAMINATION = 20
@@ -108,6 +110,12 @@ func generate() -> void:
 	var added_swamps: int = mini(maxi(0,required_swamp_count(contamination)-int(counts.swamp)),maxi(0,int(counts.basic)))
 	counts.basic -= added_swamps
 	counts.swamp += added_swamps
+	# One EXTRA discovered hill survives subsequent home shuffles. Retain
+	# the original single forest slot for existing saves/story-gate parity;
+	# never consume protected future-swamp roads or a route-plan choice.
+	if event_flags.get(HILL_UNLOCK_FLAG,false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
+		counts.basic -= 1
+		counts.forest += 1
 	if contamination>=BOSS_CONTAMINATION: counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
@@ -165,6 +173,22 @@ func reveal_swamps_for_contamination() -> int:
 		cleared.erase(i)
 		changed += 1
 	return changed
+
+## Actual discovery converts exactly one unoccupied ordinary road into a
+## forest on the CURRENT board without touching RNG/priority story cells.
+## -1 means no safe free road: the caller must not issue a fake unlock.
+func reveal_discovered_hill() -> int:
+	if tiles.size()!=24 or event_flags.get(HILL_UNLOCK_FLAG,false)==true: return -1
+	# Never steal the two future swamp reservations on a low-corruption lap.
+	if tiles.count("basic") <= maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-tiles.count("swamp")): return -1
+	var start: int = (map_serial*7+move_serial*3)%tiles.size()
+	for offset in range(tiles.size()):
+		var i: int = (start+offset)%tiles.size()
+		if i == position or i == BOSS_TILE_INDEX or tiles[i]!="basic": continue
+		tiles[i] = "forest"
+		cleared.erase(i)
+		return i
+	return -1
 
 func move_path(face: int) -> Array:
 	move_serial += 1
