@@ -46,9 +46,19 @@ func fixture(tag: String, side: String, destination: String):
 	cleanup(path)
 	s.save_file_path=path
 	s.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	s.world.contamination = 100
-	s.world.reveal_boss_at_threshold()
+	# Build the modern high-contamination second board at home exit,
+	# preserving the only event and forest tiles when the boss appears.
+	s.world.contamination = 93
+	s.world.lap_ready = true
+	s.world.leave_home()
+	# Legacy save compatibility: dedicated altar/world-tree paths are still
+	# accepted even though the present map generates their event equivalents.
+	var legacy_altar_index: int = s.world.tiles.find("basic")
+	assert(legacy_altar_index>=0)
+	s.world.tiles[legacy_altar_index] = "altar"
+	var legacy_tree_index: int = s.world.tiles.find("basic")
+	assert(legacy_tree_index>=0)
+	s.world.tiles[legacy_tree_index] = "unknown"
 	s.world.story_events[Rumor.EVENT_ID]={"status":"complete","choice":"","battle_result":""}
 	s.world.event_flags[Rumor.SEEN_FLAG]=true
 	s.world.event_flags[Rumor.COMPLETE_FLAG]=true
