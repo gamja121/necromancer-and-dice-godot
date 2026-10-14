@@ -54,9 +54,19 @@ func ensure_world() -> void:
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
-			if (boss_upgraded or swamp_upgraded > 0) and not save_world():
+			# The 2026-10-14 version saved only card_shown, not a hill.
+			# Retrofit one real road for those existing players instead of
+			# locking them out permanently from the new event-only award.
+			var hill_upgraded: bool = false
+			if event_flag_is_set("event:discovery:forest:card_shown") and not event_flag_is_set(MapState.HILL_UNLOCK_FLAG):
+				var hill_index: int=world.reveal_discovered_hill()
+				if hill_index>=0:
+					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
+					world.event_flags[MapState.HILL_HOME_NOTICE]=true
+					hill_upgraded=true
+			if (boss_upgraded or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
-				notice = "오염된 타일 갱신 저장에 실패했습니다. 다시 시도하세요."
+				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
 
 func save_world() -> bool:
