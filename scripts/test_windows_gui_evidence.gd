@@ -7,6 +7,14 @@ const TITLE = preload("res://title.tscn")
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const STATE = preload("res://systems/map_state.gd")
+const COMMANDER = preload("res://systems/knight_commander_entry.gd")
+const COMMANDER_BEATS = preload("res://systems/knight_commander_beats.gd")
+const HUNTER = preload("res://systems/monster_hunter_entry.gd")
+const HUNTER_BEATS = preload("res://systems/monster_hunter_beats.gd")
+const CULTIST = preload("res://systems/cultist_rumor_entry.gd")
+const CULTIST_BEATS = preload("res://systems/cultist_rumor_beats.gd")
+const ALTAR = preload("res://systems/cultist_altar_entry.gd")
+const PORTAL = preload("res://systems/ritual_portal_entry.gd")
 
 var shots: int = 0
 var failures: int = 0
@@ -137,8 +145,19 @@ func _run() -> void:
 	await capture_settled_art(map, "res://assets/map/events/home.jpg",
 		"home exterior", "05_home_exterior_native_windows.png")
 	map.close_overlay()
+	# The first production board deliberately hides graveyard, altar,
+	# world-tree and rest until later unlocks. A screenshot fixture may place
+	# their existing scenes on ordinary road tiles in THIS disposable save only.
+	# Never change MapState generation, user saves or the actual unlock rules.
+	for missing_place in ["graveyard","altar","unknown","rest"]:
+		if not session.world.tiles.has(missing_place):
+			var ordinary: int = session.world.tiles.find("basic")
+			check(ordinary >= 0, "visual-only board has a spare road for " + missing_place)
+			if ordinary >= 0:
+				session.world.tiles[ordinary] = missing_place
+	check(session.save_world(), "16-shot visual gallery board saved into disposable CI path")
 	# These six production panels plus the fortune-teller form the seven
-	# location types. Keep the original 24-tile board and player state intact.
+	# location types. Newly gated tiles are only present in the CI preview.
 	var locations: Array[Dictionary] = [
 		{"tile":"village", "filename":"06_village_native_windows.png"},
 		{"tile":"graveyard", "filename":"07_graveyard_native_windows.png"},
@@ -241,6 +260,117 @@ func _run() -> void:
 		root.remove_child(reward_map)
 		reward_map.queue_free()
 		await process_frame
+	# Dedicated layer gallery for end-user art/composition acceptance.
+	# Build a temporary *internally consistent* mid-story save and render the
+	# real show_* scene functions. These aren't claims of natural gameplay.
+	session.start_new_world()
+	for missing_place in ["graveyard","altar","unknown"]:
+		if not session.world.tiles.has(missing_place):
+			var ordinary: int = session.world.tiles.find("basic")
+			check(ordinary >= 0, "story gallery can place " + missing_place)
+			if ordinary >= 0:
+				session.world.tiles[ordinary] = missing_place
+	session.world.contamination = 100
+	session.world.reveal_boss_at_threshold()
+	session.world.reveal_swamps_for_contamination()
+	# This visual gallery starts AFTER a separately completed child rescue and
+	# rescued-child rumor. Only this test save has the setup state.
+	session.world.story_events["graveyard_child_ambush_01"] = {"status":"complete","choice":"protect_child","battle_result":"won"}
+	session.world.event_flags["event:graveyard_child_ambush_01:complete"] = true
+	session.world.event_flags["event:graveyard_child_ambush_01:rescued"] = true
+	session.world.story_events["rumor_saved_child_01"] = {"status":"complete","choice":"","battle_result":""}
+	session.world.event_flags["event:rumor_saved_child_01:seen"] = true
+	session.world.event_flags["event:rumor_saved_child_01:complete"] = true
+	var village_index: int = session.world.tiles.find("village")
+	var tree_index: int = session.world.tiles.find("unknown")
+	var altar_index: int = session.world.tiles.find("altar")
+	var forest_index: int = session.world.tiles.find("forest")
+	check(village_index >= 0 and tree_index >= 0 and altar_index >= 0 and forest_index >= 0,
+		"test-only story gallery contains all four canonical story locations")
+	session.world.position = village_index
+	check(session.save_world(), "layered-story preview prerequisites saved only to CI")
+	var gallery_map: Control = MAP.instantiate()
+	root.add_child(gallery_map)
+	current_scene = gallery_map
+	check(COMMANDER.begin(session,village_index), "actual commander event opens with consistent visual fixture flags")
+	gallery_map.show_knight_commander_beat(village_index)
+	await capture_settled_art(gallery_map, COMMANDER.ART, "commander figure",
+		"17_commander_layer_native_windows.png")
+	for i in range(2):
+		check(COMMANDER.advance(session,village_index,i), "commander visual advance %d" % i)
+	gallery_map.show_knight_commander_beat(village_index)
+	check(is_instance_valid(gallery_map.overlay)
+		and gallery_map.overlay.get_node_or_null("PlayerStoryPortrait") is TextureRect,
+		"commander player reply uses actual left portrait")
+	await capture_settled_art(gallery_map, COMMANDER.ART, "commander player reply",
+		"18_commander_reply_layer_native_windows.png")
+	for i in range(2,COMMANDER_BEATS.count()):
+		check(COMMANDER.advance(session,village_index,i), "commander source completion %d" % i)
+	session.world.position = tree_index
+	check(HUNTER.begin(session,tree_index), "actual hunter encounter eligible after commander completion")
+	check(HUNTER.advance(session,tree_index,0), "hunter revealed-scene beat selected")
+	gallery_map.show_monster_hunter_beat(tree_index)
+	check(is_instance_valid(gallery_map.overlay)
+		and gallery_map.overlay.get_node_or_null("HunterSceneLayer") is TextureRect,
+		"hunter beast layer exists in real live overlay")
+	await capture_settled_art(gallery_map, HUNTER.BASE_ART, "hunter beast scene",
+		"19_hunter_beast_layer_native_windows.png")
+	for i in range(1,3):
+		check(HUNTER.advance(session,tree_index,i), "hunter portrait preparation %d" % i)
+	gallery_map.show_monster_hunter_beat(tree_index)
+	check(is_instance_valid(gallery_map.overlay)
+		and gallery_map.overlay.get_node_or_null("HunterPortrait") is TextureRect,
+		"hunter human portrait uses real overlay layer")
+	await capture_settled_art(gallery_map, HUNTER.BASE_ART, "hunter portrait scene",
+		"20_hunter_portrait_layer_native_windows.png")
+	for i in range(3,HUNTER_BEATS.count()):
+		check(HUNTER.advance(session,tree_index,i), "hunter source completion %d" % i)
+	session.world.position = village_index
+	check(CULTIST.begin(session,village_index), "cultist rumor eligible after finished hunter story")
+	check(CULTIST.advance(session,village_index,0), "cultist procession beat selected")
+	gallery_map.show_cultist_rumor_beat(village_index)
+	check(is_instance_valid(gallery_map.overlay)
+		and gallery_map.overlay.get_node_or_null("CultistProcessionLayer") is TextureRect,
+		"cultist procession layer exists in real UI")
+	await capture_settled_art(gallery_map, CULTIST.BASE_ART, "cultist procession",
+		"21_cultist_procession_layer_native_windows.png")
+	for i in range(1,CULTIST_BEATS.count()):
+		check(CULTIST.advance(session,village_index,CULTIST.EVENT_ID,i), "cultist rumor completion %d" % i)
+	session.world.position = altar_index
+	check(ALTAR.begin(session,altar_index), "cultist altar eligible after finished rumor")
+	check(ALTAR.advance(session,altar_index,0), "altar ritual reveal beat selected")
+	gallery_map.show_cultist_altar_beat(altar_index)
+	check(is_instance_valid(gallery_map.overlay)
+		and gallery_map.overlay.get_node_or_null("CultistRitualLayer") is TextureRect,
+		"altar ritual layer exists in real UI")
+	await capture_settled_art(gallery_map, ALTAR.BASE_ART, "altar ritual layer",
+		"22_altar_ritual_layer_native_windows.png")
+	check(ALTAR.advance(session,altar_index,1), "altar final choice reached explicitly")
+	check(ALTAR.choose(session,altar_index,2,"pass"), "gallery chooses canonical peaceful altar path")
+	check(ALTAR.finish(session,altar_index), "test-only altar quest advances to ritual tracking")
+	session.world.position = forest_index
+	check(PORTAL.begin(session,forest_index), "real portal event eligible after finished altar")
+	check(PORTAL.advance(session,forest_index,0), "portal energy beat selected")
+	gallery_map.show_ritual_portal_beat(forest_index)
+	check(is_instance_valid(gallery_map.overlay)
+		and gallery_map.overlay.get_node_or_null("PortalEnergyLayer") is TextureRect,
+		"portal energy artwork uses live layered panel")
+	await capture_settled_art(gallery_map, PORTAL.BASE_ART, "portal energy layer",
+		"23_portal_energy_layer_native_windows.png")
+	for i in range(1,3):
+		check(PORTAL.advance(session,forest_index,i), "portal omen preparation %d" % i)
+	gallery_map.show_ritual_portal_beat(forest_index)
+	check(is_instance_valid(gallery_map.overlay)
+		and gallery_map.overlay.get_node_or_null("PortalOmenLayer") is TextureRect,
+		"portal omen artwork uses live layered panel")
+	await capture_settled_art(gallery_map, PORTAL.BASE_ART, "portal omen layer",
+		"24_portal_omen_layer_native_windows.png")
+	current_scene = null
+	root.remove_child(gallery_map)
+	gallery_map.queue_free()
+	await process_frame
+	# No story preview can modify the user save: the only writable path has
+	# been a process-local throwaway file since the start of this script.
 	session.save_file_path = old_path
 	if created:
 		root.remove_child(session)
@@ -250,4 +380,4 @@ func _run() -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	check(not FileAccess.file_exists(temp_save), "disposable CI save removed; no player save changed")
 	print("WINDOWS_GUI_PREVIEW: %d captured, %d failed; manual review remains required" % [shots, failures])
-	quit(0 if shots == 16 and failures == 0 else 1)
+	quit(0 if shots == 24 and failures == 0 else 1)
