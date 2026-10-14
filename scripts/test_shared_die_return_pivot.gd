@@ -58,6 +58,17 @@ func _run() -> void:
 	var old_path: String=session.save_file_path
 	session.save_file_path=save_path
 	session.start_new_world()
+	# Old fixture expected a rest on the first board, although real gameplay
+	# unlocks it after homecoming. Earn and select one normally, then mark its
+	# notifications read: this regression checks the die, not unread UI flags.
+	session.world.laps = 1
+	session.world.position = 15
+	check(bool(session.unlock_rest_tile().get("ok",false)), "rest is legitimately unlocked for location-art fixture")
+	session.world.patrol_plan["selection"]["rest"] = 1
+	session.world.generate()
+	session.world.event_flags["ui:unlock:rest:tile_pending"] = false
+	session.world.event_flags["ui:unlock:rest:action_pending"] = false
+	check(session.save_world(), "unlocked rest painting fixture is persisted")
 	var pose:=Vector2(725,212)
 	var rotation:=47
 	session.world.dice_visual_position=[int(pose.x),int(pose.y)]
