@@ -68,6 +68,11 @@ func _run() -> void:
 	# This historical complete-chain presentation fixture is deliberately
 	# evaluated after the real contamination gate has become eligible.
 	session.world.contamination = 100
+	# A genuine high-contamination save already contains its boss and swamp
+	# transformations. Seed them now so reload_world does not change the
+	# fixture at the final dialogue checkpoint (visual tests are read-only).
+	session.world.reveal_boss_at_threshold()
+	session.world.reveal_swamps_for_contamination()
 	check(session.save_world(),"isolated visual-story fixture saved")
 	var grave: int=session.world.tiles.find("graveyard")
 	var village: int=session.world.tiles.find("village")
