@@ -109,6 +109,10 @@ func _run() -> void:
 	# Old saved runs at contamination 30 had reserved basic roads but no swamps.
 	world.contamination = 14
 	world.generate()
+	# Legacy 20+ saves can already have the boss at slot 23 but no swamps.
+	# Preserve that actual pre-15/30 migration shape for the round-trip.
+	world.contamination = 20
+	world.reveal_boss_at_threshold()
 	world.contamination = 30
 	check(world.tiles.count("swamp") == 0 and session.save_world(), "older high-contamination board fixture stored")
 	var preserved_serial: int = world.map_serial
