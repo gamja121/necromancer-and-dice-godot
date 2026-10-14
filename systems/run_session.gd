@@ -876,16 +876,22 @@ func scout_hill(index: int) -> Dictionary:
 func active_scout_intel() -> Array:
 	return world.scout.intel.filter(func(entry): return not int(entry.index) in world.cleared)
 
-## First tile unlock: an explicit, free house action. Never trigger
-## automatically from a guessed lap/contamination threshold. The player
-## must deliberately choose Rest before it can appear on the NEXT board.
-## This is stored transactionally with the world snapshot and can be used
-## even when this visit's patrol has already been confirmed.
-func unlock_rest_tile() -> Dictionary:
+## First new tile: available after returning home from the first FULL
+## patrol. Unlock remains the player's explicit action (not a free auto
+## reward); once saved it cannot be lost through reset, reroll or reload.
+## A fresh game at home cannot skip an entire lap to unlock this reward.
+func rest_unlock_allowed() -> Dictionary:
 	var allowed: Dictionary=place_allowed(MapState.HOME,"home")
 	if not allowed.ok: return allowed
 	if RoutePlan.is_new(world.patrol_plan) and bool(world.patrol_plan.get("rest_unlocked",false)):
 		return {"ok":false,"reason":"숙영은 이미 해금됐습니다."}
+	if world.laps<1 and not world.lap_ready:
+		return {"ok":false,"reason":"첫 바퀴를 완주해 집에 돌아오면 숙영을 해금할 수 있습니다."}
+	return {"ok":true}
+
+func unlock_rest_tile() -> Dictionary:
+	var allowed: Dictionary=rest_unlock_allowed()
+	if not allowed.ok: return allowed
 	var before: Dictionary=world.snapshot().duplicate(true)
 	if not RoutePlan.is_new(world.patrol_plan):
 		# Existing saves retain their legacy board until the next home exit;
