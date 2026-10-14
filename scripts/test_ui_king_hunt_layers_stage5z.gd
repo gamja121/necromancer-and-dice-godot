@@ -25,6 +25,8 @@ var scratch:String=""
 
 class Outcome:
 	extends RefCounted
+	# Current RunSession.finish_encounter inspects battle.units before resolving.
+	var units: Array = []
 	var side:String
 	func _init(result:String)->void:
 		side=result
