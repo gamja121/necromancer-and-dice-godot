@@ -1,6 +1,6 @@
 extends SceneTree
 ## P4-02A: actual map die -> graveyard child four-beat scene -> both choice
-## buttons -> real deck/battle/results -> defeat acknowledgement/retry.
+## buttons -> real battle/victory, or terminal game-over on defeat.
 ## Test-only tile permutation and deterministic combat strength. Every scenario
 ## has an isolated PID user:// save; the frozen web repo is never altered.
 
@@ -72,14 +72,15 @@ func prepare_run(session: Node, label: String) -> Dictionary:
 	clear_path(path)
 	session.save_file_path = path
 	session.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	session.world.contamination = 100
-	session.world.reveal_boss_at_threshold()
 	check(session.world.tiles.count("graveyard")==0,label+": graveyard absent from the first expedition")
-	# Isolated branch fixture starts after the first completed lap, when
-	# a real home shuffle unlocks the first cemetery.
+	# Make contamination 100 through the actual +7 home-exit generation.
+	# A post-hoc boss overwrite could otherwise erase one unique story tile.
+	session.world.contamination = 93
 	session.world.lap_ready=true
 	session.world.leave_home()
+	check(session.world.contamination==100 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss"
+		and session.world.tiles.has("event") and session.world.tiles.has("forest"),
+		label+": boss generation preserves event and forest narrative tiles")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		label+": post-first-lap fixture contains exactly one graveyard")
 	var target: int = prepare_graveyard_landing(session)
@@ -145,6 +146,16 @@ func choose_deck_and_fight(session: Node, map: Control, ids: Array, victor: Stri
 	check(str(session.encounter.get("event_id",""))==STORY.EVENT_ID and session.encounter.type=="event-graveyard-child",label+": battle checkpoint retains graveyard story ID")
 	check(session.encounter.enemies.size()==1 and str(session.encounter.enemies[0].slug)=="ghoul",label+": canonical ghoul battle, not regular encounter")
 	fixture(battle,victor,label)
+	# The original battle blocks its first roll behind the one-time brand
+	# reference after entry summoning; the test must acknowledge that UI.
+	check(await until_ready(func(): return not battle.entry_summon_active,18000),
+		label+": unit summoning ends before the initial dice roll")
+	check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open,
+		label+": original mandatory brand reference is displayed")
+	if is_instance_valid(battle.brand_reference):
+		battle.brand_reference.close()
+		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference),13000),
+			label+": first brand reference is dismissed")
 	var rounds: int = 0
 	while battle.rules.winner().is_empty() and rounds<8:
 		rounds += 1
@@ -152,10 +163,15 @@ func choose_deck_and_fight(session: Node, map: Control, ids: Array, victor: Stri
 	check(battle.rules.winner()==victor,label+": original die/attack queue resolves intended outcome in %d round(s)" % rounds)
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),label+": completed fight atomically releases active checkpoint")
 	check(session.world.pending_reward.is_empty(),label+": story battle never grants ordinary corpse capture")
-	check(not battle.map_return.disabled,label+": finished fight enables map return button")
+	if victor=="enemy":
+		var ended: bool=await until_ready(func(): return session.world.run_result.get("reason","")=="battle_defeat" and is_instance_valid(map.game_over_screen),20000)
+		check(ended,label+": battle loss ends the expedition with the original game-over UI")
+		check(battle.map_return.disabled,label+": no map return or retry after battle defeat")
+		return ended
+	check(not battle.map_return.disabled,label+": winning fight enables map return button")
 	battle.map_return.pressed.emit()
 	var returned: bool = await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and is_instance_valid(map.overlay) and panel_button(map,"맵으로")!=null,21000)
-	check(returned,label+": actual map return displays result panel")
+	check(returned,label+": actual victory return displays story result panel")
 	return returned
 
 func scenario_leave(session: Node) -> void:
@@ -231,42 +247,31 @@ func scenario_win(session: Node) -> void:
 	session.reload_world()
 	check(session.get_story_event(STORY.EVENT_ID).battle_result=="won" and not session.story_battle_result_pending(STORY.EVENT_ID),"win: completed rescue history survives second reload")
 
-func scenario_loss_and_retry(session: Node) -> void:
-	var entry: Dictionary = await start_rescue(session,"loss_retry")
+func scenario_loss_terminal(session: Node) -> void:
+	var entry: Dictionary = await start_rescue(session,"terminal_loss")
 	if entry.is_empty(): return
 	var map: Control = entry.map
 	var lost_id: String = str(session.world.roster[0].id)
-	var survivor_id: String = str(session.world.roster[1].id)
+	var reserve_id: String = str(session.world.roster[1].id)
 	var receipts: Array = session.world.reward_receipts.duplicate(true)
 	if not await choose_deck_and_fight(session,map,[lost_id],"enemy","loss"): return
 	var result: Dictionary = session.get_story_event(STORY.EVENT_ID)
-	check(result.status=="active" and result.battle_result=="lost","loss: the story remains active and not rescued")
-	check(not session.event_flag_is_set("event:graveyard_child_ambush_01:complete") and not session.event_flag_is_set("event:graveyard_child_ambush_01:rescued") and not session.event_flag_is_set("event:graveyard_child_ambush_01:abandoned"),"loss: no false success, abandonment or event completion")
-	check(session.world.roster.size()==1 and str(session.world.roster[0].id)==survivor_id and session.world.graveyard_corpses.any(func(c): return str(c.id)==lost_id),"loss: deployed monster permanently dies, unselected reserve survives")
-	check(panel_button(map,"다시 도전")!=null,"loss: result panel enables retry with reserve monster")
-	check(session.world.reward_receipts==receipts and session.story_battle_result_pending(STORY.EVENT_ID),"loss: no reward, acknowledgement still required")
-	# The user presses the result modal retry, which must acknowledge defeat
-	# before opening the same actual deck again.
-	panel_button(map,"다시 도전").pressed.emit()
-	check(not session.story_battle_result_pending(STORY.EVENT_ID) and is_battle_deck(map),"retry: actual retry button acknowledges loss then opens reserved deck")
-	if not is_battle_deck(map): return
-	if not await choose_deck_and_fight(session,map,[survivor_id],"ally","retry"): return
-	check(session.get_story_event(STORY.EVENT_ID).status=="complete" and session.get_story_event(STORY.EVENT_ID).battle_result=="won","retry: subsequent real win rescues child")
-	check(session.world.graveyard_corpses.any(func(c): return str(c.id)==lost_id) and session.world.roster.size()==1,"retry: winning does not resurrect permanently dead monster")
-	check(session.world.reward_receipts==receipts,"retry: no ghost reward after multiple attempts")
-	# finish_embedded_battle() has just re-rendered the board under the result
-	# popup. A human cannot close and redraw it before AudioSettings._ready()
-	# gets its two initialization frames; this script can, so emulate that.
-	for i in range(3): await process_frame
-	var confirm: Button = panel_button(map,"맵으로")
-	if confirm!=null: confirm.pressed.emit()
-	check(not session.story_battle_result_pending(STORY.EVENT_ID),"retry: final victory confirmed via UI")
-	for i in range(3): await process_frame
+	check(result.status=="active" and result.battle_result=="lost","loss: battle receipt recorded without rescuing child")
+	check(not session.event_flag_is_set("event:graveyard_child_ambush_01:complete") and not session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),
+		"loss: terminal expedition never fabricates rescue or completion")
+	check(session.world.roster.size()==1 and str(session.world.roster[0].id)==reserve_id
+		and session.world.graveyard_corpses.any(func(c): return str(c.id)==lost_id),
+		"loss: deployed monster permanently dies and unselected reserve survives")
+	check(session.world.reward_receipts==receipts and session.world.run_result.get("reason","")=="battle_defeat",
+		"loss: no phantom reward; game-over final record is saved")
+	check(panel_button(map,"다시 도전")==null and panel_button(map,"맵으로")==null,
+		"loss: no retry or story map return from a defeated expedition")
 	map.queue_free()
 	await process_frame
-	var committed: Dictionary = session.world.snapshot().duplicate(true)
+	var committed: Dictionary=session.world.snapshot().duplicate(true)
 	session.reload_world()
-	check(session.world.snapshot()==committed,"retry: graveyard corpse, saved success and receipts survive reload")
+	check(session.world.snapshot()==committed and session.world.run_result.get("reason","")=="battle_defeat",
+		"loss: entire terminal expedition survives reload without rescue/retry")
 
 func _run() -> void:
 	var session = root.get_node_or_null("RunSession")
@@ -278,7 +283,7 @@ func _run() -> void:
 	var previous_path: String = session.save_file_path
 	await scenario_leave(session)
 	await scenario_win(session)
-	await scenario_loss_and_retry(session)
+	await scenario_loss_terminal(session)
 	session.save_file_path = previous_path
 	if created: session.queue_free()
 	for path in paths: clear_path(path)
