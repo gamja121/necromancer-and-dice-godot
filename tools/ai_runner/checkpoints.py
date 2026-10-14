@@ -52,7 +52,7 @@ def latest(comments, issue):
             return item
     return None
 
-def stalled(item, current, timeout=90, max_attempts=3):
+def stalled(item, current, timeout=20, max_attempts=3):
     if not item or item["phase"] != "running":
         return None
     if current - timestamp(item["updated_at"]) < timedelta(minutes=timeout):
@@ -152,7 +152,7 @@ def main():
     p.add_argument("--commit", default="")
     p.add_argument("--note", default="")
     w = commands.add_parser("watchdog")
-    w.add_argument("--timeout", type=int, default=90)
+    w.add_argument("--timeout", type=int, default=20)
     w.add_argument("--retries", type=int, default=3)
     w.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
