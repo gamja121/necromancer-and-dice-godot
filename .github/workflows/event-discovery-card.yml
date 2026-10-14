@@ -1,0 +1,42 @@
+name: Event Discovery Card In-Game Smoke
+on:
+  pull_request:
+    paths:
+      - 'map.gd'
+      - 'systems/event_discovery_card.gd'
+      - 'assets/map/ui/event_discovery_card_base.svg'
+      - 'assets/map/ui/discovery_card_base.png'
+      - 'assets/map/events/discovery_hill.png'
+      - 'scripts/test_event_discovery_card_ui.gd'
+      - '.github/workflows/event-discovery-card.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'map.gd'
+      - 'systems/event_discovery_card.gd'
+      - 'assets/map/ui/event_discovery_card_base.svg'
+      - 'assets/map/ui/discovery_card_base.png'
+      - 'assets/map/events/discovery_hill.png'
+      - 'scripts/test_event_discovery_card_ui.gd'
+      - '.github/workflows/event-discovery-card.yml'
+jobs:
+  discovery-card:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Headless import
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Check in-game card presentation and real tile thumbnail
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_event_discovery_card_ui.gd 2>&1 | tee discovery.log
+          grep -E '^DISCOVERY_CARD_UI: 0 failure\(s\)$' discovery.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL discovery-card:|Invalid call' discovery.log; then exit 1; fi
