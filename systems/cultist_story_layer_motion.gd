@@ -2,8 +2,8 @@ extends RefCounted
 ## Frozen web v2-map-practice.css cultist-rumor-layer / cultist-altar-layer.
 ## Deliberately visual-only; existing story flags, choice and save stay owned
 ## by CultistRumorEntry/CultistAltarEntry.
-const RUMOR_FRACTIONS = Rect2(0.10,0.20,0.80,0.80) # left 10%, bottom 0%
-const ALTAR_FRACTIONS = Rect2(0.20,0.33,0.60,0.60) # left 20%, bottom 7%
+const RUMOR_FRACTIONS = Rect2(0.10,0.09,0.80,0.75) # retain procession above parchment (bottom 84%)
+const ALTAR_FRACTIONS = Rect2(0.20,0.18,0.60,0.64) # ritual/summon fits above parchment (bottom 82%)
 const RUMOR_SECONDS = 0.50
 const ALTAR_SECONDS = 0.48
 const START_OFFSET_FRACTION = Vector2(0.0,0.02)
