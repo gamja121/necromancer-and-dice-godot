@@ -1,7 +1,7 @@
 extends SceneTree
 ## New map counts, six *optional* patrol slots, automatic five monster
-## tiles, locked first rest reward (max 3), and two reserved future swamp
-## roads, through real generation and legacy save validation.
+## tiles, locked first rest reward (max 3), and two reserved roads
+## that become automatic swamps at contamination 40 and 80.
 const Plan=preload("res://systems/route_plan.gd")
 const State=preload("res://systems/map_state.gd")
 const Session=preload("res://systems/run_session.gd")
@@ -54,10 +54,11 @@ func _run() -> void:
 		state.contamination=stage
 		state.generate()
 		verify_fixed(state.tiles,"full six-choice contamination %d" % stage)
-		check(state.tiles.count("basic")>=2,"six optional monsters never consume two protected swamp roads at contamination %d" % stage)
+		var expected_swamps: int = State.required_swamp_count(stage)
+		check(state.tiles.count("basic") >= Plan.RESERVED_SWAMP_ROADS-expected_swamps, "swamp reservations only convert at their own contamination threshold %d" % stage)
 		var minimum_monsters: int=5 if stage<20 else 4
 		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
-		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==0,"no unapproved rest or premature swamp at contamination %d" % stage)
+		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==expected_swamps,"no rest and exactly %d automatically generated swamp tiles at contamination %d" % [expected_swamps,stage])
 		if stage>=20: check(state.tiles[23]=="boss","boss remains on 24th board slot at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
 	var unlocked: Dictionary=Plan.default_plan()
@@ -74,7 +75,7 @@ func _run() -> void:
 	state2.laps=12
 	state2.contamination=80
 	state2.generate()
-	check(state2.tiles.count("basic")>=2 and state2.tiles.count("swamp")==0,"two roads protected through cemetery and late corruption")
+	check(state2.tiles.count("basic")>=0 and state2.tiles.count("swamp")==2,"two reserved roads convert to swamp by contamination 80 without consuming optional monsters or rest")
 	var session: Node=root.get_node_or_null("RunSession")
 	var own: bool=session==null
 	if own:
