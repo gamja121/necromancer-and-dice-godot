@@ -7,6 +7,7 @@ on:
       - "scripts/test_p4_natural_commander_hunter.gd"
       - "scripts/test_p4_natural_story_arrival.gd"
       - ".github/workflows/p4-natural-full-story.yml"
+      - ".github/workflows/p4-natural-commander-hunter.yml"
       - "map.gd"
       - "systems/**"
       - "docs/port_audit/migration_work_queue.tsv"
@@ -34,7 +35,7 @@ concurrency:
 jobs:
   natural-full-story:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - name: Checkout canonical Godot source
         uses: actions/checkout@v4
@@ -51,7 +52,39 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' p4-natural-full-import.log; then
             exit 1
           fi
+      - name: Natural commander and hunter source chain (shared Godot import)
+        id: commander_chain
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 720s godot --headless --path . --script res://scripts/test_p4_natural_commander_hunter.gd 2>&1 | tee p4-natural-commander.log
+          grep -E '^P4_NATURAL_COMMANDER_HUNTER: [0-9]+ passed, 0 failed        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 960s godot --headless --path . --script res://scripts/test_p4_natural_full_story.gd 2>&1 | tee p4-natural-full-story.log
+          grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full-story.log
+          grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full-story.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
+ p4-natural-commander.log
+          grep -E '^P4_NATURAL_COMMANDER_HUNTER_ROUTE: [0-9]+ commander rolls, [0-9]+ hunter rolls, [0-9]+ original house shuffles        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 960s godot --headless --path . --script res://scripts/test_p4_natural_full_story.gd 2>&1 | tee p4-natural-full-story.log
+          grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full-story.log
+          grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full-story.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
+ p4-natural-commander.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-commander.log; then
+            exit 1
+          fi
       - name: Genuine die and map UI rescue-to-king story chain with checkpoint reloads
+        id: full_story_chain
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -59,5 +92,18 @@ jobs:
           grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full-story.log
           grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full-story.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
+      - name: Require BOTH independent story regressions to pass
+        if: always()
+        shell: bash
+        env:
+          COMMANDER_OUTCOME: ${{ steps.commander_chain.outcome }}
+          FULL_STORY_OUTCOME: ${{ steps.full_story_chain.outcome }}
+        run: |
+          echo "Commander Hunter: $COMMANDER_OUTCOME"
+          echo "Rescue-to-King: $FULL_STORY_OUTCOME"
+          if [[ "$COMMANDER_OUTCOME" != "success" || "$FULL_STORY_OUTCOME" != "success" ]]; then
+            echo "::error::Natural story suite did not pass both independent tests."
             exit 1
           fi

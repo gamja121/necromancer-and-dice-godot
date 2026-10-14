@@ -45,6 +45,21 @@ def verify():
         ):
             if expectation not in content:
                 failed.append(f"{name}: missing {expectation!r}")
+    # The frequent map/system push must use ONE Godot import while keeping
+    # both distinct original natural story assertions. The standalone runner
+    # is retained for manual/targeted diagnostics only.
+    full = (WF / "p4-natural-full-story.yml").read_text(encoding="utf-8")
+    commander = (WF / "p4-natural-commander-hunter.yml").read_text(encoding="utf-8")
+    full_trigger = full.split("jobs:", 1)[0]
+    commander_trigger = commander.split("jobs:", 1)[0]
+    if ("test_p4_natural_commander_hunter.gd" not in full
+            or "test_p4_natural_full_story.gd" not in full
+            or "COMMANDER_OUTCOME" not in full or "FULL_STORY_OUTCOME" not in full):
+        failed.append("Shared natural story gate must verify BOTH original scripts")
+    if commander_trigger.count('"map.gd"') or "systems/" in commander_trigger:
+        failed.append("Standalone natural commander job must not duplicate map/system pushes")
+    if ".github/workflows/p4-natural-commander-hunter.yml" not in full_trigger:
+        failed.append("Shared story job must run when standalone definition changes")
     location = (WF / "ui-location-layout-stage5s.yml").read_text(encoding="utf-8")
     header = location.split("\njobs:\n", 1)[0]
     push = header.split("  push:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
