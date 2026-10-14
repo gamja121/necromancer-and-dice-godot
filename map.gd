@@ -49,7 +49,7 @@ const TILE_EVENT_PATROL_RECT = Rect2(515.0,595.0,216.0,58.0)
 const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
 const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/shared_dialogue_panel.svg"
 const SHARED_DIALOGUE_RECT = Rect2(205.0, 516.0, 870.0, 132.0)
-const GRAVEYARD_DIALOGUE_RECT = Rect2(102.4,489.6,1075.2,216.0)
+const GRAVEYARD_DIALOGUE_RECT = SHARED_DIALOGUE_RECT # unified 132-pixel safe parchment
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
@@ -285,7 +285,21 @@ func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2,
 	node.text = value
 	node.position = pos
 	node.size = dimensions
-	node.add_theme_font_size_override("font_size",font_size)
+	var display_size: int = font_size
+	# Keep story captions in two non-overlapping parchment lanes, never
+	# over the controls at y=653. Old event-specific coordinates are input only.
+	var story_frame: bool = parent.get_node_or_null("SharedStoryDialogueFrame") != null or parent.get_node_or_null("StoryDialogueFrame") != null
+	if story_frame and pos.y >= 525.0 and pos.y < 640.0 and dimensions.x >= 640.0:
+		var spoken: bool = pos.y >= 590.0
+		node.position = Vector2(275.0, 593.0 if spoken else 535.0)
+		node.size = Vector2(730.0, 44.0 if spoken else 51.0)
+		node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		if value.length() > (58 if spoken else 80): display_size = mini(display_size,15)
+		if value.length() > (105 if spoken else 126): display_size = mini(display_size,14)
+		node.clip_text = true
+		node.set_meta("ui_story_copy_role","speech" if spoken else "narration")
+	node.add_theme_font_size_override("font_size",display_size)
 	node.add_theme_color_override("font_color",Color("f2dfb5"))
 	node.add_theme_color_override("font_shadow_color",Color.BLACK)
 	node.add_theme_constant_override("shadow_offset_y",2)
@@ -1682,46 +1696,45 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	var chosen: bool = state.status == "active" and state.choice == "protect_child"
 	var description: String = "아이를 구하기 위해 구울 앞을 막아섰다. 출전할 마물을 선택해 구울과 싸우세요." if chosen else str(beat.effect)
 	var has_dialogue: bool=not str(beat.dialogue).is_empty() and not chosen
-	var narration = label_at(panel,description,Vector2(275,425) if has_dialogue else Vector2(275,552),Vector2(730,52),17)
-	narration.name="StoryInfoPanel"
+	# One visual footprint for all event parchment, even when the child
+	# is silent. Only spoken beats use the legacy StoryDialogueFrame alias.
+	var frame = shared_story_frame(panel)
+	if has_dialogue: frame.name = "StoryDialogueFrame"
+	var narration = label_at(panel,description,Vector2(275,535),Vector2(730,51),17)
+	narration.name = "StoryInfoPanel"
 	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	narration.add_theme_color_override("font_color",Color("271a10"))
+	narration.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	if has_dialogue:
-		# Source v2-map-practice.css: dialogue left/right 8%, bottom 2%,
-		# height 30%, with a full-stretch original WebP and overlaid text.
-		# This is visual-only; existing Continue/choice buttons remain the
-		# sole story state transitions, never the decorative frame.
-		var frame=image(panel,GRAVEYARD_DIALOGUE_FRAME,GRAVEYARD_DIALOGUE_RECT.position,GRAVEYARD_DIALOGUE_RECT.size)
-		frame.name="StoryDialogueFrame"
-		frame.stretch_mode=TextureRect.STRETCH_SCALE
-		var speaker=label_at(panel,"아이",Vector2(210,526),Vector2(280,31),20)
+		var speaker=label_at(panel,"아이",Vector2(283,592),Vector2(113,21),16)
 		speaker.name="StoryDialogueName"
-		speaker.add_theme_color_override("font_color",Color("3a2819"))
+		speaker.add_theme_color_override("font_color",Color("68351f"))
 		speaker.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-		var dialogue=label_at(panel,str(beat.dialogue),Vector2(210,580),Vector2(830,45),24)
+		var dialogue=label_at(panel,str(beat.dialogue),Vector2(401,596),Vector2(592,42),17)
 		dialogue.name="StoryDialogueText"
 		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		dialogue.add_theme_color_override("font_color",Color("21150d"))
 		dialogue.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 		if not beat.choice:
-			var advance_hint=label_at(panel,"▼",Vector2(1052,653),Vector2(38,30),19)
+			var advance_hint=label_at(panel,"▼",Vector2(1013,609),Vector2(26,24),17)
 			advance_hint.name="StoryDialogueNext"
 			GraveyardStoryEntryMotion.play_next_hint(advance_hint)
 			advance_hint.add_theme_color_override("font_color",Color("5e4329"))
 			advance_hint.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	# The original location actions remain available on graveyard tiles.
 	if world.tiles[index] == "graveyard":
-		location_button(panel,"공동묘지 기능",Vector2(870,495),Vector2(167,48),func(): dismiss_overlay(func(): show_location(index)),4)
+		location_button(panel,"공동묘지 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func(): show_location(index)),4)
 	if chosen:
-		location_button(panel,"출전 마물 선택",Vector2(629,643),Vector2(223,48),func(): show_graveyard_story_deck(index),1)
-		location_button(panel,"돌아가기",Vector2(866,643),Vector2(171,48),func(): dismiss_overlay(render),4)
+		location_button(panel,"출전 마물 선택",Vector2(455,653),Vector2(223,48),func(): show_graveyard_story_deck(index),1)
+		location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 	elif beat.choice:
-		location_button(panel,"아이를 구한다",Vector2(384,643),Vector2(197,48),func(): choose_graveyard_child(index,"protect_child"),1)
-		location_button(panel,"지나친다",Vector2(590,643),Vector2(175,48),func(): choose_graveyard_child(index,"leave"),2)
-		location_button(panel,"나가기",Vector2(867,643),Vector2(170,48),func(): dismiss_overlay(render),4)
+		location_button(panel,"아이를 구한다",Vector2(284,653),Vector2(197,48),func(): choose_graveyard_child(index,"protect_child"),1)
+		location_button(panel,"지나친다",Vector2(494,653),Vector2(175,48),func(): choose_graveyard_child(index,"leave"),2)
+		location_button(panel,"나가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 	else:
-		location_button(panel,"계속",Vector2(688,643),Vector2(168,48),func(): advance_graveyard_child_beat(index,beat_index),1)
-		location_button(panel,"나가기",Vector2(867,643),Vector2(170,48),func(): dismiss_overlay(render),4)
+		location_button(panel,"계속",Vector2(463,653),Vector2(171,48),func(): advance_graveyard_child_beat(index,beat_index),1)
+		location_button(panel,"나가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func advance_graveyard_child_beat(index: int, shown_beat: int) -> void:
 	if not StoryEventEntry.advance(session,index,shown_beat):
