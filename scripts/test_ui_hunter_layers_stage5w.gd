@@ -18,6 +18,8 @@ var save_path: String = ""
 
 class Victory:
 	extends RefCounted
+	# Current RunSession.finish_encounter inspects battle.units before resolving.
+	var units: Array = []
 	func winner() -> String: return "ally"
 	func find_id(_id: String) -> Dictionary: return {}
 
