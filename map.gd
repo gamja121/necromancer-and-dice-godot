@@ -57,6 +57,7 @@ const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const MapState = preload("res://systems/map_state.gd")
 const EventDiscoveryCard = preload("res://systems/event_discovery_card.gd")
+const Discovery = preload("res://systems/location_discoveries.gd")
 const UnlockNoticeBadge = preload("res://systems/unlock_notice_badge.gd")
 const TreasureReward = preload("res://systems/treasure_reward.gd")
 const DiceHand = preload("res://systems/dice_control_hand.gd")
@@ -356,7 +357,7 @@ func render() -> void:
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
-		if world.tiles[i]=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING):
+		if (world.tiles[i]=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING)) or (Discovery.exists(str(world.tiles[i])) and session.event_flag_is_set("ui:unlock:%s:tile_pending" % world.tiles[i])):
 			UnlockNoticeBadge.attach(node,"신규")
 			node.tooltip_text += " · 새로 해금된 장소"
 		if world.scout.scouted and not i in world.cleared and world.scout.intel.any(func(entry): return int(entry.index)==i):
@@ -622,19 +623,19 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 	# Real event arrival only: display the first discovery card after all
 	# canonical story entries/resumable results have had priority. Map tile
 	# preview clicks never trigger a new event or persist a receipt.
-	if type == "event" and actual_landing and index == world.position and world.laps >= 1:
-		if not session.event_flag_is_set("event:discovery:forest:card_shown"):
-			var blocked_by_story: bool = StoryEventEntry.can_enter(session,index) or not VillageRumorEntry.eligible_event_id(session,index).is_empty() or KnightCommanderEntry.can_enter(session,index) or MonsterHunterEntry.can_enter(session,index) or CultistRumorEntry.can_enter(session,index) or CultistAltarEntry.can_enter(session,index) or RitualPortalEntry.can_enter(session,index) or MonsterKingHuntEntry.can_enter(session,index) or MonsterKingHuntEntry.can_resume_completion(session,index)
-			if blocked_by_story:
-				status.text = session.notice if not session.notice.is_empty() else "기존 사건을 다시 확인하세요."
-				return
-			# A real discovery is a single durable state transition: one empty
-			# road becomes a forest, and HOME receives the unlocked hint.
-			var discovered: Dictionary = session.discover_hill_on_event(index)
+	if type == "event" and actual_landing and index == world.position:
+		# Never use a failed narrative transition as an unlock fallback.
+		var blocked_by_story: bool = StoryEventEntry.can_enter(session,index) or not VillageRumorEntry.eligible_event_id(session,index).is_empty() or KnightCommanderEntry.can_enter(session,index) or MonsterHunterEntry.can_enter(session,index) or CultistRumorEntry.can_enter(session,index) or CultistAltarEntry.can_enter(session,index) or RitualPortalEntry.can_enter(session,index) or MonsterKingHuntEntry.can_enter(session,index) or MonsterKingHuntEntry.can_resume_completion(session,index)
+		if blocked_by_story:
+			status.text = session.notice if not session.notice.is_empty() else "기존 사건을 다시 확인하세요."
+			return
+		var kind: String = session.next_discovery_kind()
+		if not kind.is_empty():
+			var discovered: Dictionary = session.discover_location_on_event(index,kind)
 			if not bool(discovered.get("ok",false)):
-				status.text = str(discovered.get("reason","언덕 해금 저장 실패"))
+				status.text = str(discovered.get("reason","장소 해금 저장 실패"))
 				return
-			show_first_discovery_card()
+			show_discovery_card(kind)
 			return
 	if type=="basic": return
 	if type=="home":
@@ -659,13 +660,18 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 	button(panel,"돌아가기",Vector2(550,574),Vector2(180,42),dismiss_overlay)
 
 func show_first_discovery_card() -> void:
-	# Discovery was ALREADY committed atomically before opening this modal.
-	# Clicking the parchment or dark area only dismisses the art, never
-	# grants the tile twice.
+	show_discovery_card("forest")
+
+func show_discovery_card(kind: String) -> void:
+	# All 5 place discoveries use one identical single-tap dismissal UI.
+	# The card appears ONLY after the new location and HOME hint are saved.
+	var details: Dictionary = Discovery.details(kind)
+	if details.is_empty(): return
 	var panel = modal()
 	var card = EventDiscoveryCard.new()
 	panel.add_child(card)
-	card.setup("발견", "언덕 발견", "낡은 길 너머 작은 언덕을 발견했다.", "언덕 타일 해금")
+	card.setup("발견",str(details.title),str(details.description),str(details.reward),
+		str(details.illustration),"res://assets/map/tiles/%s.png" % kind)
 	var dark_area = panel.get_child(0) as Control
 	if is_instance_valid(dark_area):
 		dark_area.gui_input.connect(func(event: InputEvent):
@@ -674,11 +680,10 @@ func show_first_discovery_card() -> void:
 			elif event is InputEventScreenTouch and event.pressed:
 				card.dismiss())
 	card.closed.connect(func():
-		# Redraw after the overlay is removed so the formerly empty road
-		# visibly has the forest artwork. Fixed/story/boss tiles stay intact.
+		# The saved board now carries the new tile artwork, not a mockup.
 		close_overlay()
 		render()
-		status.text = "언덕 타일 해금! 길 한 칸이 언덕으로 변했습니다 · 집에서 확인하세요.")
+		status.text = "%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind])
 
 func show_roster() -> void:
 	show_inventory("unit")
