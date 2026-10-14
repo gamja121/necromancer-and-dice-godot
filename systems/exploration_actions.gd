@@ -402,6 +402,19 @@ func render_route() -> void:
 		var value=label_at(content,str(row.value),Vector2(952,238+idx*58),Vector2(219,28),17)
 		value.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		value.add_theme_color_override("font_color",Color("382719"))
+	# Permanent discovery is visible in the actual HOME patrol editor,
+	# independent of whether the one-time NEW badge has been acknowledged.
+	if session.event_flag_is_set(session.MapState.HILL_UNLOCK_FLAG):
+		var forest_preview=art(content,"res://assets/map/tiles/forest.png",Vector2(956,523),Vector2(64,61))
+		forest_preview.name="HomeUnlockedForestTile"
+		forest_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var forest_text=label_at(content,"언덕 타일 해금",Vector2(1021,526),Vector2(181,26),16)
+		forest_text.name="HomeForestUnlockedLabel"
+		forest_text.add_theme_color_override("font_color",Color("5c341f"))
+		var forest_note=label_at(content,"맵에 자동 배치",Vector2(1021,553),Vector2(181,22),13)
+		forest_note.add_theme_color_override("font_color",Color("765335"))
+		if session.event_flag_is_set(session.MapState.HILL_HOME_NOTICE):
+			UnlockNoticeBadge.attach(forest_preview,"NEW")
 	action_button.disabled=used
 	route_reset_button.disabled=used
 	status.text=("이번 방문 편성 확정 · 숙영 해금은 다음 방문에 편성 가능" if not rest_unlocked else "이번 방문은 확정 완료 · 다음 바퀴부터 반영") if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 첫 순찰 완주 후 해금" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining] if not rest_unlocked else "추가 %d/%d칸 선택 · %d칸 남음 · 숙영 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
