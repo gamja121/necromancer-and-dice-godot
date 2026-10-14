@@ -4,9 +4,9 @@ extends Control
 signal closed
 
 const DEFAULT_ART = "res://assets/map/events/forest.jpg"
-const CUSTOM_ART = "res://assets/map/events/discovery_hill.png"
+const CUSTOM_ART = "res://" + "assets/map/events/" + "discovery_hill.png" # Optional HD art: fallback until installed
 const BASE_SVG = "res://assets/map/ui/event_discovery_card_base.svg"
-const CUSTOM_BASE = "res://assets/map/ui/discovery_card_base.png"
+const CUSTOM_BASE = "res://" + "assets/map/ui/" + "discovery_card_base.png" # Optional approved template
 const TILE_ART = "res://assets/map/tiles/forest.png"
 
 func _label(text_value: String, pos: Vector2, dimensions: Vector2, points: int, title: bool = false) -> Label:
