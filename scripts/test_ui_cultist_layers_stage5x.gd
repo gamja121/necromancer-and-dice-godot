@@ -104,10 +104,10 @@ func _run()->void:
 	var scene:Rect2=map.TILE_EVENT_SCENE_RECT
 	var rumor_bounds:Rect2=MOTION.source_rect(scene,false)
 	var altar_bounds:Rect2=MOTION.source_rect(scene,true)
-	check(rumor_bounds.position.distance_to(scene.position+scene.size*Vector2(0.10,0.20))<0.01,"web rumor left 10%, top 20%, bottom 0% geometry")
-	check(rumor_bounds.size.distance_to(scene.size*Vector2(0.80,0.80))<0.01,"rumor procession width 80%, height 80%")
-	check(altar_bounds.position.distance_to(scene.position+scene.size*Vector2(0.20,0.33))<0.01,"web altar left 20%, bottom 7% geometry")
-	check(altar_bounds.size.distance_to(scene.size*Vector2(0.60,0.60))<0.01,"altar ritual/summon 60% of source event image")
+	check(rumor_bounds.position.distance_to(scene.position+scene.size*Vector2(0.10,0.09))<0.01,"web rumor left 10%, top 20%, bottom 0% geometry")
+	check(rumor_bounds.size.distance_to(scene.size*Vector2(0.80,0.75))<0.01,"rumor procession width 80%, height 80%")
+	check(altar_bounds.position.distance_to(scene.position+scene.size*Vector2(0.20,0.18))<0.01,"web altar left 20%, bottom 7% geometry")
+	check(altar_bounds.size.distance_to(scene.size*Vector2(0.60,0.64))<0.01,"altar ritual/summon 60% of source event image")
 	check(approximately(MOTION.RUMOR_SECONDS,0.50,0.001) and approximately(MOTION.ALTAR_SECONDS,0.48,0.001),"web .50s/.48s story layer reveal durations")
 	var receipts:Array=session.world.reward_receipts.duplicate()
 
@@ -123,7 +123,7 @@ func _run()->void:
 			check(picture!=null,"beat %d renders the original procession layer"%i)
 			if picture!=null:
 				check(picture.texture==map.texture(CULTIST_BEATS.PROCESSION) and picture.texture.resource_path==CULTIST_BEATS.PROCESSION,"beat %d unmodified source procession WebP"%i)
-				check(picture.size.distance_to(rumor_bounds.size)<0.01 and picture.mouse_filter==Control.MOUSE_FILTER_IGNORE,"beat %d source footprint and click-through"%i)
+				check(picture.size.distance_to(rumor_bounds.size)<0.01 and picture.mouse_filter==Control.MOUSE_FILTER_IGNORE,"beat %d updated safe footprint and click-through"%i)
 				check(picture.get_meta("ui_custom_open_motion",false) and picture.pivot_offset.distance_to(Vector2(picture.size.x/2,picture.size.y))<0.01,"beat %d independent image motion/pivot"%i)
 				if i==1:
 					check(picture.position.distance_to(rumor_bounds.position+picture.size*MOTION.START_OFFSET_FRACTION)<0.15,"only first procession reveal starts 2% lower")
@@ -180,7 +180,7 @@ func _run()->void:
 		check(summoned.texture==map.texture(ALTAR_BEATS.SUMMON),"summon uses unaltered source art")
 		check(summoned.position.distance_to(altar_bounds.position+summoned.size*MOTION.START_OFFSET_FRACTION)<0.15 and approximately(summoned.modulate.a,0,0.01),"fight declaration shows source .48s summon reveal")
 		await create_timer(0.59).timeout
-		check(summoned.position.distance_to(altar_bounds.position)<0.8 and approximately(summoned.modulate.a,1,0.02),"summon settles at correct source geometry")
+		check(summoned.position.distance_to(altar_bounds.position)<0.8 and approximately(summoned.modulate.a,1,0.02),"summon settles at correct safe event geometry")
 	check(button(map,"출전 마물 선택") and button(map,"선택 변경"),"fight preserves existing deck-selection and reconsider controls")
 	check(session.world.snapshot()==fighting_snapshot and session.encounter.is_empty(),"summon animation does not auto-start battle")
 	map.close_overlay()
