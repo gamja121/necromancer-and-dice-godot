@@ -37,6 +37,7 @@ on:
       - "systems/battle_rules.gd"
       - "systems/battlefield_rules.gd"
       - "scripts/test_battle_source_parity.gd"
+      - "scripts/test_battle_balance_simulation.gd"
       - "scripts/test_story_state_regression.gd"
       - "scripts/test_save_process_boundary.gd"
       - "scripts/test_card_decoration_layout.gd"
@@ -799,6 +800,16 @@ jobs:
           godot --headless --path . --script res://scripts/test_web_unit_catalog_parity.gd 2>&1 | tee web-unit-catalog.log
           grep -E 'WEB_UNIT_CATALOG_PARITY_REGRESSION: [0-9]+ passed, 0 failed' web-unit-catalog.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL web-catalog:' web-unit-catalog.log; then
+            exit 1
+          fi
+
+      - name: Deterministic 2000 battle balance smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_battle_balance_simulation.gd 2>&1 | tee battle-balance.log
+          grep -F 'BALANCE trials=2000' battle-balance.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|BALANCE ERROR' battle-balance.log; then
             exit 1
           fi
 
