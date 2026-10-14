@@ -1,0 +1,81 @@
+name: Event Discovery Card In-Game Smoke
+on:
+  pull_request:
+    paths:
+      - 'map.gd'
+      - 'systems/event_discovery_card.gd'
+      - 'assets/map/ui/event_discovery_card_base.svg'
+      - 'assets/map/ui/discovery_card_base.png'
+      - 'assets/map/events/discovery_hill.png'
+      - 'scripts/test_event_discovery_card_ui.gd'
+      - 'scripts/test_event_discovery_arrival_integration.gd'
+      - 'tools/install_event_card_art.py'
+      - '.github/workflows/event-discovery-card.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'map.gd'
+      - 'systems/event_discovery_card.gd'
+      - 'assets/map/ui/event_discovery_card_base.svg'
+      - 'assets/map/ui/discovery_card_base.png'
+      - 'assets/map/events/discovery_hill.png'
+      - 'scripts/test_event_discovery_card_ui.gd'
+      - 'scripts/test_event_discovery_arrival_integration.gd'
+      - 'tools/install_event_card_art.py'
+      - '.github/workflows/event-discovery-card.yml'
+jobs:
+  discovery-card:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Validate approved-asset bundle installer without installing unapproved art
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, tempfile, zipfile
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location("asset_installer", "tools/install_event_card_art.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          with tempfile.TemporaryDirectory() as temp:
+              root = Path(temp) / "godot"
+              root.mkdir()
+              source = Path(temp) / "test_assets.zip"
+              with zipfile.ZipFile(source, "w") as archive:
+                  for name in module.APPROVED_FILES:
+                      archive.writestr(name, module.PNG_SIGNATURE + b"asset-check-fixture")
+              result = module.install(source, root)
+              assert len(result) == len(module.APPROVED_FILES), result
+              assert module.install(source, root) == [], "second install must be idempotent"
+              first = root / module.APPROVED_FILES[0]
+              first.write_bytes(module.PNG_SIGNATURE + b"someone-else-edited-this")
+              try:
+                  module.install(source, root)
+                  raise AssertionError("must reject replacing someone else's asset")
+              except ValueError:
+                  pass
+          print("EVENT_CARD_ASSET_INSTALLER: validation passed")
+          PY
+      - name: Headless import
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Check in-game card presentation and real tile thumbnail
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_event_discovery_card_ui.gd 2>&1 | tee discovery.log
+          grep -E '^DISCOVERY_CARD_UI: 0 failure\(s\)$' discovery.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL discovery-card:|Invalid call' discovery.log; then exit 1; fi
+
+      - name: Verify real event arrival, story priority, one-time save and no preview award
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_event_discovery_arrival_integration.gd 2>&1 | tee arrival.log
+          grep -E '^DISCOVERY_ARRIVAL_INTEGRATION: [0-9]+ passed, 0 failed$' arrival.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL discovery-arrival:|Invalid call' arrival.log; then exit 1; fi
