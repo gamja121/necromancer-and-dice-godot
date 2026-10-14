@@ -35,3 +35,12 @@ Status: isolated experiment branch; NOT merged. No existing battle mechanics cha
 - ON never blocks combat resolution and cleans up all effect nodes.
 - Failure of a VFX resource gracefully falls back to existing visuals.
 - No oversized assets, build cache, or unnecessary repository bloat.
+
+## 2026-10-15 implementation checkpoint
+- Added persisted default-OFF master and individual effect switches to the existing advanced audio/options panel.
+- Connected attack start, confirmed positive-damage impact, and alive-to-dead transitions to the optional adapter.
+- Added lightweight procedural CanvasItem particle/ring/shard visuals. **These are not imported third-party Godot VFX Library assets.**
+- No battle rules, RNG, save, death permanence, or original effects are modified.
+- The adapter only reads unit visual positions and is inert when disabled.
+- Godot editor/runtime rendering has **not** been executed in this environment; CI for the latest commit has not yet reported.
+- Do not merge this draft PR until runtime smoke test, original visual comparison, and gameplay regressions pass.
