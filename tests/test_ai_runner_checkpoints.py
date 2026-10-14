@@ -21,8 +21,8 @@ class CheckpointTests(unittest.TestCase):
 
     def test_stale_only_running(self):
         a = make_record(12, "running", "step", at=AT)
-        self.assertIsNone(stalled(a, AT + timedelta(minutes=89)))
-        self.assertEqual(stalled(a, AT + timedelta(minutes=90)), "recoverable")
+        self.assertIsNone(stalled(a, AT + timedelta(minutes=19)))
+        self.assertEqual(stalled(a, AT + timedelta(minutes=20)), "recoverable")
         b = make_record(12, "checkpoint", "done", at=AT)
         self.assertIsNone(stalled(b, AT + timedelta(days=3)))
 
