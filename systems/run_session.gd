@@ -876,16 +876,36 @@ func scout_hill(index: int) -> Dictionary:
 func active_scout_intel() -> Array:
 	return world.scout.intel.filter(func(entry): return not int(entry.index) in world.cleared)
 
+## First tile unlock: an explicit, free house action. Never trigger
+## automatically from a guessed lap/contamination threshold. The player
+## must deliberately choose Rest before it can appear on the NEXT board.
+## This is stored transactionally with the world snapshot and can be used
+## even when this visit's patrol has already been confirmed.
+func unlock_rest_tile() -> Dictionary:
+	var allowed: Dictionary=place_allowed(MapState.HOME,"home")
+	if not allowed.ok: return allowed
+	if RoutePlan.is_new(world.patrol_plan) and bool(world.patrol_plan.get("rest_unlocked",false)):
+		return {"ok":false,"reason":"숙영은 이미 해금됐습니다."}
+	var before: Dictionary=world.snapshot().duplicate(true)
+	if not RoutePlan.is_new(world.patrol_plan):
+		# Existing saves retain their legacy board until the next home exit;
+		# convert only the optional route inventory on explicit unlock.
+		world.patrol_plan=RoutePlan.default_plan()
+	world.patrol_plan["rest_unlocked"]=true
+	if not persist_change(before):
+		return {"ok":false,"reason":notice}
+	return {"ok":true,"reason":"숙영 해금 완료! 숙영은 최대 3칸까지 추가할 수 있습니다."}
+
 func confirm_patrol(plan: Dictionary) -> Dictionary:
 	var allowed = place_allowed(MapState.HOME,"home")
 	if not allowed.ok: return allowed
 	var visit = place_visit_id("patrol",MapState.HOME)
 	if visit in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 순찰경로는 확정했습니다."}
 	if not RoutePlan.valid(plan): return {"ok":false,"reason":"추가 6칸 제한과 타일별 해금·수량 제한을 확인하세요."}
-	# Unlock is a future gameplay reward, never gained by editing the
-	# proposed patrol selection (nor by supplying a crafted UI payload).
-	if RoutePlan.is_new(plan) and plan.get("rest_unlocked",false) and not world.patrol_plan.get("rest_unlocked",false):
-		return {"ok":false,"reason":"숙영 타일은 아직 해금되지 않았습니다."}
+	# The active unlock is owned by the persisted world, not by a crafted
+	# UI payload. Prevent forging an unlock or silently re-locking a tile.
+	if RoutePlan.is_new(plan) and bool(plan.get("rest_unlocked",false)) != bool(world.patrol_plan.get("rest_unlocked",false)):
+		return {"ok":false,"reason":"숙영 해금 상태가 변경됐습니다. 편성 화면을 다시 열어주세요."}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.patrol_plan = plan.duplicate(true)
 	world.reward_receipts.append(visit)
