@@ -113,7 +113,10 @@ func run_case(session: Node, victor: String, corruption: int, laps: int) -> void
 	# hot-reload the live session while its real battlefield is running.
 	var file_data = JSON.parse_string(FileAccess.get_file_as_string(scratch))
 	var shadow = session.MapState.new(world.definitions,123)
-	check(file_data is Dictionary and shadow.restore(file_data) and shadow.snapshot()==before_restart,
+	var shadow_ok: bool = file_data is Dictionary and shadow.restore(file_data)
+	if shadow_ok and shadow.snapshot()!=before_restart:
+		snapshot_differences(before_restart,shadow.snapshot(),victor+":midbattle")
+	check(shadow_ok and shadow.snapshot()==before_restart,
 		victor+": mimic fight and RNG restore from disk without replacing live battlefield")
 	check(session.encounter.get("type","")=="mimic",victor+": original encounter remains playable after checkpoint")
 	strong_side(battle,victor)
@@ -136,6 +139,8 @@ func run_case(session: Node, victor: String, corruption: int, laps: int) -> void
 	var outcome: Dictionary = world.snapshot().duplicate(true)
 	session.reload_world()
 	world = session.world
+	if world.snapshot()!=outcome:
+		snapshot_differences(outcome,world.snapshot(),victor+":outcome")
 	check(world.snapshot()==outcome,victor+": final result survives JSON save/restart without extra rewards")
 	if victor=="enemy": check(not world.run_result.is_empty() and not session.start_encounter(gem,[id]),"ended run refuses any further battles")
 	map.queue_free()
@@ -143,6 +148,20 @@ func run_case(session: Node, victor: String, corruption: int, laps: int) -> void
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(scratch+suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
+
+func snapshot_differences(original: Dictionary, reopened: Dictionary, label: String) -> void:
+	for key in original:
+		if reopened.get(key,null)==original[key]: continue
+		if original[key] is Dictionary and reopened.get(key,null) is Dictionary:
+			for subkey in original[key]:
+				if reopened[key].get(subkey,null)!=original[key][subkey]:
+					printerr("MIMIC_SAVE_DIFFERENCE ",label," key=",key,"/",subkey,
+						" before=",str(original[key][subkey]).left(150),
+						" after=",str(reopened[key].get(subkey,null)).left(150))
+		else:
+			printerr("MIMIC_SAVE_DIFFERENCE ",label," key=",key,
+				" before=",str(original[key]).left(150),
+				" after=",str(reopened.get(key,null)).left(150))
 
 func _run() -> void:
 	var session = root.get_node_or_null("RunSession")
