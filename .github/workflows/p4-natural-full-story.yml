@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "scripts/test_p4_natural_full_story.gd"
+      - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_p4_natural_commander_hunter.gd"
       - "scripts/test_p4_natural_story_arrival.gd"
       - ".github/workflows/p4-natural-full-story.yml"
@@ -65,15 +66,109 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-commander.log; then
             exit 1
           fi
-      - name: Genuine die and map UI rescue-to-king story chain with checkpoint reloads
-        id: full_story_chain
+      - name: Natural late-story travel, including safe interruption on random mimic
+        id: natural_travel
         continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
           timeout --signal=TERM --kill-after=5s 960s godot --headless --path . --script res://scripts/test_p4_natural_full_story.gd 2>&1 | tee p4-natural-full-story.log
-          grep -E '^P4_NATURAL_FULL_STORY: [0-9]+ passed, 0 failed$' p4-natural-full-story.log
-          grep -E '^P4_NATURAL_FULL_STORY_ROUTE: [0-9]+ rumor, [0-9]+ altar, [0-9]+ portal, [0-9]+ hunt real rolls, [0-9]+ late house shuffles$' p4-natural-full-story.log
+          grep -E '^P4_NATURAL_LONG_TRAVEL: [0-9]+ passed, 0 failed
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
+      - name: Strict full rescued/abandoned source-story stages without RNG roadblock
+        id: full_source_chain
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 1200s godot --headless --path . --script res://scripts/test_p4_full_source_story_chain.gd 2>&1 | tee p4-full-source-chain.log
+          grep -E '^P4_FULL_SOURCE_STORY_CHAIN: [0-9]+ passed, 0 failed
+        if: always()
+        shell: bash
+        env:
+          COMMANDER_OUTCOME: ${{ steps.commander_chain.outcome }}
+          NATURAL_TRAVEL_OUTCOME: ${{ steps.natural_travel.outcome }}
+          FULL_SOURCE_OUTCOME: ${{ steps.full_source_chain.outcome }}
+        run: |
+          echo "Commander Hunter: $COMMANDER_OUTCOME"
+          echo "Natural late-story travel: $NATURAL_TRAVEL_OUTCOME"
+          echo "Complete source-story verification: $FULL_SOURCE_OUTCOME"
+          if [[ "$COMMANDER_OUTCOME" != "success" || "$NATURAL_TRAVEL_OUTCOME" != "success" || "$FULL_SOURCE_OUTCOME" != "success" ]]; then
+            echo "::error::A natural travel or required complete source-story test failed."
+            exit 1
+          fi
+ p4-natural-full-story.log
+          grep -E '^P4_NATURAL_LONG_TRAVEL: cultist=(true|false) altar=(true|false) portal=(true|false) hunt=(true|false) mimic_interrupt=(true|false); [0-9]+ late house shuffles
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
+      - name: Require BOTH independent story regressions to pass
+        if: always()
+        shell: bash
+        env:
+          COMMANDER_OUTCOME: ${{ steps.commander_chain.outcome }}
+          FULL_STORY_OUTCOME: ${{ steps.full_story_chain.outcome }}
+        run: |
+          echo "Commander Hunter: $COMMANDER_OUTCOME"
+          echo "Rescue-to-King: $FULL_STORY_OUTCOME"
+          if [[ "$COMMANDER_OUTCOME" != "success" || "$FULL_STORY_OUTCOME" != "success" ]]; then
+            echo "::error::Natural story suite did not pass both independent tests."
+            exit 1
+          fi
+ p4-natural-full-story.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
+      - name: Require BOTH independent story regressions to pass
+        if: always()
+        shell: bash
+        env:
+          COMMANDER_OUTCOME: ${{ steps.commander_chain.outcome }}
+          FULL_STORY_OUTCOME: ${{ steps.full_story_chain.outcome }}
+        run: |
+          echo "Commander Hunter: $COMMANDER_OUTCOME"
+          echo "Rescue-to-King: $FULL_STORY_OUTCOME"
+          if [[ "$COMMANDER_OUTCOME" != "success" || "$FULL_STORY_OUTCOME" != "success" ]]; then
+            echo "::error::Natural story suite did not pass both independent tests."
+            exit 1
+          fi
+ p4-full-source-chain.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-chain:' p4-full-source-chain.log; then exit 1; fi
+      - name: Require natural traversal AND mandatory full source-chain story
+
+        if: always()
+        shell: bash
+        env:
+          COMMANDER_OUTCOME: ${{ steps.commander_chain.outcome }}
+          FULL_STORY_OUTCOME: ${{ steps.full_story_chain.outcome }}
+        run: |
+          echo "Commander Hunter: $COMMANDER_OUTCOME"
+          echo "Rescue-to-King: $FULL_STORY_OUTCOME"
+          if [[ "$COMMANDER_OUTCOME" != "success" || "$FULL_STORY_OUTCOME" != "success" ]]; then
+            echo "::error::Natural story suite did not pass both independent tests."
+            exit 1
+          fi
+ p4-natural-full-story.log
+          grep -E '^P4_NATURAL_LONG_TRAVEL: cultist=(true|false) altar=(true|false) portal=(true|false) hunt=(true|false) mimic_interrupt=(true|false); [0-9]+ late house shuffles
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
+            exit 1
+          fi
+      - name: Require BOTH independent story regressions to pass
+        if: always()
+        shell: bash
+        env:
+          COMMANDER_OUTCOME: ${{ steps.commander_chain.outcome }}
+          FULL_STORY_OUTCOME: ${{ steps.full_story_chain.outcome }}
+        run: |
+          echo "Commander Hunter: $COMMANDER_OUTCOME"
+          echo "Rescue-to-King: $FULL_STORY_OUTCOME"
+          if [[ "$COMMANDER_OUTCOME" != "success" || "$FULL_STORY_OUTCOME" != "success" ]]; then
+            echo "::error::Natural story suite did not pass both independent tests."
+            exit 1
+          fi
+ p4-natural-full-story.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL p4-natural:' p4-natural-full-story.log; then
             exit 1
           fi
