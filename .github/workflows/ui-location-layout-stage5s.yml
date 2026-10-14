@@ -5,9 +5,29 @@ on:
       - feature/ui-parity-location-layout-stage5s-20261012
       - feature/location-frame-persistence-20261013
       - main
+    paths:
+      - "map.gd"
+      - "map.tscn"
+      - "project.godot"
+      - "assets/map/ui/**"
+      - "assets/map/events/**"
+      - "systems/map_presentation.gd"
+      - "systems/map_state.gd"
+      - "systems/place_actions.gd"
+      - "systems/exploration_actions.gd"
+      - "systems/home_inheritance.gd"
+      - "systems/knight_commander_entry.gd"
+      - "scripts/test_ui_location_layout_stage5s.gd"
+      - ".github/workflows/ui-location-layout-stage5s.yml"
   workflow_dispatch:
 permissions:
   contents: read
+# Latest-commit-wins per branch/PR. Older same-workflow runs cannot waste
+# Godot imports after a newer revision supersedes them.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
 jobs:
   location-scene-layout:
     runs-on: ubuntu-latest
