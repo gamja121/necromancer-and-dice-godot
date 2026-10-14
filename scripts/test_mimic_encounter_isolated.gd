@@ -109,11 +109,13 @@ func run_case(session: Node, victor: String, corruption: int, laps: int) -> void
 	var before_restart: Dictionary = world.snapshot().duplicate(true)
 	# Runtime remains able to resume the genuine mimic fight after a crash.
 	check(session.save_world(),victor+": mimic encounter save checkpoint committed")
-	session.reload_world()
-	world = session.world
-	check(world.snapshot()==before_restart and session.encounter.get("type","")=="mimic",victor+": reloaded original mimic encounter and RNG exactly")
-	# Map has a live battle scene pointing at this session; saved snapshot
-	# identity is tested above. Keep the same running battle for outcome.
+	# Examine the disk save with an independent restored model. Do NOT
+	# hot-reload the live session while its real battlefield is running.
+	var file_data = JSON.parse_string(FileAccess.get_file_as_string(scratch))
+	var shadow = session.MapState.new(world.definitions,123)
+	check(file_data is Dictionary and shadow.restore(file_data) and shadow.snapshot()==before_restart,
+		victor+": mimic fight and RNG restore from disk without replacing live battlefield")
+	check(session.encounter.get("type","")=="mimic",victor+": original encounter remains playable after checkpoint")
 	strong_side(battle,victor)
 	check(await until_ready(func(): return not battle.entry_summon_active,20000),victor+": monster entry animation ends")
 	if is_instance_valid(battle.brand_reference):
