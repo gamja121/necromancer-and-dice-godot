@@ -39,12 +39,15 @@ func fresh(session: Node, tag: String) -> void:
 	session.start_new_world()
 	# Story interruptions are tested on the first board that can contain a
 	# cemetery. This is a test-only completed-lap fixture, not a player skip.
+	# Generate the *first completed-lap board* with the target contamination
+	# already applied. Revealing the boss AFTER generation would overwrite a
+	# random slot 23, possibly deleting the ONLY event or forest story tile.
+	# Enter with 73 so the authentic +7 home-exit transition reaches 80.
+	session.world.contamination = 73
 	session.world.lap_ready=true
 	session.world.leave_home()
-	# Story-only fixture: keep all quest flags genuine while unlocking the
-	# new contamination story thresholds for this existing journey test.
-	session.world.contamination = 80
-	session.world.reveal_boss_at_threshold()  # match real save-reload migration at >=20
+	check(session.world.contamination==80 and session.world.tiles[23]=="boss" and session.world.tiles.has("event") and session.world.tiles.has("forest"),
+		"portal/child fixture: contaminated lap generated boss while preserving event and forest story tiles")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		tag+": isolated post-first-lap fixture has one unlocked graveyard")
 
