@@ -21,10 +21,10 @@
 ## Event-tile discovery unlock rule — user decision (2026-10-14)
 
 - **Existing story events ALWAYS have priority** over unlock discoveries when the player **actually lands** on a generic `event` tile. Reuse the existing `map.gd:show_tile` story guard order, including active/resumable narratives. A failed story save/entry is **NOT** permission to award an unlock.
-- **Only if no currently eligible/resumable original event exists**, an event tile may reveal one not-yet-discovered place, e.g., **"언덕을 발견했다."**. The discovered tile unlocks persistently, without repeating grants.
+- **Only if no currently eligible/resumable original event exists**, an event tile may run **either** one nonrepeatable place discovery (e.g., **"언덕을 발견했다."**) **or** a repeatable **routine event** (e.g., help an injured soldier and gain a consumable dice-control card). Main story always wins; when no undiscovered place remains, use routine events. Never award both on one arrival.
 - **Preferred proposal (pending placement confirmation):** show discovery immediately, but choose/use the unlocked tile at HOME and place it when the next board is generated; visually change eligible ordinary road(s) during the existing shuffle. Do not spontaneously overwrite existing fixed/story/boss/protected-swamp tiles mid-move.
 - The existing code currently auto-creates one `forest` tile on the opening board, unlocks one `graveyard` after the first lap, and separately unlocks `rest` at HOME after the first lap. These **conflict** with the new event-based discovery intent. Do not claim implementation is done, and do not silently change code before preserving story parity, map invariants, old saves and testing.
-- Design specification and implementation gaps: `docs/event_tile_unlock_design.md`. Remaining tile order/caps and final placement choice are unconfirmed.
+- Design specifications and implementation gaps: `docs/event_tile_unlock_design.md` and **`docs/routine_event_design.md`**. Existing dice-control cards are consumed on use and have a 5-card hand cap. Treasure/shop alone do not provide reliable supply; routine events must support card rewards and existing overflow replace/decline behavior. Never generate a routine event on preview, reload, or failed story entry. Ratios/pity remain unconfirmed balance proposals, not finalized rates. Neither routine events nor event-tile unlocks are implemented in the current runtime.
 
 ## Primary objective — finish migration, then retire the web prototype (2026-10-11)
 
