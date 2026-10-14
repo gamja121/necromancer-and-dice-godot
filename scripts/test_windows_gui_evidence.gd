@@ -335,7 +335,7 @@ func _run() -> void:
 	await capture_settled_art(gallery_map, CULTIST.BASE_ART, "cultist procession",
 		"21_cultist_procession_layer_native_windows.png")
 	for i in range(1,CULTIST_BEATS.count()):
-		check(CULTIST.advance(session,village_index,CULTIST.EVENT_ID,i), "cultist rumor completion %d" % i)
+		check(CULTIST.advance(session,village_index,i), "cultist rumor completion %d" % i)
 	session.world.position = altar_index
 	check(ALTAR.begin(session,altar_index), "cultist altar eligible after finished rumor")
 	check(ALTAR.advance(session,altar_index,0), "altar ritual reveal beat selected")
