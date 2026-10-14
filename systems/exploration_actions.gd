@@ -356,7 +356,7 @@ func render_route() -> void:
 		if not unlocked: art_tile.modulate=Color(0.50,0.49,0.47)
 		var label=label_at(content,"일반 마물" if kind=="monster" else "숙영",Vector2(x+79,451),Vector2(240,27),18)
 		label.add_theme_color_override("font_color",Color("352519"))
-		var limit=label_at(content,"추가 수량 제한 없음" if kind=="monster" else ("최대 3칸" if unlocked else "첫 해금 타일 · 잠김"),Vector2(x+80,480),Vector2(250,22),13)
+		var limit=label_at(content,"추가 수량 제한 없음" if kind=="monster" else ("최대 3칸" if unlocked else "첫 바퀴 완주 후 해금"),Vector2(x+80,480),Vector2(250,22),13)
 		limit.add_theme_color_override("font_color",Color("795536"))
 		var minus=button(content,"−",Vector2(x+83,506),Vector2(53,45),func(): adjust_route_tile(kind,-1))
 		minus.name="PatrolMinus_"+kind
@@ -379,6 +379,9 @@ func render_route() -> void:
 			plus.visible=false
 			route_unlock_button=button(content,"숙영 해금",Vector2(x+80,506),Vector2(179,45),unlock_rest)
 			route_unlock_button.name="PatrolUnlockRest"
+			var eligibility: Dictionary=session.rest_unlock_allowed()
+			route_unlock_button.disabled=not bool(eligibility.get("ok",false))
+			route_unlock_button.tooltip_text="첫 바퀴를 완주한 뒤 해금 가능" if route_unlock_button.disabled else "해금 후 숙영을 최대 3칸까지 편성 가능"
 	var sidebar_title=label_at(content,"자동 배치",Vector2(950,159),Vector2(240,37),21)
 	sidebar_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	sidebar_title.add_theme_color_override("font_color",Color("382416"))
@@ -398,7 +401,7 @@ func render_route() -> void:
 		value.add_theme_color_override("font_color",Color("382719"))
 	action_button.disabled=used
 	route_reset_button.disabled=used
-	status.text=("이번 방문 편성 확정 · 숙영 해금은 즉시 가능하지만 편성은 다음 방문부터" if not rest_unlocked else "이번 방문은 확정 완료 · 다음 바퀴부터 반영") if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
+	status.text=("이번 방문 편성 확정 · 숙영 해금은 다음 방문에 편성 가능" if not rest_unlocked else "이번 방문은 확정 완료 · 다음 바퀴부터 반영") if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 첫 순찰 완주 후 해금" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining] if not rest_unlocked else "추가 %d/%d칸 선택 · %d칸 남음 · 숙영 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
 
 func unlock_rest() -> void:
 	if type!="home" or bool(session.world.patrol_plan.get("rest_unlocked",false)): return
