@@ -904,6 +904,10 @@ func unlock_rest_tile() -> Dictionary:
 		# convert only the optional route inventory on explicit unlock.
 		world.patrol_plan=RoutePlan.default_plan()
 	world.patrol_plan["rest_unlocked"]=true
+	# Only a real, successful unlock creates a NEW marker. Older saves and
+	# a new expedition must not display an invented notification.
+	world.event_flags["ui:unlock:rest:tile_pending"] = true
+	world.event_flags["ui:unlock:rest:action_pending"] = true
 	if not persist_change(before):
 		return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"숙영 해금 완료! 숙영은 최대 3칸까지 추가할 수 있습니다."}
@@ -937,6 +941,9 @@ func heal_at_rest(index: int) -> Dictionary:
 	var before: Dictionary = world.snapshot().duplicate(true)
 	for unit in world.roster: unit.current_hp = unit.max_hp
 	world.reward_receipts.append(place_visit_id("heal",index))
+	# First actual use acknowledges the previously unlocked button.
+	if world.event_flags.get("ui:unlock:rest:action_pending",false) == true:
+		world.event_flags["ui:unlock:rest:action_pending"] = false
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"숙영 · 모든 마물 체력 완전 회복"}
 
