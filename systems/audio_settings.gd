@@ -3,6 +3,7 @@ extends Control
 ## Frozen web map audio options: compact OPTION panel and separate ON/OFF rows.
 ## Always use the OS default output; Advanced retains only master volume.
 const SAVE = "user://audio_settings.cfg"
+const VFXSettings = preload("res://systems/optional_battle_vfx_settings.gd")
 const PANEL_RECT = Rect2(995.84, 82.8, 256.0, 170.0)
 
 var save_file_path: String = SAVE
@@ -16,6 +17,7 @@ var advanced_button: Button
 var advanced_content: VBoxContainer
 var output_label: Label
 var volume_slider: HSlider
+var vfx_buttons: Dictionary = {}
 
 ## Godot's "Default" device tracks the host OS's preferred speakers/headset.
 ## Browsers route Web audio themselves; headless CI has no physical output.
@@ -182,6 +184,19 @@ func setup(parent: Control) -> void:
 	volume_slider.max_value = 100
 	volume_slider.step = 1
 	advanced_content.add_child(volume_slider)
+	var vfx_heading = Label.new()
+	vfx_heading.text = "전투 이펙트 (실험 기능)"
+	vfx_heading.add_theme_font_size_override("font_size",12)
+	advanced_content.add_child(vfx_heading)
+	for key in ["enabled", "shadow_particle", "energy_burst", "dissolve"]:
+		var button = Button.new()
+		button.name = "BattleVFX_" + key
+		button.custom_minimum_size = Vector2(0,28)
+		style_action(button,true)
+		advanced_content.add_child(button)
+		vfx_buttons[key] = button
+		button.pressed.connect(func(): toggle_vfx(key))
+	refresh_vfx_controls()
 	volume_slider.value_changed.connect(func(value):
 		AudioServer.set_bus_mute(0,value<=0)
 		AudioServer.set_bus_volume_db(0,linear_to_db(maxf(0.001,value/100.0)))
@@ -189,7 +204,23 @@ func setup(parent: Control) -> void:
 	panel.hide()
 	refresh_controls()
 
+func toggle_vfx(key: String) -> void:
+	var values = VFXSettings.load_preferences()
+	values[key] = not bool(values.get(key, false))
+	if VFXSettings.save_preferences(values) != OK:
+		push_warning("Could not save optional battle VFX preferences")
+	refresh_vfx_controls()
+
+func refresh_vfx_controls() -> void:
+	var values = VFXSettings.load_preferences()
+	var labels = {"enabled":"전체", "shadow_particle":"암흑 입자", "energy_burst":"에너지 폭발", "dissolve":"소멸 효과"}
+	for key in vfx_buttons:
+		var button: Button = vfx_buttons[key]
+		button.text = labels[key] + ": " + ("ON" if bool(values.get(key,false)) else "OFF")
+		button.disabled = key != "enabled" and not bool(values.enabled)
+
 func refresh_controls() -> void:
+	refresh_vfx_controls()
 	for item in [{"node":music_toggle,"category":"Music"},{"node":sfx_toggle,"category":"SFX"}]:
 		var toggle: Button = item.node
 		if toggle==null: continue
