@@ -30,10 +30,19 @@ func _new_session(suffix: String):
 	session.save_file_path = test_save
 	_delete_path(test_save)
 	session.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	session.world.contamination = 100
-	session.world.reveal_boss_at_threshold()
-	_check(session.has_save(),"test save created separately")
+	# This encounter is unlocked on the first *completed* lap. Build a
+	# real lap-one board at the narrative test contamination level rather
+	# than replacing a random tile with a boss on the first-lap board.
+	# The first exit adds +7 contamination and generates the graveyard.
+	session.world.contamination = 93
+	session.world.lap_ready = true
+	session.world.leave_home()
+	_check(session.world.laps==1 and session.world.contamination==100
+		and session.world.tiles.count("graveyard")==1
+		and session.world.tiles.count("event")>=1
+		and session.world.tiles[23]=="boss",
+		"story fixture has eligible graveyard/event without overwriting tiles")
+	_check(session.save_world() and session.has_save(),"test save created separately")
 	return session
 
 

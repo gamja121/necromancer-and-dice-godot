@@ -39,9 +39,10 @@ func fresh_session(suffix: String):
 	delete_file(path)
 	s.save_file_path = path
 	s.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	s.world.contamination = 100
-	s.world.reveal_boss_at_threshold()
+	# The current map unlocks the cemetery after one completed lap.
+	# Generate high contamination BEFORE the boss tile is assigned so unique
+	# event/forest tiles are preserved instead of overwritten at position 23.
+	s.world.contamination = 93
 	# Story contract tests begin at the first naturally unlocked cemetery.
 	s.world.lap_ready=true
 	s.world.leave_home()
@@ -125,15 +126,32 @@ func loss_and_rollback() -> void:
 	check(s.story_battle_result_pending(StoryBattles.GRAVEYARD_ID),"generic result sees loss")
 	check(s.acknowledge_story_battle_result(StoryBattles.GRAVEYARD_ID),"loss acknowledged")
 	check(not s.story_battle_result_pending(StoryBattles.GRAVEYARD_ID),"loss result consumed")
-	check(fight(s),"loss can still retry from registry")
-	check(s.get_story_event(StoryBattles.GRAVEYARD_ID).battle_result.is_empty(),"retry reset previous result")
-	check(s.finish_encounter(Result.new("ally")),"retry can win")
+	# Current production rule: ANY enemy victory permanently ends the run.
+	# A historical retry test must not silently resurrect defeated expeditions.
+	check(s.world.run_result.get("ended",false) and s.world.run_result.get("reason","")=="battle_defeat",
+		"defeat ends expedition, even if a monster survives")
+	check(not fight(s),"finished expedition cannot retry the story battle")
+	check(s.get_story_event(StoryBattles.GRAVEYARD_ID).battle_result=="lost",
+		"blocked retry preserves original loss receipt")
+	s.reload_world()
+	check(s.world.run_result.get("ended",false) and not fight(s),
+		"defeat remains terminal after disk reload")
+	s.free()
+
+	# An independent VICTORY fixture still verifies atomic rollback when
+	# acknowledgement cannot be written. Do not conflate disk failure with
+	# the now-terminal defeat flow above.
+	s = fresh_session("ack_disk")
+	check(fight(s),"independent victory encounter begins")
+	check(s.finish_encounter(Result.new("ally")),"independent victory result saved")
+	check(s.story_battle_result_pending(StoryBattles.GRAVEYARD_ID),
+		"victory remains pending until acknowledgement")
 	var prior: Dictionary = s.world.snapshot().duplicate(true)
 	var original_path: String = s.save_file_path
 	s.save_file_path = "user://story_battle_contract_missing_%d/x.json" % OS.get_process_id()
 	check(not s.acknowledge_story_battle_result(StoryBattles.GRAVEYARD_ID),"generic acknowledgement reports disk error")
 	check(s.world.snapshot()==prior,"generic acknowledgement rolls back disk failure")
-	check(s.graveyard_battle_result_pending(),"failed acknowledgement leaves result pending")
+	check(s.story_battle_result_pending(StoryBattles.GRAVEYARD_ID),"failed acknowledgement leaves result pending")
 	s.save_file_path = original_path
 	check(s.acknowledge_story_battle_result(StoryBattles.GRAVEYARD_ID),"generic acknowledgement retries cleanly")
 	s.reload_world()

@@ -41,9 +41,12 @@ func _make(suffix: String):
 	_clear(path)
 	session.save_file_path = path
 	session.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	session.world.contamination = 100
-	session.world.reveal_boss_at_threshold()
+	# The current map unlocks the cemetery after one completed lap.
+	# Generate high contamination BEFORE the boss tile is assigned so unique
+	# event/forest tiles are preserved instead of overwritten at position 23.
+	session.world.contamination = 93
+	session.world.lap_ready=true
+	session.world.leave_home()
 	session.world.position = session.world.tiles.find("graveyard")
 	_check(session.has_save(),"isolated save exists")
 	_check(StoryEntry.begin(session,session.world.position),"first discovery persisted")
@@ -131,10 +134,14 @@ func _test_loss_and_retry() -> void:
 	_check(not s.start_story_encounter(StoryEntry.EVENT_ID,idx,ids),"cannot overwrite an unacknowledged defeat")
 	_check(s.graveyard_battle_result_pending(),"defeat still awaits an explicit player choice")
 	_check(s.acknowledge_graveyard_battle_result(),"player confirms defeat before retry")
-	_check(s.start_story_encounter(StoryEntry.EVENT_ID,idx,ids),"a new deliberate retry allowed")
-	_check(s.get_story_event(StoryEntry.EVENT_ID).battle_result.is_empty(),"only new attempt resets pending battle result")
-	_check(s.finish_encounter(BattleResult.new("ally")),"winning retry saves")
-	_check(s.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),"successful retry rescues child")
+	_check(s.world.run_result.get("ended",false) and s.world.run_result.get("reason","")=="battle_defeat",
+		"defeat permanently ends the expedition")
+	_check(not s.start_story_encounter(StoryEntry.EVENT_ID,idx,ids),
+		"acknowledging defeat cannot start a new battle in an ended expedition")
+	_check(s.get_story_event(StoryEntry.EVENT_ID).battle_result=="lost",
+		"permanent defeat preserves the failed rescue record")
+	_check(not s.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),
+		"defeated expedition cannot retroactively rescue the child")
 	s.free()
 
 func _test_finish_failure() -> void:

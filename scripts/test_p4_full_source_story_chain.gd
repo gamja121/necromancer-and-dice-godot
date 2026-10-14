@@ -4,8 +4,9 @@ extends SceneTree
 ## establish all story/quest receipts in sequence. Only route approach is
 ## shortened by test-only positioning at HOME and swapping one ordinary tile
 ## ahead of a genuine 1-6 die, as in previous P4 integration tests.
-## Rescued routes exercise both portal outcomes; abandoned has its own rumor
-## and intentionally cannot unlock the commander/king-hunt chain.
+## Rescued victory completes the portal-to-king route. Portal defeat MUST
+## stop with the actual terminal game-over screen; a dead expedition cannot
+## acknowledge a story modal or progress into king hunt. Abandoned stays locked.
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const STATE = preload("res://systems/map_state.gd")
@@ -71,12 +72,15 @@ func fresh_world(session: Node, tag: String) -> void:
 	session.start_new_world()
 	# Child rescue is unavailable until lap 1; start this synthetic source-
 	# story branch fixture from the genuine home-shuffled second board.
+	# Generate the *first completed-lap board* with the target contamination
+	# already applied. Revealing the boss AFTER generation would overwrite a
+	# random slot 23, possibly deleting the ONLY event or forest story tile.
+	# Enter with 73 so the authentic +7 home-exit transition reaches 80.
+	session.world.contamination = 73
 	session.world.lap_ready=true
 	session.world.leave_home()
-	# Story-only fixture: keep all quest flags genuine while unlocking the
-	# new contamination story thresholds for this existing journey test.
-	session.world.contamination = 80
-	session.world.reveal_boss_at_threshold()  # match real save-reload migration at >=20
+	check(session.world.contamination==80 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss" and session.world.tiles.has("event") and session.world.tiles.has("forest"),
+		tag+": contaminated lap generated boss while preserving event and forest story tiles")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		tag+": first home exit unlocks cemetery without pre-filling story flags")
 	var ids: Array=[CHILD.EVENT_ID,VILLAGE.RESCUED_ID,VILLAGE.ABANDONED_ID,COMMANDER.EVENT_ID,HUNTER.EVENT_ID,CULTIST.EVENT_ID,ALTAR.EVENT_ID,PORTAL.EVENT_ID,HUNT.EVENT_ID]
@@ -214,6 +218,13 @@ func fight_real(session: Node, map: Control, story_id: String, victor: String, l
 		await battle.roll_round()
 	check(battle.rules.winner()==victor,label+": actual die/attack queue produces %s in %d round(s)" % [victor,rounds])
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty() and session.world.pending_reward.is_empty(),label+": story combat clears checkpoint without ordinary corpse reward")
+	if victor=="enemy":
+		# Production policy: every battle defeat ends the expedition. There is
+		# no return button or "부활 확인" modal after a terminal loss.
+		var ended: bool=await until_ready(func(): return session.world.run_result.get("reason","")=="battle_defeat" and is_instance_valid(map.game_over_screen),21000)
+		check(ended,label+": actual defeat opens terminal game-over instead of story result modal")
+		check(battle.map_return.disabled,label+": defeated expedition cannot return to the map")
+		return ended
 	battle.map_return.pressed.emit()
 	var result_button: String="부활 확인" if story_id==PORTAL.EVENT_ID else "맵으로"
 	var returned: bool=await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and ui_button(map,result_button)!=null,21000)
@@ -343,7 +354,16 @@ func rescue_and_king(session: Node, victor: String) -> void:
 	check(deck_ready,label+":portal real deck appears after summoning delay")
 	if not deck_ready: return
 	if not await fight_real(session,map,PORTAL.EVENT_ID,victor,label+":portal"): return
-	check(session.story_battle_result_pending(PORTAL.EVENT_ID) and not session.event_flag_is_set(PORTAL.REVIVED_FLAG),label+":portal outcome awaits result receipt; king still not revived")
+	if victor=="enemy":
+		check(session.world.run_result.get("ended",false)==true and session.world.run_result.get("reason","")=="battle_defeat",
+			label+":portal terminal loss is persisted immediately")
+		check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG) and not session.event_flag_is_set(PORTAL.HUNT_FLAG),
+			label+":portal defeat cannot revive the king or grant a new expedition quest")
+		await close_and_reload(session,map,label+":portal-terminal")
+		check(session.world.run_result.get("reason","")=="battle_defeat",
+			label+":portal terminal result survives reload without a map return")
+		return
+	check(session.story_battle_result_pending(PORTAL.EVENT_ID) and not session.event_flag_is_set(PORTAL.REVIVED_FLAG),label+":portal victory awaits result receipt; king still not revived")
 	# Reload the real result UI before pressing the source confirmation.
 	for i in range(3): await process_frame
 	map.queue_free()
