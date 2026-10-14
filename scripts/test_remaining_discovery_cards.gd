@@ -113,7 +113,8 @@ func case_for(session: Node,kind: String) -> void:
 	check(w.tiles.count(kind)==old_count+1,kind+": transformed tile survives reload")
 	check(not bool(session.discover_location_on_event(event_index,kind).get("ok",false)),kind+": duplicate card/extra tile never granted")
 	w.generate()
-	check(w.tiles.count(kind)==old_count+1,kind+": HOME reshuffle preserves automatic discovered place")
+	var expected_after_shuffle: int=2 if kind=="graveyard" else 1
+	check(w.tiles.count(kind)==expected_after_shuffle,kind+": HOME reshuffle preserves auto place plus any preexisting legacy slot")
 	if kind=="rest":
 		check(w.tiles.count("rest")<=RoutePlan.REST_LIMIT,"discovered rest still respects total 3 tiles")
 	var last: Dictionary=w.snapshot().duplicate(true)
