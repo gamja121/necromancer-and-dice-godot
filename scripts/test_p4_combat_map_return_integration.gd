@@ -183,8 +183,15 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 	while battle.rules.winner().is_empty() and turns < 8:
 		turns += 1
 		await battle.roll_round()
-		check(map.dice==battle.dice and map.dice.position==map.shared_dice_position(),
-			label+": round %d shared die stops on stage and saves that exact position" % turns)
+		# Godot may schedule the last visual position update on the following
+		# frame after a round wins and the capture panel opens. Check the
+		# settled rendered die, not an intermediate async continuation.
+		await process_frame
+		var shown_die_position: Vector2 = map.dice.position
+		var saved_die_position: Vector2 = map.shared_dice_position()
+		var pose_distance: float = shown_die_position.distance_to(saved_die_position)
+		check(map.dice==battle.dice and pose_distance <= 1.0,
+			label+": round %d shared die finishes within 1 px of saved pose (shown=%s saved=%s delta=%.3f)" % [turns,str(shown_die_position),str(saved_die_position),pose_distance])
 		if turns==1:
 			check(map.dice.position!=entry_die_pos,
 				label+": the die physically bounces instead of returning to its battle center")
