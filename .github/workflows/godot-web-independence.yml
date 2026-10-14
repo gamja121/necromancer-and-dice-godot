@@ -31,6 +31,11 @@ on:
 permissions:
   contents: read
 
+# Avoid obsolete branch/PR tests consuming runners after a newer commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
 jobs:
   independence:
     runs-on: ubuntu-latest
