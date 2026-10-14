@@ -14,7 +14,7 @@ const LEGACY_CURRENT = ["basic","basic","graveyard","forest","rest","event"]
 const RESERVE = ["monster","monster","monster","monster","monster"]
 
 static func default_plan() -> Dictionary:
-	return {"selection":{"monster":0,"rest":0},"rest_unlocked":false}
+	return {"selection":{"monster":0,"rest":0},"rest_unlocked":false,"rest_discovered":false}
 
 static func is_new(plan) -> bool:
 	return plan is Dictionary and plan.has("selection") and plan.get("selection") is Dictionary
@@ -23,6 +23,8 @@ static func valid(plan) -> bool:
 	if not plan is Dictionary: return false
 	if is_new(plan):
 		if not plan.get("rest_unlocked",false) is bool: return false
+		if not plan.get("rest_discovered",false) is bool: return false
+		if bool(plan.get("rest_discovered",false)) and not bool(plan.rest_unlocked): return false
 		var selected: Dictionary=plan.selection
 		if selected.size()!=CHOICES.size(): return false
 		var total: int=0
@@ -33,7 +35,8 @@ static func valid(plan) -> bool:
 			if float(count)!=float(int(count)) or int(count)<0: return false
 			total+=int(count)
 		if total>OPTIONAL_CAPACITY: return false
-		if int(selected["rest"])>REST_LIMIT: return false
+		# Discovery itself provides one permanent rest tile. Total max 3.
+		if int(selected["rest"])>REST_LIMIT-(1 if bool(plan.get("rest_discovered",false)) else 0): return false
 		if not plan.rest_unlocked and int(selected["rest"])>0: return false
 		return true
 	# Old saves continue to restore exactly the original 6+5 inventory.
