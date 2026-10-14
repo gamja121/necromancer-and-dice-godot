@@ -418,7 +418,7 @@ func persist_change(before: Dictionary) -> bool:
 	# A failed write rolls the boss/swamp reveal back with everything else.
 	if int(before.get("contamination",0)) < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
 		world.reveal_boss_at_threshold()
-	# At 40/80, automatically change ordinary road tiles into swamps even
+	# At 15/30, automatically change ordinary road tiles into swamps even
 	# before the next home shuffle. No RNG/encounter/story state is modified.
 	if world.contamination > int(before.get("contamination",0)) and world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
 		world.reveal_swamps_for_contamination()
