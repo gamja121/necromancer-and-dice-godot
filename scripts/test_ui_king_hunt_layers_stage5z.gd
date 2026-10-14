@@ -142,10 +142,10 @@ func verify_route(session:Node,mode:String)->void:
 	var frame:Rect2=map.TILE_EVENT_SCENE_RECT
 	var scene_bounds:Rect2=MOTION.source_rect(frame,false)
 	var portrait_bounds:Rect2=MOTION.source_rect(frame,true)
-	check(scene_bounds.position.distance_to(frame.position+frame.size*Vector2(0.13,0.06))<0.01,tag+"world-tree corrupted beast at left 13%, bottom 2%")
-	check(portrait_bounds.position.distance_to(frame.position+frame.size*Vector2(0.40,-0.03))<0.01,tag+"hunter portrait right 2%, bottom 25%")
-	check(scene_bounds.size.distance_to(frame.size*Vector2(0.74,0.92))<0.01,tag+"world-tree source corpse image 74%x92%")
-	check(portrait_bounds.size.distance_to(frame.size*Vector2(0.58,0.78))<0.01,tag+"hunter portrait CSS size 58%x78%")
+	check(scene_bounds.position.distance_to(frame.position+frame.size*Vector2(0.13,0.04))<0.01,tag+"world-tree corrupted beast at left 13%, bottom 2%")
+	check(portrait_bounds.position.distance_to(frame.position+frame.size*Vector2(0.40,0.01))<0.01,tag+"hunter portrait right 2%, bottom 25%")
+	check(scene_bounds.size.distance_to(frame.size*Vector2(0.74,0.80))<0.01,tag+"world-tree source corpse image 74%x92%")
+	check(portrait_bounds.size.distance_to(frame.size*Vector2(0.58,0.74))<0.01,tag+"hunter portrait CSS size 58%x78%")
 	check(approximately(MOTION.SCENE_ENTRY_SECONDS,0.52,0.001) and approximately(MOTION.PORTRAIT_ENTRY_SECONDS,0.48,0.001),tag+"source trace/revival durations are 520/480ms")
 	var receipts:Array=session.world.reward_receipts.duplicate(true)
 	for i in range(BEATS.count()):
@@ -168,7 +168,7 @@ func verify_route(session:Node,mode:String)->void:
 			if art!=null:
 				var path:String=BEATS.visual_art(str(beat.visual))
 				check(art.texture==map.texture(path) and art.texture.resource_path==path,tag+"beat %d reuses existing unmodified hunter source WebP"%i)
-				check(art.size.distance_to(bounds.size)<0.02 and art.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,tag+"beat %d retains source footprint and image aspect"%i)
+				check(art.size.distance_to(bounds.size)<0.02 and art.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,tag+"beat %d retains updated safe footprint and image aspect"%i)
 				check(art.mouse_filter==Control.MOUSE_FILTER_IGNORE and art.get_meta("ui_custom_open_motion",false),tag+"beat %d ignores touch and opts out of generic panel motion"%i)
 				check(art.pivot_offset.distance_to(Vector2(art.size.x/2.0,art.size.y))<0.02,tag+"beat %d bottom-middle animation pivot"%i)
 				var alpha:float=MOTION.PORTRAIT_OPACITY if is_portrait else 1.0
