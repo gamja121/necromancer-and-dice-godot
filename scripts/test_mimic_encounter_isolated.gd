@@ -114,9 +114,9 @@ func run_case(session: Node, victor: String, corruption: int, laps: int) -> void
 	var file_data = JSON.parse_string(FileAccess.get_file_as_string(scratch))
 	var shadow = session.MapState.new(world.definitions,123)
 	var shadow_ok: bool = file_data is Dictionary and shadow.restore(file_data)
-	if shadow_ok and shadow.snapshot()!=before_restart:
+	if shadow_ok and not same_json_state(shadow.snapshot(),before_restart):
 		snapshot_differences(before_restart,shadow.snapshot(),victor+":midbattle")
-	check(shadow_ok and shadow.snapshot()==before_restart,
+	check(shadow_ok and same_json_state(shadow.snapshot(),before_restart),
 		victor+": mimic fight and RNG restore from disk without replacing live battlefield")
 	check(session.encounter.get("type","")=="mimic",victor+": original encounter remains playable after checkpoint")
 	strong_side(battle,victor)
@@ -139,15 +139,32 @@ func run_case(session: Node, victor: String, corruption: int, laps: int) -> void
 	var outcome: Dictionary = world.snapshot().duplicate(true)
 	session.reload_world()
 	world = session.world
-	if world.snapshot()!=outcome:
+	if not same_json_state(world.snapshot(),outcome):
 		snapshot_differences(outcome,world.snapshot(),victor+":outcome")
-	check(world.snapshot()==outcome,victor+": final result survives JSON save/restart without extra rewards")
+	check(same_json_state(world.snapshot(),outcome),victor+": final result survives JSON save/restart without extra rewards")
 	if victor=="enemy": check(not world.run_result.is_empty() and not session.start_encounter(gem,[id]),"ended run refuses any further battles")
 	map.queue_free()
 	await process_frame
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(scratch+suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
+
+## Godot JSON restores nested integral battle fields as floats (2 -> 2.0).
+## Deep comparison must still reject changes in all keys, values or arrays.
+func same_json_state(a: Variant, b: Variant) -> bool:
+	if (a is int or a is float) and (b is int or b is float):
+		return float(a)==float(b)
+	if a is Dictionary and b is Dictionary:
+		if a.size()!=b.size(): return false
+		for key in a:
+			if not b.has(key) or not same_json_state(a[key],b[key]): return false
+		return true
+	if a is Array and b is Array:
+		if a.size()!=b.size(): return false
+		for i in range(a.size()):
+			if not same_json_state(a[i],b[i]): return false
+		return true
+	return a==b
 
 func snapshot_differences(original: Dictionary, reopened: Dictionary, label: String) -> void:
 	for key in original:
