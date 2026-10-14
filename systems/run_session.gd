@@ -881,7 +881,11 @@ func confirm_patrol(plan: Dictionary) -> Dictionary:
 	if not allowed.ok: return allowed
 	var visit = place_visit_id("patrol",MapState.HOME)
 	if visit in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 순찰경로는 확정했습니다."}
-	if not RoutePlan.valid(plan): return {"ok":false,"reason":"현재 경로 6칸과 교체판 5칸의 타일 구성을 유지하세요."}
+	if not RoutePlan.valid(plan): return {"ok":false,"reason":"추가 6칸 제한과 타일별 해금·수량 제한을 확인하세요."}
+	# Unlock is a future gameplay reward, never gained by editing the
+	# proposed patrol selection (nor by supplying a crafted UI payload).
+	if RoutePlan.is_new(plan) and plan.get("rest_unlocked",false) and not world.patrol_plan.get("rest_unlocked",false):
+		return {"ok":false,"reason":"숙영 타일은 아직 해금되지 않았습니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.patrol_plan = plan.duplicate(true)
 	world.reward_receipts.append(visit)

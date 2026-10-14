@@ -1,0 +1,84 @@
+name: Auto Monster Start and Six-Slot Patrol Selection
+on:
+  pull_request:
+    paths:
+      - "systems/route_plan.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_patrol_six_slots_unlocks.gd"
+      - "scripts/test_ui_patrol_parchment_stage5o.gd"
+      - "scripts/test_ui_route_inheritance_parity.gd"
+      - "scripts/test_p4_natural_home_lap.gd"
+      - ".github/workflows/patrol-six-slot-selection.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/route_plan.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_patrol_six_slots_unlocks.gd"
+      - ".github/workflows/patrol-six-slot-selection.yml"
+permissions:
+  contents: read
+jobs:
+  six-slot-patrol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse project and all tile UI scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual map count, six selectable tiles, future rest cap and legacy saves
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 110s godot --headless --path . --script res://scripts/test_patrol_six_slots_unlocks.gd 2>&1 | tee plan.log
+          grep -E '^PATROL_SIX_SLOTS: [0-9]+ passed, 0 failed$' plan.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL patrol-six-slots:' plan.log; then exit 1; fi
+      - name: Real house parchment quantity buttons and saved confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_ui_patrol_parchment_stage5o.gd 2>&1 | tee patrol-ui.log
+          grep -E '^UI_PATROL_PARCHMENT_PARITY: [0-9]+ passed, 0 failed$' patrol-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-patrol-parchment:' patrol-ui.log; then exit 1; fi
+      - name: Existing inheritance and patrol save UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee inheritance.log
+          grep -E '^UI_STAGE3_PARITY: [0-9]+ passed, 0 failed$' inheritance.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-stage3:' inheritance.log; then exit 1; fi
+      - name: Real natural die lap, start counts and mandatory first cemetery
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 390s godot --headless --path . --script res://scripts/test_p4_natural_home_lap.gd 2>&1 | tee lap.log
+          grep -E '^P4_NATURAL_HOME_LAP: [0-9]+ passed, 0 failed$' lap.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL p4-natural-home:' lap.log; then exit 1; fi
+      - name: Two-ring actual post-lap saved tiles preserve required identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_map_gear_identity.gd 2>&1 | tee gear.log
+          grep -E '^MAP_GEAR_IDENTITY: [0-9]+ passed, 0 failed$' gear.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL gear-identity:' gear.log; then exit 1; fi
+      - name: Original boss threshold and late-stage map generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss.log
+          grep -E '^MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed$' boss.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' boss.log; then exit 1; fi
+      - name: Whitespace
+        run: git diff --check

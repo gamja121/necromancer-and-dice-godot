@@ -119,6 +119,18 @@ func settle_portal_battle(session: Node, map: Control) -> Control:
 	battle.session.encounter.checkpoint = battle.rules.snapshot()
 	battle.session.world.active_encounter = battle.session.encounter.duplicate(true)
 	check(battle.session.save_world(), "isolated portal test combat fixture saved before real battlefield dice")
+	# A fresh battlefield intentionally opens the real brand chart after
+	# the last monster arrives. A player must close it before the first die
+	# can roll; do not hang scripted natural-story tests on that UI signal.
+	check(await until_ready(func(): return not battle.entry_summon_active,18000),
+		"final allied monster arrival finishes before the brand overview")
+	check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open,
+		"initial combat brand chart appears after the last summoned monster")
+	if is_instance_valid(battle.brand_reference):
+		battle.brand_reference.close()
+		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference),13000),
+			"player closes initial brand chart before real combat dice")
+
 	var rounds: int = 0
 	while battle.rules.winner().is_empty() and rounds < 9:
 		rounds += 1

@@ -197,6 +197,17 @@ func fight_real(session: Node, map: Control, story_id: String, victor: String, l
 	else:
 		check(session.encounter.enemies.size()==1 and str(session.encounter.enemies[0].slug)=="ghoul",label+": original graveyard ghoul spawned")
 	battle_checkpoint(battle,victor,label)
+	# Since the new battle introduction, real users see the original
+	# full-unit brand chart once after the final summon. Natural story
+	# tests must acknowledge it before awaiting the first roll.
+	check(await until_ready(func(): return not battle.entry_summon_active,18000),
+		label+": every ally has finished its entry animation")
+	check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open,
+		label+": mandatory first brand reference is visible")
+	if is_instance_valid(battle.brand_reference):
+		battle.brand_reference.close()
+		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference),13000),
+			label+": first brand reference dismissed before combat starts")
 	var rounds: int=0
 	while battle.rules.winner().is_empty() and rounds<9:
 		rounds+=1

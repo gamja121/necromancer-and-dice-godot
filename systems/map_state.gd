@@ -7,9 +7,11 @@ const BOSS_CONTAMINATION = 20
 const LAP_CONTAMINATION_GAIN = 7
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
-## First expedition: no world tree, rare monster, altar or graveyard.
-## Four removed tiles become ordinary roads so the loop stays exactly 24.
-const COUNTS = {"basic":6,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":2,"monster":5,"rare-monster":0,"gem":1,"event":2,"swamp":2,"warp":2}
+## First expedition: five guaranteed monster tiles; one event; no
+## rests or swamps. Removed tile types become visually empty roads.
+## Two of those roads are always RESERVED for a future contamination swamp
+## rule; optional patrol picks and automatic corruptions may not spend them.
+const COUNTS = {"basic":11,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":1,"swamp":0,"warp":2}
 const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
 var definitions: Dictionary
 var rng = RandomNumberGenerator.new()
@@ -88,7 +90,9 @@ func generate() -> void:
 	counts.basic += int(counts.graveyard)-unlocked_graveyards
 	counts.graveyard = unlocked_graveyards
 	var requested_conversion = 2 if contamination>=80 else (1 if contamination>=40 else 0)
-	var conversion = mini(requested_conversion,counts.basic)
+	# Two roads belong to later swamp corruption; never use those slots for
+	# patrol monsters/rests or higher-contamination extra monster stones.
+	var conversion = mini(requested_conversion,maxi(0,int(counts.basic)-RoutePlan.RESERVED_SWAMP_ROADS))
 	counts.basic -= conversion
 	counts.monster += conversion
 	if contamination>=BOSS_CONTAMINATION: counts.monster -= 1
@@ -276,6 +280,18 @@ func restore(saved: Dictionary) -> bool:
 	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
 	patrol_plan = plan.duplicate(true)
+	# JSON loads quantity counters as floats (6.0 instead of 6).
+	# Normalize to durable integer tile counts, so equality and future
+	# + / - controls survive process restarts without a phantom edit.
+	if RoutePlan.is_new(patrol_plan):
+		for kind in RoutePlan.CHOICES:
+			patrol_plan.selection[kind] = int(patrol_plan.selection[kind])
+	# Godot's JSON parser returns count numbers as floats. Treat a saved
+	# choice of two stones as the same integer plan selected in the UI,
+	# without reinterpreting old 6+5 patrol-inventory saves.
+	if RoutePlan.is_new(patrol_plan):
+		for kind in RoutePlan.CHOICES:
+			patrol_plan.selection[kind] = int(patrol_plan.selection[kind])
 	scout = intel_state.duplicate(true)
 	prayer_result = saved.get("prayer_result",{}).duplicate(true)
 	event_flags = stored_flags.duplicate(true)

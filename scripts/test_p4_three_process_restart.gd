@@ -71,7 +71,13 @@ func move_seed(s) -> void:
 	var face: int = preview.randi_range(1, 6)
 	var landing: int = (MapState.HOME + face) % 24
 	var swamp: int = w.tiles.find("swamp")
-	check(swamp >= 0 and landing != MapState.HOME, "original 24-tile map has a valid swamp and destination")
+	# Fresh expeditions deliberately contain no swamps. This isolated
+	# restart test must supply its own swamp to exercise the still-valid
+	# once-only terrain effect, never change real world-generation counts.
+	if swamp<0:
+		swamp=w.tiles.find("basic")
+		if swamp>=0: w.tiles[swamp]="swamp"
+	check(swamp >= 0 and landing != MapState.HOME, "disposable 24-tile fixture supplies a swamp and destination")
 	if swamp < 0: return
 	# Test-only tile swap preserves counts and fixed map anchors. This forces
 	# an observable once-only swamp HP effect without overriding the actual die.

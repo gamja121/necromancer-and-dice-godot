@@ -35,6 +35,9 @@ var selected_current = -1
 var selected_reserve = -1
 var current_options: Array = []
 var reserve_options: Array = []
+var route_plus_buttons: Dictionary = {}
+var route_minus_buttons: Dictionary = {}
+var route_count_labels: Dictionary = {}
 var hill_selected_steps: int = 0
 var hill_choice_buttons: Array = []
 
@@ -97,12 +100,14 @@ func setup(map_scene, tile_index: int) -> void:
 		action_button.disabled=true
 		render_hill_choices()
 	else:
-		plan=session.world.patrol_plan.duplicate(true)
+		plan=session.world.patrol_plan.duplicate(true) if RoutePlan.is_new(session.world.patrol_plan) else RoutePlan.default_plan()
 		close_button.text="닫기"
 		close_button.position=Vector2(430,561)
 		close_button.size=Vector2(128,36)
-		status.position=Vector2(145,515)
-		status.size=Vector2(722,42)
+		# Keep the selection status BELOW the +/- click targets; the
+		# former y=515 label obscured quantity buttons on smaller screens.
+		status.position=Vector2(145,606)
+		status.size=Vector2(722,41)
 		status.add_theme_font_size_override("font_size",13)
 		action_button=button(self,"경로 확정",Vector2(614,561),Vector2(160,36),confirm_route)
 		action_button.name="PatrolRouteConfirm"
@@ -133,6 +138,7 @@ func style_patrol_button(control: Button, is_exit: bool = false) -> void:
 	control.add_theme_font_size_override("font_size",13)
 
 func reset_route() -> void:
+	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
 	plan=RoutePlan.default_plan()
 	selected_current=-1
 	selected_reserve=-1
@@ -287,82 +293,104 @@ func render_route() -> void:
 	clear_content()
 	current_options=[]
 	reserve_options=[]
-	var used=session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts
-	# Original reference: two real parchment panels, not two flattened rows.
+	route_plus_buttons.clear()
+	route_minus_buttons.clear()
+	route_count_labels.clear()
+	var used: bool=session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts
+	var total: int=RoutePlan.total_selected(plan)
+	var remaining: int=RoutePlan.available(plan)
+	var rest_unlocked: bool=bool(plan.get("rest_unlocked",false))
+	# Preserve authentic parchment texture and the original enter/exit
+	# buttons; remove the obscure 6-current vs 5-reserve swap puzzle.
 	if ResourceLoader.exists(ROUTE_RESERVE_ART):
-		var large=art(content,ROUTE_RESERVE_ART,Vector2(74,92),Vector2(829,541))
-		large.stretch_mode=TextureRect.STRETCH_SCALE
-	else:
-		var backup=ColorRect.new()
-		backup.position=Vector2(74,92)
-		backup.size=Vector2(829,541)
-		backup.color=Color("c6a77c")
-		content.add_child(backup)
+		var parchment=art(content,ROUTE_RESERVE_ART,Vector2(74,92),Vector2(829,541))
+		parchment.stretch_mode=TextureRect.STRETCH_SCALE
 	if ResourceLoader.exists(ROUTE_CURRENT_ART):
-		var small=art(content,ROUTE_CURRENT_ART,Vector2(925,65),Vector2(284,590))
-		small.stretch_mode=TextureRect.STRETCH_SCALE
-	else:
-		var backup=ColorRect.new()
-		backup.position=Vector2(925,65)
-		backup.size=Vector2(284,590)
-		backup.color=Color("c6a77c")
-		content.add_child(backup)
-	var title=label_at(content,"교체 타일",Vector2(250,164),Vector2(450,36),23)
-	title.add_theme_color_override("font_color",Color("382416"))
-	title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	var guide=label_at(content,"현재 경로를 고른 뒤 이쪽 타일을 눌러 교체하세요",Vector2(168,207),Vector2(640,27),13)
-	guide.add_theme_color_override("font_color",Color("6a4a31"))
-	guide.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	var current_title=label_at(content,"현재 경로",Vector2(951,151),Vector2(235,33),19)
-	current_title.add_theme_color_override("font_color",Color("382416"))
-	current_title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	for area in ["current","reserve"]:
-		for i in range(plan[area].size()):
-			var id: String=str(plan[area][i])
-			var option=TextureButton.new()
-			option.texture_normal=map.texture("res://assets/map/tiles/%s.png" % id)
-			option.ignore_texture_size=true
-			option.stretch_mode=TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			if area=="reserve":
-				option.position=Vector2(163+i*134,289)
-				option.size=Vector2(88,88)
-			else:
-				option.position=Vector2(1034,201+i*62)
-				option.size=Vector2(56,52)
-			option.disabled=used
-			option.tooltip_text="%s · %s" % [session.world.NAMES[id],"교체 타일" if area=="reserve" else "현재 경로"]
-			add_button_effect(option)
-			option.pressed.connect(func(): choose_route(area,i))
-			content.add_child(option)
-			if area=="reserve":
-				var label=label_at(content,session.world.NAMES[id],option.position+Vector2(-10,87),Vector2(108,24),11)
-				label.add_theme_color_override("font_color",Color("f2ddb7"))
-			var selected: bool=(selected_current if area=="current" else selected_reserve)==i
-			option.modulate=Color("fff0c8") if selected else Color.WHITE
-			if selected:
-				option.scale=Vector2(1.08,1.08)
-				option.pivot_offset=option.size*0.5
-			if area=="current": current_options.append(option)
-			else: reserve_options.append(option)
+		var sidebar=art(content,ROUTE_CURRENT_ART,Vector2(925,65),Vector2(284,590))
+		sidebar.stretch_mode=TextureRect.STRETCH_SCALE
+	var heading=label_at(content,"다음 바퀴 · 타일 편성",Vector2(190,138),Vector2(630,40),24)
+	heading.add_theme_color_override("font_color",Color("392519"))
+	var note=label_at(content,"일반 마물 5칸은 자동 배치 · 아래에서 추가할 타일만 선택",Vector2(170,185),Vector2(680,27),14)
+	note.add_theme_color_override("font_color",Color("67432b"))
+	for metric in [
+		{"title":"추가 가능","value":RoutePlan.OPTIONAL_CAPACITY,"x":181.0},
+		{"title":"내가 선택","value":total,"x":397.0},
+		{"title":"남은 칸","value":remaining,"x":613.0}
+	]:
+		var label=label_at(content,str(metric.title),Vector2(float(metric.x),219),Vector2(160,24),14)
+		label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_color_override("font_color",Color("6f4932"))
+		var number=label_at(content,"%d칸" % int(metric.value),Vector2(float(metric.x),246),Vector2(160,47),29)
+		number.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		number.add_theme_color_override("font_color",Color("342619"))
+	var slot_positions: Array=[]
+	for i in range(RoutePlan.OPTIONAL_CAPACITY):
+		var id: String="basic"
+		if i<int(plan.selection.monster):
+			id="monster"
+		elif i<total:
+			id="rest"
+		var x: float=150.0+float(i)*121.0
+		slot_positions.append(x)
+		var tile: TextureRect=art(content,"res://assets/map/tiles/%s.png" % id,Vector2(x,310),Vector2(81,78))
+		tile.name="SelectedPatrolSlot%d" % i
+		tile.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tile.modulate=Color.WHITE if i<total else Color(0.72,0.70,0.66,0.65)
+		var caption=label_at(content,"선택 %d" % (i+1) if i<total else "빈 칸",Vector2(x-8,389),Vector2(97,23),12)
+		caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		caption.add_theme_color_override("font_color",Color("584132"))
+	var guide=label_at(content,"타일을 누르면 수량이 바뀝니다 · 선택하지 않은 칸은 길로 남습니다",Vector2(158,422),Vector2(698,28),13)
+	guide.add_theme_color_override("font_color",Color("684b36"))
+	for j in range(RoutePlan.CHOICES.size()):
+		var kind: String=str(RoutePlan.CHOICES[j])
+		var unlocked: bool=kind=="monster" or rest_unlocked
+		var count: int=int(plan.selection[kind])
+		var x: float=182.0+j*369.0
+		var art_tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x,454),Vector2(75,71))
+		art_tile.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		if not unlocked: art_tile.modulate=Color(0.50,0.49,0.47)
+		var label=label_at(content,"일반 마물" if kind=="monster" else "숙영",Vector2(x+79,451),Vector2(240,27),18)
+		label.add_theme_color_override("font_color",Color("352519"))
+		var limit=label_at(content,"추가 수량 제한 없음" if kind=="monster" else ("최대 3칸" if unlocked else "첫 해금 타일 · 잠김"),Vector2(x+80,480),Vector2(250,22),13)
+		limit.add_theme_color_override("font_color",Color("795536"))
+		var minus=button(content,"−",Vector2(x+83,506),Vector2(53,45),func(): adjust_route_tile(kind,-1))
+		minus.name="PatrolMinus_"+kind
+		minus.disabled=used or count<=0
+		var quantity=label_at(content,"%d" % count,Vector2(x+139,512),Vector2(65,35),22)
+		quantity.name="PatrolCount_"+kind
+		quantity.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		quantity.add_theme_color_override("font_color",Color("322317"))
+		var plus=button(content,"+",Vector2(x+206,506),Vector2(53,45),func(): adjust_route_tile(kind,1))
+		plus.name="PatrolPlus_"+kind
+		plus.disabled=used or not unlocked or remaining<=0 or (kind=="rest" and count>=RoutePlan.REST_LIMIT)
+		route_minus_buttons[kind]=minus
+		route_plus_buttons[kind]=plus
+		route_count_labels[kind]=quantity
+	var sidebar_title=label_at(content,"자동 배치",Vector2(950,159),Vector2(240,37),21)
+	sidebar_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	sidebar_title.add_theme_color_override("font_color",Color("382416"))
+	for row in [
+		{"label":"일반 마물","value":"5칸 확정"},
+		{"label":"사건","value":"1칸 확정"},
+		{"label":"보호 길","value":"2칸 고정"},
+		{"label":"숙영","value":"%d / 3칸" % int(plan.selection.rest)},
+		{"label":"늪지대","value":"시작 0칸"}
+	]:
+		var idx: int=int(["일반 마물","사건","보호 길","숙영","늪지대"].find(row.label))
+		var first=label_at(content,str(row.label),Vector2(952,215+idx*58),Vector2(219,24),14)
+		first.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		first.add_theme_color_override("font_color",Color("63442e"))
+		var value=label_at(content,str(row.value),Vector2(952,238+idx*58),Vector2(219,28),17)
+		value.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		value.add_theme_color_override("font_color",Color("382719"))
 	action_button.disabled=used
-	status.text="이번 방문의 경로는 확정했습니다 · 다음 맵 배치에 적용" if used else ("교체판에서 바꿀 타일을 선택하세요" if selected_current>=0 else ("현재 경로에서 바꿀 타일을 선택하세요" if selected_reserve>=0 else "현재 경로와 교체판에서 하나씩 눌러 교환하세요 · 현재 맵은 유지"))
+	route_reset_button.disabled=used
+	status.text="이번 방문은 확정 완료 · 다음 바퀴부터 반영" if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 해금 후 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
 
-func choose_route(area: String, i: int) -> void:
-	if session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
-	if area=="current":
-		if selected_reserve>=0:
-			var old=plan.current[i]
-			plan.current[i]=plan.reserve[selected_reserve]
-			plan.reserve[selected_reserve]=old
-			selected_current=-1; selected_reserve=-1
-		else: selected_current=-1 if selected_current==i else i
-	else:
-		if selected_current>=0:
-			var old=plan.reserve[i]
-			plan.reserve[i]=plan.current[selected_current]
-			plan.current[selected_current]=old
-			selected_current=-1; selected_reserve=-1
-		else: selected_reserve=-1 if selected_reserve==i else i
+func adjust_route_tile(kind: String, difference: int) -> void:
+	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
+	if not kind in RoutePlan.CHOICES: return
+	plan=RoutePlan.adjust(plan,kind,difference)
 	render_route()
 
 func confirm_route() -> void:
