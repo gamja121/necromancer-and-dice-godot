@@ -383,6 +383,17 @@ func step(forced_face: int = 0) -> Dictionary:
 func snapshot() -> Dictionary:
 	return {"version":1,"units":units.duplicate(true),"legions":legions.duplicate(true),"round":round_number,"last_id":last_id,"rng_seed":str(rng.seed),"rng_state":str(rng.state)}
 
+# Apply the current display name only to the renamed species in copied saves.
+static func normalize_doom_name(value: Variant, data: Dictionary) -> void:
+	if value is Dictionary:
+		if value.get("slug","")=="doom-executor" and value.has("name") and data.has("doom-executor"):
+			value["name"] = data["doom-executor"]["name"]
+		for child in value.values():
+			normalize_doom_name(child,data)
+	elif value is Array:
+		for child in value:
+			normalize_doom_name(child,data)
+
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("units") is Array or not saved.get("legions") is Dictionary:
 		return false
@@ -406,6 +417,7 @@ func restore(saved: Dictionary) -> bool:
 		for p in u.poison:
 			if not p is Dictionary or not p.has("remaining") or not p.has("source"): return false
 	units = saved.units.duplicate(true)
+	normalize_doom_name(units,definitions)
 	# JSON decodes numbers as floats; Array membership is type-sensitive in Godot.
 	# Restore dice faces to integers so blessings/curses still trigger after loading.
 	for u in units:

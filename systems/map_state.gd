@@ -338,4 +338,5 @@ func restore(saved: Dictionary) -> bool:
 	region = saved.region
 	rng.seed = int(saved.rng_seed)
 	rng.state = int(saved.rng_state)
+	Rules.normalize_doom_name([roster,graveyard_corpses,pending_reward,active_encounter],definitions)
 	return true

@@ -20,6 +20,38 @@ func check(ok: bool, message: String) -> void:
 		failed+=1
 		printerr("FAIL web-catalog: ",message)
 
+func check_azazel_save_names(session: Node, definitions: Dictionary) -> void:
+	var maker = BattleRules.new(definitions,404)
+	var legacy = maker.individual("doom-executor","legacy-azazel-1")
+	check(legacy.name=="아자젤","newly created doom-executor uses Azazel")
+	legacy.name = "흑각 악마"
+	legacy.current_hp = legacy.max_hp
+	var opponent = maker.individual("skeleton-spear","rename-opponent-1")
+	maker.start([legacy],[opponent])
+	var checkpoint = maker.snapshot()
+	var before_checkpoint: String = JSON.stringify(checkpoint)
+	var resumed = BattleRules.new(definitions,2)
+	check(resumed.restore(checkpoint),"old-named battle checkpoint remains readable")
+	check(resumed.units[0].name=="아자젤","battle unit receives current display name")
+	check(resumed.units[0].id==legacy.id and resumed.units[0].hp==checkpoint.units[0].hp and resumed.units[0].base_attack==checkpoint.units[0].base_attack and resumed.units[0].brands==checkpoint.units[0].brands,"battle identity, health, attack and brands retained")
+	check(resumed.rng.state==int(checkpoint.rng_state) and JSON.stringify(checkpoint)==before_checkpoint,"battle RNG and caller's saved input retained")
+	var saved: Dictionary = session.world.snapshot().duplicate(true)
+	saved.roster.append(legacy.duplicate(true))
+	saved.graveyard_corpses.append(legacy.duplicate(true))
+	saved.pending_reward = {"kind":"treasure","offers":[{"kind":"unit","source":legacy.duplicate(true)}],"reward":{"kind":"unit","item":legacy.duplicate(true)}}
+	saved.active_encounter = {"phase":"ready","allies":[legacy.duplicate(true)],"enemies":[opponent.duplicate(true)],"checkpoint":checkpoint.duplicate(true)}
+	var before_map: String = JSON.stringify(saved)
+	var restored = MapState.new(definitions,2)
+	var readable: bool = restored.restore(saved)
+	check(readable,"old-named owned, corpse, reward and encounter save remains readable")
+	if readable:
+		for item in [restored.roster.back(),restored.graveyard_corpses.back(),restored.pending_reward.offers[0].source,restored.pending_reward.reward.item,restored.active_encounter.allies[0],restored.active_encounter.checkpoint.units[0]]:
+			check(item.name=="아자젤" and item.id==legacy.id and item.slug=="doom-executor","nested saved unit gets Azazel without changing identity")
+		check(restored.roster.back().max_hp==legacy.max_hp and restored.roster.back().current_hp==legacy.current_hp and restored.roster.back().attack==legacy.attack and restored.roster.back().speed==legacy.speed and restored.roster.back().brands==legacy.brands,"owned stats and brands retained")
+		check(restored.active_encounter.enemies[0].name==opponent.name,"other species names remain intact")
+		check(restored.rng.state==int(saved.rng_state),"map RNG retained")
+	check(JSON.stringify(saved)==before_map,"map caller's saved input remains untouched")
+
 func _run() -> void:
 	var file=JSON.parse_string(FileAccess.get_file_as_string("res://scripts/fixtures/web_v2_units_46.json"))
 	var current=JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json"))
@@ -34,7 +66,8 @@ func _run() -> void:
 		check(definitions.has(slug),"original unit exists: "+slug)
 		if not definitions.has(slug): continue
 		for key in original[slug]:
-			check(definitions[slug].get(key,null)==original[slug][key],"source field parity: %s.%s" % [slug,key])
+			var expected = "아자젤" if slug=="doom-executor" and key=="name" else original[slug][key]
+			check(definitions[slug].get(key,null)==expected,"source field parity or approved name: %s.%s" % [slug,key])
 	var expected_pool: Array=original.keys().filter(func(slug): return original[slug].grade in ["normal","advanced","hero"])
 	var actual_pool: Array=EncounterGenerator.eligible_roster(definitions)
 	check(actual_pool.size()==expected_pool.size() and actual_pool.size()==43,"43 battle/reward-eligible species match fixed web data")
@@ -90,6 +123,7 @@ func _run() -> void:
 	var restored=MapState.new(definitions,1234)
 	check(restored.restore(saved),"existing Godot save containing Dracula remains readable")
 	check(restored.roster.any(func(u): return u.slug=="dracula" and u.current_hp>0),"existing owned Dracula survives load with stats and brands")
+	check_azazel_save_names(session,definitions)
 	if FileAccess.file_exists(test_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
 	if FileAccess.file_exists(test_path+".tmp"):
