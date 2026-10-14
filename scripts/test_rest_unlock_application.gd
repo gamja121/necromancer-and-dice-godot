@@ -1,5 +1,5 @@
 extends SceneTree
-## Complete route: explicit home unlock -> preview -> choose max three rest
+## Complete route: first homecoming -> explicit unlock -> choose 3 rests
 ## -> confirm -> real next-lap generation -> verify three actual rest tiles.
 ## The current lap never changes until the committed home exit.
 const State = preload("res://systems/map_state.gd")
@@ -40,7 +40,17 @@ func _run() -> void:
 	route.setup(map,State.HOME)
 	await process_frame
 	check(route.route_unlock_button!=null and route.route_unlock_button.text=="숙영 해금","rest tile visibly presents an unlock action")
+	check(route.route_unlock_button.disabled and not session.rest_unlock_allowed().ok,"new expedition shows unlock button locked until first homecoming")
 	check(route.route_plus_buttons["rest"].disabled and route.route_plus_buttons["monster"].disabled==false,"rest initially locked; monsters initially selectable")
+	var blocked: Dictionary=session.unlock_rest_tile()
+	check(not blocked.ok and not session.world.patrol_plan.rest_unlocked,"direct unlock call cannot bypass initial first-lap gate")
+	# The normal movement system sets lap_ready when the player returns to
+	# HOME. Use an isolated fixture here to exercise the unlock action
+	# immediately; natural full-lap completion has its own integration test.
+	session.world.lap_ready=true
+	check(session.save_world(),"completed first homecoming persisted before unlocking")
+	route.render_route()
+	check(route.route_unlock_button!=null and not route.route_unlock_button.disabled,"first fully completed lap enables the home unlock button")
 	var seed_before: int=session.world.rng.state
 	var count_before: int=session.world.reward_receipts.size()
 	route.route_plus_buttons["monster"].pressed.emit()
@@ -94,6 +104,7 @@ func _run() -> void:
 	# Failed unlock must be atomic and leave locked plan untouched.
 	session.save_file_path="user://no_parent_rest_unlock_test/blocked.json"
 	session.start_new_world()
+	session.world.lap_ready=true
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	var denied: Dictionary=session.unlock_rest_tile()
 	check(not bool(denied.get("ok",false)) and session.world.snapshot()==before,"failed save rolls back unlock and all other state")

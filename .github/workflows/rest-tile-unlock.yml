@@ -1,4 +1,4 @@
-name: Rest Tile Unlock and Next-Lap Application
+name: First-Lap Rest Unlock and Next-Lap Application
 on:
   pull_request:
     paths:

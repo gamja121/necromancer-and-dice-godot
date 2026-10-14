@@ -10,6 +10,14 @@
 - Commit only intended, tested changes when authorized. Push only to an explicitly authorized remote/branch. Never force-push, rewrite history, or delete source assets without authorization.
 - Never commit credentials, personal assistant data, or machine-specific secrets. Do not disable antivirus, the sandbox, or AnyDesk to speed up development.
 
+## Canonical boss design — contamination stages, NOT lap milestones (2026-10-14 user clarification)
+
+- **Authoritative user rule: multiple boss stages at contamination 20, 40 and 60, followed by a separate final boss.** NEVER conflate these thresholds with completed laps, nor say the 20/40/60 boss *stages* were discarded. Only the prior **lap-based interpretation** (20/40/60 completed circuits) was discarded.
+- The numerical contamination threshold of the **final** boss is **not yet confirmed**; do NOT invent 80 or 100 as that final threshold. The identity of each stage's boss, if a beaten stage can recur, and the final encounter/outcome behavior are not yet confirmed either. Treat these as open design decisions, not hidden assumptions.
+- **Current implementation is incomplete relative to that design**: `systems/map_state.gd` has `BOSS_CONTAMINATION = 20`, one `boss` tile at index 23 for all contamination >=20, and no distinct contamination-40/60/final-boss progression states. Do not report multi-stage bosses as implemented.
+- `LAP_CONTAMINATION_GAIN = 7` increases contamination when leaving home after a completed lap; laps are **not** boss appearance thresholds. Preserve unrelated lap mechanics, other collaborators' changes and saved runs.
+- Read `docs/map_port.md` before work on boss trigger, encounter, progress flags, save/migration or UI. Gameplay implementation needs Trigger/Information/Interaction/Visual/State review and regression tests. Do not implement an invented final threshold.
+
 ## Primary objective — finish migration, then retire the web prototype (2026-10-11)
 
 - The user's overriding development priority is to **finish migrating the fixed HTML/JS web prototype to Godot as quickly as safely possible, verify complete feature/rule/art/save parity, archive its source, then delete the obsolete web prototype repository**. This is not a request to invent additional story, boss combat or features that were not in the frozen source.
