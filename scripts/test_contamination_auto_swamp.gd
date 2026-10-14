@@ -1,6 +1,6 @@
 extends SceneTree
 ## Run: godot --headless --path . --script res://scripts/test_contamination_auto_swamp.gd
-## Covers 40/80 generation, in-lap pollution change, v1 save upgrade,
+## Covers 15/30 generation, in-lap pollution change, v1 save upgrade,
 ## old 2-swamp route plans, save rollback and actual board-tile image.
 const State = preload("res://systems/map_state.gd")
 const Plan = preload("res://systems/route_plan.gd")
@@ -22,11 +22,11 @@ func check(ok: bool, name: String) -> void:
 
 func _run() -> void:
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
-	check(State.FIRST_SWAMP_CONTAMINATION == 40 and State.SECOND_SWAMP_CONTAMINATION == 80, "existing contamination stages 40 and 80")
+	check(State.FIRST_SWAMP_CONTAMINATION == 15 and State.SECOND_SWAMP_CONTAMINATION == 30, "one swamp at 15, two at 30")
 	check(ResourceLoader.exists("res://assets/map/tiles/swamp.png"), "real swamp board art exists")
 	var full: Dictionary = Plan.default_plan()
 	full.selection["monster"] = Plan.OPTIONAL_CAPACITY
-	for level in [0, 39, 40, 60, 79, 80, 100]:
+	for level in [0, 14, 15, 19, 20, 29, 30, 39, 40, 60, 79, 80, 100]:
 		for configuration in [Plan.default_plan(), full]:
 			var world = State.new(data, 12345 + level, configuration)
 			world.laps = 2
@@ -62,16 +62,16 @@ func _run() -> void:
 
 	# A world-tree prayer can raise contamination mid-lap. This must change
 	# only existing ordinary roads; no map reroll or random-state advance.
-	world.contamination = 39
+	world.contamination = 14
 	world.position = State.HOME
 	world.generate()
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var old_tiles: Array = world.tiles.duplicate()
 	var old_serial: int = world.map_serial
 	var old_rng: int = world.rng.state
-	world.contamination = 40
-	check(session.persist_change(before), "crossing 40 persists atomically")
-	check(world.tiles.count("swamp") == 1, "first swamp appears on current board at 40")
+	world.contamination = 15
+	check(session.persist_change(before), "crossing 15 persists atomically")
+	check(world.tiles.count("swamp") == 1, "first swamp appears on current board at 15")
 	check(world.tiles.size() == 24 and world.map_serial == old_serial, "mid-lap reveal does not regenerate board")
 	check(world.rng.state == old_rng, "no RNG consumed to spawn swamp")
 	var swamp_index: int = world.tiles.find("swamp")
@@ -87,28 +87,35 @@ func _run() -> void:
 	await process_frame
 	session.reload_world()
 	world = session.world
-	check(world.contamination == 40 and world.tiles.count("swamp") == 1, "first swamp survives file reload")
+	check(world.contamination == 15 and world.tiles.count("swamp") == 1, "first swamp survives file reload")
 
-	# Upgrade to 80 in the SAME lap. A second swamp appears immediately.
-	world.contamination = 79
+	# Upgrade to 30 in the SAME lap. A second swamp appears immediately.
+	world.contamination = 29
 	before = world.snapshot().duplicate(true)
-	world.contamination = 80
-	check(session.persist_change(before), "crossing 80 saves second swamp")
+	world.contamination = 30
+	check(session.persist_change(before), "crossing 30 saves second swamp")
 	check(world.tiles.count("swamp") == 2 and world.map_serial == old_serial, "second swamp appears without rerolling the board")
 	session.reload_world()
 	world = session.world
 	check(world.tiles.count("swamp") == 2, "both swamps survive reload")
+	# Above 30, the count remains fixed at two; unrelated 40/80
+	# monster-conversion milestones must not spawn additional swamps.
+	for higher_level in [39, 40, 60, 80, 100]:
+		var stable_before: Dictionary = world.snapshot().duplicate(true)
+		world.contamination = higher_level
+		check(session.persist_change(stable_before) and world.tiles.count("swamp") == 2,
+			"at contamination %d, swamp count stays fixed at two" % higher_level)
 
-	# Old saved runs at 80 had two protected basic roads but no swamps.
-	world.contamination = 39
+	# Old saved runs at contamination 30 had reserved basic roads but no swamps.
+	world.contamination = 14
 	world.generate()
-	world.contamination = 80
+	world.contamination = 30
 	check(world.tiles.count("swamp") == 0 and session.save_world(), "older high-contamination board fixture stored")
 	var preserved_serial: int = world.map_serial
 	var prior: Array = world.tiles.duplicate()
 	session.reload_world()
 	world = session.world
-	check(world.contamination == 80 and world.tiles.count("swamp") == 2 and world.map_serial == preserved_serial,
+	check(world.contamination == 30 and world.tiles.count("swamp") == 2 and world.map_serial == preserved_serial,
 		"old high-contamination save upgraded in place")
 	var untouched: bool = true
 	for i in range(24):
@@ -117,11 +124,11 @@ func _run() -> void:
 	check(untouched, "migration only converts basic to swamp and preserves story/route tiles")
 	
 	# If the disk save fails, the contamination and tile changes rollback.
-	world.contamination = 39
+	world.contamination = 14
 	world.generate()
 	before = world.snapshot().duplicate(true)
 	session.save_file_path = "user://missing_auto_swamp_dir/cannot_write.json"
-	world.contamination = 40
+	world.contamination = 15
 	check(not session.persist_change(before), "failed save refused at contamination threshold")
 	check(world.snapshot() == before, "failed write rolls back new swamps and contamination")
 	session.save_file_path = scratch
