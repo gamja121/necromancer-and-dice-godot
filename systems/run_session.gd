@@ -125,6 +125,8 @@ func discover_location_on_event(index: int,kind: String) -> Dictionary:
 	world.event_flags[Discovery.unlock_flag(kind)] = true
 	world.event_flags[Discovery.receipt_flag(kind)] = true
 	world.event_flags[Discovery.home_flag(kind)] = true
+	world.event_flags["ui:unlock:%s:tile_pending" % kind] = true
+	world.event_flags["ui:unlock:%s:action_pending" % kind] = true
 	if kind=="rest":
 		if not RoutePlan.is_new(world.patrol_plan):
 			world.patrol_plan = RoutePlan.default_plan()
