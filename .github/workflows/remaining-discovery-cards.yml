@@ -1,0 +1,63 @@
+name: All Remaining Discovery Cards and Location Unlocks
+on:
+  pull_request:
+    paths:
+      - 'systems/location_discoveries.gd'
+      - 'systems/map_state.gd'
+      - 'systems/route_plan.gd'
+      - 'systems/run_session.gd'
+      - 'systems/exploration_actions.gd'
+      - 'map.gd'
+      - 'scripts/test_remaining_discovery_cards.gd'
+      - 'scripts/test_event_discovery_arrival_integration.gd'
+      - '.github/workflows/remaining-discovery-cards.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'systems/location_discoveries.gd'
+      - 'systems/map_state.gd'
+      - 'systems/route_plan.gd'
+      - 'systems/run_session.gd'
+      - 'systems/exploration_actions.gd'
+      - 'map.gd'
+      - 'scripts/test_remaining_discovery_cards.gd'
+      - '.github/workflows/remaining-discovery-cards.yml'
+permissions:
+  contents: read
+jobs:
+  discoveries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot scripts and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Test all remaining four real location unlocks and cards
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 260s godot --headless --path . --script res://scripts/test_remaining_discovery_cards.gd 2>&1 | tee remaining.log
+          grep -E '^REMAINING_DISCOVERY_CARDS: [0-9]+ passed, 0 failed$' remaining.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL remaining-discoveries:' remaining.log; then exit 1; fi
+      - name: Preserve original hill and real story priority regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 220s godot --headless --path . --script res://scripts/test_event_discovery_arrival_integration.gd 2>&1 | tee hill.log
+          grep -E '^DISCOVERY_ARRIVAL_INTEGRATION: [0-9]+ passed, 0 failed$' hill.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL discovery-arrival:' hill.log; then exit 1; fi
+      - name: Preserve rest and optional patrol protection
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 220s godot --headless --path . --script res://scripts/test_patrol_six_slots_unlocks.gd 2>&1 | tee patrol.log
+          grep -E '^PATROL_SIX_SLOTS: [0-9]+ passed, 0 failed$' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL patrol-six-slots:' patrol.log; then exit 1; fi

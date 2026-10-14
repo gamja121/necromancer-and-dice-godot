@@ -10,6 +10,7 @@ const ROUTE_CURRENT_ART = "res://assets/map/ui/patrol-route-current-frame.webp"
 const PATROL_ENTER_PARCHMENT = "res://assets/map/events/enter-parchment.png"
 const PATROL_EXIT_PARCHMENT = "res://assets/map/events/exit-parchment.png"
 const MapState = preload("res://systems/map_state.gd")
+const Discovery = preload("res://systems/location_discoveries.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅"}
 const LEGIONS = {"skeleton":"언데드","beast":"야수","corpse":"시체","plague":"역병","ice":"얼음","summon":"소환","demon":"악마","plant":"식물","insect":"벌레","element":"원소"}
@@ -306,6 +307,7 @@ func render_route() -> void:
 	var total: int=RoutePlan.total_selected(plan)
 	var remaining: int=RoutePlan.available(plan)
 	var rest_unlocked: bool=bool(plan.get("rest_unlocked",false))
+	var rest_add_limit: int=RoutePlan.REST_LIMIT-(1 if bool(plan.get("rest_discovered",false)) else 0)
 	# Preserve authentic parchment texture and the original enter/exit
 	# buttons; remove the obscure 6-current vs 5-reserve swap puzzle.
 	if ResourceLoader.exists(ROUTE_RESERVE_ART):
@@ -357,7 +359,7 @@ func render_route() -> void:
 		if not unlocked: art_tile.modulate=Color(0.50,0.49,0.47)
 		var label=label_at(content,"일반 마물" if kind=="monster" else "숙영",Vector2(x+79,451),Vector2(240,27),18)
 		label.add_theme_color_override("font_color",Color("352519"))
-		var limit=label_at(content,"추가 수량 제한 없음" if kind=="monster" else ("최대 3칸" if unlocked else "첫 바퀴 완주 후 해금"),Vector2(x+80,480),Vector2(250,22),13)
+		var limit=label_at(content,"추가 수량 제한 없음" if kind=="monster" else ("추가 최대 %d칸 · 전체 최대 3칸" % rest_add_limit if unlocked else "첫 바퀴 완주 후 해금"),Vector2(x+80,480),Vector2(250,22),13)
 		limit.add_theme_color_override("font_color",Color("795536"))
 		var minus=button(content,"−",Vector2(x+83,506),Vector2(53,45),func(): adjust_route_tile(kind,-1))
 		minus.name="PatrolMinus_"+kind
@@ -368,7 +370,7 @@ func render_route() -> void:
 		quantity.add_theme_color_override("font_color",Color("322317"))
 		var plus=button(content,"+",Vector2(x+206,506),Vector2(53,45),func(): adjust_route_tile(kind,1))
 		plus.name="PatrolPlus_"+kind
-		plus.disabled=used or not unlocked or remaining<=0 or (kind=="rest" and count>=RoutePlan.REST_LIMIT)
+		plus.disabled=used or not unlocked or remaining<=0 or (kind=="rest" and count>=rest_add_limit)
 		if kind=="rest" and unlocked and session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
 			UnlockNoticeBadge.attach(plus,"NEW")
 		route_minus_buttons[kind]=minus
@@ -392,7 +394,7 @@ func render_route() -> void:
 		{"label":"일반 마물","value":"5칸 확정"},
 		{"label":"사건","value":"1칸 확정"},
 		{"label":"보호 길","value":"2칸 고정"},
-		{"label":"숙영","value":"%d / 3칸" % int(plan.selection.rest)},
+		{"label":"숙영","value":"%d / 3칸" % (int(plan.selection.rest)+(1 if bool(plan.get("rest_discovered",false)) else 0))},
 		{"label":"늪지대","value":"시작 0칸"}
 	]:
 		var idx: int=int(["일반 마물","사건","보호 길","숙영","늪지대"].find(row.label))
@@ -402,22 +404,23 @@ func render_route() -> void:
 		var value=label_at(content,str(row.value),Vector2(952,238+idx*58),Vector2(219,28),17)
 		value.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		value.add_theme_color_override("font_color",Color("382719"))
-	# Permanent discovery is visible in the actual HOME patrol editor,
-	# independent of whether the one-time NEW badge has been acknowledged.
-	if session.event_flag_is_set(session.MapState.HILL_UNLOCK_FLAG):
-		var forest_preview=art(content,"res://assets/map/tiles/forest.png",Vector2(956,523),Vector2(64,61))
-		forest_preview.name="HomeUnlockedForestTile"
-		forest_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var forest_text=label_at(content,"언덕 타일 해금",Vector2(1021,526),Vector2(181,26),16)
-		forest_text.name="HomeForestUnlockedLabel"
-		forest_text.add_theme_color_override("font_color",Color("5c341f"))
-		var forest_note=label_at(content,"맵에 자동 배치",Vector2(1021,553),Vector2(181,22),13)
-		forest_note.add_theme_color_override("font_color",Color("765335"))
-		if session.event_flag_is_set(session.MapState.HILL_HOME_NOTICE):
-			UnlockNoticeBadge.attach(forest_preview,"NEW")
+	# All event-discovered tiles appear as independent persistent art rows.
+	var discovery_row: int=0
+	for kind in Discovery.ORDER:
+		if not session.event_flag_is_set(Discovery.unlock_flag(kind)): continue
+		var y: float=510.0+float(discovery_row)*30.0
+		var tile_preview=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(956,y),Vector2(39,29))
+		tile_preview.name="HomeUnlockedForestTile" if kind=="forest" else "HomeUnlockedTile_%s" % kind
+		tile_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var tile_text=label_at(content,"%s 타일 해금" % MapState.NAMES[kind],Vector2(1000,y+1),Vector2(195,27),15)
+		tile_text.name="HomeForestUnlockedLabel" if kind=="forest" else "HomeUnlockLabel_%s" % kind
+		tile_text.add_theme_color_override("font_color",Color("5c341f"))
+		if session.event_flag_is_set(Discovery.home_flag(kind)):
+			UnlockNoticeBadge.attach(tile_preview,"NEW")
+		discovery_row+=1
 	action_button.disabled=used
 	route_reset_button.disabled=used
-	status.text=("이번 방문 편성 확정 · 숙영 해금은 다음 방문에 편성 가능" if not rest_unlocked else "이번 방문은 확정 완료 · 다음 바퀴부터 반영") if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 첫 순찰 완주 후 해금" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining] if not rest_unlocked else "추가 %d/%d칸 선택 · %d칸 남음 · 숙영 최대 3칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining])
+	status.text=("이번 방문 편성 확정 · 숙영 해금은 다음 방문에 편성 가능" if not rest_unlocked else "이번 방문은 확정 완료 · 다음 바퀴부터 반영") if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 첫 순찰 완주 후 해금" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining] if not rest_unlocked else "추가 %d/%d칸 선택 · %d칸 남음 · 숙영 추가 최대 %d칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining,rest_add_limit])
 
 func unlock_rest() -> void:
 	if type!="home" or bool(session.world.patrol_plan.get("rest_unlocked",false)): return

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const RoutePlan = preload("res://systems/route_plan.gd")
+const Discovery = preload("res://systems/location_discoveries.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -26,6 +27,8 @@ var roster: Array = []
 var position = HOME
 var cleared: Array = []
 var contamination = 0
+# Historical gate for world-tree discovery, never reset by purification.
+var max_contamination_reached: int = 0
 var laps = 0
 var lap_ready = false
 var last_face = 1
@@ -110,12 +113,13 @@ func generate() -> void:
 	var added_swamps: int = mini(maxi(0,required_swamp_count(contamination)-int(counts.swamp)),maxi(0,int(counts.basic)))
 	counts.basic -= added_swamps
 	counts.swamp += added_swamps
-	# One EXTRA discovered hill survives subsequent home shuffles. Retain
-	# the original single forest slot for existing saves/story-gate parity;
-	# never consume protected future-swamp roads or a route-plan choice.
-	if event_flags.get(HILL_UNLOCK_FLAG,false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
-		counts.basic -= 1
-		counts.forest += 1
+	# Every genuinely discovered EXTRA place (including the original hill)
+	# persists through HOME reshuffles without consuming reserved swamp roads.
+	# Legacy forest=1 and graveyard-after-lap=1 remain intact for old stories.
+	for kind in Discovery.ORDER:
+		if event_flags.get(Discovery.unlock_flag(kind),false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
+			counts.basic -= 1
+			counts[kind] += 1
 	if contamination>=BOSS_CONTAMINATION: counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
@@ -178,14 +182,20 @@ func reveal_swamps_for_contamination() -> int:
 ## forest on the CURRENT board without touching RNG/priority story cells.
 ## -1 means no safe free road: the caller must not issue a fake unlock.
 func reveal_discovered_hill() -> int:
-	if tiles.size()!=24 or event_flags.get(HILL_UNLOCK_FLAG,false)==true: return -1
+	return reveal_discovered_location("forest")
+
+## Change precisely ONE vacant ordinary road, while preserving its
+## in-flight position, two future swamp roads, fixed and story cells.
+## The saved unlock flag is committed by RunSession only on success.
+func reveal_discovered_location(kind: String) -> int:
+	if not Discovery.exists(kind) or tiles.size()!=24 or event_flags.get(Discovery.unlock_flag(kind),false)==true: return -1
 	# Never steal the two future swamp reservations on a low-corruption lap.
 	if tiles.count("basic") <= maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-tiles.count("swamp")): return -1
 	var start: int = (map_serial*7+move_serial*3)%tiles.size()
 	for offset in range(tiles.size()):
 		var i: int = (start+offset)%tiles.size()
 		if i == position or i == BOSS_TILE_INDEX or tiles[i]!="basic": continue
-		tiles[i] = "forest"
+		tiles[i] = kind
 		cleared.erase(i)
 		return i
 	return -1
@@ -214,7 +224,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":max_contamination_reached,"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -386,6 +396,7 @@ func restore(saved: Dictionary) -> bool:
 	position = int(saved.position)
 	cleared = saved.cleared.map(func(n): return int(n))
 	contamination = int(saved.contamination)
+	max_contamination_reached = clampi(maxi(contamination,int(saved.get("max_contamination_reached",contamination))),0,100)
 	laps = int(saved.laps)
 	lap_ready = saved.lap_ready
 	last_face = int(saved.last_face)
