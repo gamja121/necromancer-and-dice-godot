@@ -1,6 +1,6 @@
 extends SceneTree
 ## P4-02B: genuine Map die -> altar three beats -> pass/fight -> real
-## 4-enemy battle win/loss/retry -> explicit tracking-quest final scene.
+## 4-enemy battle victory reaches tracking quest; defeat is terminal game over.
 ## All fixtures are isolated PID user:// saves. Only the test's starting
 ## rumor receipts, tile permutation and battle strengths are deterministic.
 const MAP_SCENE = preload("res://map.tscn")
@@ -79,9 +79,14 @@ func fresh_altar(session: Node, tag: String) -> Dictionary:
 	clear_save(path)
 	session.save_file_path=path
 	session.start_new_world()
-	# Legacy narrative coverage runs at unlocked contamination; gate edges have their own test.
-	session.world.contamination = 100
-	session.world.reveal_boss_at_threshold()
+	# Actual +7 home-exit generation at the requested contamination; never
+	# overwrite the only event/forest tile at the boss slot after generation.
+	session.world.contamination = 93
+	session.world.lap_ready = true
+	session.world.leave_home()
+	check(session.world.contamination==100 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss"
+		and session.world.tiles.has("event") and session.world.tiles.has("forest"),
+		tag+": test board preserves both narrative tile types")
 	var world=session.world
 	# Only canonical *already completed* prerequisite rumor; no free quest
 	# progress from this test and no modifications to live source logic.
@@ -155,6 +160,16 @@ func fight_to_result(session: Node, map: Control, ids: Array, victor: String, la
 	check(ENEMIES.valid(session.world.definitions,names),label+": exactly 4 unique enemies with correct elite lead")
 	check(not session.event_flag_is_set(ALTAR.COMPLETE_FLAG) and not session.event_flag_is_set(ALTAR.RITUAL_TRACKING_FLAG),label+": entering fight doesn't prematurely grant quest")
 	deterministic_round(battle,victor,label)
+	# A mandatory one-time brand reference blocks the normal first roll until
+	# the summoning animation completes and the player closes the panel.
+	check(await until_ready(func(): return not battle.entry_summon_active,18000),
+		label+": entry summon animation is finished")
+	check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open,
+		label+": original first-roll brand reference appears")
+	if is_instance_valid(battle.brand_reference):
+		battle.brand_reference.close()
+		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference),13000),
+			label+": player closes the one-time brand reference")
 	var turns: int=0
 	while battle.rules.winner().is_empty() and turns<8:
 		turns+=1
@@ -162,10 +177,15 @@ func fight_to_result(session: Node, map: Control, ids: Array, victor: String, la
 	check(battle.rules.winner()==victor,label+": actual battle actions resolve %s in %d round(s)" % [victor,turns])
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),label+": battle result clears saved encounter")
 	check(session.world.pending_reward.is_empty(),label+": story fight cannot generate ordinary corpse capture")
-	check(not battle.map_return.disabled,label+": result enables actual battle return button")
+	if victor=="enemy":
+		var ended: bool=await until_ready(func(): return session.world.run_result.get("reason","")=="battle_defeat" and is_instance_valid(map.game_over_screen),20000)
+		check(ended,label+": actual defeat displays permanent game-over screen")
+		check(battle.map_return.disabled,label+": no map return or retry after losing battle")
+		return ended
+	check(not battle.map_return.disabled,label+": victory enables battle return button")
 	battle.map_return.pressed.emit()
 	var returned: bool=await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and panel_button(map,"흔적 확인")!=null,21000)
-	check(returned,label+": map displays original altar result screen")
+	check(returned,label+": winning altar battle opens source result screen")
 	return returned
 
 func verify_final(session: Node, map: Control, label: String, choice: String, result: String, prior_receipts: Array) -> void:
@@ -270,31 +290,16 @@ func scenario_loss_finish(session: Node) -> void:
 	if not await fight_to_result(session,map,[lost],"enemy","loss"): return
 	check(session.event_flag_is_set(ALTAR.BATTLE_LOST_FLAG) and not session.event_flag_is_set(ALTAR.BATTLE_WON_FLAG),"loss: actual failure receipt saved")
 	check(session.world.graveyard_corpses.any(func(c): return str(c.id)==lost),"loss: deployed owned monster is permanently dead")
-	check(panel_button(map,"다시 도전")!=null and panel_button(map,"흔적 확인")!=null,"loss: player can either retry or acknowledge failure")
-	if await acknowledge_to_followup(session,map,"loss","lost"):
-		await verify_final(session,map,"loss","fight","lost",receipts)
-
-func scenario_retry(session: Node) -> void:
-	var entry: Dictionary=await begin_fight(session,"retry")
-	if entry.is_empty(): return
-	var map: Control=entry.map
-	var receipts: Array=session.world.reward_receipts.duplicate(true)
-	var lost: String=str(session.world.roster[0].id)
-	var reserve: String=str(session.world.roster[1].id)
-	if not await fight_to_result(session,map,[lost],"enemy","retry-loss"): return
-	check(session.get_story_event(ALTAR.EVENT_ID).battle_result=="lost" and not ALTAR.followup_ready(session,session.world.position),"retry: loss saved, no premature quest")
-	check(session.world.roster.size()==1 and session.world.graveyard_corpses.any(func(c): return str(c.id)==lost),"retry: one permanent casualty and intact reserve")
-	var retry: Button=panel_button(map,"다시 도전")
-	check(retry!=null,"retry: original result exposes retry button")
-	if retry==null: return
-	for i in range(3): await process_frame
-	retry.pressed.emit()
-	check(not session.story_battle_result_pending(ALTAR.EVENT_ID) and is_deck(map),"retry: button acknowledges prior loss and reopens authentic deck")
-	if not await fight_to_result(session,map,[reserve],"ally","retry-win"): return
-	check(session.get_story_event(ALTAR.EVENT_ID).battle_result=="won" and not session.event_flag_is_set(ALTAR.BATTLE_LOST_FLAG),"retry: new victory replaces active loss result")
-	check(session.world.graveyard_corpses.any(func(c): return str(c.id)==lost) and session.world.roster.size()==1,"retry: winning never revives permanently dead combatant")
-	if await acknowledge_to_followup(session,map,"retry","won"):
-		await verify_final(session,map,"retry","fight","won",receipts)
+	check(session.world.run_result.get("reason","")=="battle_defeat" and session.world.run_result.get("ended",false)==true,
+		"loss: real expedition ends regardless of a surviving reserve monster")
+	check(session.world.roster.size()==1,"loss: reserve monster survives but cannot restart defeated expedition")
+	check(panel_button(map,"다시 도전")==null and panel_button(map,"흔적 확인")==null,
+		"loss: neither retry nor altar story acknowledgment can bypass terminal game over")
+	map.queue_free()
+	await process_frame
+	session.reload_world()
+	check(session.world.run_result.get("reason","")=="battle_defeat" and not ALTAR.completed(session),
+		"loss: game-over persisted and quest cannot advance after save reload")
 
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")
@@ -307,7 +312,6 @@ func _run() -> void:
 	await scenario_pass(session)
 	await scenario_win(session)
 	await scenario_loss_finish(session)
-	await scenario_retry(session)
 	session.save_file_path=old_path
 	if created: session.queue_free()
 	for path in paths: clear_save(path)
