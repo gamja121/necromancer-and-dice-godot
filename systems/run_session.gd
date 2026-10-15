@@ -9,6 +9,7 @@ const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
+const Routine = preload("res://systems/routine_event_catalog.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
@@ -122,6 +123,13 @@ func discover_location_on_event(index: int,kind: String) -> Dictionary:
 	var converted: int = world.reveal_discovered_location(kind)
 	if converted<0:
 		return {"ok":false,"reason":"보호 길을 제외한 빈 칸이 없어 해금을 보류합니다."}
+	_apply_discovery_flags(kind)
+	if not persist_change(before): return {"ok":false,"reason":notice}
+	return {"ok":true,"index":converted,"kind":kind}
+
+## Reuse the same original unlock transaction for the optional
+## discovery path, without paying another RNG roll after selecting the event.
+func _apply_discovery_flags(kind: String) -> void:
 	world.event_flags[Discovery.unlock_flag(kind)] = true
 	world.event_flags[Discovery.receipt_flag(kind)] = true
 	world.event_flags[Discovery.home_flag(kind)] = true
@@ -132,8 +140,86 @@ func discover_location_on_event(index: int,kind: String) -> Dictionary:
 			world.patrol_plan = RoutePlan.default_plan()
 		world.patrol_plan["rest_unlocked"] = true
 		world.patrol_plan["rest_discovered"] = true
+
+func _event_visit_id(index: int) -> String:
+	return "routine-visit:%d:%d:%d" % [world.map_serial,world.move_serial,index]
+
+## This method MUST only be called after map.gd's complete story priority
+## dispatch has found nothing playable/resumable. One transaction covers
+## selection, optional discovery, random card source and the visit receipt.
+func begin_story_free_event(index: int) -> Dictionary:
+	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"원정을 진행할 수 없습니다."}
+	if index!=world.position or index<0 or index>=world.tiles.size() or world.tiles[index]!="event":
+		return {"ok":false,"reason":"실제 사건 타일 도착만 유효합니다."}
+	if not world.pending_move.is_empty() or not world.pending_reward.is_empty() or not encounter.is_empty() or not world.active_encounter.is_empty():
+		return {"ok":false,"reason":"기존 이동·전투·보상을 먼저 완료하세요."}
+	var receipt: String = _event_visit_id(index)
+	if receipt in world.reward_receipts: return {"ok":false,"reason":"이번 방문은 이미 완료했습니다."}
+	var before: Dictionary = world.snapshot().duplicate(true)
+	var possible: String = Discovery.next_eligible(world)
+	# One balanced draw only when a real undiscovered, qualified location
+	# exists. Without such a location, all six routine events stay reachable.
+	if not possible.is_empty() and world.rng.randf()>=0.60:
+		var converted: int = world.reveal_discovered_location(possible)
+		if converted>=0:
+			_apply_discovery_flags(possible)
+			# A discovery consumes this one real event visit too. Without its
+			# visit receipt, a second dispatcher call could grant a routine card
+			# on the very same landing after the unlock was already saved.
+			world.reward_receipts.append(receipt)
+			if not persist_change(before): return {"ok":false,"reason":notice}
+			return {"ok":true,"type":"discovery","location":possible,"index":converted}
+		# No free road: safely fall back to a routine instead of awarding a
+		# phantom place or overwriting a boss/story/protected swamp slot.
+	var event_id: String = Routine.choose(world.rng)
+	var definition: Dictionary = Routine.details(event_id)
+	var offered: Dictionary = {}
+	if str(definition.effect)=="dice":
+		var pool: Array = Catalog.dice_cards()
+		offered = pool[world.rng.randi_range(0,pool.size()-1)].duplicate(true)
+	world.pending_reward = {
+		"kind":"routine","id":receipt,"index":index,
+		"event_id":event_id,"phase":"choice","offer":offered
+	}
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"index":converted,"kind":kind}
+	return {"ok":true,"type":"routine","event_id":event_id}
+
+## One explicit routine choice resolves atomically; 5/5 dice uses the
+## ORIGINAL RewardOverflow and claim_reward replace/decline flow.
+func complete_routine_choice(choice: String) -> Dictionary:
+	if world==null or not world.run_result.is_empty(): return {"ok":false}
+	var pending: Dictionary = world.pending_reward
+	if pending.get("kind","")!="routine" or pending.get("phase","")!="choice" or not choice in ["take","skip"]:
+		return {"ok":false,"reason":"선택 가능한 사건이 없습니다."}
+	if not Routine.valid(str(pending.get("event_id",""))): return {"ok":false}
+	if str(pending.id) in world.reward_receipts: return {"ok":false}
+	var definition: Dictionary = Routine.details(str(pending.event_id))
+	var before: Dictionary = world.snapshot().duplicate(true)
+	var message: String = "사건을 지나쳤습니다."
+	if choice=="take":
+		match str(definition.effect):
+			"dice":
+				var item: Dictionary = create_item("dice",pending.offer)
+				if world.dice_cards.size()>=Catalog.DICE_CAPACITY:
+					world.pending_reward["phase"] = "overflow"
+					world.pending_reward["reward"] = {"kind":"dice","item":item}
+					if not persist_change(before): return {"ok":false,"reason":notice}
+					return {"ok":true,"overflow":true,"message":"카드 보관함이 가득 찼습니다."}
+				world.dice_cards.append(item)
+				message = "%s 획득 · 주사위 카드 %d/5" % [str(item.label),world.dice_cards.size()]
+			"heal":
+				for unit in world.roster:
+					unit.current_hp = mini(int(unit.max_hp),int(unit.current_hp)+1)
+				message = "아군 마물 체력이 1씩 회복됐습니다."
+			"cleanse":
+				world.contamination = maxi(0,int(world.contamination)-1)
+				message = "오염도가 1 감소했습니다."
+			_:
+				return {"ok":false,"reason":"알 수 없는 사건 효과입니다."}
+	world.reward_receipts.append(str(pending.id))
+	world.pending_reward = {}
+	if not persist_change(before): return {"ok":false,"reason":notice}
+	return {"ok":true,"overflow":false,"message":message}
 
 ## A missing event has the implicit "unseen" state.
 func get_story_event(event_id: String) -> Dictionary:

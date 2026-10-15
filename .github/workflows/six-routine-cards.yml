@@ -1,0 +1,53 @@
+name: Six Routine Event Cards Godot
+on:
+  pull_request:
+    paths:
+      - 'systems/routine_event_catalog.gd'
+      - 'systems/routine_event_card.gd'
+      - 'systems/run_session.gd'
+      - 'systems/map_state.gd'
+      - 'map.gd'
+      - 'scripts/test_six_routine_cards.gd'
+      - '.github/workflows/six-routine-cards.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'systems/routine_event_catalog.gd'
+      - 'systems/routine_event_card.gd'
+      - 'systems/run_session.gd'
+      - 'systems/map_state.gd'
+      - 'map.gd'
+      - 'scripts/test_six_routine_cards.gd'
+      - '.github/workflows/six-routine-cards.yml'
+permissions:
+  contents: read
+jobs:
+  routines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and check scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Run all six cards and both choices with save, overflow and map UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 430s godot --headless --path . --script res://scripts/test_six_routine_cards.gd 2>&1 | tee routine.log
+          grep -E '^SIX_ROUTINE_CARDS: [0-9]+ passed, 0 failed$' routine.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL six-routine:' routine.log; then exit 1; fi
+      - name: Preserve previous discovered-place card contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 260s godot --headless --path . --script res://scripts/test_remaining_discovery_cards.gd 2>&1 | tee discovery.log
+          grep -E '^REMAINING_DISCOVERY_CARDS: [0-9]+ passed, 0 failed$' discovery.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL remaining-discoveries:' discovery.log; then exit 1; fi
