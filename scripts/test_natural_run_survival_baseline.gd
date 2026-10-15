@@ -63,6 +63,16 @@ func _run() -> void:
 	var reward_discards := 0
 	var battle_cards_used := 0
 	var battle_rounds := 0
+	var units_captured := 0
+	var units_from_chests := 0
+	var units_lost := 0
+	var captures_attempted := 0
+	var captures_succeeded := 0
+	var units_at_home_total := 0
+	var home_visits := 0
+	var units_at_end_total := 0
+	var dice_offered := 0
+	var dice_claimed := 0
 	for trial in range(TRIALS):
 		var session = Session.new()
 		session.save_file_path = "user://natural_survival_%d_%d.json" % [OS.get_process_id(),trial]
@@ -75,6 +85,8 @@ func _run() -> void:
 		for roll_index in range(MAX_ROLLS):
 			if not world.run_result.is_empty() or world.laps >= MAX_LAPS: break
 			if world.position == 15 and world.lap_ready:
+				units_at_home_total += world.roster.size()
+				home_visits += 1
 				if not session.enter_home():
 					failures += 1
 					break
@@ -144,15 +156,18 @@ func _run() -> void:
 						failures += 1
 						break
 				var result: String = battle.winner()
+				var roster_before_battle: int = world.roster.size()
 				if result.is_empty() or not session.finish_encounter(battle):
 					failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 					break
+				units_lost += maxi(0,roster_before_battle-world.roster.size())
 				battle_count += 1
 				if tile=="boss" and result=="ally": boss_wins += 1
 				if result=="enemy":
 					defeats += 1
 					break
 				if not world.pending_reward.is_empty() and world.pending_reward.get("kind","")=="capture":
+					captures_attempted += 1
 					if not session.select_capture(0):
 						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
@@ -162,6 +177,9 @@ func _run() -> void:
 						break
 					if capture.success:
 						var claimed: Dictionary = _claim_with_overflow(session)
+						if claimed.get("ok",false) and claimed.get("kept",false):
+							units_captured += 1
+							captures_succeeded += 1
 						if not claimed.get("ok",false): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
 					else:
 						while world.pending_reward.get("phase","")=="retry":
@@ -170,13 +188,19 @@ func _run() -> void:
 								failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 								break
 						if world.pending_reward.get("phase","")=="success":
-							if not _claim_with_overflow(session).get("ok",false): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
+							var retry_claim: Dictionary = _claim_with_overflow(session)
+							if retry_claim.get("ok",false) and retry_claim.get("kept",false):
+								units_captured += 1
+								captures_succeeded += 1
+							if not retry_claim.get("ok",false): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
 						elif world.pending_reward.get("phase","")=="failed":
 							if not session.dismiss_failed_capture(): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
 			elif tile=="gem":
 				if world.pending_reward.get("kind","")=="treasure":
 					var offers: Array = world.pending_reward.offers
 					var chosen := 0
+					for offer in offers:
+						if str(offer.kind)=="dice": dice_offered += 1
 					for i in range(offers.size()):
 						if str(offers[i].kind)=="unit" and world.roster.size()<4: chosen=i; break
 					if not session.select_treasure(chosen) or not session.prepare_treasure_reward(chosen):
@@ -186,18 +210,23 @@ func _run() -> void:
 					var kind: String = str(pending.reward.kind)
 					var capacity: int = 8 if kind=="unit" else (5 if kind=="dice" else 0)
 					var inventory: int = world.roster.size() if kind=="unit" else (world.dice_cards.size() if kind=="dice" else world.brand_cards.size())
-					if not _claim_with_overflow(session).get("ok",false):
+					var treasure_claim: Dictionary = _claim_with_overflow(session)
+					if treasure_claim.get("ok",false) and treasure_claim.get("kept",false):
+						if kind=="unit": units_from_chests += 1
+						elif kind=="dice": dice_claimed += 1
+					if not treasure_claim.get("ok",false):
 						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
 			elif tile in ["event","forest","altar","village","graveyard","unknown","fortune-teller-camp"]:
 				skipped_events += 1
 		if boss_attempted: boss_runs += 1
 		if world.run_result.is_empty() and world.laps>=MAX_LAPS: completed_runs += 1
+		units_at_end_total += world.roster.size()
 		lap_total += world.laps
 		print("SURVIVAL trial=",trial," laps=",world.laps," battles=",battle_count," roster=",world.roster.size()," contamination=",world.contamination," boss_attempted=",boss_attempted," ended=",not world.run_result.is_empty())
 		for suffix in ["",".tmp"]:
 			var p: String = session.save_file_path + suffix
 			if FileAccess.file_exists(p): DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 		session.queue_free()
-	print("SURVIVAL trials=",TRIALS," mean_laps=",float(lap_total)/TRIALS," defeats=",defeats," boss_encounters=",reached_boss," boss_runs=",boss_runs," boss_wins=",boss_wins," skipped_event_arrivals=",skipped_events," max_laps_reached=",completed_runs," inherited=",inherit_success," patrols=",patrol_success," battle_cards_used=",battle_cards_used," battle_rounds=",battle_rounds," failures=",failures)
+	print("SURVIVAL trials=",TRIALS," mean_laps=",float(lap_total)/TRIALS," defeats=",defeats," boss_encounters=",reached_boss," boss_runs=",boss_runs," boss_wins=",boss_wins," skipped_event_arrivals=",skipped_events," max_laps_reached=",completed_runs," inherited=",inherit_success," patrols=",patrol_success," battle_cards_used=",battle_cards_used," battle_rounds=",battle_rounds," captures_attempted=",captures_attempted," captures_succeeded=",captures_succeeded," units_captured=",units_captured," units_from_chests=",units_from_chests," units_lost=",units_lost," units_at_end_avg=",float(units_at_end_total)/TRIALS," home_roster_avg=",float(units_at_home_total)/maxi(1,home_visits)," dice_offered=",dice_offered," dice_claimed=",dice_claimed," failures=",failures)
 	quit(0 if failures==0 else 1)
