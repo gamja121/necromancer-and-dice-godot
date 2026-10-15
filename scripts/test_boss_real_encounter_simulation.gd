@@ -4,13 +4,14 @@ extends SceneTree
 const Session = preload("res://systems/run_session.gd")
 const State = preload("res://systems/map_state.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
-const TRIALS = 20
+const TRIALS = 80
 func _initialize() -> void:
 	call_deferred("_run")
 func _run() -> void:
 	var failures := 0
 	var wins := 0
 	var losses := 0
+	var stage_results: Dictionary = {}
 	for trial in range(TRIALS):
 		var session = Session.new()
 		session.save_file_path = "user://boss_end_to_end_%d_%d.json" % [OS.get_process_id(),trial]
@@ -33,7 +34,7 @@ func _run() -> void:
 			while unit.brands.size() < 3:
 				unit.brands.append(generator.make_brand(str(kinds[(trial+i+unit.brands.size()) % kinds.size()])))
 			world.roster.append(unit)
-		for lap_index in range(3):
+		for lap_index in range([3,6,9,12][trial % 4]):
 			world.lap_ready = true
 			world.leave_home()
 		if world.tiles[State.BOSS_TILE_INDEX] != "boss":
@@ -59,19 +60,24 @@ func _run() -> void:
 			battle.begin_round()
 			for action_index in range(80):
 				if battle.next_action().is_empty(): break
+		var stage: int = [20,40,60,80][trial % 4]
+		if not stage_results.has(stage): stage_results[stage] = {"wins":0,"losses":0}
 		if battle.winner().is_empty() or not session.finish_encounter(battle):
 			printerr("BOSS ERROR unresolved/unsaved fight trial=",trial)
 			failures += 1
 		elif battle.winner() == "ally":
 			wins += 1
+			stage_results[stage].wins += 1
 			if not State.BOSS_TILE_INDEX in world.cleared: failures += 1
 		else:
 			losses += 1
+			stage_results[stage].losses += 1
 			if world.run_result.get("reason","") != "battle_defeat": failures += 1
-		print("BOSS trial=",trial," winner=",battle.winner()," rounds=",battle.round_number," roster=",world.roster.size())
+		print("BOSS contamination=",world.contamination," trial=",trial," winner=",battle.winner()," rounds=",battle.round_number," roster=",world.roster.size())
 		for suffix in ["",".tmp"]:
 			var path: String = session.save_file_path + suffix
 			if FileAccess.file_exists(path): DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 		session.queue_free()
+	print("BOSS stage_results=",stage_results)
 	print("BOSS trials=",TRIALS," wins=",wins," losses=",losses," failures=",failures)
 	quit(0 if failures == 0 else 1)
