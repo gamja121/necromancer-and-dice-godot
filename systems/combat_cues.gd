@@ -95,26 +95,46 @@ func show_damage(amount: int) -> void:
 	expiry = clock+1.45
 
 func play_brands(units: Array) -> void:
+	# Presentation only: the round's blessing/curse values are already resolved.
+	# Allies sweep left-to-right, then enemies sweep right-to-left.
 	marks.clear()
-	var displayed = 0
-	var total = 0
-	for unit in units:
-		if not unit.alive or not scene.sprites.has(unit.id): continue
+	var ordered: Array = []
+	for team in ["ally","enemy"]:
+		var side: Array = []
+		for unit in units:
+			if unit.team==team and unit.alive and scene.sprites.has(unit.id):
+				side.append(unit)
+		side.sort_custom(func(a, b):
+			return scene.unit_x(a)<scene.unit_x(b) if team=="ally" else scene.unit_x(a)>scene.unit_x(b))
+		ordered.append_array(side)
+	for unit in ordered:
 		var captions: Array = []
 		for mode in ["bless","curse"]:
 			for key in unit[mode]:
-				if unit[mode][key]<=0: continue
-				var color = Color("aef5b5") if mode=="bless" else Color("ffaaa3")
+				if int(unit[mode][key])<=0: continue
+				var color = Color("ffe19a") if mode=="bless" else Color("b49acb")
 				var caption = ("축복 " if mode=="bless" else "저주 ")+NAMES.get(key,key)
-				captions.append({"text":caption,"color":color})
-				if displayed<3:
-					step(caption,color)
-					displayed += 1
-				total += 1
-		if not captions.is_empty(): marks.append({"id":unit.id,"captions":captions.slice(0,3)})
-	if total>3: step("+"+str(total-3),Color("cdbb9e"))
-	if marks.is_empty(): return
-	await scene.wait_presentation(0.76,0.52)
+				captions.append({"text":caption,"color":color,"mode":mode})
+		if captions.is_empty(): continue
+		marks = [{"id":unit.id,"captions":captions.slice(0,3)}]
+		var is_blessed: bool = false
+		var is_cursed: bool = false
+		for caption in captions:
+			if caption.mode=="bless": is_blessed=true
+			if caption.mode=="curse": is_cursed=true
+		var sprite: TextureRect = scene.sprites[unit.id]
+		var base_modulate: Color = sprite.modulate
+		var effect_color = Color("ffe4a3") if is_blessed else Color("80628d")
+		step(("축복 " if is_blessed else "저주 ")+str(unit.name),effect_color)
+		# Quick gold burst for blessing; muted, sinking violet for curse.
+		var tween = create_tween()
+		tween.tween_property(sprite,"modulate",effect_color if is_blessed else Color("81738a"),0.075)
+		tween.tween_property(sprite,"modulate",base_modulate,0.17)
+		await scene.wait_presentation(0.22 if is_blessed else 0.25,0.15)
+		if not is_inside_tree(): return
+		if is_instance_valid(tween): tween.kill()
+		if is_instance_valid(sprite): sprite.modulate = base_modulate
+		marks.clear()
 	marks.clear()
 
 func _draw() -> void:
