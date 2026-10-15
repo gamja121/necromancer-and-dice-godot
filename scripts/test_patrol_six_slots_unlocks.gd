@@ -77,6 +77,34 @@ func _run() -> void:
 	state2.contamination=30
 	state2.generate()
 	check(state2.tiles.count("basic")>=0 and state2.tiles.count("swamp")==2,"two reserved roads convert to swamp by contamination 30 without consuming optional monsters or rest")
+	# A saved expedition with the previous one-event board must not be
+	# rewritten mid-lap, but its next home shuffle uses the new two-event
+	# baseline without creating a third event.
+	var previous_run=State.new(defs,12580)
+	previous_run.tiles[previous_run.tiles.find("event")]="basic"
+	check(previous_run.tiles.count("event")==1,"pre-update one-event board remains loadable")
+	previous_run.lap_ready=true
+	previous_run.leave_home()
+	check(previous_run.tiles.count("event")==2 and previous_run.tiles.size()==24 and previous_run.laps==1,
+		"older one-event run receives two events on its next legitimate house shuffle")
+	# If the boss arrives mid-lap while index 23 is an event, relocate the
+	# event to a displaced monster tile instead of destroying an event.
+	var boss_crossing=State.new(defs,12581)
+	var event_at: int=boss_crossing.tiles.find("event")
+	if event_at!=State.BOSS_TILE_INDEX:
+		var displaced: String=str(boss_crossing.tiles[State.BOSS_TILE_INDEX])
+		boss_crossing.tiles[event_at]=displaced
+		boss_crossing.tiles[State.BOSS_TILE_INDEX]="event"
+	boss_crossing.contamination=20
+	var original_event_count: int=boss_crossing.tiles.count("event")
+	var original_monster_count: int=boss_crossing.tiles.count("monster")
+	var original_rng: int=boss_crossing.rng.state
+	var original_serial: int=boss_crossing.map_serial
+	check(boss_crossing.reveal_boss_at_threshold(),"crossing contamination 20 reveals a real boss tile")
+	check(boss_crossing.tiles[23]=="boss" and boss_crossing.tiles.count("event")==original_event_count and original_event_count==2,
+		"mid-lap boss keeps two existing event tiles when slot 23 was an event")
+	check(boss_crossing.tiles.count("monster")==original_monster_count-1 and boss_crossing.rng.state==original_rng and boss_crossing.map_serial==original_serial,
+		"boss replaces only a monster without touching RNG, map serial or swamp reservations")
 	var session: Node=root.get_node_or_null("RunSession")
 	var own: bool=session==null
 	if own:
