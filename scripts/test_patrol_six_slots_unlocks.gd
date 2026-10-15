@@ -33,8 +33,8 @@ func _run() -> void:
 		var world=State.new(defs,1000+seed)
 		var board: Array=world.tiles
 		verify_fixed(board,"start seed %d" % seed)
-		check(board.count("monster")==5 and board.count("event")==1,"start %d automatically includes exactly 5 monsters and 1 event" % seed)
-		check(board.count("rest")==0 and board.count("swamp")==0 and board.count("basic")==11,"start %d has no rests/swamps and 11 empty roads" % seed)
+		check(board.count("monster")==5 and board.count("event")==2,"start %d automatically includes exactly 5 monsters and 2 events" % seed)
+		check(board.count("rest")==0 and board.count("swamp")==0 and board.count("basic")==10,"start %d has no rests/swamps and 10 empty roads" % seed)
 		check(board.count("graveyard")==0 and board.count("unknown")==0 and board.count("altar")==0 and board.count("rare-monster")==0,"start %d advanced tiles absent" % seed)
 	check(Plan.available(plan)==6,"start six slots available and none counted for automatic monsters")
 	var rejected: Dictionary=plan.duplicate(true)
@@ -59,6 +59,7 @@ func _run() -> void:
 		var minimum_monsters: int=5 if stage<20 else 4
 		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
 		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==expected_swamps,"no rest and exactly %d automatically generated swamp tiles at contamination %d" % [expected_swamps,stage])
+		check(state.tiles.count("event")==2,"two guaranteed event tiles after map generation at contamination %d" % stage)
 		if stage>=20: check(state.tiles[23]=="boss","boss remains on 24th board slot at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
 	var unlocked: Dictionary=Plan.default_plan()
@@ -71,7 +72,7 @@ func _run() -> void:
 	invalid.selection["monster"]=2
 	check(not Plan.valid(invalid) and Plan.adjust(unlocked,"rest",1)==unlocked,"fourth rest rejected after unlock, even with free slots")
 	var state2=State.new(defs,31415,unlocked)
-	check(state2.tiles.count("rest")==3 and state2.tiles.count("monster")==8 and state2.tiles.count("basic")==5,"future unlocked choices replace exactly 6 roads, preserve five auto monsters")
+	check(state2.tiles.count("rest")==3 and state2.tiles.count("monster")==8 and state2.tiles.count("basic")==4,"future unlocked choices replace exactly 6 roads, preserve five auto monsters")
 	state2.laps=12
 	state2.contamination=30
 	state2.generate()
