@@ -163,6 +163,10 @@ func begin_story_free_event(index: int) -> Dictionary:
 		var converted: int = world.reveal_discovered_location(possible)
 		if converted>=0:
 			_apply_discovery_flags(possible)
+			# A discovery consumes this one real event visit too. Without its
+			# visit receipt, a second dispatcher call could grant a routine card
+			# on the very same landing after the unlock was already saved.
+			world.reward_receipts.append(receipt)
 			if not persist_change(before): return {"ok":false,"reason":notice}
 			return {"ok":true,"type":"discovery","location":possible,"index":converted}
 		# No free road: safely fall back to a routine instead of awarding a
