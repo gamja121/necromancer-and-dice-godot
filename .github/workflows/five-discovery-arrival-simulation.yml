@@ -1,0 +1,44 @@
+name: Five Location Discoveries - Real Event Arrival Simulation
+on:
+  pull_request:
+    paths:
+      - 'scripts/test_five_discovery_actual_arrival_simulation.gd'
+      - 'systems/location_discoveries.gd'
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'map.gd'
+      - '.github/workflows/five-discovery-arrival-simulation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/test_five_discovery_actual_arrival_simulation.gd'
+      - 'systems/location_discoveries.gd'
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'map.gd'
+      - '.github/workflows/five-discovery-arrival-simulation.yml'
+permissions:
+  contents: read
+jobs:
+  five-discoveries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Simulate all five discoveries through real event UI and 40-percent RNG
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 330s godot --headless --path . --script res://scripts/test_five_discovery_actual_arrival_simulation.gd 2>&1 | tee five-discoveries.log
+          grep -E '^FIVE_DISCOVERY_ACTUAL_ARRIVAL: [0-9]+ passed, 0 failed$' five-discoveries.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL five-discovery:' five-discoveries.log; then exit 1; fi
