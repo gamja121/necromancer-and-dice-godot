@@ -5,6 +5,7 @@ const Session = preload("res://systems/run_session.gd")
 const State = preload("res://systems/map_state.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const TRIALS = 80
+const ENEMY_LEGION = "skeleton"
 func _initialize() -> void:
 	call_deferred("_run")
 func _run() -> void:
@@ -55,6 +56,24 @@ func _run() -> void:
 			failures += 1
 			session.queue_free()
 			continue
+		# Test-only boss enemy roster: activate the genuine skeleton legion.
+		var enemy_team: Array = []
+		for i in range(4):
+			var slug: String = ["skeleton-spear","skeleton-archer","skeleton-cavalry","skeleton-spear"][i]
+			enemy_team.append(battle.individual(slug,"enemy-"+str(i)))
+		var ally_team: Array = world.roster.duplicate(true)
+		battle.start(ally_team,enemy_team)
+		if not battle.active("enemy",ENEMY_LEGION):
+			printerr("BOSS ERROR skeleton legion inactive trial=",trial)
+			failures += 1
+			session.queue_free()
+			continue
+		session.encounter.checkpoint = battle.snapshot()
+		world.active_encounter = session.encounter.duplicate(true)
+		if not session.save_world():
+			failures += 1
+			session.queue_free()
+			continue
 		for round_index in range(80):
 			if not battle.winner().is_empty(): break
 			battle.begin_round()
@@ -78,6 +97,6 @@ func _run() -> void:
 			var path: String = session.save_file_path + suffix
 			if FileAccess.file_exists(path): DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 		session.queue_free()
-	print("BOSS stage_results=",stage_results)
+	print("BOSS test_enemy_legion=",ENEMY_LEGION," stage_results=",stage_results)
 	print("BOSS trials=",TRIALS," wins=",wins," losses=",losses," failures=",failures)
 	quit(0 if failures == 0 else 1)
