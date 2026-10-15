@@ -827,6 +827,9 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	stage.add_child(deck)
 	overlay = deck
 	deck.setup(world.roster)
+	deck.rename_submitted.connect(func(instance_id: String, candidate: String):
+		var result: Dictionary = session.rename_owned_unit(instance_id,candidate)
+		if is_instance_valid(deck): deck.apply_rename_result(instance_id,result))
 	deck.confirmed.connect(func(ids: Array):
 		var started: bool = session.start_story_encounter(story_event_id,index,ids) if not story_event_id.is_empty() else session.start_encounter(index,ids)
 		if started:
