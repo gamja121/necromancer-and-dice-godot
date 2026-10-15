@@ -1,6 +1,7 @@
 extends Control
 
 signal closed
+signal rename_submitted(candidate: String)
 
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅","special":"소환물"}
 const ICONS = {"critical":Rect2(216,48,228,228),"vampire":Rect2(526,48,234,228),"guard":Rect2(841,48,228,228),"poison":Rect2(216,310,228,228),"summon":Rect2(526,310,234,228),"healing":Rect2(843,310,228,228),"combo":Rect2(222,50,220,220),"freeze":Rect2(850,50,220,220),"lightspeed":Rect2(222,316,220,220),"counter":Rect2(852,316,220,220)}
@@ -8,6 +9,13 @@ var unit_id = ""
 var effects: VBoxContainer
 var interface_data: Dictionary
 var portrait: TextureRect
+var name_label: Label
+var rename_button: Button
+var rename_dialog: Control
+var rename_input: LineEdit
+var rename_error: Label
+var current_name: String = ""
+var allow_rename: bool = false
 
 func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2, font_size: int = 15, color: Color = Color("211712")) -> Label:
 	var node = Label.new()
@@ -51,7 +59,7 @@ func section(value: String) -> void:
 	rule.add_theme_stylebox_override("separator",style)
 	effects.add_child(rule)
 
-func setup(u: Dictionary, battle, prophecy: Dictionary = {}) -> void:
+func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool = false) -> void:
 	u = u.duplicate(true)
 	var hp_bonus = int(prophecy.get("ally_hp",0))
 	var attack_bonus = int(prophecy.get("ally_attack",0))
@@ -61,6 +69,8 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}) -> void:
 	u.attack += attack_bonus
 	u.speed += speed_bonus
 	unit_id = u.id
+	current_name = str(u.name)
+	allow_rename = owned_rename and str(u.get("team",""))=="ally" and not bool(u.get("is_summon",false))
 	interface_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json"))
 	size = Vector2(1280,720)
 	z_index = 90
@@ -86,9 +96,20 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}) -> void:
 	left.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(left)
 	artwork(left,"res://assets/battle/ui/unit-info-window-no-portrait.png",Vector2.ZERO,left.size)
-	var name_label = label_at(left,u.name,Vector2(90.18,2.84),Vector2(294.28,43.12),22)
+	name_label = label_at(left,current_name,Vector2(90.18,2.84),Vector2(277,43.12),22)
+	name_label.name = "UnitDisplayName"
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	if allow_rename:
+		rename_button = Button.new()
+		rename_button.name = "UnitRenameButton"
+		rename_button.text = "개명"
+		rename_button.tooltip_text = "이 마물에게 새 이름 붙이기"
+		rename_button.position = Vector2(374,9)
+		rename_button.size = Vector2(55,33)
+		rename_button.pressed.connect(open_rename_editor)
+		left.add_child(rename_button)
 	var close_button = Button.new()
 	close_button.name = "InfoClose"
 	close_button.flat = true
@@ -175,6 +196,89 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}) -> void:
 	if u.slug == "guardian-seed":
 		section("개화")
 		effect_line("공격 불가 · 생성 다음 라운드를 마치면 자동 개화")
+
+## A focused naming overlay instead of an extra screen. No direct save
+## access lives in this view; the owning RunSession performs the transaction.
+func open_rename_editor() -> void:
+	if not allow_rename or is_instance_valid(rename_dialog): return
+	rename_dialog = ColorRect.new()
+	rename_dialog.name = "UnitRenameEditor"
+	rename_dialog.size = size
+	rename_dialog.color = Color("0a0708d6")
+	rename_dialog.mouse_filter = Control.MOUSE_FILTER_STOP
+	rename_dialog.z_index = 5
+	add_child(rename_dialog)
+	var body = PanelContainer.new()
+	body.name = "RenameCard"
+	body.position = Vector2(399,250)
+	body.size = Vector2(482,222)
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("e3ccab")
+	style.border_color = Color("744a2c")
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(9)
+	body.add_theme_stylebox_override("panel",style)
+	rename_dialog.add_child(body)
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation",11)
+	body.add_child(content)
+	var title = Label.new()
+	title.text = "마물에게 이름 붙이기"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color",Color("352014"))
+	title.add_theme_font_size_override("font_size",21)
+	content.add_child(title)
+	rename_input = LineEdit.new()
+	rename_input.name = "UnitRenameInput"
+	rename_input.text = current_name
+	rename_input.max_length = 12
+	rename_input.placeholder_text = "새 이름 (1~12자)"
+	rename_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rename_input.add_theme_color_override("font_color",Color("302015"))
+	rename_input.text_submitted.connect(func(_value: String): submit_rename())
+	content.add_child(rename_input)
+	rename_error = Label.new()
+	rename_error.name = "UnitRenameFeedback"
+	rename_error.text = "이름은 이 마물에게만 적용됩니다."
+	rename_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rename_error.add_theme_color_override("font_color",Color("753d29"))
+	content.add_child(rename_error)
+	var actions = HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_child(actions)
+	var cancel = Button.new()
+	cancel.name = "UnitRenameCancel"
+	cancel.text = "취소"
+	cancel.custom_minimum_size = Vector2(108,39)
+	cancel.pressed.connect(cancel_rename)
+	actions.add_child(cancel)
+	var save = Button.new()
+	save.name = "UnitRenameConfirm"
+	save.text = "이름 저장"
+	save.custom_minimum_size = Vector2(124,39)
+	save.pressed.connect(submit_rename)
+	actions.add_child(save)
+	rename_input.grab_focus()
+	rename_input.select_all()
+
+func cancel_rename() -> void:
+	if is_instance_valid(rename_dialog): rename_dialog.queue_free()
+	rename_dialog = null
+	rename_input = null
+	rename_error = null
+
+func submit_rename() -> void:
+	if not allow_rename or not is_instance_valid(rename_input): return
+	rename_submitted.emit(rename_input.text)
+
+func apply_rename_result(result: Dictionary) -> void:
+	if not bool(result.get("ok",false)):
+		if is_instance_valid(rename_error):
+			rename_error.text = str(result.get("reason","저장에 실패했습니다."))
+		return
+	current_name = str(result.get("name",current_name))
+	if is_instance_valid(name_label): name_label.text = current_name
+	cancel_rename()
 
 func close() -> void:
 	closed.emit()
