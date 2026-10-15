@@ -1057,12 +1057,18 @@ func confirm_patrol(plan: Dictionary) -> Dictionary:
 	var visit = place_visit_id("patrol",MapState.HOME)
 	if visit in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 순찰경로는 확정했습니다."}
 	if not RoutePlan.valid(plan): return {"ok":false,"reason":"추가 6칸 제한과 타일별 해금·수량 제한을 확인하세요."}
+	# Being drawn in the route editor is not authority to unlock a tile.
+	# Never let a forged payload place hill stones before their real event.
+	if RoutePlan.is_new(plan) and int(plan.selection.get("forest",0))>0 and not Discovery.is_unlocked(world,"forest"):
+		return {"ok":false,"reason":"언덕은 사건에서 발견한 뒤에만 편성할 수 있습니다."}
 	# The active unlock is owned by the persisted world, not by a crafted
 	# UI payload. Prevent forging an unlock or silently re-locking a tile.
 	if RoutePlan.is_new(plan) and (bool(plan.get("rest_unlocked",false)) != bool(world.patrol_plan.get("rest_unlocked",false)) or bool(plan.get("rest_discovered",false)) != bool(world.patrol_plan.get("rest_discovered",false))):
 		return {"ok":false,"reason":"숙영 해금 상태가 변경됐습니다. 편성 화면을 다시 열어주세요."}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.patrol_plan = plan.duplicate(true)
+	if RoutePlan.is_new(world.patrol_plan) and not world.patrol_plan.selection.has("forest"):
+		world.patrol_plan.selection["forest"]=0
 	world.reward_receipts.append(visit)
 	# The unlock remains permanent; acknowledging its NEW home highlight is
 	# part of the same successful patrol-confirm transaction.
