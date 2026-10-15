@@ -1,9 +1,12 @@
 extends Control
 
 signal confirmed(selected_ids: Array)
+signal rename_submitted(instance_id: String, candidate: String)
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
+const UnitInfo = preload("res://systems/unit_info.gd")
+const BattleRules = preload("res://systems/battlefield_rules.gd")
 const TARGET_RATES = {1:[100],2:[35,65],3:[20,33,47],4:[15,20,27,38]}
 var click_audio: AudioStreamPlayer
 var card_shader: Shader
@@ -15,6 +18,7 @@ var lineup: Control
 var hand: Control
 var status: Label
 var confirm_button: Button
+var info_window: Control
 
 func setup(roster: Array) -> void:
 	owned = roster.duplicate(true)
@@ -212,6 +216,18 @@ func render_selection() -> void:
 			number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		# Hand-card click retains its original select/deselect behavior. The
+		# extra accessible info button opens naming without changing the lineup.
+		var info_action = Button.new()
+		info_action.name = "OwnedCardInfo"
+		info_action.text = "정보"
+		info_action.tooltip_text = "마물 정보 · 이름 변경"
+		info_action.position = Vector2(68,150)
+		info_action.size = Vector2(46,28)
+		info_action.mouse_filter = Control.MOUSE_FILTER_STOP
+		button.add_child(info_action)
+		var card_id: String = str(unit.id)
+		info_action.pressed.connect(func(): open_info(card_id))
 		button.mouse_entered.connect(func():
 			button.z_index = 3 if is_selected else 2
 			button.position.y = y if is_selected else 3.82
@@ -235,6 +251,36 @@ func render_selection() -> void:
 		status.text += " · 왼쪽부터 피격 %s%%" % " · ".join(parts)
 	confirm_button.disabled = selected_ids.is_empty()
 
+
+## One real owned-instance panel, with a disposable battle-rules preview.
+## Opening this panel never selects/deselects a card or edits a save.
+func open_info(instance_id: String) -> void:
+	if departing or is_instance_valid(info_window): return
+	var unit: Dictionary = {}
+	for owned_unit in owned:
+		if str(owned_unit.id)==instance_id: unit = owned_unit
+	if unit.is_empty(): return
+	var rules = BattleRules.new(JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units,1)
+	rules.start([unit],[])
+	var preview: Dictionary = rules.units[0]
+	preview.hp = mini(int(preview.max_hp),int(unit.get("current_hp",preview.max_hp)))
+	info_window = UnitInfo.new()
+	info_window.name = "DeckUnitInformation"
+	info_window.z_index = 140
+	add_child(info_window)
+	info_window.setup(preview,rules,{},true)
+	info_window.rename_submitted.connect(func(chosen: String): rename_submitted.emit(instance_id,chosen))
+	info_window.closed.connect(func(): info_window = null)
+
+func apply_rename_result(instance_id: String, result: Dictionary) -> void:
+	if bool(result.get("ok",false)):
+		for unit in owned:
+			if str(unit.id)==instance_id:
+				unit["name"] = str(result.name)
+				unit["nickname"] = str(result.name)
+		render_selection()
+	if is_instance_valid(info_window):
+		info_window.apply_rename_result(result)
 
 func depart() -> void:
 	var veil = ColorRect.new()
