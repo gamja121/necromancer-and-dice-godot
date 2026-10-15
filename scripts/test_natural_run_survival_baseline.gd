@@ -4,9 +4,40 @@ extends SceneTree
 ## skipped arrivals are counted, not presented as a full-game completion.
 const Session = preload("res://systems/run_session.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
+const DiceControl = preload("res://systems/dice_control.gd")
 const TRIALS = 100
 const MAX_LAPS = 100
 const MAX_ROLLS = 1000
+func _face_score(battle, face: int) -> float:
+	var score := 0.0
+	for unit in battle.units:
+		if not unit.alive: continue
+		var resolved: Dictionary = battle.resolve_brand_face(unit.brands,face)
+		var value := 0.0
+		for key in resolved.bless: value += float(resolved.bless[key])
+		for key in resolved.curse: value -= float(resolved.curse[key])*1.5
+		score += value if unit.team=="ally" else -value
+	return score
+
+func _choose_battle_card(session,battle) -> String:
+	var baseline := 0.0
+	for face in range(1,7): baseline += _face_score(battle,face)/6.0
+	var best := baseline
+	var choice := ""
+	for item in session.world.dice_cards:
+		var id: String = str(item.card_id)
+		if not DiceControl.can_use(id,session.dice_context(true)).get("ok",false): continue
+		var effective: String = str(session.dice_context(true).get("previous_card","")) if id=="echo" else id
+		var faces: Array = [int(session.dice_context(true).get("previous_roll",0))] if effective=="repeat" else DiceControl.values(effective)
+		if faces.is_empty(): continue
+		var score := 0.0
+		for face in faces: score += _face_score(battle,int(face))/float(faces.size())
+		# Conserve consumables unless they meaningfully improve expected outcome.
+		if score>best+0.5:
+			best=score
+			choice=str(item.id)
+	return choice
+
 func _claim_with_overflow(session) -> Dictionary:
 	var first: Dictionary = session.claim_reward()
 	if first.get("ok",false) or not first.get("overflow",false): return first
@@ -30,6 +61,8 @@ func _run() -> void:
 	var inherit_success := 0
 	var patrol_success := 0
 	var reward_discards := 0
+	var battle_cards_used := 0
+	var battle_rounds := 0
 	for trial in range(TRIALS):
 		var session = Session.new()
 		session.save_file_path = "user://natural_survival_%d_%d.json" % [OS.get_process_id(),trial]
@@ -94,9 +127,22 @@ func _run() -> void:
 					break
 				for round_index in range(100):
 					if not battle.winner().is_empty(): break
-					battle.begin_round()
+					var card_id: String = _choose_battle_card(session,battle)
+					var rolled: Dictionary = session.prepare_battle_roll(battle,card_id)
+					if not rolled.get("ok",false):
+						failures += 1
+						break
+					if not card_id.is_empty(): battle_cards_used += 1
+					battle_rounds += 1
+					battle.begin_round(int(rolled.face))
+					if not session.checkpoint_battle(battle,"actions"):
+						failures += 1
+						break
 					for action_index in range(100):
 						if battle.next_action().is_empty(): break
+					if not session.checkpoint_battle(battle,"ready"):
+						failures += 1
+						break
 				var result: String = battle.winner()
 				if result.is_empty() or not session.finish_encounter(battle):
 					failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
@@ -153,5 +199,5 @@ func _run() -> void:
 			var p: String = session.save_file_path + suffix
 			if FileAccess.file_exists(p): DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 		session.queue_free()
-	print("SURVIVAL trials=",TRIALS," mean_laps=",float(lap_total)/TRIALS," defeats=",defeats," boss_encounters=",reached_boss," boss_runs=",boss_runs," boss_wins=",boss_wins," skipped_event_arrivals=",skipped_events," max_laps_reached=",completed_runs," inherited=",inherit_success," patrols=",patrol_success," failures=",failures)
+	print("SURVIVAL trials=",TRIALS," mean_laps=",float(lap_total)/TRIALS," defeats=",defeats," boss_encounters=",reached_boss," boss_runs=",boss_runs," boss_wins=",boss_wins," skipped_event_arrivals=",skipped_events," max_laps_reached=",completed_runs," inherited=",inherit_success," patrols=",patrol_success," battle_cards_used=",battle_cards_used," battle_rounds=",battle_rounds," failures=",failures)
 	quit(0 if failures==0 else 1)
