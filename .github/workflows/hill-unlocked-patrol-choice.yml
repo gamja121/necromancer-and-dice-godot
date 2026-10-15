@@ -1,0 +1,58 @@
+name: Discovered Hill Selectable in HOME Patrol
+on:
+  pull_request:
+    paths:
+      - 'systems/route_plan.gd'
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'systems/exploration_actions.gd'
+      - 'scripts/test_hill_unlocked_patrol_choice.gd'
+      - '.github/workflows/hill-unlocked-patrol-choice.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'systems/route_plan.gd'
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'systems/exploration_actions.gd'
+      - 'scripts/test_hill_unlocked_patrol_choice.gd'
+      - '.github/workflows/hill-unlocked-patrol-choice.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot scene and verify scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Actual discovery unlock enables HOME +/- and selected next-board hill
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210s godot --headless --path . --script res://scripts/test_hill_unlocked_patrol_choice.gd 2>&1 | tee hill-edit.log
+          grep -E '^HILL_UNLOCKED_PATROL: [0-9]+ passed, 0 failed$' hill-edit.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|FAIL hill-edit:' hill-edit.log; then exit 1; fi
+      - name: Preserve core optional six-slot route and old save contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_patrol_six_slots_unlocks.gd 2>&1 | tee patrol.log
+          grep -E '^PATROL_SIX_SLOTS: [0-9]+ passed, 0 failed$' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL patrol-six-slots:' patrol.log; then exit 1; fi
+      - name: Preserve existing Godot HOME parchment original button/UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_patrol_parchment_stage5o.gd 2>&1 | tee parchment.log
+          grep -E '^UI_PATROL_PARCHMENT_PARITY: [0-9]+ passed, 0 failed$' parchment.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ui-patrol-parchment:' parchment.log; then exit 1; fi

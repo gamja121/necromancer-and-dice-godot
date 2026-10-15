@@ -2,19 +2,19 @@ extends RefCounted
 ## Six optional patrol stones. Five ordinary monster stones are AUTO-placed
 ## independently, so the player spends none of these slots to obtain them.
 ## Two roads remain reserved for later contamination -> swamp conversion.
-## Rest is the FIRST unlockable choice but its unlock trigger is deliberately
-## undefined until the game designer decides it. Never unlock by guessing.
+## Optional hill stones become selectable only after a genuine event discovery.
+## The discovery already grants one permanent hill independent of these slots.
 const OPTIONAL_CAPACITY = 6
 const AUTO_MONSTERS = 5
 const RESERVED_SWAMP_ROADS = 2
 const REST_LIMIT = 3
-const CHOICES = ["monster","rest"]
+const CHOICES = ["monster","rest","forest"]
 const CURRENT = ["basic","basic","basic","forest","rest","event"]
 const LEGACY_CURRENT = ["basic","basic","graveyard","forest","rest","event"]
 const RESERVE = ["monster","monster","monster","monster","monster"]
 
 static func default_plan() -> Dictionary:
-	return {"selection":{"monster":0,"rest":0},"rest_unlocked":false,"rest_discovered":false}
+	return {"selection":{"monster":0,"rest":0,"forest":0},"rest_unlocked":false,"rest_discovered":false}
 
 static func is_new(plan) -> bool:
 	return plan is Dictionary and plan.has("selection") and plan.get("selection") is Dictionary
@@ -26,11 +26,14 @@ static func valid(plan) -> bool:
 		if not plan.get("rest_discovered",false) is bool: return false
 		if bool(plan.get("rest_discovered",false)) and not bool(plan.rest_unlocked): return false
 		var selected: Dictionary=plan.selection
-		if selected.size()!=CHOICES.size(): return false
+		# Legacy modern-plan saves still have only monster/rest. Treat the
+		# missing forest count as zero; UI/confirm migrates it on next save.
+		if selected.size() not in [2,CHOICES.size()]: return false
+		if selected.keys().any(func(kind): return not kind in CHOICES): return false
 		var total: int=0
 		for tile in CHOICES:
-			if not selected.has(tile): return false
-			var count=selected[tile]
+			if not selected.has(tile) and tile!="forest": return false
+			var count=selected.get(tile,0)
 			if not (count is int or count is float): return false
 			if float(count)!=float(int(count)) or int(count)<0: return false
 			total+=int(count)
@@ -50,7 +53,7 @@ static func valid(plan) -> bool:
 
 static func total_selected(plan: Dictionary) -> int:
 	if not is_new(plan): return 0
-	return int(plan.selection.get("monster",0))+int(plan.selection.get("rest",0))
+	return int(plan.selection.get("monster",0))+int(plan.selection.get("rest",0))+int(plan.selection.get("forest",0))
 
 static func available(plan: Dictionary) -> int:
 	return OPTIONAL_CAPACITY-total_selected(plan)
@@ -59,17 +62,19 @@ static func adjust(plan: Dictionary, tile: String, difference: int) -> Dictionar
 	if not valid(plan) or not is_new(plan) or not tile in CHOICES: return plan.duplicate(true)
 	if difference!=1 and difference!=-1: return plan.duplicate(true)
 	var next: Dictionary=plan.duplicate(true)
+	if not next.selection.has("forest"): next.selection["forest"]=0
 	var before: int=int(next.selection[tile])
 	next.selection[tile]=before+difference
 	return next if valid(next) else plan.duplicate(true)
 
 static func deltas(plan: Dictionary) -> Dictionary:
 	if is_new(plan):
-		# Every selected optional monster or rest consumes exactly one
+		# Every selected optional monster, rest or forest consumes exactly one
 		# ordinary road. AUTO_MONSTERS and protected roads are not spendable.
 		var monsters: int=int(plan.selection.get("monster",0))
 		var rests: int=int(plan.selection.get("rest",0))
-		return {"basic":-(monsters+rests),"monster":monsters,"rest":rests}
+		var forests: int=int(plan.selection.get("forest",0))
+		return {"basic":-(monsters+rests+forests),"monster":monsters,"rest":rests,"forest":forests}
 	# A legacy save used a DIFFERENT old baseline: 6 roads, 2 rests,
 	# 2 events, 2 swamps. Preserve its count and route editor semantics
 	# without rewriting the saved 24-tile map during migration.
