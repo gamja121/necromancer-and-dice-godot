@@ -15,11 +15,12 @@ const FIRST_SWAMP_CONTAMINATION = 15
 const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
-## First expedition: five guaranteed monster tiles; one event; no
-## rests or swamps. Removed tile types become visually empty roads.
+## First expedition: five guaranteed monster tiles; TWO events; no
+## rests or swamps. One ordinary road is traded for the second event,
+## preserving 24 slots and both future-swamp reservations.
 ## Two ordinary roads are reserved for contamination swamps (one at 15,
 ## another at 30); optional patrol picks and monster conversions cannot take them.
-const COUNTS = {"basic":11,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":1,"swamp":0,"warp":2}
+const COUNTS = {"basic":10,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":2,"swamp":0,"warp":2}
 const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
 var definitions: Dictionary
 var rng = RandomNumberGenerator.new()
@@ -150,6 +151,19 @@ func reveal_boss_at_threshold() -> bool:
 		return false
 	if tiles[BOSS_TILE_INDEX] == "boss":
 		return false
+	# A mid-lap boss reveal must not swallow one of the two guaranteed
+	# event locations if the random board originally put it at slot 23.
+	# Move that event onto an existing, unoccupied monster tile instead:
+	# the boss replaces the displaced monster, exactly as in generate().
+	# This keeps the event count, RNG state and swamp-reserved roads intact.
+	if tiles[BOSS_TILE_INDEX] == "event":
+		for candidate in range(tiles.size()):
+			if candidate == position or tiles[candidate] != "monster": continue
+			tiles[candidate] = "event"
+			cleared.erase(candidate)
+			if scout.get("intel",[]) is Array:
+				scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != candidate)
+			break
 	tiles[BOSS_TILE_INDEX] = "boss"
 	# A previously cleared or scouted ordinary tile cannot carry those
 	# semantics into a fresh boss encounter at the same board slot.
