@@ -31,12 +31,12 @@ func _run() -> void:
 			if not world.run_result.is_empty() or world.laps >= MAX_LAPS: break
 			if world.position == 15 and world.lap_ready:
 				if not session.enter_home() or not session.leave_home():
-					failures += 1
+					failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 					break
 				continue
 			var movement: Dictionary = session.prepare_map_roll()
 			if not movement.get("ok",false) or not session.complete_map_move():
-				failures += 1
+				failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 				break
 			var tile: String = str(world.tiles[world.position])
 			if tile=="gem" and world.pending_reward.is_empty():
@@ -48,17 +48,17 @@ func _run() -> void:
 				healthy.sort_custom(func(a,b): return int(a.attack)>int(b.attack))
 				for i in range(mini(4,healthy.size())): ids.append(str(healthy[i].id))
 				if ids.is_empty():
-					failures += 1
+					failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 					break
 				if tile=="boss":
 					reached_boss += 1
 					boss_attempted = true
 				if not session.start_encounter(world.position,ids):
-					failures += 1
+					failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 					break
 				var battle = Rules.new(world.definitions,88000+trial*1000+battle_count)
 				if not battle.restore(session.encounter.checkpoint):
-					failures += 1
+					failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 					break
 				for round_index in range(100):
 					if not battle.winner().is_empty(): break
@@ -67,7 +67,7 @@ func _run() -> void:
 						if battle.next_action().is_empty(): break
 				var result: String = battle.winner()
 				if result.is_empty() or not session.finish_encounter(battle):
-					failures += 1
+					failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 					break
 				battle_count += 1
 				if tile=="boss" and result=="ally": boss_wins += 1
@@ -76,25 +76,25 @@ func _run() -> void:
 					break
 				if not world.pending_reward.is_empty() and world.pending_reward.get("kind","")=="capture":
 					if not session.select_capture(0):
-						failures += 1
+						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
 					var capture: Dictionary = session.roll_capture()
 					if not capture.get("ok",false):
-						failures += 1
+						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
 					if capture.success:
 						var claimed: Dictionary = session.claim_reward("__new__" if world.roster.size()>=8 else "")
-						if not claimed.get("ok",false): failures += 1; break
+						if not claimed.get("ok",false): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
 					else:
 						while world.pending_reward.get("phase","")=="retry":
 							var retried: Dictionary = session.roll_capture()
 							if not retried.get("ok",false):
-								failures += 1
+								failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 								break
 						if world.pending_reward.get("phase","")=="success":
-							if not session.claim_reward("__new__" if world.roster.size()>=8 else "").get("ok",false): failures += 1; break
+							if not session.claim_reward("__new__" if world.roster.size()>=8 else "").get("ok",false): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
 						elif world.pending_reward.get("phase","")=="failed":
-							if not session.dismiss_failed_capture(): failures += 1; break
+							if not session.dismiss_failed_capture(): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
 			elif tile=="gem":
 				if world.pending_reward.get("kind","")=="treasure":
 					var offers: Array = world.pending_reward.offers
@@ -102,14 +102,14 @@ func _run() -> void:
 					for i in range(offers.size()):
 						if str(offers[i].kind)=="unit" and world.roster.size()<4: chosen=i; break
 					if not session.select_treasure(chosen) or not session.prepare_treasure_reward(chosen):
-						failures += 1
+						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
 					var pending: Dictionary = world.pending_reward
 					var kind: String = str(pending.reward.kind)
 					var capacity: int = 8 if kind=="unit" else (5 if kind=="dice" else 0)
 					var inventory: int = world.roster.size() if kind=="unit" else (world.dice_cards.size() if kind=="dice" else world.brand_cards.size())
 					if not session.claim_reward("__new__" if capacity>0 and inventory>=capacity else "").get("ok",false):
-						failures += 1
+						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
 			elif tile in ["event","forest","altar","village","graveyard","unknown","fortune-teller-camp"]:
 				skipped_events += 1
