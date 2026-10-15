@@ -1,0 +1,63 @@
+name: Owned Monster Nickname Persistence (Godot)
+
+on:
+  pull_request:
+    paths:
+      - "battlefield.gd"
+      - "map.gd"
+      - "systems/battle_rules.gd"
+      - "systems/run_session.gd"
+      - "systems/battle_deck.gd"
+      - "systems/unit_info.gd"
+      - "scripts/test_monster_nickname.gd"
+      - ".github/workflows/monster-nickname.yml"
+  push:
+    branches: [main]
+    paths:
+      - "battlefield.gd"
+      - "map.gd"
+      - "systems/battle_rules.gd"
+      - "systems/run_session.gd"
+      - "systems/battle_deck.gd"
+      - "systems/unit_info.gd"
+      - "scripts/test_monster_nickname.gd"
+      - ".github/workflows/monster-nickname.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nickname:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Owned nickname save and UI regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_monster_nickname.gd 2>&1 | tee nickname.log
+          grep -E '^MONSTER_NICKNAME: [0-9]+ passed, 0 failed' nickname.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL monster-nickname:' nickname.log; then exit 1; fi
+      - name: Existing unit information parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 180s godot --headless --path . --script res://scripts/test_ui_dice_fan_unit_info_parity.gd 2>&1 | tee ui-parity.log
+          grep -E '^UI_DICE_FAN_UNIT_INFO_PARITY: [0-9]+ passed, 0 failed' ui-parity.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-dice-fan:' ui-parity.log; then exit 1; fi
