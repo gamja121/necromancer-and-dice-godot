@@ -40,7 +40,7 @@ func _run() -> void:
 			check(world.tiles[23] == ("boss" if level >= State.BOSS_CONTAMINATION else world.tiles[23]),
 				"existing boss slot preserved at contamination %d" % level)
 			check(world.tiles.count("monster") >= (4 if level >= 20 else 5), "existing automatic monsters survive")
-			check(world.tiles.count("event") == 1 and world.tiles.count("warp") == 2,
+			check(world.tiles.count("event") == 2 and world.tiles.count("warp") == 2,
 				"story event and warp tiles unaffected")
 	var old_plan: Dictionary = {"current": Plan.CURRENT.duplicate(), "reserve": Plan.RESERVE.duplicate()}
 	var legacy = State.new(data, 3456, old_plan)
