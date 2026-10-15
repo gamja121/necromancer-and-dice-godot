@@ -104,6 +104,8 @@ func setup(map_scene, tile_index: int) -> void:
 		render_hill_choices()
 	else:
 		plan=session.world.patrol_plan.duplicate(true) if RoutePlan.is_new(session.world.patrol_plan) else RoutePlan.default_plan()
+		# An existing run saved before hill editing has only monster/rest keys.
+		if not plan.selection.has("forest"): plan.selection["forest"]=0
 		close_button.text="닫기"
 		close_button.position=Vector2(430,561)
 		close_button.size=Vector2(128,36)
@@ -146,6 +148,7 @@ func reset_route() -> void:
 	var unlocked: bool=bool(session.world.patrol_plan.get("rest_unlocked",false))
 	plan=RoutePlan.default_plan()
 	plan["rest_unlocked"]=unlocked
+	plan["rest_discovered"]=bool(session.world.patrol_plan.get("rest_discovered",false))
 	selected_current=-1
 	selected_reserve=-1
 	render_route()
@@ -336,8 +339,10 @@ func render_route() -> void:
 		var id: String="basic"
 		if i<int(plan.selection.monster):
 			id="monster"
-		elif i<total:
+		elif i<int(plan.selection.get("monster",0))+int(plan.selection.get("rest",0)):
 			id="rest"
+		elif i<total:
+			id="forest"
 		var x: float=150.0+float(i)*121.0
 		slot_positions.append(x)
 		var tile: TextureRect=art(content,"res://assets/map/tiles/%s.png" % id,Vector2(x,310),Vector2(81,78))
@@ -349,40 +354,58 @@ func render_route() -> void:
 		caption.add_theme_color_override("font_color",Color("584132"))
 	var guide=label_at(content,"타일을 누르면 수량이 바뀝니다 · 선택하지 않은 칸은 길로 남습니다",Vector2(158,422),Vector2(698,28),13)
 	guide.add_theme_color_override("font_color",Color("684b36"))
-	for j in range(RoutePlan.CHOICES.size()):
-		var kind: String=str(RoutePlan.CHOICES[j])
-		var unlocked: bool=kind=="monster" or rest_unlocked
-		var count: int=int(plan.selection[kind])
-		var x: float=182.0+j*369.0
-		var art_tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x,454),Vector2(75,71))
+	# Hill becomes a third choice ONLY after a real discovery, not merely
+	# because a legacy board happens to contain its default forest tile.
+	var hill_unlocked: bool=Discovery.is_unlocked(session.world,"forest")
+	var editor_choices: Array=["monster","rest"]
+	if hill_unlocked: editor_choices.append("forest")
+	for j in range(editor_choices.size()):
+		var kind: String=str(editor_choices[j])
+		var unlocked: bool=kind=="monster" or (rest_unlocked if kind=="rest" else hill_unlocked)
+		var count: int=int(plan.selection.get(kind,0))
+		# Reflow three independent columns inside the existing parchment frame.
+		# Original two-column coordinates remain intact before hill discovery.
+		var compact: bool=editor_choices.size()==3
+		var x: float=(131.0+j*257.0) if compact else (182.0+j*369.0)
+		var art_size: Vector2=Vector2(65,68) if compact else Vector2(75,71)
+		var art_tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x,454),art_size)
 		art_tile.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		if not unlocked: art_tile.modulate=Color(0.50,0.49,0.47)
-		var label=label_at(content,"일반 마물" if kind=="monster" else "숙영",Vector2(x+79,451),Vector2(240,27),18)
+		var label_text: String={"monster":"일반 마물","rest":"숙영","forest":"언덕"}.get(kind,kind)
+		var text_offset: float=70.0 if compact else 79.0
+		var label=label_at(content,label_text,Vector2(x+text_offset,451),Vector2(177 if compact else 240,27),18)
 		label.add_theme_color_override("font_color",Color("352519"))
-		var limit=label_at(content,"추가 수량 제한 없음" if kind=="monster" else ("추가 최대 %d칸 · 전체 최대 3칸" % rest_add_limit if unlocked else "첫 바퀴 완주 후 해금"),Vector2(x+80,480),Vector2(250,22),13)
+		var limit_text: String="추가 수량 제한 없음"
+		if kind=="rest":
+			limit_text=("추가 최대 %d칸 · 전체 최대 3칸" % rest_add_limit) if unlocked else "첫 바퀴 완주 후 해금"
+		elif kind=="forest":
+			limit_text="발견 보상 1칸 + 추가 선택"
+		var limit=label_at(content,limit_text,Vector2(x+text_offset,480),Vector2(179 if compact else 250,22),12 if compact else 13)
 		limit.add_theme_color_override("font_color",Color("795536"))
-		var minus=button(content,"−",Vector2(x+83,506),Vector2(53,45),func(): adjust_route_tile(kind,-1))
+		var controls_offset: float=65.0 if compact else 83.0
+		var minus=button(content,"−",Vector2(x+controls_offset,506),Vector2(48 if compact else 53,45),func(): adjust_route_tile(kind,-1))
 		minus.name="PatrolMinus_"+kind
 		minus.disabled=used or count<=0
-		var quantity=label_at(content,"%d" % count,Vector2(x+139,512),Vector2(65,35),22)
+		var quantity=label_at(content,"%d" % count,Vector2(x+controls_offset+52,512),Vector2(52,35),22)
 		quantity.name="PatrolCount_"+kind
 		quantity.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		quantity.add_theme_color_override("font_color",Color("322317"))
-		var plus=button(content,"+",Vector2(x+206,506),Vector2(53,45),func(): adjust_route_tile(kind,1))
+		var plus=button(content,"+",Vector2(x+controls_offset+112,506),Vector2(48 if compact else 53,45),func(): adjust_route_tile(kind,1))
 		plus.name="PatrolPlus_"+kind
 		plus.disabled=used or not unlocked or remaining<=0 or (kind=="rest" and count>=rest_add_limit)
 		if kind=="rest" and unlocked and session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
+			UnlockNoticeBadge.attach(plus,"NEW")
+		if kind=="forest" and session.event_flag_is_set(Discovery.home_flag("forest")):
 			UnlockNoticeBadge.attach(plus,"NEW")
 		route_minus_buttons[kind]=minus
 		route_plus_buttons[kind]=plus
 		route_count_labels[kind]=quantity
 		if kind=="rest" and not unlocked:
-			# This is a separate explicit unlock, NOT one of six optional
-			# selections, and cannot be obtained through the confirm payload.
+			# Existing rest unlock button remains available in the compact UI.
 			minus.visible=false
 			quantity.visible=false
 			plus.visible=false
-			route_unlock_button=button(content,"숙영 해금",Vector2(x+80,506),Vector2(179,45),unlock_rest)
+			route_unlock_button=button(content,"숙영 해금",Vector2(x+text_offset,506),Vector2(170 if compact else 179,45),unlock_rest)
 			route_unlock_button.name="PatrolUnlockRest"
 			var eligibility: Dictionary=session.rest_unlock_allowed()
 			route_unlock_button.disabled=not bool(eligibility.get("ok",false))
@@ -420,7 +443,9 @@ func render_route() -> void:
 		discovery_row+=1
 	action_button.disabled=used
 	route_reset_button.disabled=used
-	status.text=("이번 방문 편성 확정 · 숙영 해금은 다음 방문에 편성 가능" if not rest_unlocked else "이번 방문은 확정 완료 · 다음 바퀴부터 반영") if used else ("추가 %d/%d칸 선택 · %d칸 남음 · 숙영은 첫 순찰 완주 후 해금" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining] if not rest_unlocked else "추가 %d/%d칸 선택 · %d칸 남음 · 숙영 추가 최대 %d칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining,rest_add_limit])
+	status.text=("이번 방문 편성 확정 · 다음 집 방문에서 다시 선택 가능" if used else
+		("추가 %d/%d칸 선택 · %d칸 남음 · 언덕은 발견 후 편성 가능" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining] if not hill_unlocked else
+		"추가 %d/%d칸 선택 · %d칸 남음 · 발견 언덕 1칸은 자동 배치" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining]))
 
 func unlock_rest() -> void:
 	if type!="home" or bool(session.world.patrol_plan.get("rest_unlocked",false)): return
@@ -433,6 +458,7 @@ func unlock_rest() -> void:
 	if not RoutePlan.is_new(plan):
 		plan=RoutePlan.default_plan()
 	plan["rest_unlocked"]=true
+	plan["rest_discovered"]=bool(session.world.patrol_plan.get("rest_discovered",false))
 	render_route()
 	status.text=str(result.reason)
 
