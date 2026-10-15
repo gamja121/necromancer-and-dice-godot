@@ -52,14 +52,16 @@ func _run() -> void:
 	# Routine/discovery is now 60/40; select a seeded genuine discovery
 	# draw rather than incorrectly demanding 100% discovery on every visit.
 	var candidate := RandomNumberGenerator.new()
-	var expected_draw_rng: int = -1
+	var expected_draw_rng: int = 0
+	var chosen_seed: int = 0
 	for seed in range(1,500):
 		candidate.seed = seed
 		if candidate.randf()>=0.60:
 			world.rng.seed = seed
+			chosen_seed = seed
 			expected_draw_rng = candidate.state
 			break
-	check(expected_draw_rng>=0,"seeded real 40-percent discovery roll selected")
+	check(chosen_seed>0,"seeded real 40-percent discovery roll selected")
 	check(session.save_world(), "test fixture saved with a completed first patrol")
 	var map = MapScene.instantiate()
 	root.add_child(map)
