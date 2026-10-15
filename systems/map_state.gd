@@ -1,6 +1,7 @@
 extends RefCounted
 
 const RoutePlan = preload("res://systems/route_plan.gd")
+const Routine = preload("res://systems/routine_event_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
@@ -288,6 +289,19 @@ func restore(saved: Dictionary) -> bool:
 			for offer in shop.offers[id]:
 				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand"] or not offer.get("item") is Dictionary: return false
 	var reward: Dictionary = saved.get("pending_reward",{})
+	if reward.get("kind","")=="routine":
+		var index: int = int(reward.get("index",-1))
+		if index<0 or index>=24 or int(saved.position)!=index or saved.tiles[index]!="event": return false
+		if not Routine.valid(str(reward.get("event_id",""))) or not str(reward.get("id","")).begins_with("routine-visit:"): return false
+		if reward.get("phase","") not in ["choice","overflow"]: return false
+		if reward.get("id","") in saved.get("reward_receipts",[]): return false
+		var entry: Dictionary = Routine.details(str(reward.event_id))
+		if str(entry.effect)=="dice":
+			var offered: Dictionary = reward.get("offer",{})
+			if not offered.has("card_id") or not offered.has("image"): return false
+		if reward.get("phase","")=="overflow":
+			if str(entry.effect)!="dice" or not reward.has("reward"): return false
+			if reward.reward.get("kind","")!="dice" or not reward.reward.get("item",{}) is Dictionary: return false
 	if reward.get("kind","")=="mimic":
 		var tile_index = int(reward.get("index",-1))
 		var count = int(reward.get("count",0))
@@ -308,6 +322,8 @@ func restore(saved: Dictionary) -> bool:
 		for k in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			run_result[k] = int(run_result[k])
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
+	if pending_reward.get("kind","")=="routine":
+		pending_reward["index"] = int(pending_reward.get("index",-1))
 	# The unopened 10% mimic chest is a durable reward like a treasure.
 	# Godot JSON converts the native enemy count and gem index into floats;
 	# restoring ints avoids a false state change (and keeps restart parity).
