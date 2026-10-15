@@ -7,6 +7,15 @@ const Rules = preload("res://systems/battlefield_rules.gd")
 const TRIALS = 100
 const MAX_LAPS = 100
 const MAX_ROLLS = 1000
+func _claim_with_overflow(session) -> Dictionary:
+	var first: Dictionary = session.claim_reward()
+	if first.get("ok",false) or not first.get("overflow",false): return first
+	var reward: Dictionary = session.world.pending_reward.get("reward",{})
+	var kind: String = str(reward.get("kind",""))
+	var owned: Array = session.world.roster if kind=="unit" else (session.world.dice_cards if kind=="dice" else [])
+	if owned.is_empty(): return {"ok":false,"reason":"overflow without owned item"}
+	return session.claim_reward(str(owned[0].id))
+
 func _initialize() -> void:
 	call_deferred("_run")
 func _run() -> void:
@@ -106,7 +115,7 @@ func _run() -> void:
 						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
 					if capture.success:
-						var claimed: Dictionary = session.claim_reward(str(world.roster[0].id) if world.roster.size()>=8 else "")
+						var claimed: Dictionary = _claim_with_overflow(session)
 						if not claimed.get("ok",false): failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position); break
 					else:
 						while world.pending_reward.get("phase","")=="retry":
@@ -131,7 +140,7 @@ func _run() -> void:
 					var kind: String = str(pending.reward.kind)
 					var capacity: int = 8 if kind=="unit" else (5 if kind=="dice" else 0)
 					var inventory: int = world.roster.size() if kind=="unit" else (world.dice_cards.size() if kind=="dice" else world.brand_cards.size())
-					if not session.claim_reward((str(world.roster[0].id) if kind=="unit" else str(world.dice_cards[0].id)) if capacity>0 and inventory>=capacity else "").get("ok",false):
+					if not _claim_with_overflow(session).get("ok",false):
 						failures += 1; printerr("SURVIVAL FAIL trial=",trial," roll=",roll_index," line=",get_stack()[0].get("line",-1)," pending=",world.pending_reward.get("kind","")," phase=",world.pending_reward.get("phase","")," pos=",world.position)
 						break
 			elif tile in ["event","forest","altar","village","graveyard","unknown","fortune-teller-camp"]:
