@@ -140,9 +140,9 @@ func perform_lap(session: Node) -> void:
 	check(world.roster[0].current_hp < original_hp, "only disposable owned unit starts wounded for home-healing proof")
 	check(session.save_world(), "genuine seeded 24-tile board persisted without tile permutations")
 	check(world.position == STATE.HOME and world.map_serial == 1 and world.move_serial == 0, "fresh original board and starting house")
-	check(world.tiles.count("basic")==11 and world.tiles.count("monster")==5 and world.tiles.count("event")==1 and world.tiles.count("rest")==0 and world.tiles.count("swamp")==0 and world.tiles.count("graveyard")==0 and world.tiles.count("altar")==0
+	check(world.tiles.count("basic")==10 and world.tiles.count("monster")==5 and world.tiles.count("event")==2 and world.tiles.count("rest")==0 and world.tiles.count("swamp")==0 and world.tiles.count("graveyard")==0 and world.tiles.count("altar")==0
 		and world.tiles.count("unknown")==0 and world.tiles.count("rare-monster")==0,
-		"first expedition guarantees five monsters, one event and no swamp/rest with 11 empty roads")
+		"first expedition guarantees five monsters, two events and no swamp/rest with 10 empty roads")
 	var map: Control = MAP.instantiate()
 	root.add_child(map)
 	await process_frame
@@ -203,7 +203,7 @@ func perform_lap(session: Node) -> void:
 			check(shuffled, "actual gather/rotation/scatter completes one saved natural shuffle")
 			check(world.laps == 1 and world.contamination == 7 and not world.lap_ready, "home exit commits exactly one lap and +7 contamination")
 			check(world.position == STATE.HOME and world.tiles.size() == 24 and world.tiles[0] == "fortune-teller-camp" and world.tiles[8] == "village" and world.tiles[STATE.HOME] == "home", "reshuffled board preserves all three fixed anchors")
-			check(world.tiles.count("graveyard")==1 and world.tiles.count("basic")==10,
+			check(world.tiles.count("graveyard")==1 and world.tiles.count("basic")==9 and world.tiles.count("event")==2,
 				"first completed lap unlocks exactly one graveyard in place of one road")
 			check(world.tiles.count("unknown")==0 and world.tiles.count("altar")==0 and world.tiles.count("rare-monster")==0,
 				"world tree, altar, rare monster remain excluded after the first lap")

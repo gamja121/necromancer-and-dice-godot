@@ -25,6 +25,14 @@
 - `LAP_CONTAMINATION_GAIN = 7` increases contamination when leaving home after a completed lap; laps are **not** boss appearance thresholds. Preserve unrelated lap mechanics, other collaborators' changes and saved runs.
 - Read `docs/map_port.md` before work on boss trigger, encounter, progress flags, save/migration or UI. Gameplay implementation needs Trigger/Information/Interaction/Visual/State review and regression tests. Do not implement an invented final threshold.
 
+## Guaranteed two event tiles — user correction (2026-10-15)
+
+- **Current rule:** Every **newly generated** 24-slot board has **exactly two** ordinary `event` tiles **starting from the very first expedition**, not one. Change one former `basic` road to the second event; keep five automatic monster tiles, both reserved swamp roads (contamination 15/30), HOME/village/fortune anchors and boss slot behavior.
+- The real on-landing story priority and discovery/routine percentages remain exactly as before; two event tiles increase **opportunities to land**, not force any particular event.
+- A previous v1 save that already has one event remains unchanged in the middle of the current lap; on the **next natural HOME shuffle**, it receives two. Legacy route-plan saves already generated two events and must not be given a third.
+- Mid-lap contamination-20 boss reveal may be assigned the 23rd index occupied by an event. Relocate that event to an eligible monster slot so two remain, and do not advance the RNG, overwrite story state or consume swamp reservation roads.
+- Regression: `scripts/test_patrol_six_slots_unlocks.gd`, `scripts/test_contamination_auto_swamp.gd`, `scripts/test_p4_natural_home_lap.gd`. No special in-game debug button.
+
 ## Event-tile discovery unlock rule — user decision (2026-10-14)
 
 - **Existing story events ALWAYS have priority** over unlock discoveries when the player **actually lands** on a generic `event` tile. Reuse the existing `map.gd:show_tile` story guard order, including active/resumable narratives. A failed story save/entry is **NOT** permission to award an unlock.

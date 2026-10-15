@@ -76,9 +76,9 @@ static func deltas(plan: Dictionary) -> Dictionary:
 		var forests: int=int(plan.selection.get("forest",0))
 		return {"basic":-(monsters+rests+forests),"monster":monsters,"rest":rests,"forest":forests}
 	# A legacy save used a DIFFERENT old baseline: 6 roads, 2 rests,
-	# 2 events, 2 swamps. Preserve its count and route editor semantics
-	# without rewriting the saved 24-tile map during migration.
-	var result: Dictionary={"basic":-5,"rest":2,"event":1,"swamp":2}
+	# 2 events, 2 swamps. The NEW baseline already includes 2 events;
+	# preserve the same legacy quantities rather than creating a third.
+	var result: Dictionary={"basic":-4,"rest":2,"event":0,"swamp":2}
 	var baseline: Array=LEGACY_CURRENT if (plan.current+plan.reserve).has("graveyard") else CURRENT
 	for tile in ["basic","graveyard","forest","rest","event","monster"]:
 		result[tile]=int(result.get(tile,0))+plan.current.count(tile)-baseline.count(tile)

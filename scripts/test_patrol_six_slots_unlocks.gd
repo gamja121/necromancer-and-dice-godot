@@ -33,8 +33,8 @@ func _run() -> void:
 		var world=State.new(defs,1000+seed)
 		var board: Array=world.tiles
 		verify_fixed(board,"start seed %d" % seed)
-		check(board.count("monster")==5 and board.count("event")==1,"start %d automatically includes exactly 5 monsters and 1 event" % seed)
-		check(board.count("rest")==0 and board.count("swamp")==0 and board.count("basic")==11,"start %d has no rests/swamps and 11 empty roads" % seed)
+		check(board.count("monster")==5 and board.count("event")==2,"start %d automatically includes exactly 5 monsters and 2 events" % seed)
+		check(board.count("rest")==0 and board.count("swamp")==0 and board.count("basic")==10,"start %d has no rests/swamps and 10 empty roads" % seed)
 		check(board.count("graveyard")==0 and board.count("unknown")==0 and board.count("altar")==0 and board.count("rare-monster")==0,"start %d advanced tiles absent" % seed)
 	check(Plan.available(plan)==6,"start six slots available and none counted for automatic monsters")
 	var rejected: Dictionary=plan.duplicate(true)
@@ -59,6 +59,7 @@ func _run() -> void:
 		var minimum_monsters: int=5 if stage<20 else 4
 		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
 		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==expected_swamps,"no rest and exactly %d automatically generated swamp tiles at contamination %d" % [expected_swamps,stage])
+		check(state.tiles.count("event")==2,"two guaranteed event tiles after map generation at contamination %d" % stage)
 		if stage>=20: check(state.tiles[23]=="boss","boss remains on 24th board slot at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
 	var unlocked: Dictionary=Plan.default_plan()
@@ -71,11 +72,39 @@ func _run() -> void:
 	invalid.selection["monster"]=2
 	check(not Plan.valid(invalid) and Plan.adjust(unlocked,"rest",1)==unlocked,"fourth rest rejected after unlock, even with free slots")
 	var state2=State.new(defs,31415,unlocked)
-	check(state2.tiles.count("rest")==3 and state2.tiles.count("monster")==8 and state2.tiles.count("basic")==5,"future unlocked choices replace exactly 6 roads, preserve five auto monsters")
+	check(state2.tiles.count("rest")==3 and state2.tiles.count("monster")==8 and state2.tiles.count("basic")==4,"future unlocked choices replace exactly 6 roads, preserve five auto monsters")
 	state2.laps=12
 	state2.contamination=30
 	state2.generate()
 	check(state2.tiles.count("basic")>=0 and state2.tiles.count("swamp")==2,"two reserved roads convert to swamp by contamination 30 without consuming optional monsters or rest")
+	# A saved expedition with the previous one-event board must not be
+	# rewritten mid-lap, but its next home shuffle uses the new two-event
+	# baseline without creating a third event.
+	var previous_run=State.new(defs,12580)
+	previous_run.tiles[previous_run.tiles.find("event")]="basic"
+	check(previous_run.tiles.count("event")==1,"pre-update one-event board remains loadable")
+	previous_run.lap_ready=true
+	previous_run.leave_home()
+	check(previous_run.tiles.count("event")==2 and previous_run.tiles.size()==24 and previous_run.laps==1,
+		"older one-event run receives two events on its next legitimate house shuffle")
+	# If the boss arrives mid-lap while index 23 is an event, relocate the
+	# event to a displaced monster tile instead of destroying an event.
+	var boss_crossing=State.new(defs,12581)
+	var event_at: int=boss_crossing.tiles.find("event")
+	if event_at!=State.BOSS_TILE_INDEX:
+		var displaced: String=str(boss_crossing.tiles[State.BOSS_TILE_INDEX])
+		boss_crossing.tiles[event_at]=displaced
+		boss_crossing.tiles[State.BOSS_TILE_INDEX]="event"
+	boss_crossing.contamination=20
+	var original_event_count: int=boss_crossing.tiles.count("event")
+	var original_monster_count: int=boss_crossing.tiles.count("monster")
+	var original_rng: int=boss_crossing.rng.state
+	var original_serial: int=boss_crossing.map_serial
+	check(boss_crossing.reveal_boss_at_threshold(),"crossing contamination 20 reveals a real boss tile")
+	check(boss_crossing.tiles[23]=="boss" and boss_crossing.tiles.count("event")==original_event_count and original_event_count==2,
+		"mid-lap boss keeps two existing event tiles when slot 23 was an event")
+	check(boss_crossing.tiles.count("monster")==original_monster_count-1 and boss_crossing.rng.state==original_rng and boss_crossing.map_serial==original_serial,
+		"boss replaces only a monster without touching RNG, map serial or swamp reservations")
 	var session: Node=root.get_node_or_null("RunSession")
 	var own: bool=session==null
 	if own:
