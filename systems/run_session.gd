@@ -385,7 +385,14 @@ func finish_encounter(battle) -> bool:
 		var corpses: Array = []
 		for unit in battle.units:
 			if unit.team=="enemy" and not unit.alive and not unit.is_summon:
-				corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6)})
+				var original: Dictionary = {}
+				for spawned in encounter.enemies:
+					if str(spawned.id)==str(unit.id):
+						original = spawned.duplicate(true)
+						break
+				var corpse: Dictionary = {"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6)}
+				if not original.is_empty(): corpse.unit = original
+				corpses.append(corpse)
 		if not corpses.is_empty():
 			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
 		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
@@ -501,7 +508,11 @@ func roll_capture() -> Dictionary:
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
 	if pending.roll>=int(corpse.target):
 		pending.phase = "success"
-		pending.reward = {"kind":"unit","item":create_item("unit",corpse)}
+		var captured: Dictionary = create_item("unit",corpse) if not corpse.has("unit") else corpse.unit.duplicate(true)
+		if corpse.has("unit"):
+			captured.id = world.next_id("unit")
+			captured.current_hp = int(captured.max_hp)
+		pending.reward = {"kind":"unit","item":captured}
 	else: pending.phase = "retry" if pending.attempts>0 else "failed"
 	if not persist_change(before): return {"ok":false}
 	return {"ok":true,"face":pending.roll,"success":pending.phase=="success"}
