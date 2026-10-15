@@ -201,6 +201,34 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
+  balance-simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project
+        run: godot --headless --path . --editor --quit
+      - name: Run 2000 battles independently of story regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://scripts/test_battle_balance_simulation.gd 2>&1 | tee battle-balance.log
+          grep -F 'BALANCE trials=2000' battle-balance.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|BALANCE ERROR' battle-balance.log; then exit 1; fi
+      - name: Upload battle simulation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: battle-balance-log
+          path: battle-balance.log
+          if-no-files-found: ignore
+
   story-state-regression:
     runs-on: ubuntu-latest
     timeout-minutes: 15
