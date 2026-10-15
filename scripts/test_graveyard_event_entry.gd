@@ -111,7 +111,14 @@ func _run() -> void:
 	var original_path: String = failed_save.save_file_path
 	failed_save.save_file_path = "user://graveyard_entry_regression_missing_%d/not-created.json" % OS.get_process_id()
 	_check(not StoryEntry.begin(failed_save,rollback_grave),"failed save rejects event entry")
-	_check(failed_save.world.snapshot() == before,"failed event start rolls back all changes")
+	var after_failed_save: Dictionary = failed_save.world.snapshot().duplicate(true)
+	if after_failed_save != before:
+		for key in before:
+			if before[key] != after_failed_save.get(key):
+				print("GRAVEYARD_ROLLBACK_DIAG field=",key,
+					" before=",JSON.stringify(before[key]).substr(0,280),
+					" after=",JSON.stringify(after_failed_save.get(key)).substr(0,280))
+	_check(after_failed_save == before,"failed event start rolls back all changes")
 	failed_save.save_file_path = original_path
 	_check(StoryEntry.begin(failed_save,rollback_grave),"retry succeeds when storage restored")
 	failed_save.reload_world()

@@ -1,0 +1,55 @@
+name: Graveyard Failed-Save Rollback (Godot)
+
+on:
+  pull_request:
+    paths:
+      - "scripts/test_graveyard_event_entry.gd"
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "systems/story_event_entry.gd"
+      - ".github/workflows/graveyard-save-rollback.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_graveyard_event_entry.gd"
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "systems/story_event_entry.gd"
+      - ".github/workflows/graveyard-save-rollback.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  graveyard-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import native resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify atomic story-entry rollback on deliberately failing save
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 24); do
+            echo "::group::isolated graveyard rollback fixture attempt ${attempt}"
+            godot --headless --path . --script res://scripts/test_graveyard_event_entry.gd 2>&1 | tee "rollback-${attempt}.log"
+            grep -E '^GRAVEYARD_ENTRY_REGRESSION: [0-9]+ passed, 0 failed' "rollback-${attempt}.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL graveyard-entry:' "rollback-${attempt}.log"; then exit 1; fi
+            echo "::endgroup::"
+          done
+          echo "GRAVEYARD_ROLLBACK_STABILITY: 24 passes, 0 failures"
