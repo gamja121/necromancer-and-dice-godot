@@ -38,6 +38,7 @@ on:
       - "systems/battlefield_rules.gd"
       - "scripts/test_battle_source_parity.gd"
       - "scripts/test_battle_balance_simulation.gd"
+      - "scripts/test_expedition_60_laps.gd"
       - "scripts/test_story_state_regression.gd"
       - "scripts/test_save_process_boundary.gd"
       - "scripts/test_card_decoration_layout.gd"
@@ -219,6 +220,7 @@ jobs:
         run: |
           set -euo pipefail
           godot --headless --path . --script res://scripts/test_battle_balance_simulation.gd 2>&1 | tee battle-balance.log
+          godot --headless --path . --script res://scripts/test_expedition_60_laps.gd 2>&1 | tee expedition-60-laps.log
           grep -F 'BALANCE trials=2000' battle-balance.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|BALANCE ERROR' battle-balance.log; then exit 1; fi
       - name: Upload battle simulation log
