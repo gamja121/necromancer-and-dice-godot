@@ -50,6 +50,8 @@ func setup(battle_scene) -> void:
 		scene.bars[unit.id].hide()
 		var option = TextureButton.new()
 		option.texture_normal = scene.cards[unit.id].texture_normal
+		# Locked/rolling candidates must stay legible even when disabled.
+		option.texture_disabled = option.texture_normal
 		option.ignore_texture_size = true
 		option.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		option.size = scene.cards[unit.id].size
@@ -65,6 +67,10 @@ func setup(battle_scene) -> void:
 		add_selection_outline(option)
 		BrandFrameOverlay.sync(option,unit)
 		AltarUpgradeBadge.sync(option,unit)
+		# The battle death pose starts at RGB 0.4 / alpha 0.35. Once it is
+		# offered as a reward, bring back its silhouette without changing the
+		# in-combat death animation, source art, or persisted reward state.
+		improve_corpse_visibility(unit)
 		var sprite: TextureRect = scene.sprites[unit.id]
 		var target = Button.new()
 		target.flat = true
@@ -131,6 +137,20 @@ func build_capture_header() -> void:
 
 # A distinct green outline remains readable on dimmed cards and is independent
 # of the original art's own border and of the brand/altar badge children.
+# Applies only while choosing a defeated enemy after victory; the dead
+# battle rendering remains untouched until this capture panel is opened.
+func improve_corpse_visibility(unit: Dictionary) -> void:
+	var sprite: TextureRect = scene.sprites.get(str(unit.id))
+	if sprite == null: return
+	sprite.show()
+	# Opaque enough to recognize the defeated unit, slightly cool to retain
+	# a corpse-like appearance on dark battlefield backgrounds.
+	sprite.modulate = Color(0.95,0.97,1.0,1.0)
+	var appearance: ShaderMaterial = sprite.material as ShaderMaterial
+	if appearance != null:
+		# Clear any unfinished cinematic attack focus from the last round.
+		appearance.set_shader_parameter("dim",0.0)
+
 func add_selection_outline(card: TextureButton) -> void:
 	var outline=Panel.new()
 	outline.name="CaptureSelectedOutline"
@@ -151,7 +171,7 @@ func refresh() -> void:
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
 	for choice in choices:
 		var selected = int(pending.selected)==choice.index
-		choice.card.modulate = Color.WHITE if selected else Color(1,1,1,0.82)
+		choice.card.modulate = Color.WHITE if selected else Color(1,1,1,0.97)
 		choice.arrow.visible = selected
 		var outline=choice.card.get_node_or_null("CaptureSelectedOutline")
 		if outline!=null: outline.visible=selected

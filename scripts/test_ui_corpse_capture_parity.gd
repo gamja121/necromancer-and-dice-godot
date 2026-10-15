@@ -6,6 +6,7 @@ var failed=0
 class CaptureSceneStub extends RefCounted:
 	var message: Label=Label.new()
 	var dice: TextureButton=TextureButton.new()
+	var sprites: Dictionary={}
 func _initialize() -> void:
 	call_deferred("_run")
 func check(ok: bool, label: String) -> void:
@@ -59,7 +60,23 @@ func _run() -> void:
 		panel.refresh()
 		check(card_a.get_node("CaptureSelectedOutline").visible and not card_b.get_node("CaptureSelectedOutline").visible,"chosen corpse highlighted green, other corpse not")
 		check(arrow_a.visible and not arrow_b.visible,"selected corpse alone has source arrow")
-		check(near(card_b.modulate.a,0.82) and near(card_a.modulate.a,1.0),"unselected corpse follows source 82% opacity")
+		check(absf(card_b.modulate.a-0.97)<0.015 and absf(card_a.modulate.a-1.0)<0.015,"unselected corpse stays legible at 97% opacity")
+		# A defeated body was previously RGB 0.4 / alpha 0.35. Its actual
+		# battlefield TextureRect and battle focus shader must be restored
+		# ONLY on entering capture, without changing the gameplay record.
+		var dead_sprite=TextureRect.new()
+		dead_sprite.modulate=Color(0.4,0.4,0.4,0.35)
+		dead_sprite.visible=false
+		var focus_shader=Shader.new()
+		focus_shader.code="shader_type canvas_item; uniform float dim = 1.0;"
+		var focus_material=ShaderMaterial.new()
+		focus_material.shader=focus_shader
+		focus_material.set_shader_parameter("dim",1.0)
+		dead_sprite.material=focus_material
+		panel.scene.sprites={"enemy-corpse":dead_sprite}
+		panel.improve_corpse_visibility({"id":"enemy-corpse"})
+		check(dead_sprite.visible and absf(dead_sprite.modulate.a-1.0)<0.015 and dead_sprite.modulate.r>0.9,"capture-only corpse restores recognizable full-opacity art")
+		check(absf(float(focus_material.get_shader_parameter("dim")))<0.015,"capture clears leftover cinematic dim shader")
 		check(panel.capture_info_status.text.contains("구울") and panel.capture_info_status.text.contains("남은 시도 2"),"banner includes actual corpse and remaining rolls")
 		session.world.pending_reward.selected=1
 		session.world.pending_reward.locked=true
