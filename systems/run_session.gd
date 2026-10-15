@@ -779,6 +779,43 @@ func owned_unit(instance_id: String) -> Dictionary:
 		if str(unit.id)==instance_id: return unit
 	return {}
 
+## Rename only a living owned instance. The species catalog and all combat
+## attributes remain unchanged. The optional nickname field protects custom
+## names from legacy monster-name normalization on future reloads.
+func rename_owned_unit(instance_id: String, proposed_name: String) -> Dictionary:
+	if world == null or not world.run_result.is_empty():
+		return {"ok":false,"reason":"종료된 원정에서는 이름을 변경할 수 없습니다."}
+	var unit: Dictionary = owned_unit(instance_id)
+	if unit.is_empty() or bool(unit.get("is_summon",false)):
+		return {"ok":false,"reason":"보유 중인 마물만 이름을 변경할 수 있습니다."}
+	var chosen: String = proposed_name.strip_edges()
+	if chosen.is_empty() or chosen.length()>12:
+		return {"ok":false,"reason":"이름은 1~12자로 입력하세요."}
+	for i in range(chosen.length()):
+		if chosen.unicode_at(i)<32 or chosen.unicode_at(i)==127:
+			return {"ok":false,"reason":"줄바꿈이나 제어 문자는 이름에 사용할 수 없습니다."}
+	if chosen==str(unit.name):
+		return {"ok":true,"name":chosen}
+	var before: Dictionary = world.snapshot().duplicate(true)
+	unit.name = chosen
+	unit["nickname"] = chosen
+	# The same owned unit may already have an on-disk battle checkpoint.
+	# Keep the restored combat name consistent without altering stats/RNG.
+	if not world.active_encounter.is_empty():
+		for ally in world.active_encounter.get("allies",[]):
+			if str(ally.get("id",""))==instance_id:
+				ally["name"]=chosen
+				ally["nickname"]=chosen
+		var snapshot: Dictionary = world.active_encounter.get("checkpoint",{})
+		for fighter in snapshot.get("units",[]):
+			if str(fighter.get("id",""))==instance_id and str(fighter.get("team",""))=="ally":
+				fighter["name"]=chosen
+				fighter["nickname"]=chosen
+	if not persist_change(before):
+		return {"ok":false,"reason":"이름 저장에 실패했습니다. 다시 시도하세요."}
+	encounter = world.active_encounter.duplicate(true)
+	return {"ok":true,"name":chosen}
+
 func inherit_at_home(receiver_id: String, donor_id: String = "", brand_card_id: String = "") -> Dictionary:
 	var allowed = home_action_allowed()
 	if not allowed.ok: return allowed
