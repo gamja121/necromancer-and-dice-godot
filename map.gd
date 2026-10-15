@@ -58,6 +58,9 @@ const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const MapState = preload("res://systems/map_state.gd")
 const EventDiscoveryCard = preload("res://systems/event_discovery_card.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
+const Routine = preload("res://systems/routine_event_catalog.gd")
+const RoutineCard = preload("res://systems/routine_event_card.gd")
+const RewardOverflow = preload("res://systems/reward_overflow.gd")
 const UnlockNoticeBadge = preload("res://systems/unlock_notice_badge.gd")
 const TreasureReward = preload("res://systems/treasure_reward.gd")
 const DiceHand = preload("res://systems/dice_control_hand.gd")
@@ -253,6 +256,7 @@ func _ready() -> void:
 		call_deferred("show_game_over",true)
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
+	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
@@ -629,14 +633,15 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		if blocked_by_story:
 			status.text = session.notice if not session.notice.is_empty() else "기존 사건을 다시 확인하세요."
 			return
-		var kind: String = session.next_discovery_kind()
-		if not kind.is_empty():
-			var discovered: Dictionary = session.discover_location_on_event(index,kind)
-			if not bool(discovered.get("ok",false)):
-				status.text = str(discovered.get("reason","장소 해금 저장 실패"))
-				return
-			show_discovery_card(kind)
+		var outcome: Dictionary = session.begin_story_free_event(index)
+		if not bool(outcome.get("ok",false)):
+			status.text = str(outcome.get("reason","사건 저장 실패 · 다시 시도하세요"))
 			return
+		if str(outcome.get("type",""))=="discovery":
+			show_discovery_card(str(outcome.location))
+		else:
+			show_routine_card()
+		return
 	if type=="basic": return
 	if type=="home":
 		show_home()
@@ -684,6 +689,49 @@ func show_discovery_card(kind: String) -> void:
 		close_overlay()
 		render()
 		status.text = "%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind])
+
+## Resuming a saved unopened routine card must not reroll the incident,
+## spend the reward, or re-enter an old story after a process restart.
+func resume_routine_event() -> void:
+	if world.pending_reward.get("kind","")!="routine": return
+	if world.pending_reward.get("phase","")=="overflow":
+		show_routine_overflow()
+	elif world.pending_reward.get("phase","")=="choice":
+		show_routine_card()
+
+func show_routine_card() -> void:
+	var pending: Dictionary = world.pending_reward
+	if pending.get("kind","")!="routine" or pending.get("phase","")!="choice": return
+	var entry: Dictionary = Routine.details(str(pending.get("event_id","")))
+	if entry.is_empty(): return
+	var panel = modal()
+	var card = RoutineCard.new()
+	panel.add_child(card)
+	card.setup_routine(entry,Routine.reward_image(str(pending.event_id),pending.get("offer",{})))
+	card.chosen.connect(func(choice: String):
+		var outcome: Dictionary = session.complete_routine_choice(choice)
+		if not bool(outcome.get("ok",false)):
+			card.allow_retry()
+			status.text = str(outcome.get("reason","사건 결과를 저장하지 못했습니다. 다시 선택하세요."))
+			return
+		close_overlay()
+		render()
+		if bool(outcome.get("overflow",false)):
+			show_routine_overflow()
+		else:
+			status.text = str(outcome.get("message","루틴 사건 완료")))
+
+func show_routine_overflow() -> void:
+	if world.pending_reward.get("kind","")!="routine" or world.pending_reward.get("phase","")!="overflow":
+		return
+	var popup = RewardOverflow.new()
+	stage.add_child(popup)
+	overlay = popup
+	popup.resolved.connect(func(outcome: Dictionary):
+		close_overlay()
+		render()
+		status.text = "주사위 제어 카드 획득" if bool(outcome.get("kept",false)) else "새 카드 획득을 포기했습니다.")
+	popup.setup(session)
 
 func show_roster() -> void:
 	show_inventory("unit")
