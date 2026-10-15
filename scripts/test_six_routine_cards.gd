@@ -138,6 +138,33 @@ func overflow_case() -> void:
 	check(session.world.pending_reward.is_empty() and receipt in session.world.reward_receipts,"declined overflow cannot be collected again after restart")
 	clear_save(path)
 
+func discovery_exclusion_case() -> void:
+	var path: String="user://six_routine_discovery_%d.json" % OS.get_process_id()
+	session.save_file_path=path
+	clear_save(path)
+	session.start_new_world()
+	var world=session.world
+	var index: int=world.tiles.find("event")
+	world.position=index
+	world.move_serial=1
+	world.laps=1
+	world.contamination=0
+	var probe:=RandomNumberGenerator.new()
+	for seed in range(1,600):
+		probe.seed=seed
+		if probe.randf()>=0.60:
+			world.rng.seed=seed
+			break
+	check(session.save_world(),"qualified discovery branch uses genuine seeded 40-percent draw")
+	var chosen: Dictionary=session.begin_story_free_event(index)
+	check(bool(chosen.get("ok",false)) and chosen.get("type","")=="discovery","qualified location discovery remains possible after routine addition")
+	var receipt: String="routine-visit:%d:%d:%d" % [world.map_serial,world.move_serial,index]
+	check(receipt in world.reward_receipts and world.pending_reward.is_empty(),"discovery also closes the current visit receipt")
+	check(not bool(session.begin_story_free_event(index).get("ok",false)),"same arrival can never award both discovery and routine")
+	session.reload_world()
+	check(receipt in session.world.reward_receipts and not bool(session.begin_story_free_event(index).get("ok",false)),"discovery visit remains one-choice across process reload")
+	clear_save(path)
+
 func failed_save_case() -> void:
 	session.save_file_path="user://six_routine_scratch_%d.json" % OS.get_process_id()
 	var index: int=setup_event("abandoned_wagon")
@@ -161,6 +188,7 @@ func _run() -> void:
 		await verify_card(card_id,true)
 		await verify_card(card_id,false)
 	await overflow_case()
+	await discovery_exclusion_case()
 	await failed_save_case()
 	session.save_file_path=prior_path
 	if own: session.queue_free()
