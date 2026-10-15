@@ -49,6 +49,17 @@ func _run() -> void:
 	world.position = event_index
 	world.laps = 1
 	world.contamination = 0
+	# Routine/discovery is now 60/40; select a seeded genuine discovery
+	# draw rather than incorrectly demanding 100% discovery on every visit.
+	var candidate := RandomNumberGenerator.new()
+	var expected_draw_rng: int = -1
+	for seed in range(1,500):
+		candidate.seed = seed
+		if candidate.randf()>=0.60:
+			world.rng.seed = seed
+			expected_draw_rng = candidate.state
+			break
+	check(expected_draw_rng>=0,"seeded real 40-percent discovery roll selected")
 	check(session.save_world(), "test fixture saved with a completed first patrol")
 	var map = MapScene.instantiate()
 	root.add_child(map)
@@ -68,7 +79,7 @@ func _run() -> void:
 	check(session.event_flag_is_set(State.HILL_UNLOCK_FLAG) and session.event_flag_is_set(State.HILL_HOME_NOTICE), "hill unlock and home NEW reminder saved atomically")
 	check(world.tiles.count("forest")==forest_before+1 and world.tiles.count("basic")==roads_before-1, "one truly empty road changes into one real hill on the current map")
 	check(world.tiles[event_index]=="event" and world.tiles[0]=="fortune-teller-camp" and world.tiles[8]=="village" and world.tiles[15]=="home", "event and fixed place cells untouched")
-	check(world.rng.state==random_before and world.map_serial==int(before.map_serial), "conversion neither rerolls the dice RNG nor reshuffles map")
+	check(world.rng.state==expected_draw_rng and world.map_serial==int(before.map_serial), "one event-type draw and no extra tile RNG or map shuffle")
 	var new_hill_index: int=-1
 	for i in range(24):
 		if before.tiles[i]=="basic" and world.tiles[i]=="forest": new_hill_index=i
