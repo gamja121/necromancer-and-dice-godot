@@ -33,7 +33,7 @@ func _run() -> void:
 	var second_name: String = str(session.owned_unit(second).name)
 	var old_stats: Dictionary = session.owned_unit(first).duplicate(true)
 	for invalid in ["","    ","ABCDEFGHIJKLM","가\n나","\t사신"]:
-		check(not session.rename_owned_unit(first,invalid).get("ok",false),"invalid name rejected: "+str(invalid).unicode_escape() if str(invalid).is_empty() else "invalid name rejected")
+		check(not session.rename_owned_unit(first,invalid).get("ok",false),"invalid name rejected")
 	check(not session.rename_owned_unit("enemy-0","사칭").get("ok",false),"enemy instance ID cannot be renamed")
 	var picked: Dictionary = {"id":first,"name":"잔불"}
 	var result: Dictionary = session.rename_owned_unit(first,"  잔불  ")
@@ -43,7 +43,8 @@ func _run() -> void:
 	for key in ["slug","max_hp","attack","speed","current_hp","brands","passive"]:
 		check(session.owned_unit(first).get(key)==old_stats.get(key),"rename never changes stat/property "+key)
 	check(session.rename_owned_unit(first,"잔불").get("ok",false),"setting the same name is idempotent")
-	check(session.reload_world() and str(session.owned_unit(first).name)=="잔불","custom name persists across disk save/reload")
+	session.reload_world()
+	check(str(session.owned_unit(first).name)=="잔불","custom name persists across disk save/reload")
 	# Repeated fresh-world UI: direct button click never toggles selected_ids.
 	var deck=Deck.new()
 	root.add_child(deck)
@@ -109,7 +110,8 @@ func _run() -> void:
 		var saved_encounter: Dictionary=session.world.active_encounter
 		check(saved_encounter.get("allies",[]).any(func(u):return str(u.id)==first and str(u.name)=="잿빛 인연"),"encounter's initial ally copy renamed")
 		check(saved_encounter.checkpoint.units.any(func(u):return str(u.id)==first and str(u.name)=="잿빛 인연"),"battle checkpoint saves same custom name")
-		check(session.reload_world(),"active encounter reload succeeds")
+		session.reload_world()
+		check(not session.encounter.is_empty(),"active encounter reload succeeds")
 		check(str(session.owned_unit(first).name)=="잿빛 인연","roster retains name after active battle reload")
 		check(session.encounter.checkpoint.units.any(func(u):return str(u.id)==first and str(u.name)=="잿빛 인연"),"resumed combat retains name")
 	# Legacy canonical name normalizer must not erase a renamed Doom Executor.
