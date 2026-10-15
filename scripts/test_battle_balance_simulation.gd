@@ -2,6 +2,8 @@ extends SceneTree
 ## Deterministic balance smoke simulation; no combat rule changes.
 const Rules = preload("res://systems/battlefield_rules.gd")
 const TRIALS = 2000
+const ALLY_BRANDS = 3
+const ALTAR_LEVEL = 3
 const ROUND_CAP = 80
 
 func _initialize() -> void:
@@ -40,7 +42,17 @@ func _run() -> void:
 		for i in range(4):
 			var a_slug: String = pool[rng.randi_range(0,pool.size()-1)]
 			var e_slug: String = pool[rng.randi_range(0,pool.size()-1)]
-			allies.append(battle.individual(a_slug,"a%d" % i))
+			var ally: Dictionary = battle.individual(a_slug,"a%d" % i)
+			# Altar level 3: +3 attack, +6 max/current HP; three sacrifices in actual gameplay.
+			ally.attack = int(ally.attack) + ALTAR_LEVEL
+			ally.max_hp = int(ally.max_hp) + 2 * ALTAR_LEVEL
+			ally.current_hp = ally.max_hp
+			ally.altar_enhancements = ALTAR_LEVEL
+			# Three equipped brand slots (including original innate brand if present).
+			while ally.brands.size() < ALLY_BRANDS:
+				var kinds: Array = battle.COUNTS.keys()
+				ally.brands.append(battle.make_brand(str(kinds[rng.randi_range(0,kinds.size()-1)])))
+			allies.append(ally)
 			enemies.append(battle.individual(e_slug,"e%d" % i))
 			unit_uses[a_slug] = int(unit_uses.get(a_slug,0)) + 1
 		battle.start(allies,enemies)
@@ -66,6 +78,7 @@ func _run() -> void:
 			losses += 1
 		else:
 			timeouts += 1
+	print("BALANCE setup=ally4_brand3_altar3 enemy4_unmodified")
 	print("BALANCE trials=",TRIALS," units=",pool.size()," ally_wins=",wins," enemy_wins=",losses," timeouts=",timeouts)
 	print("BALANCE mean_rounds=",float(rounds_sum)/TRIALS," ally_first_death_rate=",float(first_ally_deaths)/TRIALS)
 	for slug in pool:
