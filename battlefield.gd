@@ -756,7 +756,20 @@ func show_detail(u: Dictionary) -> void:
 	set_card_phase(false)
 	detail = UnitInfo.new()
 	(detail_parent if embedded and is_instance_valid(detail_parent) else layer).add_child(detail)
-	detail.setup(u,rules)
+	var instance_id: String = str(u.id)
+	var may_rename: bool = map_mode and session != null and session.world != null and u.team=="ally" and not session.owned_unit(instance_id).is_empty()
+	detail.setup(u,rules,{},may_rename)
+	if may_rename:
+		detail.rename_submitted.connect(func(chosen: String):
+			var result: Dictionary = session.rename_owned_unit(instance_id,chosen)
+			if bool(result.get("ok",false)):
+				# Live combat visuals and durable checkpoint must carry one name.
+				var combatant: Dictionary = rules.find_id(instance_id)
+				if not combatant.is_empty():
+					combatant["name"] = str(result.name)
+					combatant["nickname"] = str(result.name)
+				render_units(rules.units)
+			if is_instance_valid(detail): detail.apply_rename_result(result))
 	if embedded: detail.z_index = 200
 	detail.closed.connect(func():
 		detail = null
