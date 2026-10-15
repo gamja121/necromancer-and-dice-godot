@@ -5,8 +5,8 @@ extends SceneTree
 const Session = preload("res://systems/run_session.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const TRIALS = 100
-const MAX_LAPS = 25
-const MAX_ROLLS = 250
+const MAX_LAPS = 100
+const MAX_ROLLS = 1000
 func _initialize() -> void:
 	call_deferred("_run")
 func _run() -> void:
@@ -14,6 +14,8 @@ func _run() -> void:
 	var defeats := 0
 	var reached_boss := 0
 	var boss_wins := 0
+	var boss_runs := 0
+	var completed_runs := 0
 	var failures := 0
 	var skipped_events := 0
 	for trial in range(TRIALS):
@@ -37,7 +39,10 @@ func _run() -> void:
 				failures += 1
 				break
 			var tile: String = str(world.tiles[world.position])
-			if tile in ["monster","rare-monster","boss"] and not world.position in world.cleared:
+			if tile=="gem" and world.pending_reward.is_empty():
+				session.open_treasure(world.position)
+			var mimic: bool = world.pending_reward.get("kind","")=="mimic"
+			if (tile in ["monster","rare-monster","boss"] and not world.position in world.cleared) or mimic:
 				var ids: Array = []
 				var healthy: Array = world.roster.filter(func(u): return int(u.current_hp)>0)
 				healthy.sort_custom(func(a,b): return int(a.attack)>int(b.attack))
@@ -81,9 +86,17 @@ func _run() -> void:
 						var claimed: Dictionary = session.claim_reward("__new__" if world.roster.size()>=8 else "")
 						if not claimed.get("ok",false): failures += 1; break
 					else:
-						if not session.dismiss_failed_capture(): failures += 1; break
+						while world.pending_reward.get("phase","")=="retry":
+							var retried: Dictionary = session.roll_capture()
+							if not retried.get("ok",false):
+								failures += 1
+								break
+						if world.pending_reward.get("phase","")=="success":
+							if not session.claim_reward("__new__" if world.roster.size()>=8 else "").get("ok",false): failures += 1; break
+						elif world.pending_reward.get("phase","")=="failed":
+							if not session.dismiss_failed_capture(): failures += 1; break
 			elif tile=="gem":
-				if session.open_treasure(world.position) and world.pending_reward.get("kind","")=="treasure":
+				if world.pending_reward.get("kind","")=="treasure":
 					var offers: Array = world.pending_reward.offers
 					var chosen := 0
 					for i in range(offers.size()):
@@ -100,11 +113,13 @@ func _run() -> void:
 						break
 			elif tile in ["event","forest","altar","village","graveyard","unknown","fortune-teller-camp"]:
 				skipped_events += 1
+		if boss_attempted: boss_runs += 1
+		if world.run_result.is_empty() and world.laps>=MAX_LAPS: completed_runs += 1
 		lap_total += world.laps
 		print("SURVIVAL trial=",trial," laps=",world.laps," battles=",battle_count," roster=",world.roster.size()," contamination=",world.contamination," boss_attempted=",boss_attempted," ended=",not world.run_result.is_empty())
 		for suffix in ["",".tmp"]:
 			var p: String = session.save_file_path + suffix
 			if FileAccess.file_exists(p): DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 		session.queue_free()
-	print("SURVIVAL trials=",TRIALS," mean_laps=",float(lap_total)/TRIALS," defeats=",defeats," boss_reached=",reached_boss," boss_wins=",boss_wins," skipped_event_arrivals=",skipped_events," failures=",failures)
+	print("SURVIVAL trials=",TRIALS," mean_laps=",float(lap_total)/TRIALS," defeats=",defeats," boss_encounters=",reached_boss," boss_runs=",boss_runs," boss_wins=",boss_wins," skipped_event_arrivals=",skipped_events," max_laps_reached=",completed_runs," failures=",failures)
 	quit(0 if failures==0 else 1)
