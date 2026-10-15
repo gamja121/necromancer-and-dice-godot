@@ -788,12 +788,14 @@ func rename_owned_unit(instance_id: String, proposed_name: String) -> Dictionary
 	var unit: Dictionary = owned_unit(instance_id)
 	if unit.is_empty() or bool(unit.get("is_summon",false)):
 		return {"ok":false,"reason":"보유 중인 마물만 이름을 변경할 수 있습니다."}
+	# Validate the raw candidate before trimming: otherwise a leading tab
+	# or trailing newline would silently disappear and become a legal name.
+	for i in range(proposed_name.length()):
+		if proposed_name.unicode_at(i)<32 or proposed_name.unicode_at(i)==127:
+			return {"ok":false,"reason":"줄바꿈이나 제어 문자는 이름에 사용할 수 없습니다."}
 	var chosen: String = proposed_name.strip_edges()
 	if chosen.is_empty() or chosen.length()>12:
 		return {"ok":false,"reason":"이름은 1~12자로 입력하세요."}
-	for i in range(chosen.length()):
-		if chosen.unicode_at(i)<32 or chosen.unicode_at(i)==127:
-			return {"ok":false,"reason":"줄바꿈이나 제어 문자는 이름에 사용할 수 없습니다."}
 	if chosen==str(unit.name):
 		return {"ok":true,"name":chosen}
 	var before: Dictionary = world.snapshot().duplicate(true)
