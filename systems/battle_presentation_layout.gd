@@ -5,15 +5,15 @@ extends RefCounted
 # Rear units are slightly smaller, higher on the floor and always draw behind
 # nearer units. These arrays never alter targeting, turn order or save data.
 const ALLY_DEPTH = [1.06,1.02,0.98,0.94,0.88]
-const ENEMY_DEPTH = [0.94,0.98,1.02,1.06,0.88]
+const ENEMY_DEPTH = [1.06,1.02,0.98,0.94,0.88]
 const ALLY_OFFSET = [0.06,0.025,-0.01,-0.045,-0.08]
-const ENEMY_OFFSET = [-0.045,-0.01,0.025,0.06,-0.08]
+const ENEMY_OFFSET = [0.06,0.025,-0.01,-0.045,-0.08]
 const ALLY_Z = [18,17,16,15,14]
-const ENEMY_Z = [15,16,17,18,14]
+const ENEMY_Z = [18,17,16,15,14]
 # Sprite, HP bar and bottom deck card keep horizontal_center() fixed.
 # Summoned slot 4 remains a rear-side auxiliary slot for both teams.
 const ALLY_COLUMNS = [1,2,3,4,5]
-const ENEMY_COLUMNS = [2,3,4,5,1]
+const ENEMY_COLUMNS = [5,4,3,2,1]
 const RATIOS = {"bone-golem":1.5,"death-knight":1.0,"plague-frog":0.5,"grave-worm":0.5,"spider-knight":2.0,"stone-golem":2.0,"flesh-golem":1.5,"skeleton-cavalry":1.5,"spiderling":0.5,"guardian-seed":0.5,"goblin-chief":1.5,"kraken":2.0,"minotaur":1.5,"goblin-rider":1.0,"yeti":1.5,"orc-warrior":1.5,"hydra":2.0,"boulder-ogre":1.5,"abyss-claw-hunter":1.5,"corpse-slime":1.0}
 var metrics: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/battle_visual_metrics.json"))
 
