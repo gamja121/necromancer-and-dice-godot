@@ -542,6 +542,31 @@ func highlight(index: int) -> void:
 		buttons[i].scale = SELECTED_TILE_SCALE if i==index else Vector2.ONE
 		buttons[i].z_index = 5 if i==index else 4
 
+# One deliberate footstep per tile: takeoff, short arc, and weighted landing.
+# Purely visual; the saved route, timing of tile effects, and input lock stay unchanged.
+func _pose_hero_step(progress: float, start: Vector2, target: Vector2) -> void:
+	var p: float = clampf(progress, 0.0, 1.0)
+	var travel: float = p * p * (3.0 - 2.0 * p)
+	var lift: float = sin(p * PI) * 14.0
+	hero.position = start.lerp(target, travel) + Vector2(0.0, -lift)
+	# A little compression on push-off, stretch in flight, and compression at impact.
+	var squash: float = 0.0
+	if p < 0.16:
+		squash = sin(p / 0.16 * PI) * 0.055
+	elif p > 0.82:
+		squash = sin((p - 0.82) / 0.18 * PI) * 0.075
+	var airborne: float = sin(p * PI) * 0.035
+	hero.scale = Vector2(1.0 + squash - airborne * 0.4, 1.0 - squash + airborne)
+
+func animate_hero_step(index: int) -> void:
+	var start: Vector2 = hero.position
+	var target: Vector2 = hero_position(index)
+	var motion: Tween = create_tween()
+	motion.tween_method(_pose_hero_step.bind(start, target), 0.0, 1.0, 0.32).set_trans(Tween.TRANS_LINEAR)
+	await motion.finished
+	hero.position = target
+	hero.scale = Vector2.ONE
+
 func roll_move(instance_id: String = "") -> void:
 	if moving or is_instance_valid(overlay): return
 	if not world.pending_move.is_empty():
@@ -565,9 +590,7 @@ func roll_move(instance_id: String = "") -> void:
 		var index = int(raw_index)
 		hero.flip_h = center(index).x<center(previous).x
 		sound("move")
-		var motion = create_tween()
-		motion.tween_property(hero,"position",hero_position(index),0.23)
-		await motion.finished
+		await animate_hero_step(index)
 		highlight(index)
 		previous = index
 	await resume_map_move()
@@ -1221,9 +1244,7 @@ func move_from_hill(index: int, steps: int) -> void:
 		var tile_index: int=int(raw_index)
 		hero.flip_h=center(tile_index).x<center(previous).x
 		sound("move")
-		var motion=create_tween()
-		motion.tween_property(hero,"position",hero_position(tile_index),0.23)
-		await motion.finished
+		await animate_hero_step(tile_index)
 		highlight(tile_index)
 		previous=tile_index
 	await resume_map_move()
