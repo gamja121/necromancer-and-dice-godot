@@ -304,6 +304,10 @@ func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2,
 		if value.length() > (105 if spoken else 126): display_size = mini(display_size,14)
 		node.clip_text = true
 		node.set_meta("ui_story_copy_role","speech" if spoken else "narration")
+	# Some story beats deliberately use narrower custom text lanes (e.g. 492 px).
+	# Preserve the original layout AND its story font for all these lines too.
+	if story_frame and pos.y >= 525.0 and pos.y < 645.0 and dimensions.x >= 450.0 and not node.has_meta("ui_story_copy_role"):
+		node.set_meta("ui_story_copy_role","speech" if pos.y >= 590.0 else "narration")
 	node.add_theme_font_size_override("font_size",display_size)
 	node.add_theme_color_override("font_color",Color("f2dfb5"))
 	node.add_theme_color_override("font_shadow_color",Color.BLACK)
