@@ -188,7 +188,8 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 		var definition = interface_data.brands[brand.type]
 		effect_line(definition.name,Color("281a12"),14)
 		effect_line("축복 [%s] · %s" % [", ".join(brand.bless.map(func(n): return str(n))),definition.blessing],Color("244e2c"))
-		effect_line("저주 [%s] · %s" % [", ".join(brand.curse.map(func(n): return str(n))),definition.penalty],Color("782622"))
+		if not brand.curse.is_empty():
+			effect_line("저주 [%s] · %s" % [", ".join(brand.curse.map(func(n): return str(n))),definition.penalty],Color("782622"))
 	if u.brands.is_empty(): effect_line("낙인 없음")
 	if u.base_hp != u.max_hp or u.base_attack != u.attack or u.base_speed != u.speed:
 		section("능력치 변화")
