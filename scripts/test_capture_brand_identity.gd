@@ -64,7 +64,20 @@ func _run() -> void:
 		quit(1)
 		return
 	var origin: Dictionary=session.encounter.enemies[0].duplicate(true)
-	check(not normalized_brands(origin).is_empty(),"the enemy actually carries a natural brand")
+	# A random encounter may contain only unbranded monsters. The fixture
+	# must always exercise the buggy branch where a brand can be re-rolled.
+	if normalized_brands(origin).is_empty():
+		for opponent in session.encounter.enemies:
+			if not normalized_brands(opponent).is_empty():
+				origin=opponent.duplicate(true)
+				break
+	if normalized_brands(origin).is_empty():
+		var generator=Battle.new(world.definitions,19)
+		origin=generator.individual("skeleton-spear",str(session.encounter.enemies[0].id))
+		session.encounter.enemies[0]=origin.duplicate(true)
+		world.active_encounter=session.encounter.duplicate(true)
+		check(session.save_world(),"test-only branded enemy fixture saved")
+	check(not normalized_brands(origin).is_empty(),"a fought enemy carries a testable brand")
 	var battle=Battle.new(world.definitions,7)
 	battle.start(session.encounter.allies,session.encounter.enemies)
 	check(normalized_brands(battle.find_id(str(origin.id)))==normalized_brands(origin),"battle uses original enemy's exact dice faces")
@@ -100,6 +113,14 @@ func _run() -> void:
 			corpse=candidate
 			break
 	check(normalized_brands(corpse.get("unit",{}))==normalized_brands(origin),"blessing/curse face numbers remain identical after JSON reload")
+	# Existing player saves created before this fix have no corpse.unit.
+	# Their saved battle checkpoint must still recover the defeated enemy.
+	var legacy: Dictionary=corpse.duplicate(true)
+	legacy.erase("unit")
+	var rng_before_legacy: int=world.rng.state
+	var old_save_item: Dictionary=session.create_item("unit",legacy)
+	check(normalized_brands(old_save_item)==normalized_brands(origin),"older active capture saves recover exact brands from battle snapshot")
+	check(world.rng.state==rng_before_legacy,"legacy capture recovery does not reroll a brand")
 	# A guaranteed success only in the disposable test fixture. Production
 	# still rolls the original required target (2 to 6) unchanged.
 	var chosen: int=world.pending_reward.corpses.find(corpse)
