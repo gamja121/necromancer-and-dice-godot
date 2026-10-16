@@ -1020,6 +1020,16 @@ func show_home(interior: bool = false) -> void:
 	# Every newly discovered real place is displayed inside HOME.
 	# Keep rows compact and away from the bottom action buttons.
 	var discovery_row: int = 0
+	# Cemetery is a first-lap milestone, not an event discovery.
+	if world.laps >= 1 or world.lap_ready:
+		var grave_icon = image(panel,"res://assets/map/tiles/graveyard.png",Vector2(245,427),Vector2(38,34))
+		grave_icon.name = "HomeUnlocked_graveyard"
+		grave_icon.z_index = 13
+		var grave_message = label_at(panel,"공동묘지 해금 · 첫 바퀴 완주 · 다음 맵부터 자동 배치",Vector2(298,427),Vector2(650,33),16)
+		grave_message.z_index = 13
+		if session.event_flag_is_set("ui:unlock:graveyard:home_pending"):
+			UnlockNoticeBadge.attach(grave_icon,"NEW")
+		discovery_row = 1
 	for kind in Discovery.ORDER:
 		if not session.event_flag_is_set(Discovery.unlock_flag(kind)): continue
 		var y: float = 427.0 + float(discovery_row)*34.0
@@ -1056,7 +1066,7 @@ func show_home(interior: bool = false) -> void:
 			close_overlay()
 			show_exploration_actions(MapState.HOME))
 		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
-		if Discovery.ORDER.any(func(kind): return session.event_flag_is_set(Discovery.home_flag(kind))):
+		if session.event_flag_is_set("ui:unlock:graveyard:home_pending") or Discovery.ORDER.any(func(kind): return session.event_flag_is_set(Discovery.home_flag(kind))):
 			UnlockNoticeBadge.attach(patrol,"NEW")
 		if not allowed.ok:
 			var hint = label_at(panel,str(allowed.reason),Vector2(350,665),Vector2(580,30),15)
