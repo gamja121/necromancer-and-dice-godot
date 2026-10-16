@@ -344,28 +344,55 @@ func tile_path(index: int) -> String:
 
 # Presentation-only board depth experiment: generated shadows, no new textures.
 # All tiles share the same upper-left light direction.
-func install_board_tile_shadow(parent: Control, tile_position: Vector2) -> void:
-	var shadow = ColorRect.new()
-	shadow.name = "BoardTileSoftShadow"
+# Visual-only 2.5D board experiment. The shared light comes from upper-left.
+# Reuse the tile texture alpha for its own cast shadow; no added image assets.
+func install_board_tile_shadow(parent: Control, tile_position: Vector2, tile_texture: Texture2D) -> void:
+	var shadow = TextureRect.new()
+	shadow.name = "BoardTileDirectionalShadow"
 	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shadow.position = tile_position + Vector2(7.0, 9.0)
-	shadow.size = TILE_SIZE + Vector2(4.0, 6.0)
+	shadow.texture = tile_texture
+	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	shadow.position = tile_position + Vector2(16.0, 19.0)
+	shadow.size = TILE_SIZE
 	shadow.z_index = 3
-	shadow.color = Color.WHITE
 	var shader = Shader.new()
 	shader.code = """
 shader_type canvas_item;
 void fragment() {
-	vec2 p = (UV - vec2(0.5, 0.52)) / vec2(0.52, 0.44);
-	float radius = length(p);
-	float alpha = (1.0 - smoothstep(0.48, 1.0, radius)) * 0.36;
-	COLOR = vec4(0.035, 0.045, 0.055, alpha);
+	vec2 pixel = TEXTURE_PIXEL_SIZE * 3.0;
+	float shape = texture(TEXTURE, UV).a * 0.32;
+	shape += texture(TEXTURE, UV + vec2(pixel.x, 0.0)).a * 0.13;
+	shape += texture(TEXTURE, UV - vec2(pixel.x, 0.0)).a * 0.13;
+	shape += texture(TEXTURE, UV + vec2(0.0, pixel.y)).a * 0.13;
+	shape += texture(TEXTURE, UV - vec2(0.0, pixel.y)).a * 0.13;
+	shape += texture(TEXTURE, UV + pixel).a * 0.08;
+	shape += texture(TEXTURE, UV - pixel).a * 0.08;
+	COLOR = vec4(0.045, 0.032, 0.025, clamp(shape, 0.0, 1.0) * 0.78);
 }
 """
 	var material = ShaderMaterial.new()
 	material.shader = shader
 	shadow.material = material
 	parent.add_child(shadow)
+
+func apply_board_tile_lighting(tile: TextureButton) -> void:
+	var shader = Shader.new()
+	shader.code = """
+shader_type canvas_item;
+void fragment() {
+	vec4 art = texture(TEXTURE, UV);
+	float toward_light = clamp(1.0 - (UV.x * 0.56 + UV.y * 0.44), 0.0, 1.0);
+	float highlight = smoothstep(0.15, 0.95, toward_light);
+	vec3 warm_light = vec3(1.0, 0.83, 0.57);
+	vec3 lit = art.rgb + warm_light * highlight * 0.15;
+	lit *= 1.0 - (1.0 - highlight) * 0.14;
+	COLOR = vec4(clamp(lit, vec3(0.0), vec3(1.0)), art.a);
+}
+"""
+	var material = ShaderMaterial.new()
+	material.shader = shader
+	tile.material = material
 
 func render() -> void:
 	if is_instance_valid(stage):
@@ -386,7 +413,8 @@ func render() -> void:
 		node.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		node.size = TILE_SIZE
 		node.position = center(i)-node.size/2
-		install_board_tile_shadow(stage,node.position)
+		install_board_tile_shadow(stage,node.position,node.texture_normal)
+		apply_board_tile_lighting(node)
 		node.pivot_offset = node.size/2
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
