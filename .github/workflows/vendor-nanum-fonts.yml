@@ -1,0 +1,34 @@
+name: Vendor NAVER OFL UI fonts
+on:
+  push:
+    branches: [feat/ui-nanum-rounded-body-barun-headings]
+    paths: [".github/workflows/vendor-nanum-fonts.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    if: github.ref == 'refs/heads/feat/ui-nanum-rounded-body-barun-headings'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Fetch and verify pinned Naver font originals
+        shell: bash
+        run: |
+          set -euo pipefail
+          REV=457a47664b20b75ae1b362398d7fc65f164dd0bb
+          BASE="https://raw.githubusercontent.com/deepin-community/fonts-nanum/$REV"
+          mkdir -p assets/fonts
+          curl --fail --location --retry 3 --silent --show-error "$BASE/NanumSquareRoundR.ttf" -o assets/fonts/NanumSquareRoundR.ttf
+          curl --fail --location --retry 3 --silent --show-error "$BASE/NanumBarunGothic.ttf" -o assets/fonts/NanumBarunGothic.ttf
+          test "$(git hash-object assets/fonts/NanumSquareRoundR.ttf)" = c8d0c4f073ca952990df41ec9ad654d22ca65242
+          test "$(git hash-object assets/fonts/NanumBarunGothic.ttf)" = c31486832e412992e7d7e3c93665329e35ad7050
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/fonts/NanumSquareRoundR.ttf assets/fonts/NanumBarunGothic.ttf
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "assets(fonts): bundle selected NAVER OFL fonts for game UI"
+          git push origin "HEAD:$GITHUB_REF_NAME"
