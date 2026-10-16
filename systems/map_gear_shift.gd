@@ -14,7 +14,9 @@ const GATHER_DURATION = 0.44
 const ROTATE_DURATION = 0.86
 const SWAP_DURATION = 0.50
 const SCATTER_DURATION = 0.52
-const SETTLE_DURATION = 0.11
+const SETTLE_DURATION = 0.22
+const STONE_TILT_DEGREES = 2.0
+const LAND_COMPRESS = 0.055
 const RING_GAP = 0.06
 const SWAP_PAIR_COUNT = 2
 const BOARD_CENTER = Layout.DICE_CENTER
@@ -39,6 +41,7 @@ var gathering_tween: Tween
 var rotation_tween: Tween
 var swap_tween: Tween
 var scatter_tween: Tween
+var settle_tween: Tween
 var finished: bool = false
 var gathered: bool = false
 var rotated: bool = false
@@ -214,8 +217,9 @@ func prepare(buttons: Array, destination_textures: Array, previous: Array, saved
 		shadow.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 		shadow.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		shadow.size=source.size
-		shadow.position=SHADOW_OFFSET
-		shadow.modulate=Color(0.03,0.02,0.03,0.27)
+		# Close contact shadow: stays on the stone during rotation and landing.
+		shadow.position=Vector2(3.0,4.0)
+		shadow.modulate=Color(0.03,0.02,0.03,0.34)
 		shadow.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		shadow.show_behind_parent=true
 		face.add_child(shadow)
@@ -247,10 +251,15 @@ func prepare(buttons: Array, destination_textures: Array, previous: Array, saved
 		swapped_scales[ib]=ring_scales[ia]
 	return visuals.size()==Layout.INNER_COUNT+Layout.OUTER_COUNT
 
-func _pose(i: int, center: Vector2, factor: float) -> void:
+func _pose(i: int, center: Vector2, factor: float, tilt: float = 0.0, compression: float = 0.0) -> void:
 	var face: TextureRect=visuals[i]
 	face.position=center-face.size*0.5
-	face.scale=Vector2.ONE*factor
+	# Keep the bottom of the stone near the board: no hovering arc.
+	face.scale=Vector2(factor*(1.0+compression*0.38),factor*(1.0-compression))
+	face.rotation_degrees=tilt
+	var shadow: TextureRect=face.get_node("StoneShadow")
+	shadow.position=Vector2(3.0,4.0+compression*4.0)
+	shadow.modulate.a=0.34+compression*0.12
 
 func _one_notch_center(i: int, progress: float) -> Vector2:
 	var slot: Dictionary=slots[i]
@@ -263,13 +272,13 @@ func _one_notch_center(i: int, progress: float) -> Vector2:
 func _gather_frame(raw: float) -> void:
 	var p: float=raw*raw*(3.0-2.0*raw)
 	for i in range(visuals.size()):
-		_pose(i,source_centers[i].lerp(gather_centers[i],p),lerpf(1.0,ring_scales[i],p))
+		_pose(i,source_centers[i].lerp(gather_centers[i],p),lerpf(1.0,ring_scales[i],p),sin(p*PI)*(-1.0 if i%2==0 else 1.0)*STONE_TILT_DEGREES)
 
 func _notch_frame(raw: float) -> void:
 	var p: float=StoneInertia.stone_rotation_progress(raw)
 	last_progress=p
 	for i in range(visuals.size()):
-		_pose(i,_one_notch_center(i,p),ring_scales[i])
+		_pose(i,_one_notch_center(i,p),ring_scales[i],sin(raw*PI)*(-1.0 if i%2==0 else 1.0)*STONE_TILT_DEGREES)
 
 func _swap_frame(raw: float) -> void:
 	var p: float=StoneInertia.stone_rotation_progress(raw)
@@ -283,12 +292,22 @@ func _swap_frame(raw: float) -> void:
 			var transverse: Vector2=(b-a).orthogonal().normalized()
 			var sign: float=1.0 if i%2==0 else -1.0
 			center+=transverse*24.0*sin(p*PI)*sign
-		_pose(i,center,lerpf(ring_scales[i],swapped_scales[i],p))
+		_pose(i,center,lerpf(ring_scales[i],swapped_scales[i],p),sin(raw*PI)*(-1.0 if i%2==0 else 1.0)*STONE_TILT_DEGREES)
 
 func _scatter_frame(raw: float) -> void:
-	var p: float=raw*raw*(3.0-2.0*raw)
+	# Stronger deceleration near the destination; no overshoot into adjacent slots.
+	var p: float=1.0-pow(1.0-clampf(raw,0.0,1.0),3.0)
 	for i in range(visuals.size()):
-		_pose(i,swapped_centers[i].lerp(destination_centers[i],p),lerpf(swapped_scales[i],1.0,p))
+		var direction: float=-1.0 if i%2==0 else 1.0
+		_pose(i,swapped_centers[i].lerp(destination_centers[i],p),lerpf(swapped_scales[i],1.0,p),direction*sin(raw*PI)*STONE_TILT_DEGREES)
+
+func _settle_frame(raw: float) -> void:
+	# Contact impact and damping happen at the exact saved destination.
+	var p: float=clampf(raw,0.0,1.0)
+	var compression: float=LAND_COMPRESS*sin(p*PI)*exp(-3.0*p)
+	var wobble: float=sin(p*3.0*PI)*exp(-5.0*p)*0.9
+	for i in range(visuals.size()):
+		_pose(i,destination_centers[i],1.0,wobble*(-1.0 if i%2==0 else 1.0),compression)
 
 func _reveal_real_changes(destination_textures: Array) -> void:
 	# A mandatory change (e.g. new graveyard or boss) happens *while the
@@ -332,12 +351,15 @@ func play_once(destination_textures: Array) -> void:
 	_scatter_frame(1.0)
 	phase="land"
 	_sound("land")
-	await get_tree().create_timer(SETTLE_DURATION).timeout
+	settle_tween=create_tween()
+	settle_tween.tween_method(_settle_frame,0.0,1.0,SETTLE_DURATION).set_trans(Tween.TRANS_LINEAR)
+	await settle_tween.finished
+	_settle_frame(1.0)
 	finished=true
 	phase="finished"
 
 func clean_up() -> void:
-	for tween in [gathering_tween,rotation_tween,swap_tween,scatter_tween]:
+	for tween in [gathering_tween,rotation_tween,swap_tween,scatter_tween,settle_tween]:
 		if tween!=null and tween.is_running(): tween.kill()
 	for i in range(sources.size()):
 		if is_instance_valid(sources[i]): sources[i].visible=source_visibility[i]
