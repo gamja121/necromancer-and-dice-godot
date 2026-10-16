@@ -342,6 +342,31 @@ func tile_path(index: int) -> String:
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
 	return "res://assets/map/tiles/"+id+".png"
 
+# Presentation-only board depth experiment: generated shadows, no new textures.
+# All tiles share the same upper-left light direction.
+func install_board_tile_shadow(parent: Control, tile_position: Vector2) -> void:
+	var shadow = ColorRect.new()
+	shadow.name = "BoardTileSoftShadow"
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.position = tile_position + Vector2(7.0, 9.0)
+	shadow.size = TILE_SIZE + Vector2(4.0, 6.0)
+	shadow.z_index = 3
+	shadow.color = Color.WHITE
+	var shader = Shader.new()
+	shader.code = """
+shader_type canvas_item;
+void fragment() {
+	vec2 p = (UV - vec2(0.5, 0.52)) / vec2(0.52, 0.44);
+	float radius = length(p);
+	float alpha = (1.0 - smoothstep(0.48, 1.0, radius)) * 0.36;
+	COLOR = vec4(0.035, 0.045, 0.055, alpha);
+}
+"""
+	var material = ShaderMaterial.new()
+	material.shader = shader
+	shadow.material = material
+	parent.add_child(shadow)
+
 func render() -> void:
 	if is_instance_valid(stage):
 		remove_child(stage)
@@ -361,6 +386,7 @@ func render() -> void:
 		node.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		node.size = TILE_SIZE
 		node.position = center(i)-node.size/2
+		install_board_tile_shadow(stage,node.position)
 		node.pivot_offset = node.size/2
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
