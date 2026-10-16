@@ -1,19 +1,10 @@
-name: Optional UI Typography Preview
+name: UI Typography B-D Regression
 on:
   pull_request:
-    paths:
-      - "systems/ui_typography.gd"
-      - "scripts/test_ui_typography_preview.gd"
-      - "project.godot"
-      - ".github/workflows/ui-typography-preview.yml"
+    paths: ["systems/ui_typography.gd", "scripts/test_ui_typography_preview.gd", "assets/fonts/**", ".github/workflows/ui-typography-preview.yml"]
   push:
-    branches:
-      - main
-    paths:
-      - "systems/ui_typography.gd"
-      - "scripts/test_ui_typography_preview.gd"
-      - "project.godot"
-      - ".github/workflows/ui-typography-preview.yml"
+    branches: [main]
+    paths: ["systems/ui_typography.gd", "scripts/test_ui_typography_preview.gd", "assets/fonts/**", ".github/workflows/ui-typography-preview.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,14 +18,16 @@ jobs:
         with:
           version: 4.7.2
           use-dotnet: false
-      - name: Import and validate all project scripts
+      - name: Godot import and GDScript parse
+        shell: bash
         run: |
           set -euo pipefail
           timeout 110s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
-      - name: Verify information UI and story-font separation
+      - name: Verify typography roles and story exclusions
+        shell: bash
         run: |
           set -euo pipefail
-          timeout 90s godot --headless --path . --script res://scripts/test_ui_typography_preview.gd 2>&1 | tee preview.log
-          grep -E 'UI_TYPOGRAPHY_PREVIEW: [0-9]+ passed, 0 failed' preview.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-typography:' preview.log; then exit 1; fi
+          timeout 90s godot --headless --path . --script res://scripts/test_ui_typography_preview.gd 2>&1 | tee typography.log
+          grep -E 'UI_TYPOGRAPHY_PREVIEW: [0-9]+ passed, 0 failed' typography.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-typography:' typography.log; then exit 1; fi
