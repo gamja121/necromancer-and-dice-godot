@@ -366,6 +366,26 @@ func restore(saved: Dictionary) -> bool:
 				for faces in ["bless","curse"]:
 					if item.brand.get(faces,[]) is Array:
 						item.brand[faces] = item.brand[faces].map(func(n): return int(n))
+	# Captured enemy brands must survive JSON round-trips unchanged.
+	# JSON converts dice face integers to floats; a visually identical face
+	# may otherwise fail the type-sensitive match during future combat.
+	if pending_reward.get("kind","")=="capture":
+		if pending_reward.has("selected"): pending_reward.selected=int(pending_reward.selected)
+		for corpse in pending_reward.get("corpses",[]):
+			if not corpse is Dictionary: continue
+			if corpse.has("target"): corpse.target=int(corpse.target)
+			var captured: Dictionary=corpse.get("unit",{})
+			for brand in captured.get("brands",[]):
+				if not brand is Dictionary: continue
+				if brand.get("bless",[]) is Array: brand.bless=brand.bless.map(func(n): return int(n))
+				if brand.get("curse",[]) is Array: brand.curse=brand.curse.map(func(n): return int(n))
+		var offered: Dictionary=pending_reward.get("reward",{})
+		if offered.get("kind","")=="unit":
+			var acquired: Dictionary=offered.get("item",{})
+			for brand in acquired.get("brands",[]):
+				if not brand is Dictionary: continue
+				if brand.get("bless",[]) is Array: brand.bless=brand.bless.map(func(n): return int(n))
+				if brand.get("curse",[]) is Array: brand.curse=brand.curse.map(func(n): return int(n))
 	next_serial = maxi(2,int(saved.get("next_serial",2)))
 	move_serial = maxi(0,int(saved.get("move_serial",0)))
 	map_serial = maxi(0,int(saved.get("map_serial",0)))
