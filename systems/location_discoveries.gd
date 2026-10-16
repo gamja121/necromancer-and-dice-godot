@@ -2,7 +2,7 @@ extends RefCounted
 ## Original narrative entries always take priority; this registry only
 ## offers places after a genuine, story-free generic event arrival.
 ## No extra RNG roll or unapproved discovery/routine percentages.
-const ORDER = ["forest","rest","graveyard","unknown","altar"]
+const ORDER = ["forest","rest","unknown","altar"]
 const LOCATIONS = {
 	"forest":{
 		"title":"언덕 발견", "description":"낡은 길 너머 작은 언덕을 발견했다.",
@@ -10,9 +10,6 @@ const LOCATIONS = {
 	"rest":{
 		"title":"숙영지 발견", "description":"이끼 낀 길 끝에서 버려진 숙영지를 발견했다.",
 		"reward":"숙영 타일 해금", "illustration":"res://assets/map/events/camp.jpg"},
-	"graveyard":{
-		"title":"공동묘지 발견", "description":"성벽 바깥 오래된 공동묘지를 발견했다.",
-		"reward":"공동묘지 타일 해금", "illustration":"res://assets/map/events/graveyard.jpg"},
 	"unknown":{
 		"title":"세계수 발견", "description":"뒤틀린 숲 너머 거대한 세계수의 흔적을 발견했다.",
 		"reward":"세계수 타일 해금", "illustration":"res://assets/map/events/world-tree.jpg"},
