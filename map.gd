@@ -558,6 +558,40 @@ func _pose_hero_step(progress: float, start: Vector2, target: Vector2) -> void:
 	var airborne: float = sin(p * PI) * 0.035
 	hero.scale = Vector2(1.0 + squash - airborne * 0.4, 1.0 - squash + airborne)
 
+# A restrained contact response: the stone compresses in place and three
+# small dust motes disperse along its surface. Presentation only.
+func _hero_tile_contact(index: int) -> void:
+	if index<0 or index>=buttons.size() or not is_instance_valid(stage): return
+	var tile: TextureButton=buttons[index]
+	if not is_instance_valid(tile): return
+	var resting_scale: Vector2=tile.scale
+	var resting_position: Vector2=tile.position
+	var contact: Tween=create_tween()
+	contact.tween_property(tile,"scale",Vector2(resting_scale.x*1.012,resting_scale.y*0.965),0.055).set_trans(Tween.TRANS_SINE)
+	contact.parallel().tween_property(tile,"position",resting_position+Vector2(0.0,1.6),0.055)
+	contact.tween_property(tile,"scale",resting_scale,0.095).set_trans(Tween.TRANS_SINE)
+	contact.parallel().tween_property(tile,"position",resting_position,0.095)
+	# Tiny, non-interactive ground-level dust; never obscures the hero or tile art.
+	for i in range(3):
+		var dust:=Polygon2D.new()
+		var vertices:=PackedVector2Array()
+		for j in range(9):
+			var angle: float=TAU*float(j)/8.0
+			vertices.append(Vector2(cos(angle),sin(angle))*Vector2(2.7,1.4))
+		dust.polygon=vertices
+		dust.color=Color(0.67,0.60,0.49,0.30)
+		dust.position=center(index)+Vector2(float(i-1)*9.0,20.0)
+		dust.z_index=12
+		stage.add_child(dust)
+		var drift: Tween=create_tween()
+		drift.set_parallel(true)
+		drift.tween_property(dust,"position",dust.position+Vector2(float(i-1)*8.0,-3.0),0.23).set_trans(Tween.TRANS_SINE)
+		drift.tween_property(dust,"modulate:a",0.0,0.23)
+		drift.chain().tween_callback(dust.queue_free)
+	await get_tree().process_frame
+	# Awaiting a frame above is only for rendering; the contact effect is not
+	# part of the saved movement or tile event timing.
+
 func animate_hero_step(index: int) -> void:
 	var start: Vector2 = hero.position
 	var target: Vector2 = hero_position(index)
@@ -566,6 +600,7 @@ func animate_hero_step(index: int) -> void:
 	await motion.finished
 	hero.position = target
 	hero.scale = Vector2.ONE
+	_hero_tile_contact(index)
 
 func roll_move(instance_id: String = "") -> void:
 	if moving or is_instance_valid(overlay): return
