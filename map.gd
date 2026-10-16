@@ -346,9 +346,7 @@ func tile_path(index: int) -> String:
 # All tiles share the same upper-left light direction.
 # Visual-only 2.5D board experiment. The shared light comes from upper-left.
 # Reuse the tile texture alpha for its own cast shadow; no added image assets.
-# Isolated 2.5D experiment: only board tile #2 gets depth.
-# Other 23 tiles remain untouched for an immediate side-by-side comparison.
-const DEPTH_TEST_TILE_INDEX = 1
+# All 24 tiles use the same subtle contact depth, attached to each tile node.
 
 func board_depth_copy(parent: Control, art: Texture2D, origin: Vector2, offset: Vector2, tint: Color, depth_name: String, depth_z: int) -> void:
 	var layer = TextureRect.new()
@@ -443,9 +441,8 @@ func render() -> void:
 		node.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		node.size = TILE_SIZE
 		node.position = center(i)-node.size/2
-		if i == DEPTH_TEST_TILE_INDEX:
-			install_board_depth_test(node,node.texture_normal)
-			apply_board_depth_top_light(node)
+		install_board_depth_test(node,node.texture_normal)
+		apply_board_depth_top_light(node)
 		node.pivot_offset = node.size/2
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
