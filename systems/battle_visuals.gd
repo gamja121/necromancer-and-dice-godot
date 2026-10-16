@@ -351,6 +351,9 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 	var speed: float = scene.speed_values[scene.speed_index]
 	scene.sound(attack_kind(actor))
 	scene.cues.show_attack(actor.name)
+	if is_instance_valid(scene.optional_vfx):
+		scene.optional_vfx.reload_preferences()
+		scene.optional_vfx.attack_started(actor_id)
 	for i in range(frames.size()):
 		var tex = scene.texture(scene.frame_path(actor,"attack",int(frames[i])))
 		if tex!=null: sprite.texture = tex
@@ -360,6 +363,7 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 				scene.cues.show_damage(report.amount)
 				if report.amount>0:
 					play_hit(target_id,original.hit_kind(actor.slug))
+					if is_instance_valid(scene.optional_vfx): scene.optional_vfx.impact_confirmed(target_id)
 					scene.sound("heavy" if attack_kind(actor)=="heavy" else "hit")
 					flashes[target_id] = clock+0.26*speed
 					var target_profile: Dictionary = scene.presentation_layout.metrics.get(states[target_id].slug,{})
@@ -464,6 +468,8 @@ func play_deaths(before: Array, after: Array) -> void:
 			if prior.id==current.id and prior.alive and not current.alive:
 				fallen.append(current)
 	if fallen.is_empty(): return
+	if is_instance_valid(scene.optional_vfx):
+		for unit in fallen: scene.optional_vfx.death_confirmed(str(unit.id))
 	var effect = PermanentDeath.new()
 	scene.layer.add_child(effect)
 	await effect.play(scene,fallen)

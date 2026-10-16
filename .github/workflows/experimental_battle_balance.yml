@@ -1,0 +1,24 @@
+name: Experimental Battle Balance Simulation
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/optional-battle-vfx-20261014
+    paths:
+      - 'scripts/test_battle_balance_simulation.gd'
+      - '.github/workflows/experimental_battle_balance.yml'
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7.2
+        run: |
+          wget -q https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q Godot_v4.7.2-stable_linux.x86_64.zip
+          chmod +x Godot_v4.7.2-stable_linux.x86_64
+      - name: Import project
+        run: ./Godot_v4.7.2-stable_linux.x86_64 --headless --editor --path . --import
+      - name: Run 2000 deterministic 4v4 encounters
+        run: ./Godot_v4.7.2-stable_linux.x86_64 --headless --path . --script res://scripts/test_battle_balance_simulation.gd
