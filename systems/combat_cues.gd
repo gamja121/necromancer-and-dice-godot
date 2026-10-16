@@ -127,13 +127,13 @@ func play_brands(units: Array) -> void:
 		var sprite: TextureRect = scene.sprites[unit.id]
 		var base_modulate: Color = sprite.modulate
 		var effect_color = Color("ffe4a3") if is_blessed else Color("80628d")
-		impact = {"id":unit.id,"mode":"bless" if is_blessed else "curse","started":clock,"duration":0.22 if is_blessed else 0.25}
+		impact = {"id":unit.id,"mode":"bless" if is_blessed else "curse","started":clock,"duration":0.17 if is_blessed else 0.20}
 		step(("축복 " if is_blessed else "저주 ")+str(unit.name),effect_color)
-		# Quick gold burst for blessing; muted, sinking violet for curse.
+		# Upward gold column for blessing; descending dark veil for curse.
 		var tween = create_tween()
 		tween.tween_property(sprite,"modulate",effect_color if is_blessed else Color("81738a"),0.075)
 		tween.tween_property(sprite,"modulate",base_modulate,0.17)
-		await scene.wait_presentation(0.22 if is_blessed else 0.25,0.15)
+		await scene.wait_presentation(0.26 if is_blessed else 0.29,0.23)
 		if not is_inside_tree(): return
 		if is_instance_valid(tween): tween.kill()
 		if is_instance_valid(sprite): sprite.modulate = base_modulate
@@ -149,20 +149,34 @@ func _draw() -> void:
 		var t: float = clampf((clock-float(impact.started))/float(impact.duration),0.0,1.0)
 		var center: Vector2 = scene.presentation_layout.geometry(unit,scene.surface_size).effect
 		if impact.mode=="bless":
-			var alpha: float = 1.0-t
-			draw_circle(center,24.0+75.0*t,Color(1.0,0.73,0.24,0.16*alpha))
-			draw_arc(center,28.0+67.0*t,0.0,TAU,32,Color(1.0,0.87,0.43,0.95*alpha),4.5*(1.0-t)+1.0,true)
-			for i in range(8):
-				var angle: float = TAU*float(i)/8.0
-				var ray: Vector2 = Vector2(cos(angle),sin(angle))
-				draw_line(center+ray*(18.0+33.0*t),center+ray*(42.0+89.0*t),Color(1.0,0.94,0.65,0.85*alpha),3.0*(1.0-t)+1.0,true)
-		else:
-			var alpha: float = 1.0-t
-			draw_circle(center+Vector2(0,16.0+28.0*t),43.0+19.0*t,Color(0.19,0.09,0.27,0.37*alpha))
+			# Narrow upward light column: distinct from radial attack-hit bursts.
+			var alpha: float = sin(t*PI)*0.85
+			var rise: float = 155.0*t
+			var half_width: float = 29.0*(1.0-0.22*t)
+			var foot: Vector2 = center+Vector2(0,62)
+			draw_colored_polygon(PackedVector2Array([
+				foot+Vector2(-half_width,0),foot+Vector2(half_width,0),
+				foot+Vector2(half_width*0.54,-90.0-rise),
+				foot+Vector2(-half_width*0.54,-90.0-rise)
+			]),Color(1.0,0.75,0.24,0.24*alpha))
+			draw_line(foot+Vector2(0,-4),foot+Vector2(0,-95.0-rise),Color(1.0,0.95,0.70,0.8*alpha),10.0,true)
 			for i in range(5):
-				var offset: float = (float(i)-2.0)*17.0
-				var start: Vector2 = center+Vector2(offset,-23.0+18.0*t)
-				draw_line(start,start+Vector2(offset*0.18,43.0+38.0*t),Color(0.53,0.34,0.64,0.75*alpha),5.0*(1.0-t)+1.0,true)
+				var dx: float = (float(i)-2.0)*11.0
+				var y: float = 42.0-float(i%3)*24.0-rise*(0.6+float(i)*0.09)
+				draw_circle(center+Vector2(dx,y),2.5+float(i%2),Color(1.0,0.9,0.5,alpha))
+		else:
+			# A localized veil settles DOWN over the monster; no expanding blast.
+			var alpha: float = sin(t*PI)
+			var descent: float = 55.0*t
+			var shade_top: float = -104.0+descent
+			draw_colored_polygon(PackedVector2Array([
+				center+Vector2(-39,shade_top),center+Vector2(39,shade_top),
+				center+Vector2(35,70),center+Vector2(-35,70)
+			]),Color(0.09,0.045,0.15,0.29*alpha))
+			for i in range(5):
+				var dx: float = (float(i)-2.0)*16.0
+				var top: Vector2 = center+Vector2(dx,shade_top+float(i%2)*10.0)
+				draw_line(top,top+Vector2(dx*0.12,48.0+25.0*t),Color(0.36,0.22,0.47,0.50*alpha),4.0,true)
 	var font: Font = scene.get_theme_default_font()
 	for mark in marks:
 		var unit: Dictionary = scene.visuals.states[mark.id]
