@@ -522,7 +522,15 @@ func finish_encounter(battle) -> bool:
 		var corpses: Array = []
 		for unit in battle.units:
 			if unit.team=="enemy" and not unit.alive and not unit.is_summon:
-				corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6)})
+				# Capture must preserve the exact enemy that entered this battle.
+				# Battle rounds can normalize/transiently modify a combatant, so
+				# prefer its original encounter snapshot for permanent identity.
+				var original: Dictionary = unit
+				for generated in encounter.get("enemies",[]):
+					if str(generated.get("id",""))==str(unit.id):
+						original=generated
+						break
+				corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6),"unit":original.duplicate(true)})
 		if not corpses.is_empty():
 			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
 		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
@@ -569,6 +577,31 @@ func persist_change(before: Dictionary) -> bool:
 
 func create_item(kind: String, source: Dictionary) -> Dictionary:
 	if kind=="unit":
+		# Soul harvest is NOT a reroll. Copy the dead enemy's exact passive,
+		# brand types, blessing faces and curse faces into the owned card.
+		var captured: Dictionary = source.get("unit",{})
+		if captured.is_empty() and world.pending_reward.get("kind","")=="capture":
+			# Pre-fix saved captures only stored the slain enemy's ID. Recover
+			# its actual brands from the persisted battle checkpoint if possible.
+			for combatant in world.pending_reward.get("battle",{}).get("units",[]):
+				if str(combatant.get("id",""))==str(source.get("id","")):
+					captured=combatant
+					break
+		if not captured.is_empty():
+			var item: Dictionary=captured.duplicate(true)
+			# Battle-local effects (HP, curses this turn, slot, team, etc.)
+			# must not become persistent roster attributes.
+			for key in item.keys():
+				if not key in ["id","slug","name","grade","legions","max_hp","attack","speed","passive","brands","is_summon","altar_enhancements"]:
+					item.erase(key)
+			item.id=world.next_id("unit")
+			item.current_hp=int(item.max_hp)
+			for brand in item.brands:
+				brand.bless=brand.bless.map(func(face): return int(face))
+				brand.curse=brand.curse.map(func(face): return int(face))
+			return item
+		# Fallback only for legacy capture data without a battle snapshot;
+		# normal rewards may still explicitly request a newly generated unit.
 		var rules = Rules.new(world.definitions,world.rng.randi())
 		var item: Dictionary = rules.individual(source.slug,world.next_id("unit"))
 		item.current_hp = item.max_hp
