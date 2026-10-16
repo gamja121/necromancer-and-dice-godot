@@ -16,11 +16,11 @@ const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
 ## First expedition: five guaranteed monster tiles; TWO events; no
-## rests or swamps. One ordinary road is traded for the second event,
+## rests, swamps or hills. One ordinary road is traded for the second event,
 ## preserving 24 slots and both future-swamp reservations.
 ## Two ordinary roads are reserved for contamination swamps (one at 15,
 ## another at 30); optional patrol picks and monster conversions cannot take them.
-const COUNTS = {"basic":10,"graveyard":0,"altar":0,"unknown":0,"forest":1,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":2,"swamp":0,"warp":2}
+const COUNTS = {"basic":11,"graveyard":0,"altar":0,"unknown":0,"forest":0,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":2,"swamp":0,"warp":2}
 const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
 var definitions: Dictionary
 var rng = RandomNumberGenerator.new()
@@ -115,9 +115,9 @@ func generate() -> void:
 	var added_swamps: int = mini(maxi(0,required_swamp_count(contamination)-int(counts.swamp)),maxi(0,int(counts.basic)))
 	counts.basic -= added_swamps
 	counts.swamp += added_swamps
-	# Every genuinely discovered EXTRA place (including the original hill)
+	# Every genuinely discovered EXTRA place (including the hill)
 	# persists through HOME reshuffles without consuming reserved swamp roads.
-	# Legacy forest=1 and graveyard-after-lap=1 remain intact for old stories.
+	# Optional places, including the hill, appear only after their discovery flags.
 	for kind in Discovery.ORDER:
 		if event_flags.get(Discovery.unlock_flag(kind),false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
 			counts.basic -= 1
