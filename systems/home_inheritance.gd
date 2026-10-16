@@ -121,7 +121,7 @@ func append_brands(brands: Array, origin: String, show_curse: bool = true) -> vo
 		var name = str(interface_data.brands[brand.type].name).replace("의 낙인","")
 		detail("%s · %s" % [origin,name])
 		var blessings: String = ", ".join(brand.bless.map(func(n): return str(int(n))))
-		if show_curse:
+		if show_curse and not brand.curse.is_empty():
 			detail("축복 [%s] · 저주 [%s]" % [blessings,", ".join(brand.curse.map(func(n): return str(int(n))))],Color("5b3526"))
 		else:
 			# Inheritance consumes only blessings; don't show non-inherited material curses.
