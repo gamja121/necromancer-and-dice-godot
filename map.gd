@@ -346,47 +346,65 @@ func tile_path(index: int) -> String:
 # All tiles share the same upper-left light direction.
 # Visual-only 2.5D board experiment. The shared light comes from upper-left.
 # Reuse the tile texture alpha for its own cast shadow; no added image assets.
-func install_board_tile_shadow(parent: Control, tile_position: Vector2, tile_texture: Texture2D) -> void:
+# Isolated 2.5D experiment: only board tile #2 gets depth.
+# Other 23 tiles remain untouched for an immediate side-by-side comparison.
+const DEPTH_TEST_TILE_INDEX = 1
+
+func board_depth_copy(parent: Control, art: Texture2D, origin: Vector2, offset: Vector2, tint: Color, depth_name: String, depth_z: int) -> void:
+	var layer = TextureRect.new()
+	layer.name = depth_name
+	layer.texture = art
+	layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	layer.size = TILE_SIZE
+	layer.position = origin + offset
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.z_index = depth_z
+	layer.modulate = tint
+	parent.add_child(layer)
+
+func install_board_depth_test(parent: Control, tile_position: Vector2, tile_texture: Texture2D) -> void:
+	# Cast shadow uses the existing tile silhouette. No new texture asset.
 	var shadow = TextureRect.new()
-	shadow.name = "BoardTileDirectionalShadow"
-	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.name = "DepthTestCastShadow"
 	shadow.texture = tile_texture
 	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	shadow.position = tile_position + Vector2(16.0, 19.0)
+	shadow.position = tile_position + Vector2(19.0, 23.0)
 	shadow.size = TILE_SIZE
-	shadow.z_index = 3
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.z_index = 2
 	var shader = Shader.new()
 	shader.code = """
 shader_type canvas_item;
 void fragment() {
-	vec2 pixel = TEXTURE_PIXEL_SIZE * 3.0;
-	float shape = texture(TEXTURE, UV).a * 0.32;
-	shape += texture(TEXTURE, UV + vec2(pixel.x, 0.0)).a * 0.13;
-	shape += texture(TEXTURE, UV - vec2(pixel.x, 0.0)).a * 0.13;
-	shape += texture(TEXTURE, UV + vec2(0.0, pixel.y)).a * 0.13;
-	shape += texture(TEXTURE, UV - vec2(0.0, pixel.y)).a * 0.13;
-	shape += texture(TEXTURE, UV + pixel).a * 0.08;
-	shape += texture(TEXTURE, UV - pixel).a * 0.08;
-	COLOR = vec4(0.045, 0.032, 0.025, clamp(shape, 0.0, 1.0) * 0.78);
+	vec2 px = TEXTURE_PIXEL_SIZE * 3.0;
+	float alpha = texture(TEXTURE, UV).a * 0.45;
+	alpha += texture(TEXTURE, UV + vec2(px.x, 0.0)).a * 0.15;
+	alpha += texture(TEXTURE, UV - vec2(px.x, 0.0)).a * 0.15;
+	alpha += texture(TEXTURE, UV + vec2(0.0, px.y)).a * 0.125;
+	alpha += texture(TEXTURE, UV - vec2(0.0, px.y)).a * 0.125;
+	COLOR = vec4(0.07, 0.045, 0.025, alpha * 0.78);
 }
 """
-	var material = ShaderMaterial.new()
-	material.shader = shader
-	shadow.material = material
+	var mat = ShaderMaterial.new()
+	mat.shader = shader
+	shadow.material = mat
 	parent.add_child(shadow)
+	# Stacked silhouettes create a visibly thick lower-right edge.
+	for depth in range(9, 0, -1):
+		var t = float(depth) / 9.0
+		board_depth_copy(parent, tile_texture, tile_position, Vector2(t * 5.0, t * 12.0), Color(0.18 + (1.0 - t) * 0.10, 0.20 + (1.0 - t) * 0.10, 0.21 + (1.0 - t) * 0.10, 1.0), "DepthTestSide_%02d" % depth, 3)
 
-func apply_board_tile_lighting(tile: TextureButton) -> void:
+func apply_board_depth_top_light(tile: TextureButton) -> void:
 	var shader = Shader.new()
 	shader.code = """
 shader_type canvas_item;
 void fragment() {
 	vec4 art = texture(TEXTURE, UV);
-	float toward_light = clamp(1.0 - (UV.x * 0.56 + UV.y * 0.44), 0.0, 1.0);
-	float highlight = smoothstep(0.15, 0.95, toward_light);
-	vec3 warm_light = vec3(1.0, 0.83, 0.57);
-	vec3 lit = art.rgb + warm_light * highlight * 0.15;
-	lit *= 1.0 - (1.0 - highlight) * 0.14;
+	float light_side = clamp(1.0 - (UV.x * 0.60 + UV.y * 0.40), 0.0, 1.0);
+	vec3 lit = art.rgb * mix(0.70, 1.20, light_side);
+	lit += vec3(0.11, 0.075, 0.035) * light_side;
 	COLOR = vec4(clamp(lit, vec3(0.0), vec3(1.0)), art.a);
 }
 """
@@ -413,8 +431,9 @@ func render() -> void:
 		node.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		node.size = TILE_SIZE
 		node.position = center(i)-node.size/2
-		install_board_tile_shadow(stage,node.position,node.texture_normal)
-		apply_board_tile_lighting(node)
+		if i == DEPTH_TEST_TILE_INDEX:
+			install_board_depth_test(stage,node.position,node.texture_normal)
+			apply_board_depth_top_light(node)
 		node.pivot_offset = node.size/2
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
