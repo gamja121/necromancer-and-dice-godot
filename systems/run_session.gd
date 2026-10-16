@@ -707,6 +707,9 @@ func prepare_map_roll(instance_id: String = "") -> Dictionary:
 	world.previous_map_roll = int(result.face)
 	if result.has("effective_card"): world.previous_map_card = str(result.effective_card)
 	var landed = world.position
+	# First full circuit unlocks the cemetery; announce it at HOME once.
+	if landed == MapState.HOME and world.lap_ready and world.laps == 0:
+		world.event_flags["ui:unlock:graveyard:home_pending"] = true
 	if world.tiles[landed]=="warp": world.position = world.warp_destination()
 	elif world.tiles[landed]=="swamp":
 		for unit in world.roster: unit.current_hp = maxi(1,unit.current_hp-1)
@@ -1114,6 +1117,7 @@ func confirm_patrol(plan: Dictionary) -> Dictionary:
 	for kind in Discovery.ORDER:
 		if world.event_flags.get(Discovery.home_flag(kind),false)==true:
 			world.event_flags[Discovery.home_flag(kind)]=false
+	world.event_flags["ui:unlock:graveyard:home_pending"] = false
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"순찰경로 저장 완료 · 다음 타일 배치에 적용"}
 
