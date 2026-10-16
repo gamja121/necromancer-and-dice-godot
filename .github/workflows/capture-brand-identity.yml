@@ -1,0 +1,41 @@
+name: Capture Enemy Brand Identity
+on:
+  pull_request:
+    paths:
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_capture_brand_identity.gd"
+      - ".github/workflows/capture-brand-identity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_capture_brand_identity.gd"
+      - ".github/workflows/capture-brand-identity.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import assets and parse GDScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 110s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Run real battle / soul harvest / reload parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s godot --headless --path . --script res://scripts/test_capture_brand_identity.gd 2>&1 | tee capture.log
+          grep -E 'CAPTURE_BRAND_IDENTITY: [0-9]+ passed, 0 failed' capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL capture-identity:' capture.log; then exit 1; fi
