@@ -6,6 +6,8 @@ signal rename_submitted(candidate: String)
 
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅","special":"소환물"}
 const ICONS = {"critical":Rect2(216,48,228,228),"vampire":Rect2(526,48,234,228),"guard":Rect2(841,48,228,228),"poison":Rect2(216,310,228,228),"summon":Rect2(526,310,234,228),"healing":Rect2(843,310,228,228),"combo":Rect2(222,50,220,220),"freeze":Rect2(850,50,220,220),"lightspeed":Rect2(222,316,220,220),"counter":Rect2(852,316,220,220)}
+var closing_depth := false
+var depth_panels: Array[Control] = []
 var unit_id = ""
 var effects: VBoxContainer
 var interface_data: Dictionary
@@ -96,7 +98,9 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	left.size = Vector2(474.65,567.36)
 	left.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(left)
+	PanelDepthMotion.shadow(left)
 	PanelDepthMotion.enter(left)
+	depth_panels.append(left)
 	artwork(left,"res://assets/battle/ui/unit-info-window-no-portrait.png",Vector2.ZERO,left.size)
 	name_label = label_at(left,current_name,Vector2(90.18,2.84),Vector2(277,43.12),22)
 	name_label.name = "UnitDisplayName"
@@ -175,7 +179,9 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	right.size = Vector2(483.84,353.67)
 	right.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(right)
+	PanelDepthMotion.shadow(right)
 	PanelDepthMotion.enter(right)
+	depth_panels.append(right)
 	artwork(right,"res://assets/battle/ui/legion-info-window-hd.png",Vector2.ZERO,right.size)
 	var title = label_at(right,"효과 정보",Vector2(33.87,28.29),Vector2(416.1,35.22),17)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -305,8 +311,14 @@ func apply_rename_result(result: Dictionary) -> void:
 	cancel_rename()
 
 func close() -> void:
-	closed.emit()
-	queue_free()
+	if closing_depth: return
+	closing_depth = true
+	for panel in depth_panels:
+		if is_instance_valid(panel): PanelDepthMotion.exit(panel, Callable())
+	get_tree().create_timer(0.14).timeout.connect(func():
+		if is_instance_valid(self):
+			closed.emit()
+			queue_free())
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
