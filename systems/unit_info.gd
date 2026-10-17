@@ -146,6 +146,26 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 		icon.size = Vector2(44,44)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		left.add_child(icon)
+		# Recessed socket and a short weighted settle, visual-only.
+		var socket := Panel.new()
+		socket.name = "BrandSocket"
+		socket.position = icon.position + Vector2(-2.0, -2.0)
+		socket.size = icon.size + Vector2(4.0, 4.0)
+		socket.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var recess := StyleBoxFlat.new()
+		recess.bg_color = Color(0.045, 0.035, 0.045, 0.36)
+		recess.set_corner_radius_all(8)
+		recess.set_border_width_all(1)
+		recess.border_color = Color(0.07, 0.05, 0.045, 0.50)
+		socket.add_theme_stylebox_override("panel", recess)
+		left.add_child(socket)
+		left.move_child(socket, icon.get_index())
+		icon.pivot_offset = icon.size * 0.5
+		icon.scale = Vector2(1.075, 1.075)
+		icon.modulate.a = 0.85
+		var settle := create_tween().set_parallel(true)
+		settle.tween_property(icon, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(float(index) * 0.055)
+		settle.tween_property(icon, "modulate:a", 1.0, 0.18).set_delay(float(index) * 0.055)
 		label_at(left,interface_data.brands[brand.type].name,Vector2(106,373+index*64),Vector2(318,44),15)
 	if u.brands.is_empty(): label_at(left,"낙인 없음",Vector2(150,385),Vector2(180,42),15)
 	var right = Control.new()
