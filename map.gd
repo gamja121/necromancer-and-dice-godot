@@ -690,16 +690,30 @@ func _spawn_landing_dust(index: int) -> void:
 	cleanup.tween_interval(0.25)
 	cleanup.tween_callback(dust.queue_free)
 
-func _land_on_tile(index: int) -> void:
-	if index < 0 or index >= buttons.size(): return
-	var tile: TextureButton = buttons[index]
-	if not is_instance_valid(tile): return
-	var base_scale: Vector2 = tile.scale
-	var impact := create_tween()
-	impact.tween_method(_tile_landing_frame.bind(tile, base_scale), 0.0, 1.0, 0.17).set_trans(Tween.TRANS_LINEAR)
-	impact.tween_callback(func():
-		if is_instance_valid(tile): tile.scale = base_scale)
-	_spawn_landing_dust(index)
+# Brief, low-contrast stone-edge pulse. Drawn below the hero, above the board.
+# It is cosmetic and never changes tile state or input timing.
+func _tile_arrival_glow(index: int) -> void:
+	if not is_instance_valid(stage) or index < 0 or index >= buttons.size(): return
+	var outline := Line2D.new()
+	outline.name = "TileArrivalGlow"
+	outline.width = 1.7
+	outline.default_color = Color(0.78, 0.65, 0.40, 0.0)
+	outline.closed = true
+	outline.antialiased = true
+	outline.z_index = 9
+	var tile_center: Vector2 = center(index)
+	var half: Vector2 = TILE_SIZE * 0.44
+	outline.points = PackedVector2Array([
+		tile_center + Vector2(-half.x, -half.y),
+		tile_center + Vector2(half.x, -half.y),
+		tile_center + Vector2(half.x, half.y),
+		tile_center + Vector2(-half.x, half.y)
+	])
+	stage.add_child(outline)
+	var pulse := create_tween()
+	pulse.tween_property(outline, "modulate:a", 0.35, 0.07)
+	pulse.tween_property(outline, "modulate:a", 0.0, 0.21)
+	pulse.tween_callback(outline.queue_free)
 
 func animate_hero_step(index: int) -> void:
 	hero_shadow_in_step = true
@@ -715,10 +729,9 @@ func animate_hero_step(index: int) -> void:
 		hero_shadow.position = target + Vector2(40.96, 115.0)
 		hero_shadow.scale = Vector2.ONE
 		hero_shadow.modulate.a = 1.0
-	_land_on_tile(index)
-	# Play the impact after the step, without changing the saved route.
+	# One restrained landing response, rather than stacking three impacts.
+	_tile_arrival_glow(index)
 	await _tile_landing_feedback(index)
-	_hero_tile_contact(index)
 
 func roll_move(instance_id: String = "") -> void:
 	if moving or is_instance_valid(overlay): return
