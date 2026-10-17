@@ -1044,6 +1044,7 @@ func show_treasure(index: int = -1) -> void:
 func animate_reward_to_inventory(kind: String, source: TextureButton) -> void:
 	var target: TextureButton = deck_button if kind=="dice" else book_button
 	var flyer = image(stage,source.texture_normal.resource_path,source.global_position,source.size)
+	flyer.name = "RewardToInventoryFlight"
 	# Carry visual-only badges with the reward card during the flying-to-inventory animation.
 	for overlay_name in ["BrandFrameOverlay","AltarUpgradeBadge"]:
 		var overlay = source.get_node_or_null(overlay_name)
