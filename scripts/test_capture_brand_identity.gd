@@ -3,6 +3,7 @@ extends SceneTree
 ## Verifies type AND blessing/curse face identity; no new brand RNG.
 const SessionScript=preload("res://systems/run_session.gd")
 const Battle=preload("res://systems/battlefield_rules.gd")
+const UnitInfo=preload("res://systems/unit_info.gd")
 var passed:=0
 var failed:=0
 var save_path: String
@@ -26,6 +27,21 @@ func normalized_brands(data: Dictionary) -> Array:
 		brand.curse=brand.get("curse",[]).map(func(n): return int(n))
 		result.append(brand)
 	return result
+
+## UI-visible rows, not just the underlying brand dictionaries.
+## A mismatch in UnitInfo formatting must fail even if a save test passes.
+func rendered_face_rows(unit: Dictionary, battle) -> Array:
+	var view=UnitInfo.new()
+	root.add_child(view)
+	view.setup(unit,battle)
+	var rows: Array=[]
+	for child in view.effects.get_children():
+		if child is Label:
+			var line: String=str(child.text)
+			if line.begins_with("축복 [") or line.begins_with("저주 ["):
+				rows.append(line)
+	view.queue_free()
+	return rows
 
 func clear_save() -> void:
 	for suffix in ["",".tmp"]:
@@ -81,6 +97,9 @@ func _run() -> void:
 	var battle=Battle.new(world.definitions,7)
 	battle.start(session.encounter.allies,session.encounter.enemies)
 	check(normalized_brands(battle.find_id(str(origin.id)))==normalized_brands(origin),"battle uses original enemy's exact dice faces")
+	var battle_face_rows: Array=rendered_face_rows(battle.find_id(str(origin.id)),battle)
+	check(not battle_face_rows.is_empty(),"enemy information screen actually displays brand dice faces")
+	check(battle_face_rows.size()==normalized_brands(origin).size()*2,"enemy information screen lists all blessing and curse rows")
 	for enemy in battle.units:
 		if enemy.team=="enemy":
 			enemy.hp=0
@@ -152,6 +171,11 @@ func _run() -> void:
 	var recruited: Dictionary=world.roster[-1]
 	check(normalized_brands(recruited)==normalized_brands(origin),"owned deck exactly reproduces the fought monster's dice faces")
 	check(str(recruited.get("passive",""))==str(origin.get("passive","")),"owned monster passive remains unchanged")
+	var recruited_battle=Battle.new(world.definitions,27)
+	var foe=Battle.new(world.definitions,29).individual("skeleton-archer","display-test-foe")
+	recruited_battle.start([recruited],[foe])
+	var owned_face_rows: Array=rendered_face_rows(recruited_battle.find_id(str(recruited.id)),recruited_battle)
+	check(owned_face_rows==battle_face_rows,"actual enemy and captured owned-unit info screens show identical brand types and dice face rows")
 	var receipt_count: int=world.reward_receipts.size()
 	session.reload_world()
 	world=session.world
