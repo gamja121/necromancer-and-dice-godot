@@ -548,7 +548,7 @@ func render_units(values: Array) -> void:
 			status_icon.visible = visible_statuses.has(status_key)
 			if status_icon.visible:
 				var index: int = visible_statuses.find(status_key)
-				status_icon.position = Vector2((bars[u.id].size.x - float(visible_statuses.size()) * 19.0) * 0.5 + float(index) * 19.0, -21.0)
+				status_icon.position = Vector2(float(index) * 19.0, -21.0)
 
 		# Web dock dims only the corpse artwork to monochrome; the separate
 		# brand/altar decorations must retain their own texture colors.
