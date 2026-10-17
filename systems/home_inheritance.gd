@@ -1,5 +1,6 @@
 extends "res://systems/reward_ui.gd"
 const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
+const PanelDepthMotion = preload("res://systems/panel_depth_motion.gd")
 signal closed
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 var session
@@ -41,6 +42,7 @@ func setup(run_session, map_scene: Control = null) -> void:
 	panel_slot(Vector2(814,38),false)
 	inheritance_frame=art(self,"res://assets/map/ui/inheritance_info.webp",Vector2(471,62),Vector2(338,352))
 	inheritance_frame.stretch_mode=TextureRect.STRETCH_SCALE
+	PanelDepthMotion.enter(inheritance_frame)
 	var title=label_at(self,"낙인 · 최대 3칸",Vector2(502,104),Vector2(276,27),18)
 	title.add_theme_color_override("font_color",Color("34251c"))
 	title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
@@ -70,6 +72,7 @@ func panel_slot(pos: Vector2, material: bool) -> void:
 	node.size = Vector2(266,390)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(node)
+	PanelDepthMotion.enter(node)
 	var board = TextureRect.new()
 	var atlas = AtlasTexture.new()
 	atlas.atlas = load("res://assets/map/events/inheritance-board.png")
