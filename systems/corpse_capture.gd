@@ -243,24 +243,9 @@ func complete_success() -> void:
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
 	scene.message.text = corpse.name+" · 영혼 수확 성공"
 	var selected_card: TextureButton = choices[int(pending.selected)].card
-	# Keep success-flight coordinates consistent with the capture card's
-	# parent (the full map for embedded fights, the arena in standalone).
-	var spirit_parent: Control = scene.detail_parent if scene.uses_map_tile_dock() else self
-	var spirit = scene.image(spirit_parent,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
-	spirit.z_index = 76 if spirit_parent!=self else 0
-	AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
-	spirit.pivot_offset = spirit.size*0.5
-	spirit.modulate = Color(0.8,1,1)
-	selected_card.hide()
-	var flight_size: Vector2 = spirit_parent.size if spirit_parent!=self else scene.surface_size
-	var motion = create_tween()
-	motion.tween_property(spirit,"position",flight_size*0.5-spirit.size*0.5,0.52).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	motion.parallel().tween_property(spirit,"scale",Vector2.ONE*1.12,0.52)
-	motion.tween_property(spirit,"position:y",flight_size.y-spirit.size.y*0.35,0.48)
-	motion.parallel().tween_property(spirit,"scale",Vector2.ONE*0.22,0.48)
-	motion.parallel().tween_property(spirit,"modulate:a",0.0,0.48)
-	await motion.finished
-	spirit.queue_free()
+	# Commit the actual soul first. A full monster book may prompt the
+	# player to discard a card; nothing should visibly enter the book
+	# until the player has chosen to KEEP this newly captured monster.
 	var outcome: Dictionary = session.claim_reward()
 	if outcome.get("overflow",false):
 		var overflow = Overflow.new()
@@ -274,6 +259,40 @@ func complete_success() -> void:
 		selected_card.show()
 		scene.message.text = "획득 저장 실패 · 주사위를 눌러 다시 저장하세요"
 		return
+	if outcome.kept:
+		if scene.uses_map_tile_dock() and is_instance_valid(scene.map_owner) and is_instance_valid(scene.map_owner.book_button):
+			# The battle cards and the actual chained monster book share the
+			# original map stage. Reuse the SAME curved flight, brand/badge
+			# overlays and book contact pulse as ordinary inventory rewards.
+			# No flight to the arena center and no fake book in the viewport.
+			await scene.map_owner.animate_reward_to_inventory("unit",selected_card)
+		else:
+			# Standalone battle previews have no actual map book to fly into.
+			# Preserve their old collection effect instead of targeting a
+			# nonexistent UI button. Normal gameplay always uses the map.
+			var spirit_parent: Control = scene.detail_parent if scene.uses_map_tile_dock() else self
+			var spirit = scene.image(spirit_parent,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
+			spirit.z_index = 76 if spirit_parent!=self else 0
+			BrandFrameOverlay.sync(spirit,scene.rules.find_id(str(corpse.id)))
+			AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
+			spirit.pivot_offset = spirit.size*0.5
+			spirit.modulate = Color(0.8,1,1)
+			selected_card.hide()
+			var flight_size: Vector2 = spirit_parent.size if spirit_parent!=self else scene.surface_size
+			var motion = create_tween()
+			motion.tween_property(spirit,"position",flight_size*0.5-spirit.size*0.5,0.52).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			motion.parallel().tween_property(spirit,"scale",Vector2.ONE*1.12,0.52)
+			motion.tween_property(spirit,"position:y",flight_size.y-spirit.size.y*0.35,0.48)
+			motion.parallel().tween_property(spirit,"scale",Vector2.ONE*0.22,0.48)
+			motion.parallel().tween_property(spirit,"modulate:a",0.0,0.48)
+			await motion.finished
+			spirit.queue_free()
+	else:
+		# If the player discarded the NEW card during overflow, do not
+		# falsely animate it as though it entered the monster book.
+		var discard = create_tween()
+		discard.tween_property(selected_card,"modulate:a",0.0,0.18)
+		await discard.finished
 	session.notice += " · "+(corpse.name+" 획득" if outcome.kept else "신규 마물 카드 버림")
 	await wait(0.65)
 	scene.busy = false
