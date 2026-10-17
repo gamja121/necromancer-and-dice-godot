@@ -231,6 +231,25 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				# First capture is triggered via the REAL shared die button, not
 				# directly through the capture panel. Verify the stage die moves
 				# while the previously saved capture face stays authoritative.
+				# Guaranteed reward only in this disposable victory fixture.
+				# Production capture targets (2..6) are untouched.
+				world.pending_reward.corpses[int(world.pending_reward.selected)].target=1
+				check(session.save_world(),label+": test-only guaranteed-success capture persisted")
+				var book_center: Vector2=map.book_button.position+map.book_button.size*0.5
+				var flight_probe: Dictionary={"seen":false,"first_distance":0.0,"closest_distance":INF,"frames":0,"book_pulse":false}
+				var flight_observer: Callable=func() -> void:
+					if not is_instance_valid(map) or not is_instance_valid(map.stage): return
+					var flyer: TextureRect=map.stage.get_node_or_null("RewardToInventoryFlight") as TextureRect
+					if flyer!=null:
+						var mid: Vector2=flyer.position+flyer.size*0.5
+						var distance: float=mid.distance_to(book_center)
+						if not bool(flight_probe["seen"]): flight_probe["first_distance"]=distance
+						flight_probe["seen"]=true
+						flight_probe["frames"]=int(flight_probe["frames"])+1
+						flight_probe["closest_distance"]=minf(float(flight_probe["closest_distance"]),distance)
+					if is_instance_valid(map.book_button) and map.book_button.scale.x>1.04:
+						flight_probe["book_pulse"]=true
+				process_frame.connect(flight_observer)
 				var capture_start: Vector2=map.dice.position
 				check(not map.dice.disabled,label+": soul capture unlocks shared die button after victory")
 				map.dice.pressed.emit()
@@ -252,6 +271,14 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 					if not session.world.pending_reward.is_empty() and session.world.pending_reward.get("phase","")=="retry":
 						continue
 					if session.world.pending_reward.is_empty(): break
+			process_frame.disconnect(flight_observer)
+			check(bool(flight_probe["seen"]) and int(flight_probe["frames"])>=3
+				and float(flight_probe["first_distance"])>150.0,
+				label+": captured monster card visibly begins a real stage-space book flight")
+			check(float(flight_probe["closest_distance"])<35.0,
+				label+": captured card's center physically arrives at bottom-left monster book, not screen center")
+			check(bool(flight_probe["book_pulse"]),label+": real monster book responds subtly when captured card arrives")
+			check(world.roster.size()==original_units+1,label+": visually received card corresponds to one actually saved owned monster")
 	else:
 		check(not target in world.cleared and world.contamination==3,label+": defeat neither clears tile nor changes contamination")
 		check(world.pending_reward.is_empty() and world.reward_receipts.size()==receipt_before,label+": defeat produces no capture/reward")
