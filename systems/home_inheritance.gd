@@ -1,4 +1,5 @@
 extends "res://systems/reward_ui.gd"
+const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 signal closed
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 var session
@@ -192,6 +193,7 @@ func render_hand() -> void:
 		unit_row.add_child(box)
 		var id=str(item.id)
 		var option=card(box,"unit",item,Vector2(4,0),Vector2(97,140),func(): select_unit(id))
+		CardDepthMotion.install(option)
 		option.get_child(0).add_theme_font_size_override("font_size",12)
 		unit_options[id]=option
 	var fan_label=label_at(hand,"낙인 카드",Vector2(76,478),Vector2(240,26),14)
@@ -213,6 +215,7 @@ func render_hand() -> void:
 		option.rotation_degrees=clampf((i%5-2)*5.5,-14,14)
 		option.set_meta("fan_y",option.position.y)
 		option.set_meta("fan_rotation",option.rotation_degrees)
+		CardDepthMotion.install(option)
 		for child in option.get_children():
 			if child is Label: child.visible=false
 		brand_options[id]=option
