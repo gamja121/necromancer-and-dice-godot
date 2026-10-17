@@ -1214,20 +1214,23 @@ func _fly_selected_cards_to_battle(battle: Control, origins: Dictionary) -> void
 		var source_x: Vector2 = inverse * source.x_axis
 		var source_y: Vector2 = inverse * source.y_axis
 		ghost.position = source_origin
+		ghost.rotation = (source_x-source_origin).angle()
 		ghost.size = Vector2(source_origin.distance_to(source_x), source_origin.distance_to(source_y))
 		var destination_transform: Transform2D = destination.get_global_transform_with_canvas()
 		var target_origin: Vector2 = inverse * (destination_transform * Vector2.ZERO)
 		var target_x: Vector2 = inverse * (destination_transform * Vector2(destination.size.x, 0))
 		var target_y: Vector2 = inverse * (destination_transform * Vector2(0, destination.size.y))
 		var target_size := Vector2(target_origin.distance_to(target_x), target_origin.distance_to(target_y))
+		var target_rotation: float = (target_x-target_origin).angle()
 		destination.modulate.a = 0.0
-		flights.append({"ghost": ghost, "card": destination, "position": target_origin, "size": target_size})
+		flights.append({"ghost": ghost, "card": destination, "position": target_origin, "size": target_size, "rotation": target_rotation})
 	for i in range(flights.size()):
 		var flight: Dictionary = flights[i]
 		var ghost: TextureRect = flight.ghost
 		var tween := create_tween().set_parallel(true)
 		tween.tween_property(ghost, "position", flight.position, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 		tween.tween_property(ghost, "size", flight.size, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(ghost, "rotation", flight.rotation, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 		tween.chain().tween_callback(func():
 			if is_instance_valid(flight.card): flight.card.modulate.a = 1.0
 			if is_instance_valid(ghost): ghost.queue_free())
