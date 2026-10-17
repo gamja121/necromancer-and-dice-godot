@@ -551,12 +551,11 @@ func render_units(values: Array) -> void:
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]
-		# A unit resolves either curse or blessing for the current die face.
-		# Curse takes priority if both dictionaries are unexpectedly populated.
-		var fate_mode: String = ""
-		if u.alive and not u.curse.is_empty(): fate_mode = "curse"
-		elif u.alive and not u.bless.is_empty(): fate_mode = "bless"
-		(bars[u.id].get_node("FateIcon") as Control).set_mode(fate_mode)
+		# Fate icon is revealed by the matching brand impact cue, never here.
+		# Clear only when the effect has ended or the unit has died.
+		var fate_icon_display := bars[u.id].get_node("FateIcon")
+		if not u.alive or (u.bless.is_empty() and u.curse.is_empty()):
+			fate_icon_display.set_mode("")
 		var visible_statuses: Array = []
 		if u.alive and u.frozen: visible_statuses.append("freeze")
 		if u.alive and not u.poison.is_empty(): visible_statuses.append("poison")
