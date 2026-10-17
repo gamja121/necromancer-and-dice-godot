@@ -154,8 +154,22 @@ func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callab
 			button.texture_normal = get_texture.call("res://assets/battle/dice/roll-%02d.png" % (frame_index+1))
 			frame_clock = 0.0
 		if elapsed>1.25 and speed<1280.0*0.045: break
+	if not is_instance_valid(button) or not button.is_inside_tree(): return
+	# The gameplay face was fixed before this visual simulation began.
 	button.texture_normal = get_texture.call("res://assets/battle/dice/result-%02d.png" % face)
-	button.scale = Vector2.ONE*1.04
 	if play_sound.is_valid(): play_sound.call("dice-land")
-	await button.get_tree().create_timer(0.12).timeout
-	if is_instance_valid(button): button.scale = Vector2.ONE
+	# Weight on contact: squash, one tiny rebound, then damped angular settle.
+	# Preserve the actual stopping position and final angle for map persistence.
+	var rest_angle: float = rotation
+	var landing := button.create_tween()
+	landing.tween_property(button, "scale", Vector2(1.065, 0.925), 0.065).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	landing.tween_property(button, "scale", Vector2(0.985, 1.025), 0.095).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	landing.tween_property(button, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	var wobble := button.create_tween()
+	wobble.tween_property(button, "rotation_degrees", rest_angle + 3.0, 0.075).set_trans(Tween.TRANS_SINE)
+	wobble.tween_property(button, "rotation_degrees", rest_angle - 1.4, 0.095).set_trans(Tween.TRANS_SINE)
+	wobble.tween_property(button, "rotation_degrees", rest_angle, 0.12).set_trans(Tween.TRANS_SINE)
+	await landing.finished
+	if is_instance_valid(button):
+		button.scale = Vector2.ONE
+		button.rotation_degrees = rest_angle
