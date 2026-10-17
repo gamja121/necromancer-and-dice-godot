@@ -58,7 +58,7 @@ func health_bar_y(unit: Dictionary, surface: Vector2) -> float:
 class HealthBar extends Range:
 	# One segment per actual maximum HP. The white overlay is only a forecast.
 	var preview_damage: int = 0
-	var preview_remaining: float = 1.0
+	var preview_remaining: float = 1.0:\n\t\tset(next):\n\t\t\tpreview_remaining = next\n\t\t\tqueue_redraw()
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		value_changed.connect(func(_value): queue_redraw())
