@@ -15,6 +15,7 @@ extends Control
 @export var click_scale: Vector2 = Vector2(0.96,0.96)
 @export_range(0.02,0.5,0.01) var click_duration: float = 0.10
 
+var _contact_shadow: Panel
 var _button: BaseButton
 var _tween: Tween
 var _base_scale: Vector2
@@ -45,6 +46,7 @@ func _ready() -> void:
 	_button.pivot_offset_ratio = Vector2(0.5,0.5)
 	_was_disabled = _button.disabled
 	_rng.randomize() # Independent from the battle RNG.
+	_install_contact_shadow()
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
 	_button.pressed.connect(_on_pressed)
@@ -96,6 +98,9 @@ func _on_pressed() -> void:
 	pulse = Vector2(maxf(pulse.x,minimum.x),maxf(pulse.y,minimum.y))
 	_tween.tween_property(_button,"scale",pulse,maxf(0.01,click_duration*0.4))
 	_tween.tween_property(_button,"rotation_degrees",_target_rotation(),maxf(0.01,click_duration*0.4))
+	if is_instance_valid(_contact_shadow):
+		_tween.tween_property(_contact_shadow,"position",Vector2(1.0,2.0),maxf(0.01,click_duration*0.4))
+		_tween.tween_property(_contact_shadow,"modulate:a",0.48,maxf(0.01,click_duration*0.4))
 	_tween.chain().tween_callback(_recover_click)
 
 func _recover_click() -> void:
@@ -108,6 +113,9 @@ func _animate_state(duration: float) -> void:
 	if _tween == null: return
 	_tween.tween_property(_button,"scale",_target_scale(),maxf(0.01,duration))
 	_tween.tween_property(_button,"rotation_degrees",_target_rotation(),maxf(0.01,duration))
+	if is_instance_valid(_contact_shadow):
+		_tween.tween_property(_contact_shadow,"position",Vector2(4.0,6.0) if _hovered else Vector2(2.0,3.0),maxf(0.01,duration))
+		_tween.tween_property(_contact_shadow,"modulate:a",0.75 if _hovered else 1.0,maxf(0.01,duration))
 
 func reset_tween() -> void:
 	_kill_tween()
@@ -141,6 +149,9 @@ func _restore_immediate() -> void:
 	if is_instance_valid(_button):
 		_button.scale = _base_scale
 		_button.rotation_degrees = _base_rotation
+	if is_instance_valid(_contact_shadow):
+		_contact_shadow.position = Vector2(2.0,3.0)
+		_contact_shadow.modulate.a = 1.0
 
 func _exit_tree() -> void:
 	_restore_immediate()
@@ -153,3 +164,18 @@ func _exit_tree() -> void:
 		if connection[0].is_connected(connection[1]): connection[0].disconnect(connection[1])
 	_button.pivot_offset = _base_pivot
 	_button.pivot_offset_ratio = _base_pivot_ratio
+
+func _install_contact_shadow() -> void:
+	if _button.has_node("ButtonContactShadow"): return
+	_contact_shadow = Panel.new()
+	_contact_shadow.name = "ButtonContactShadow"
+	_contact_shadow.position = Vector2(2.0,3.0)
+	_contact_shadow.size = _button.size
+	_contact_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_contact_shadow.show_behind_parent = true
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.035,0.025,0.025,0.24)
+	style.set_corner_radius_all(5)
+	_contact_shadow.add_theme_stylebox_override("panel",style)
+	_button.add_child(_contact_shadow)
+	_button.move_child(_contact_shadow,0)
