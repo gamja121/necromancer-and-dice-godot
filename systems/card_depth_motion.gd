@@ -29,7 +29,7 @@ static func install(card: TextureButton, selected: bool = false, shadow_only: bo
 	card.focus_exited.connect(func(): _animate(card, false))
 
 static func _animate(card: TextureButton, raised: bool) -> void:
-	if not is_instance_valid(card): return
+	if not is_instance_valid(card) or bool(card.get_meta("card_in_transfer",false)): return
 	var home: Vector2 = card.get_meta("card_depth_home", card.position)
 	var angle: float = float(card.get_meta("card_depth_rotation", 0.0))
 	var selected: bool = bool(card.get_meta("card_depth_selected", false))
