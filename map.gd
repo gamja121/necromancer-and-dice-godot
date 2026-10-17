@@ -1115,13 +1115,13 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	deck.confirmed.connect(func(ids: Array):
 		var started: bool = session.start_story_encounter(story_event_id,index,ids) if not story_event_id.is_empty() else session.start_encounter(index,ids)
 		if started:
-			open_embedded_battle()
+			open_embedded_battle(true, deck.departure_origins.duplicate(true))
 		else:
 			close_overlay()
 			status.text = session.notice if not session.notice.is_empty() else "출전 편성을 확인할 수 없습니다. 다시 선택하세요.")
 
 
-func open_embedded_battle(animate_lock: bool = true) -> void:
+func open_embedded_battle(animate_lock: bool = true, card_origins: Dictionary = {}) -> void:
 	battle_returning = false
 	returning_story_event_id = str(session.encounter.get("event_id",""))
 	map_music.stream_paused = true
@@ -1169,6 +1169,7 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	embedded_battle = battle
 	battle.finished.connect(finish_embedded_battle)
 	viewport.add_child(battle)
+	if not card_origins.is_empty(): call_deferred("_fly_selected_cards_to_battle", battle, card_origins)
 	var frame = NinePatchRect.new()
 	frame.name = "BattleFrame"
 	frame.texture = texture("res://assets/map/ui/battle_frame.png")
@@ -1186,6 +1187,50 @@ func open_embedded_battle(animate_lock: bool = true) -> void:
 	host.modulate.a = 0.0
 	var entry = create_tween()
 	entry.tween_property(host,"modulate:a",1.0,0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+# Use actual source and destination canvas transforms; no hard-coded slot offsets.
+func _fly_selected_cards_to_battle(battle: Control, origins: Dictionary) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(battle) or not is_instance_valid(stage): return
+	var inverse: Transform2D = stage.get_global_transform_with_canvas().affine_inverse()
+	var flights: Array = []
+	for unit in battle.rules.units:
+		if unit.team != "ally" or not origins.has(str(unit.id)) or not battle.cards.has(unit.id): continue
+		var destination: Control = battle.cards[unit.id]
+		if not is_instance_valid(destination): continue
+		var source: Dictionary = origins[str(unit.id)]
+		var texture: Texture2D = source.get("texture")
+		if texture == null: continue
+		var ghost := TextureRect.new()
+		ghost.texture = texture
+		ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ghost.stretch_mode = TextureRect.STRETCH_SCALE
+		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ghost.top_level = false
+		ghost.z_index = 90
+		stage.add_child(ghost)
+		var source_origin: Vector2 = inverse * source.origin
+		var source_x: Vector2 = inverse * source.x_axis
+		var source_y: Vector2 = inverse * source.y_axis
+		ghost.position = source_origin
+		ghost.size = Vector2(source_origin.distance_to(source_x), source_origin.distance_to(source_y))
+		var destination_transform: Transform2D = destination.get_global_transform_with_canvas()
+		var target_origin: Vector2 = inverse * (destination_transform * Vector2.ZERO)
+		var target_x: Vector2 = inverse * (destination_transform * Vector2(destination.size.x, 0))
+		var target_y: Vector2 = inverse * (destination_transform * Vector2(0, destination.size.y))
+		var target_size := Vector2(target_origin.distance_to(target_x), target_origin.distance_to(target_y))
+		destination.modulate.a = 0.0
+		flights.append({"ghost": ghost, "card": destination, "position": target_origin, "size": target_size})
+	for i in range(flights.size()):
+		var flight: Dictionary = flights[i]
+		var ghost: TextureRect = flight.ghost
+		var tween := create_tween().set_parallel(true)
+		tween.tween_property(ghost, "position", flight.position, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(ghost, "size", flight.size, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		tween.chain().tween_callback(func():
+			if is_instance_valid(flight.card): flight.card.modulate.a = 1.0
+			if is_instance_valid(ghost): ghost.queue_free())
 
 # The defeated expedition is committed in the same save as the battle loss.
 # An archived defeat must never resume normal map interactions.
