@@ -628,6 +628,45 @@ func _tile_landing_feedback(index: int) -> void:
 	await impact.finished
 	if is_instance_valid(tile): tile.scale = base_scale
 
+func _tile_landing_frame(progress: float, tile: TextureButton, base_scale: Vector2) -> void:
+	if not is_instance_valid(tile): return
+	var p: float = clampf(progress, 0.0, 1.0)
+	var compression: float = 0.035 * sin(p * PI) * exp(-2.5 * p)
+	tile.scale = Vector2(base_scale.x * (1.0 + compression * 0.3), base_scale.y * (1.0 - compression))
+
+func _spawn_landing_dust(index: int) -> void:
+	if not is_instance_valid(stage): return
+	var dust := Control.new()
+	dust.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dust.position = center(index) + Vector2(0.0, 12.0)
+	dust.z_index = 12
+	stage.add_child(dust)
+	for side in [-1.0, 1.0]:
+		var puff := ColorRect.new()
+		puff.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		puff.color = Color(0.63, 0.57, 0.48, 0.19)
+		puff.size = Vector2(7.0, 3.0)
+		puff.position = Vector2(-3.5, -1.5)
+		dust.add_child(puff)
+		var drift := create_tween()
+		drift.set_parallel(true)
+		drift.tween_property(puff, "position", Vector2(side * 13.0, -5.0), 0.23).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		drift.tween_property(puff, "modulate:a", 0.0, 0.23)
+	var cleanup := create_tween()
+	cleanup.tween_interval(0.25)
+	cleanup.tween_callback(dust.queue_free)
+
+func _land_on_tile(index: int) -> void:
+	if index < 0 or index >= buttons.size(): return
+	var tile: TextureButton = buttons[index]
+	if not is_instance_valid(tile): return
+	var base_scale: Vector2 = tile.scale
+	var impact := create_tween()
+	impact.tween_method(_tile_landing_frame.bind(tile, base_scale), 0.0, 1.0, 0.17).set_trans(Tween.TRANS_LINEAR)
+	impact.tween_callback(func():
+		if is_instance_valid(tile): tile.scale = base_scale)
+	_spawn_landing_dust(index)
+
 func animate_hero_step(index: int) -> void:
 	var start: Vector2 = hero.position
 	var target: Vector2 = hero_position(index)
@@ -636,6 +675,7 @@ func animate_hero_step(index: int) -> void:
 	await motion.finished
 	hero.position = target
 	hero.scale = Vector2.ONE
+	_land_on_tile(index)
 	# Play the impact after the step, without changing the saved route.
 	await _tile_landing_feedback(index)
 	_hero_tile_contact(index)
