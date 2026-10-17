@@ -11,6 +11,8 @@ var rail: HBoxContainer
 var rail_box: PanelContainer
 var expiry = 0.0
 var dice_base_scale = Vector2.ONE
+var chain_count: int = 0
+var chain_pulse: Dictionary = {}
 
 func setup(battle_scene) -> void:
 	scene = battle_scene
@@ -78,6 +80,8 @@ func play_dice_result(face: int) -> void:
 	for child in rail.get_children():
 		rail.remove_child(child)
 		child.queue_free()
+	chain_count = 0
+	chain_pulse.clear()
 	step("주사위 "+str(face),Color("ffe09a"))
 	dice_result = {"face":face,"started":clock}
 	await scene.wait_presentation(DICE_TIME)
@@ -118,6 +122,14 @@ func play_brands(units: Array) -> void:
 				var caption = ("축복 " if mode=="bless" else "저주 ")+NAMES.get(key,key)
 				captions.append({"text":caption,"color":color,"mode":mode})
 		if captions.is_empty(): continue
+		# Count confirmed blessing triggers; no extra roll or gameplay event.
+		var blessing_count: int = 0
+		for caption in captions:
+			if caption.mode=="bless": blessing_count += 1
+		if blessing_count>0:
+			chain_count += blessing_count
+			chain_pulse = {"id":unit.id,"started":clock,"duration":0.26,"count":chain_count}
+			step("축복 연쇄 ×%d" % chain_count,Color("ffe09a")) if chain_count>1 else step("축복 발동",Color("ffe09a"))
 		marks = [{"id":unit.id,"captions":captions.slice(0,3)}]
 		var is_blessed: bool = false
 		var is_cursed: bool = false
@@ -139,8 +151,10 @@ func play_brands(units: Array) -> void:
 		if is_instance_valid(sprite): sprite.modulate = base_modulate
 		marks.clear()
 		impact.clear()
+		chain_pulse.clear()
 	marks.clear()
 	impact.clear()
+	chain_pulse.clear()
 
 func _draw() -> void:
 	if scene==null: return
@@ -177,6 +191,13 @@ func _draw() -> void:
 				var dx: float = (float(i)-2.0)*16.0
 				var top: Vector2 = center+Vector2(dx,shade_top+float(i%2)*10.0)
 				draw_line(top,top+Vector2(dx*0.12,48.0+25.0*t),Color(0.36,0.22,0.47,0.50*alpha),4.0,true)
+	if not chain_pulse.is_empty() and scene.visuals.states.has(chain_pulse.id):
+		var pulse_unit: Dictionary = scene.visuals.states[chain_pulse.id]
+		var progress: float = clampf((clock-float(chain_pulse.started))/float(chain_pulse.duration),0.0,1.0)
+		var center: Vector2 = scene.presentation_layout.geometry(pulse_unit,scene.surface_size).effect
+		var opacity: float = sin(progress*PI)*0.42
+		var radius: float = 22.0+progress*30.0
+		draw_arc(center,radius,-PI*0.82,PI*0.82,28,Color(1.0,0.83,0.40,opacity),2.0,true)
 	var font: Font = scene.get_theme_default_font()
 	for mark in marks:
 		var unit: Dictionary = scene.visuals.states[mark.id]
