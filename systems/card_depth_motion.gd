@@ -2,7 +2,7 @@ extends RefCounted
 ## Lightweight physical feedback for 2D card buttons. No gameplay state.
 ## The shadow is drawn behind its own card, so fan and scroll layouts stay intact.
 
-static func install(card: TextureButton, selected: bool = false) -> void:
+static func install(card: TextureButton, selected: bool = false, shadow_only: bool = false) -> void:
 	if card.has_node("CardContactShadow"): return
 	var shadow := TextureRect.new()
 	shadow.name = "CardContactShadow"
@@ -22,6 +22,7 @@ static func install(card: TextureButton, selected: bool = false) -> void:
 		card.position.y -= 7.0
 		shadow.position = Vector2(5.0, 9.0)
 		shadow.modulate.a = 0.22
+	if shadow_only: return
 	card.mouse_entered.connect(func(): _animate(card, true))
 	card.mouse_exited.connect(func(): _animate(card, false))
 	card.focus_entered.connect(func(): _animate(card, true))
@@ -41,3 +42,15 @@ static func _animate(card: TextureButton, raised: bool) -> void:
 	if shadow != null:
 		tween.tween_property(shadow, "position", Vector2(5.0, 10.0) if raised else (Vector2(5.0, 9.0) if selected else Vector2(3.0, 5.0)), 0.15)
 		tween.tween_property(shadow, "modulate:a", 0.20 if raised or selected else 0.31, 0.15)
+
+## For cards already animated by a fan controller: change only the shadow.
+static func set_shadow_lift(card: TextureButton, raised: bool) -> void:
+	if not is_instance_valid(card): return
+	var shadow: TextureRect = card.get_node_or_null("CardContactShadow")
+	if shadow == null: return
+	var old: Tween = card.get_meta("card_shadow_tween", null)
+	if old != null and old.is_valid(): old.kill()
+	var tween: Tween = card.create_tween().set_parallel(true)
+	card.set_meta("card_shadow_tween", tween)
+	tween.tween_property(shadow, "position", Vector2(5.0, 10.0) if raised else Vector2(3.0, 5.0), 0.15)
+	tween.tween_property(shadow, "modulate:a", 0.20 if raised else 0.31, 0.15)
