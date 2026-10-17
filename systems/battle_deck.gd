@@ -89,9 +89,10 @@ void fragment() {
 		if selected_ids.is_empty(): return
 		confirm_button.disabled = true
 		status.text = "전장으로 이동 중…"
-		departure_origins = selected_card_origins()
+		# The actual chosen card Controls are handed straight to the
+		# map stage by the confirmed handler. No downward departure, full-screen
+		# veil or recreated ghost: a card must never blink out between scenes.
 		departing = true
-		await depart()
 		confirmed.emit(selected_ids.duplicate()))
 	render_selection()
 	board.position.y = -617
@@ -286,38 +287,37 @@ func apply_rename_result(instance_id: String, result: Dictionary) -> void:
 	if is_instance_valid(info_window):
 		info_window.apply_rename_result(result)
 
-# Capture the selected card's exact canvas rectangle before the departure tween.
-func selected_card_origins() -> Dictionary:
+# Transfer the actual selected TextureButtons into the persistent map stage.
+# Keeping the SAME nodes, textures, brand frames and badges across the UI
+# replacement avoids any disappearing/recreated-card frame.
+func release_selected_cards_to(parent: Control) -> Dictionary:
 	var result: Dictionary = {}
-	for i in range(mini(selected_ids.size(), lineup.get_child_count())):
-		var selected := lineup.get_child(i) as Control
-		if selected == null: continue
-		var transform: Transform2D = selected.get_global_transform_with_canvas()
-		result[str(selected_ids[i])] = {
-			"origin": transform * Vector2.ZERO,
-			"x_axis": transform * Vector2(selected.size.x, 0),
-			"y_axis": transform * Vector2(0, selected.size.y),
-			"texture": selected.texture_normal if selected is TextureButton else null
-		}
+	var inverse: Transform2D = parent.get_global_transform_with_canvas().affine_inverse()
+	for i in range(selected_ids.size()):
+		# Removing a child shifts numeric indices. Find each original named
+		# slot instead, so 2/3/4 selected cards cannot be skipped or mismapped.
+		var chosen: TextureButton = lineup.get_node_or_null("SelectedUnit_%d" % (i+1)) as TextureButton
+		if chosen==null: continue
+		var canvas: Transform2D = chosen.get_global_transform_with_canvas()
+		var origin: Vector2 = inverse * (canvas * Vector2.ZERO)
+		var right: Vector2 = inverse * (canvas * Vector2(chosen.size.x,0.0))
+		var down: Vector2 = inverse * (canvas * Vector2(0.0,chosen.size.y))
+		lineup.remove_child(chosen)
+		parent.add_child(chosen)
+		chosen.name = "DeckToBattleFlight_%d" % (i+1)
+		chosen.set_meta("card_in_transfer",true)
+		chosen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chosen.focus_mode = Control.FOCUS_NONE
+		chosen.disabled = true
+		# Preserve the 2D canvas footprint exactly, including original tilt.
+		# Pivot zero makes the destination top-left transformation unambiguous.
+		chosen.pivot_offset = Vector2.ZERO
+		chosen.position = origin
+		chosen.rotation = (right-origin).angle()
+		chosen.scale = Vector2((right-origin).length()/chosen.size.x,(down-origin).length()/chosen.size.y)
+		chosen.z_index = 120
+		# Hit-rate captions belong to the deck selector, not the combat card.
+		var rate := chosen.get_node_or_null("TargetRate")
+		if rate!=null: rate.hide()
+		result[str(selected_ids[i])] = chosen
 	return result
-
-func depart() -> void:
-	var veil = ColorRect.new()
-	veil.size = size
-	veil.color = Color("180e26")
-	veil.modulate.a = 0
-	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	veil.z_index = 20
-	add_child(veil)
-	var exit = create_tween().set_parallel(true)
-	exit.tween_property(hand,"position:y",850.0,0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	exit.tween_property(board.get_child(0),"modulate:a",0.0,0.4)
-	exit.tween_property(status,"modulate:a",0.0,0.2)
-	exit.tween_property(confirm_button,"modulate:a",0.0,0.2)
-	for i in range(lineup.get_child_count()):
-		var selected: Control = lineup.get_child(i)
-		exit.tween_property(selected,"position",Vector2(400-board.position.x-lineup.position.x+i*105,530-board.position.y-lineup.position.y),0.42).set_delay(i*0.045).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		exit.tween_property(selected,"scale",Vector2(0.58,0.58),0.42).set_delay(i*0.045)
-		exit.tween_property(selected,"rotation_degrees",0.0,0.3)
-	exit.tween_property(veil,"modulate:a",1.0,0.2).set_delay(0.35)
-	await exit.finished

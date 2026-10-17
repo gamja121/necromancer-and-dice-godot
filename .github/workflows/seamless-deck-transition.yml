@@ -1,0 +1,60 @@
+name: Seamless Deck Card Handoff
+on:
+  pull_request:
+    paths:
+      - "systems/battle_deck.gd"
+      - "systems/card_depth_motion.gd"
+      - "map.gd"
+      - "battlefield.gd"
+      - "scripts/test_battle_entry_summon.gd"
+      - "scripts/test_p4_combat_map_return_integration.gd"
+      - ".github/workflows/seamless-deck-transition.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/battle_deck.gd"
+      - "systems/card_depth_motion.gd"
+      - "map.gd"
+      - "battlefield.gd"
+      - "scripts/test_battle_entry_summon.gd"
+      - "scripts/test_p4_combat_map_return_integration.gd"
+      - ".github/workflows/seamless-deck-transition.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  physical-card-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and source validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 175s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Same card instance crosses screen for 1, 2, 4 selected allies
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 165s godot --headless --path . --script res://scripts/test_battle_entry_summon.gd 2>&1 | tee handoff.log
+          grep -E '^BATTLE_ENTRY_SUMMON: [0-9]+ passed, 0 failed$' handoff.log
+          if grep -E 'SCRIPT ERROR|Parse Error|^FAIL entry-summon:' handoff.log; then exit 1; fi
+      - name: Real battle, soul harvest, and return to map
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 345s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee combat.log
+          grep -E '^P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed$' combat.log
+          if grep -E 'SCRIPT ERROR|Parse Error|^FAIL p4-combat:' combat.log; then exit 1; fi
+      - name: Check whitespace
+        shell: bash
+        run: git diff --check
