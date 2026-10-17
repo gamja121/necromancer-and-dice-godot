@@ -13,6 +13,7 @@ var expiry = 0.0
 var dice_base_scale = Vector2.ONE
 var chain_count: int = 0
 var chain_pulse: Dictionary = {}
+const MAX_BRAND_INDICATORS := 3
 
 func setup(battle_scene) -> void:
 	scene = battle_scene
@@ -128,7 +129,6 @@ func play_brands(units: Array) -> void:
 			if caption.mode=="bless": blessing_count += 1
 		if blessing_count>0:
 			chain_count += blessing_count
-			chain_pulse = {"id":unit.id,"started":clock,"duration":0.26,"count":chain_count}
 			step("축복 연쇄 ×%d" % chain_count,Color("ffe09a")) if chain_count>1 else step("축복 발동",Color("ffe09a"))
 		marks = [{"id":unit.id,"captions":captions.slice(0,3)}]
 		var is_blessed: bool = false
@@ -140,6 +140,8 @@ func play_brands(units: Array) -> void:
 		# Highlight each actually matched brand on the dock card before the body cue.
 		await _pulse_matching_brands(unit)
 		if not is_inside_tree(): return
+		if blessing_count>0:
+			chain_pulse = {"id":unit.id,"started":clock,"duration":0.26,"count":chain_count}
 		_pulse_unit_card(unit.id, is_blessed)
 		var base_modulate: Color = sprite.modulate
 		var effect_color = Color("ffe4a3") if is_blessed else Color("80628d")
@@ -180,13 +182,13 @@ func _pulse_matching_brands(unit: Dictionary) -> void:
 	indicator.size = card.size
 	indicator.z_index = 4
 	card.add_child(indicator)
-	for i in range(active.size()):
+	for i in range(mini(active.size(), MAX_BRAND_INDICATORS)):
 		if not is_instance_valid(card) or not is_inside_tree(): break
 		var entry: Dictionary = active[i]
 		var dot := Panel.new()
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.size = Vector2(12, 12)
-		dot.position = Vector2(card.size.x * 0.5 + (float(i) - float(active.size()-1)*0.5)*17.0 - 6.0, card.size.y * 0.12)
+		dot.position = Vector2(card.size.x * 0.5 + (float(i) - float(mini(active.size(), MAX_BRAND_INDICATORS)-1)*0.5)*17.0 - 6.0, card.size.y * 0.12)
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color("ffe4a0") if entry.bless else Color("b79acc")
 		style.set_corner_radius_all(6)
