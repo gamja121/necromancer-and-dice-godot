@@ -1254,6 +1254,58 @@ func show_game_over(instant: bool = false) -> void:
 		embedded_battle.dice.disabled=true
 		embedded_battle.set_deck_disabled(true)
 
+
+# Victory exit: remaining enemy cards dissolve; surviving allies return to the monster book.
+# All motion is cosmetic and uses each dock card's real canvas transform.
+func _return_battle_cards_to_book() -> void:
+	if not is_instance_valid(embedded_battle) or not is_instance_valid(book_button): return
+	var battle: Control = embedded_battle
+	var inverse: Transform2D = stage.get_global_transform_with_canvas().affine_inverse()
+	var book_transform: Transform2D = book_button.get_global_transform_with_canvas()
+	var book_center: Vector2 = inverse * (book_transform * (book_button.size * Vector2(0.5, 0.5)))
+	var ghosts: Array = []
+	for unit in battle.rules.units:
+		if not battle.cards.has(unit.id): continue
+		var card: TextureButton = battle.cards[unit.id] as TextureButton
+		if not is_instance_valid(card) or not card.visible or card.modulate.a < 0.01: continue
+		if card.texture_normal == null: continue
+		var transform: Transform2D = card.get_global_transform_with_canvas()
+		var origin: Vector2 = inverse * (transform * Vector2.ZERO)
+		var x_axis: Vector2 = inverse * (transform * Vector2(card.size.x, 0))
+		var y_axis: Vector2 = inverse * (transform * Vector2(0, card.size.y))
+		var ghost := TextureRect.new()
+		ghost.texture = card.texture_normal
+		ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ghost.stretch_mode = TextureRect.STRETCH_SCALE
+		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ghost.z_index = 95
+		ghost.position = origin
+		ghost.size = Vector2(origin.distance_to(x_axis), origin.distance_to(y_axis))
+		ghost.rotation = (x_axis-origin).angle()
+		stage.add_child(ghost)
+		card.modulate.a = 0.0
+		ghosts.append({"node":ghost, "ally":unit.team=="ally" and unit.alive, "slot":int(unit.slot)})
+	if ghosts.is_empty(): return
+	var longest: float = 0.0
+	for entry in ghosts:
+		var ghost: TextureRect = entry.node
+		var delay: float = float(entry.slot) * 0.045 if entry.ally else 0.0
+		var duration: float = 0.48 if entry.ally else 0.26
+		longest = maxf(longest, delay+duration)
+		var tween := create_tween().set_parallel(true)
+		if entry.ally:
+			# Align the shrinking card's center with the actual book artwork.
+			var target_size: Vector2 = ghost.size * 0.12
+			tween.tween_property(ghost, "position", book_center-target_size*0.5, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			tween.tween_property(ghost, "size", target_size, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			tween.tween_property(ghost, "rotation", 0.0, duration).set_delay(delay)
+			tween.tween_property(ghost, "modulate:a", 0.0, 0.12).set_delay(delay+duration-0.12)
+		else:
+			tween.tween_property(ghost, "scale", Vector2(0.72,0.72), duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			tween.tween_property(ghost, "modulate:a", 0.0, duration)
+		tween.chain().tween_callback(ghost.queue_free)
+	await get_tree().create_timer(longest+0.03).timeout
+
 func finish_embedded_battle() -> void:
 	if not world.run_result.is_empty():
 		show_game_over()
@@ -1262,6 +1314,7 @@ func finish_embedded_battle() -> void:
 	battle_returning = true
 	var completed_story_event_id: String = returning_story_event_id
 	returning_story_event_id = ""
+	await _return_battle_cards_to_book()
 	if is_instance_valid(overlay): overlay.hide()
 	if is_instance_valid(book_lock):
 		book_lock.set_locked(false)
