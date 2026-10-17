@@ -14,6 +14,9 @@ var detail_parent: Control
 var surface_size = Vector2(1280,720)
 
 const PresentationLayout = preload("res://systems/battle_presentation_layout.gd")
+const STATUS_FREEZE = preload("res://assets/battle/status/status_freeze.svg")
+const STATUS_POISON = preload("res://assets/battle/status/status_poison.svg")
+const STATUS_SHIELD = preload("res://assets/battle/status/status_shield.svg")
 var presentation_layout = PresentationLayout.new()
 
 const BrandReference = preload("res://systems/brand_reference.gd")
@@ -480,6 +483,17 @@ func render_units(values: Array) -> void:
 			bar.z_index = 48
 			layer.add_child(bar)
 			bars[u.id] = bar
+			# Icons are children of the health bar, so they follow its position.
+			for status_key in ["freeze", "poison", "shield"]:
+				var icon := TextureRect.new()
+				icon.name = "Status_" + status_key
+				icon.texture = STATUS_FREEZE if status_key == "freeze" else (STATUS_POISON if status_key == "poison" else STATUS_SHIELD)
+				icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				icon.size = Vector2(17, 17)
+				icon.visible = false
+				bar.add_child(icon)
 			var card = TextureButton.new()
 			card.texture_normal = texture("res://assets/cards/unit-card-%s.png" % u.slug)
 			card.ignore_texture_size = true
@@ -525,6 +539,17 @@ func render_units(values: Array) -> void:
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]
+		var visible_statuses: Array = []
+		if u.alive and u.frozen: visible_statuses.append("freeze")
+		if u.alive and not u.poison.is_empty(): visible_statuses.append("poison")
+		if u.alive and int(u.get("shields", 0)) > 0: visible_statuses.append("shield")
+		for status_key in ["freeze", "poison", "shield"]:
+			var status_icon := bars[u.id].get_node("Status_" + status_key) as TextureRect
+			status_icon.visible = visible_statuses.has(status_key)
+			if status_icon.visible:
+				var index: int = visible_statuses.find(status_key)
+				status_icon.position = Vector2((bars[u.id].size.x - float(visible_statuses.size()) * 19.0) * 0.5 + float(index) * 19.0, -21.0)
+
 		# Web dock dims only the corpse artwork to monochrome; the separate
 		# brand/altar decorations must retain their own texture colors.
 		cards[u.id].modulate = Color.WHITE
