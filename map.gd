@@ -592,6 +592,42 @@ func _hero_tile_contact(index: int) -> void:
 	# Awaiting a frame above is only for rendering; the contact effect is not
 	# part of the saved movement or tile event timing.
 
+# Contact-only feedback. No physics impulses or changes to map state.
+func _tile_contact_frame(progress: float, tile: TextureButton, base_scale: Vector2) -> void:
+	if not is_instance_valid(tile): return
+	var p: float = clampf(progress, 0.0, 1.0)
+	var press: float = 0.026 * sin(p * PI) * exp(-1.5 * p)
+	tile.scale = Vector2(base_scale.x * (1.0 + press * 0.3), base_scale.y * (1.0 - press))
+
+func _tile_landing_dust(index: int) -> void:
+	if not is_instance_valid(stage): return
+	# A few small, short-lived specks hugging the stone surface.
+	var origin: Vector2 = center(index) + Vector2(0.0, 15.0)
+	for i in range(4):
+		var fleck := ColorRect.new()
+		fleck.color = Color(0.64, 0.59, 0.51, 0.28)
+		fleck.size = Vector2(3.0, 2.0) if i % 2 == 0 else Vector2(2.0, 2.0)
+		fleck.position = origin + Vector2(float(i - 2) * 6.0, 0.0)
+		fleck.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fleck.z_index = 12
+		stage.add_child(fleck)
+		var drift := create_tween()
+		drift.set_parallel(true)
+		drift.tween_property(fleck, "position", fleck.position + Vector2(float(i - 2) * 5.0, -3.0 - float(i % 2) * 3.0), 0.24).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		drift.tween_property(fleck, "modulate:a", 0.0, 0.24)
+		drift.chain().tween_callback(fleck.queue_free)
+
+func _tile_landing_feedback(index: int) -> void:
+	if index < 0 or index >= buttons.size(): return
+	var tile: TextureButton = buttons[index]
+	if not is_instance_valid(tile): return
+	var base_scale: Vector2 = tile.scale
+	_tile_landing_dust(index)
+	var impact := create_tween()
+	impact.tween_method(_tile_contact_frame.bind(tile, base_scale), 0.0, 1.0, 0.19).set_trans(Tween.TRANS_LINEAR)
+	await impact.finished
+	if is_instance_valid(tile): tile.scale = base_scale
+
 func animate_hero_step(index: int) -> void:
 	var start: Vector2 = hero.position
 	var target: Vector2 = hero_position(index)
@@ -600,6 +636,8 @@ func animate_hero_step(index: int) -> void:
 	await motion.finished
 	hero.position = target
 	hero.scale = Vector2.ONE
+	# Play the impact after the step, without changing the saved route.
+	await _tile_landing_feedback(index)
 	_hero_tile_contact(index)
 
 func roll_move(instance_id: String = "") -> void:
