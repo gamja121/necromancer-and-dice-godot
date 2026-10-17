@@ -2,12 +2,15 @@ extends Control
 
 signal finished
 signal entry_summon_finished
+signal entry_cards_landed
 signal entry_brand_dismissed
 
 var embedded = false
 # Set only by freshly confirmed deck; saved/reloaded encounters skip the intro.
 var play_entry_summon: bool = false
 var entry_summon_active: bool = false
+# Fresh selected cards complete their physical docking before units summon.
+var entry_card_transfer_pending: bool = false
 # One presentation-only overview after a fresh encounter's final summon.
 var entry_brand_auto_open: bool = false
 var detail_parent: Control
@@ -386,9 +389,13 @@ func begin_entry_summon() -> void:
 	call_deferred("_play_entry_summon",ids)
 
 func _play_entry_summon(ids: Array) -> void:
-	# Wait for the existing opening veil to disappear, but leave the saved
-	# encounter rules/dice outcome untouched.
-	await get_tree().create_timer(0.43).timeout
+	# The original selected cards must land in the actual map slots before
+	# black-silhouette summons and their automatic brand overview can begin.
+	# This waits on a visual signal only; no combat turn or save is changed.
+	if entry_card_transfer_pending:
+		await entry_cards_landed
+	if not is_inside_tree(): return
+	await get_tree().create_timer(0.10).timeout
 	if not is_inside_tree(): return
 	for id in ids:
 		await visuals.play_entry_summon_unit(str(id))
