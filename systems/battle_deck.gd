@@ -14,6 +14,7 @@ var card_shader: Shader
 var departing = false
 var owned: Array = []
 var selected_ids: Array = []
+var departure_origins: Dictionary = {}
 var board: Control
 var lineup: Control
 var hand: Control
@@ -88,6 +89,7 @@ void fragment() {
 		if selected_ids.is_empty(): return
 		confirm_button.disabled = true
 		status.text = "전장으로 이동 중…"
+		departure_origins = selected_card_origins()
 		departing = true
 		await depart()
 		confirmed.emit(selected_ids.duplicate()))
