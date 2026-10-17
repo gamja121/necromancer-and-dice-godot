@@ -495,7 +495,7 @@ func render_units(values: Array) -> void:
 			var passive_label := Label.new()
 			passive_label.name = "PassiveLabel"
 			passive_label.size = Vector2(110, 18)
-			passive_label.position = Vector2(bar.size.x - passive_label.size.x, -21)
+			passive_label.position = Vector2(bar.size.x - passive_label.size.x, bar.size.y + 3.0)
 			passive_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			passive_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			passive_label.add_theme_font_size_override("font_size", 12)
