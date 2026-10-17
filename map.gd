@@ -1115,13 +1115,16 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	deck.confirmed.connect(func(ids: Array):
 		var started: bool = session.start_story_encounter(story_event_id,index,ids) if not story_event_id.is_empty() else session.start_encounter(index,ids)
 		if started:
-			open_embedded_battle(true, deck.departure_origins.duplicate(true))
+			# Keep the SAME chosen card nodes alive on the map stage while the
+			# selection board is removed and the battle viewport is built.
+			var transferring: Dictionary = deck.release_selected_cards_to(stage)
+			open_embedded_battle(true, transferring)
 		else:
 			close_overlay()
 			status.text = session.notice if not session.notice.is_empty() else "출전 편성을 확인할 수 없습니다. 다시 선택하세요.")
 
 
-func open_embedded_battle(animate_lock: bool = true, card_origins: Dictionary = {}) -> void:
+func open_embedded_battle(animate_lock: bool = true, transfer_cards: Dictionary = {}) -> void:
 	battle_returning = false
 	returning_story_event_id = str(session.encounter.get("event_id",""))
 	map_music.stream_paused = true
@@ -1158,6 +1161,9 @@ func open_embedded_battle(animate_lock: bool = true, card_origins: Dictionary = 
 	# Only the freshly confirmed deck triggers the black-silhouette intro.
 	# Saved encounters are opened with animate_lock=false and skip it.
 	battle.play_entry_summon = animate_lock
+	# The existing black-silhouette summon cannot begin before the chosen
+	# cards land in their corresponding real bottom-row battle slots.
+	battle.entry_card_transfer_pending = animate_lock and not transfer_cards.is_empty()
 	battle.detail_parent = stage
 	battle.external_dice_deck_button = deck_button
 	battle.external_dice_deck_count_label = dice_count_label
@@ -1169,7 +1175,12 @@ func open_embedded_battle(animate_lock: bool = true, card_origins: Dictionary = 
 	embedded_battle = battle
 	battle.finished.connect(finish_embedded_battle)
 	viewport.add_child(battle)
-	if not card_origins.is_empty(): call_deferred("_fly_selected_cards_to_battle", battle, card_origins)
+	if not transfer_cards.is_empty():
+		# Hide real combat cards BEFORE first draw, avoiding a one-frame
+		# duplicate underneath the incoming cards.
+		for id in transfer_cards:
+			if battle.cards.has(id): battle.cards[id].modulate.a=0.0
+		call_deferred("_fly_selected_cards_to_battle", battle, transfer_cards)
 	var frame = NinePatchRect.new()
 	frame.name = "BattleFrame"
 	frame.texture = texture("res://assets/map/ui/battle_frame.png")
@@ -1189,51 +1200,50 @@ func open_embedded_battle(animate_lock: bool = true, card_origins: Dictionary = 
 	entry.tween_property(host,"modulate:a",1.0,0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
-# Use actual source and destination canvas transforms; no hard-coded slot offsets.
-func _fly_selected_cards_to_battle(battle: Control, origins: Dictionary) -> void:
-	await get_tree().process_frame
-	if not is_instance_valid(battle) or not is_instance_valid(stage): return
+# The actual selector cards are now children of the map stage BEFORE
+# the old overlay is freed. Move those SAME Controls to their assigned battle
+# docks; this is one uninterrupted flight, not a second generated ghost.
+func _fly_selected_cards_to_battle(battle: Control, selected: Dictionary) -> void:
+	if not is_instance_valid(stage) or not is_instance_valid(battle): return
 	var inverse: Transform2D = stage.get_global_transform_with_canvas().affine_inverse()
 	var flights: Array = []
 	for unit in battle.rules.units:
-		if unit.team != "ally" or not origins.has(str(unit.id)) or not battle.cards.has(unit.id): continue
+		if unit.team!="ally" or not selected.has(str(unit.id)) or not battle.cards.has(unit.id): continue
+		var original: TextureButton = selected[str(unit.id)] as TextureButton
 		var destination: Control = battle.cards[unit.id]
-		if not is_instance_valid(destination): continue
-		var source: Dictionary = origins[str(unit.id)]
-		var texture: Texture2D = source.get("texture")
-		if texture == null: continue
-		var ghost := TextureRect.new()
-		ghost.texture = texture
-		ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ghost.stretch_mode = TextureRect.STRETCH_SCALE
-		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ghost.top_level = false
-		ghost.z_index = 90
-		stage.add_child(ghost)
-		var source_origin: Vector2 = inverse * source.origin
-		var source_x: Vector2 = inverse * source.x_axis
-		var source_y: Vector2 = inverse * source.y_axis
-		ghost.position = source_origin
-		ghost.rotation = (source_x-source_origin).angle()
-		ghost.size = Vector2(source_origin.distance_to(source_x), source_origin.distance_to(source_y))
-		var destination_transform: Transform2D = destination.get_global_transform_with_canvas()
-		var target_origin: Vector2 = inverse * (destination_transform * Vector2.ZERO)
-		var target_x: Vector2 = inverse * (destination_transform * Vector2(destination.size.x, 0))
-		var target_y: Vector2 = inverse * (destination_transform * Vector2(0, destination.size.y))
-		var target_size := Vector2(target_origin.distance_to(target_x), target_origin.distance_to(target_y))
-		var target_rotation: float = (target_x-target_origin).angle()
-		destination.modulate.a = 0.0
-		flights.append({"ghost": ghost, "card": destination, "position": target_origin, "size": target_size, "rotation": target_rotation})
+		if not is_instance_valid(original) or not is_instance_valid(destination): continue
+		var matrix: Transform2D = destination.get_global_transform_with_canvas()
+		var target_origin: Vector2 = inverse * (matrix * Vector2.ZERO)
+		var target_right: Vector2 = inverse * (matrix * Vector2(destination.size.x,0.0))
+		var target_down: Vector2 = inverse * (matrix * Vector2(0.0,destination.size.y))
+		var target_size: Vector2 = Vector2(target_origin.distance_to(target_right),target_origin.distance_to(target_down))
+		var target_rotation: float = (target_right-target_origin).angle()
+		# The real destination is only exposed on the landing frame.
+		destination.modulate.a=0.0
+		flights.append({"source":original,"destination":destination,"position":target_origin,"size":target_size,"rotation":target_rotation})
+	var anims: Array = []
 	for i in range(flights.size()):
 		var flight: Dictionary = flights[i]
-		var ghost: TextureRect = flight.ghost
-		var tween := create_tween().set_parallel(true)
-		tween.tween_property(ghost, "position", flight.position, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(ghost, "size", flight.size, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(ghost, "rotation", flight.rotation, 0.48).set_delay(i * 0.055).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-		tween.chain().tween_callback(func():
-			if is_instance_valid(flight.card): flight.card.modulate.a = 1.0
-			if is_instance_valid(ghost): ghost.queue_free())
+		var chosen: TextureButton = flight.source
+		var motion := create_tween().set_parallel(true)
+		motion.tween_property(chosen,"position",flight.position,0.64).set_delay(i*0.05).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		motion.tween_property(chosen,"size",flight.size,0.64).set_delay(i*0.05).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		motion.tween_property(chosen,"rotation",flight.rotation,0.64).set_delay(i*0.05).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		motion.tween_property(chosen,"scale",Vector2.ONE,0.64).set_delay(i*0.05).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		motion.chain().tween_callback(func():
+			if is_instance_valid(flight.destination): flight.destination.modulate.a=1.0
+			if is_instance_valid(flight.source): flight.source.queue_free())
+		anims.append(motion)
+	for anim in anims:
+		if anim.is_running(): await anim.finished
+	# Abandon only unmatched transfers (e.g. a malformed old save), never
+	# leave an invisible duplicate on the stage or stall the summoning gate.
+	for id in selected:
+		var leftover: TextureButton = selected[id] as TextureButton
+		if is_instance_valid(leftover): leftover.queue_free()
+	if is_instance_valid(battle):
+		battle.entry_card_transfer_pending=false
+		battle.entry_cards_landed.emit()
 
 # The defeated expedition is committed in the same save as the battle loss.
 # An archived defeat must never resume normal map interactions.
