@@ -284,6 +284,21 @@ func apply_rename_result(instance_id: String, result: Dictionary) -> void:
 	if is_instance_valid(info_window):
 		info_window.apply_rename_result(result)
 
+# Capture the selected card's exact canvas rectangle before the departure tween.
+func selected_card_origins() -> Dictionary:
+	var result: Dictionary = {}
+	for i in range(mini(selected_ids.size(), lineup.get_child_count())):
+		var selected := lineup.get_child(i) as Control
+		if selected == null: continue
+		var transform: Transform2D = selected.get_global_transform_with_canvas()
+		result[str(selected_ids[i])] = {
+			"origin": transform * Vector2.ZERO,
+			"x_axis": transform * Vector2(selected.size.x, 0),
+			"y_axis": transform * Vector2(0, selected.size.y),
+			"texture": selected.texture_normal if selected is TextureButton else null
+		}
+	return result
+
 func depart() -> void:
 	var veil = ColorRect.new()
 	veil.size = size
