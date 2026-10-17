@@ -56,39 +56,57 @@ func health_bar_y(unit: Dictionary, surface: Vector2) -> float:
 
 
 class HealthBar extends Range:
-	# One segment per actual maximum HP. The white overlay is only a forecast.
+	# Each HP is one cell; the white forecast is removed one actual hit at a time.
 	var preview_damage: int = 0
-	var preview_remaining: float = 1.0:\n\t\tset(next):\n\t\t\tpreview_remaining = next\n\t\t\tqueue_redraw()
+	var forecast_hp: int = 0
+	var white_cells: float = 0.0:
+		set(next):
+			white_cells = next
+			queue_redraw()
+	var damage_tween: Tween
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		value_changed.connect(func(_value): queue_redraw())
 	func preview(amount: int) -> void:
-		preview_damage = clampi(amount, 0, maxi(0, int(value)))
-		preview_remaining = 1.0
+		if is_instance_valid(damage_tween): damage_tween.kill()
+		forecast_hp = int(value)
+		preview_damage = clampi(amount, 0, maxi(0, forecast_hp))
+		white_cells = float(preview_damage)
 		queue_redraw()
-	func consume_preview() -> void:
-		if preview_damage <= 0: return
-		var tween := create_tween()
-		tween.tween_property(self, "preview_remaining", 0.0, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		tween.tween_callback(clear_preview)
+	func consume_hit(amount: int, remaining_hp: int) -> void:
+		var lost: int = mini(preview_damage, maxi(0, amount))
+		if lost <= 0: return
+		if is_instance_valid(damage_tween): damage_tween.kill()
+		var next_white: float = float(preview_damage-lost)
+		damage_tween = create_tween()
+		damage_tween.tween_property(self, "white_cells", next_white, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		damage_tween.tween_callback(func():
+			preview_damage -= lost
+			forecast_hp = maxi(0, remaining_hp)
+			value = remaining_hp
+			white_cells = float(preview_damage)
+			queue_redraw())
 	func clear_preview() -> void:
+		if is_instance_valid(damage_tween): damage_tween.kill()
 		preview_damage = 0
-		preview_remaining = 1.0
+		forecast_hp = int(value)
+		white_cells = 0.0
 		queue_redraw()
 	func _draw() -> void:
 		var count: int = maxi(1, int(max_value))
-		var hp: int = clampi(int(value), 0, count)
+		var hp: int = clampi(forecast_hp if preview_damage > 0 else int(value), 0, count)
 		var width: float = size.x / float(count)
 		draw_rect(Rect2(Vector2.ZERO, size), Color("100b0c"))
 		for i in range(count):
 			var rect := Rect2(Vector2(i * width + 0.55, 0.4), Vector2(maxf(0.1, width - 1.1), maxf(1.0, size.y - 0.8)))
-			if i < hp:
-				draw_rect(rect, Color("e44932") if hp <= count / 2 else Color("ed9c42"))
-			else:
-				draw_rect(rect, Color("35262a"))
-		# Damage forecast occupies the rightmost surviving cells.
-		for j in range(preview_damage):
-			var index: int = hp - 1 - j
+			draw_rect(rect, Color("e44932") if i < hp and hp <= count / 2 else (Color("ed9c42") if i < hp else Color("35262a")))
+		# The rightmost predicted cells disappear toward the left.
+		var full: int = int(floor(white_cells))
+		var partial: float = white_cells-float(full)
+		for j in range(full):
+			var index: int = hp-1-j
 			if index < 0: break
-			var rect := Rect2(Vector2(index * width + 0.55, 0.4), Vector2(maxf(0.1, width - 1.1) * preview_remaining, maxf(1.0, size.y - 0.8)))
-			draw_rect(rect, Color(1, 1, 1, 0.95))
+			draw_rect(Rect2(Vector2(index*width+0.55,0.4),Vector2(maxf(0.1,width-1.1),maxf(1.0,size.y-0.8))),Color.WHITE)
+		if partial > 0.001 and hp-full-1 >= 0:
+			var index: int = hp-full-1
+			draw_rect(Rect2(Vector2(index*width+0.55,0.4),Vector2(maxf(0.1,width-1.1)*partial,maxf(1.0,size.y-0.8))),Color.WHITE)
