@@ -137,6 +137,9 @@ func play_brands(units: Array) -> void:
 			if caption.mode=="bless": is_blessed=true
 			if caption.mode=="curse": is_cursed=true
 		var sprite: TextureRect = scene.sprites[unit.id]
+		# Highlight each actually matched brand on the dock card before the body cue.
+		await _pulse_matching_brands(unit)
+		if not is_inside_tree(): return
 		_pulse_unit_card(unit.id, is_blessed)
 		var base_modulate: Color = sprite.modulate
 		var effect_color = Color("ffe4a3") if is_blessed else Color("80628d")
@@ -156,6 +159,54 @@ func play_brands(units: Array) -> void:
 	marks.clear()
 	impact.clear()
 	chain_pulse.clear()
+
+
+func _pulse_matching_brands(unit: Dictionary) -> void:
+	if scene == null or not scene.cards.has(unit.id): return
+	var card: Control = scene.cards[unit.id]
+	if not is_instance_valid(card): return
+	var active: Array = []
+	var face: int = int(scene.rules.face)
+	for brand in unit.brands:
+		var key: String = str(brand.get("type", ""))
+		var cursed: bool = face in brand.get("curse", []) and int(unit.curse.get(key, 0)) > 0
+		var blessed: bool = face in brand.get("bless", []) and int(unit.bless.get(key, 0)) > 0
+		if blessed or cursed:
+			active.append({"name": NAMES.get(key, key), "bless": blessed})
+	if active.is_empty(): return
+	var indicator := Control.new()
+	indicator.name = "BrandTriggerIndicators"
+	indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	indicator.size = card.size
+	indicator.z_index = 4
+	card.add_child(indicator)
+	for i in range(active.size()):
+		if not is_instance_valid(card) or not is_inside_tree(): break
+		var entry: Dictionary = active[i]
+		var dot := Panel.new()
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dot.size = Vector2(12, 12)
+		dot.position = Vector2(card.size.x * 0.5 + (float(i) - float(active.size()-1)*0.5)*17.0 - 6.0, card.size.y * 0.12)
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("ffe4a0") if entry.bless else Color("b79acc")
+		style.set_corner_radius_all(6)
+		style.set_border_width_all(1)
+		style.border_color = Color("fff2d2") if entry.bless else Color("dfc7f5")
+		dot.add_theme_stylebox_override("panel", style)
+		dot.modulate.a = 0.0
+		dot.scale = Vector2(0.65, 0.65)
+		dot.pivot_offset = dot.size * 0.5
+		indicator.add_child(dot)
+		var flash := create_tween().set_parallel(true)
+		flash.tween_property(dot, "modulate:a", 1.0, 0.065)
+		flash.tween_property(dot, "scale", Vector2(1.22, 1.22), 0.095).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		step(("축복 " if entry.bless else "저주 ") + str(entry.name), Color("ffe19a") if entry.bless else Color("b49acb"))
+		await scene.wait_presentation(0.105, 0.075)
+		if not is_inside_tree(): return
+	if is_instance_valid(indicator):
+		var fade := create_tween()
+		fade.tween_property(indicator, "modulate:a", 0.0, 0.16)
+		fade.tween_callback(indicator.queue_free)
 
 func _pulse_unit_card(unit_id: String, blessed: bool) -> void:
 	# Card and brand frame react in the same order as the resolved battlefield cue.
