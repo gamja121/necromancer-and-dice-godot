@@ -46,7 +46,24 @@ func run_party(session: Node, count: int) -> void:
 		var id: String=str(world.roster[count-1-i].id)
 		ids.append(id)
 		deck.toggle_unit(id)
+	# Capture the real selected TextureButton identities and canvas positions.
+	# The UI must reparent THESE controls, not erase them and spawn ghosts.
+	var originals: Dictionary={}
+	var positions: Dictionary={}
+	for i in range(count):
+		var card: TextureButton=deck.lineup.get_child(i) as TextureButton
+		originals[ids[i]]=card.get_instance_id()
+		positions[ids[i]]=card.get_global_transform_with_canvas()*Vector2.ZERO
 	deck.confirm_button.pressed.emit()
+	var lifted: bool=true
+	var starts_in_place: bool=true
+	for i in range(count):
+		var live: TextureButton=map.stage.get_node_or_null("DeckToBattleFlight_%d" % (i+1)) as TextureButton
+		lifted=lifted and is_instance_valid(live) and live.get_instance_id()==int(originals[ids[i]])
+		if is_instance_valid(live):
+			starts_in_place=starts_in_place and live.get_parent()==map.stage and (live.get_global_transform_with_canvas()*Vector2.ZERO).distance_to(positions[ids[i]])<1.5
+	check(lifted,"%d allies: original selected card instances persist across deck-to-battle scene replacement" % count)
+	check(starts_in_place,"%d allies: selected cards begin their real-stage flight at the exact lineup canvas locations" % count)
 	var entered: bool=await wait_for(func(): return is_instance_valid(map.embedded_battle) and map.embedded_battle.entry_summon_active)
 	check(entered,"%d allies: fresh deck starts opening summon before accepting clicks" % count)
 	if not entered:
@@ -54,6 +71,17 @@ func run_party(session: Node, count: int) -> void:
 		await process_frame
 		return
 	var battle: Control=map.embedded_battle
+	check(battle.entry_card_transfer_pending,"%d allies: summon waits until all physical lineup cards land" % count)
+	var landing: bool=await wait_for(func(): return not battle.entry_card_transfer_pending,6500)
+	check(landing,"%d allies: every chosen card completes its one continuous transfer" % count)
+	if landing:
+		await process_frame
+		var docks_restored: bool=true
+		for i in range(count):
+			var id: String=ids[i]
+			docks_restored=docks_restored and not is_instance_valid(map.stage.get_node_or_null("DeckToBattleFlight_%d" % (i+1)))
+			docks_restored=docks_restored and battle.cards.has(id) and is_equal_approx(battle.cards[id].modulate.a,1.0)
+		check(docks_restored,"%d allies: original cards hand off cleanly to actual map dock slots with no duplicates" % count)
 	var snapshot: String=JSON.stringify(world.snapshot())
 	var original_rng: int=world.rng.state
 	var original_face: int=world.dice_visual_face
