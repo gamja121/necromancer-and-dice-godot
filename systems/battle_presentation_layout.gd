@@ -56,19 +56,39 @@ func health_bar_y(unit: Dictionary, surface: Vector2) -> float:
 
 
 class HealthBar extends Range:
-	var fill_texture: Texture2D
+	# One segment per actual maximum HP. The white overlay is only a forecast.
+	var preview_damage: int = 0
+	var preview_remaining: float = 1.0
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var gradient = Gradient.new()
-		gradient.colors = PackedColorArray([Color("7c1717"),Color("e44932"),Color("ffb34d")])
-		gradient.offsets = PackedFloat32Array([0.0,0.55,1.0])
-		var image = GradientTexture2D.new()
-		image.gradient = gradient
-		image.width = 128
-		image.height = 5
-		fill_texture = image
 		value_changed.connect(func(_value): queue_redraw())
+	func preview(amount: int) -> void:
+		preview_damage = clampi(amount, 0, maxi(0, int(value)))
+		preview_remaining = 1.0
+		queue_redraw()
+	func consume_preview() -> void:
+		if preview_damage <= 0: return
+		var tween := create_tween()
+		tween.tween_property(self, "preview_remaining", 0.0, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tween.tween_callback(clear_preview)
+	func clear_preview() -> void:
+		preview_damage = 0
+		preview_remaining = 1.0
+		queue_redraw()
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO,size),Color("100b0c"))
-		if fill_texture!=null and value>0:
-			draw_texture_rect(fill_texture,Rect2(Vector2.ZERO,Vector2(size.x*clampf(value/maxf(max_value,1.0),0,1),size.y)),false)
+		var count: int = maxi(1, int(max_value))
+		var hp: int = clampi(int(value), 0, count)
+		var width: float = size.x / float(count)
+		draw_rect(Rect2(Vector2.ZERO, size), Color("100b0c"))
+		for i in range(count):
+			var rect := Rect2(Vector2(i * width + 0.55, 0.4), Vector2(maxf(0.1, width - 1.1), maxf(1.0, size.y - 0.8)))
+			if i < hp:
+				draw_rect(rect, Color("e44932") if hp <= count / 2 else Color("ed9c42"))
+			else:
+				draw_rect(rect, Color("35262a"))
+		# Damage forecast occupies the rightmost surviving cells.
+		for j in range(preview_damage):
+			var index: int = hp - 1 - j
+			if index < 0: break
+			var rect := Rect2(Vector2(index * width + 0.55, 0.4), Vector2(maxf(0.1, width - 1.1) * preview_remaining, maxf(1.0, size.y - 0.8)))
+			draw_rect(rect, Color(1, 1, 1, 0.95))
