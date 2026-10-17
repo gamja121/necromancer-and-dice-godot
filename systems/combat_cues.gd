@@ -158,6 +158,12 @@ func play_brands(units: Array) -> void:
 		var base_modulate: Color = sprite.modulate
 		var effect_color = Color("ffe4a3") if is_blessed else Color("80628d")
 		impact = {"id":unit.id,"mode":"bless" if is_blessed else "curse","started":clock,"duration":0.17 if is_blessed else 0.20}
+		# Reveal the HP-bar icon in the exact same frame as the body impact.
+		# Both animations now share their start; never reveal at round resolution.
+		if scene.bars.has(unit.id):
+			var fate_icon = scene.bars[unit.id].get_node_or_null("FateIcon")
+			if fate_icon != null:
+				fate_icon.set_mode("curse" if is_cursed else "bless")
 		step(("축복 " if is_blessed else "저주 ")+str(unit.name),effect_color)
 		# Upward gold column for blessing; descending dark veil for curse.
 		var tween = create_tween()
