@@ -38,6 +38,7 @@ const AudioSettings = preload("res://systems/audio_settings.gd")
 const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","ghoul","ancient-treant","goblin-rider","minotaur","plague-doctor","spider-knight","siren","dracula","soul-reaper"]
 const ENEMIES = ["goblin-rider","orc-warrior","boulder-ogre","minotaur"]
 const RATIOS = {"ancient-treant":1.0,"minotaur":1.5,"orc-warrior":1.5,"boulder-ogre":1.5,"spider-knight":2.0,"spiderling":0.5,"hydra":2.0}
+const PASSIVE_NAMES = {"initiative":"선제권","undying":"불사귀","bone":"뼈 덧대기","weak":"약점 찌르기","pack":"무리 우두머리","soul":"영혼 소환","grudge":"피의 원한","feast":"시체 포식","cold":"냉혈한","late":"후발주자"}
 const LEGIONS = {"skeleton":"언데드","beast":"야수","corpse":"시체","plague":"역병","ice":"얼음","summon":"소환","demon":"악마","plant":"식물","insect":"벌레","element":"원소"}
 @export_range(100.0,220.0,1.0) var unit_body_height: float = 160.0
 var definitions: Dictionary
@@ -491,6 +492,19 @@ func render_units(values: Array) -> void:
 			bar.z_index = 48
 			layer.add_child(bar)
 			bars[u.id] = bar
+			var passive_label := Label.new()
+			passive_label.name = "PassiveLabel"
+			passive_label.size = Vector2(110, 18)
+			passive_label.position = Vector2(bar.size.x - passive_label.size.x, -21)
+			passive_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			passive_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			passive_label.add_theme_font_size_override("font_size", 12)
+			passive_label.add_theme_color_override("font_color", Color("e4dcc2"))
+			passive_label.add_theme_color_override("font_shadow_color", Color("15101b"))
+			passive_label.add_theme_constant_override("shadow_offset_x", 1)
+			passive_label.add_theme_constant_override("shadow_offset_y", 1)
+			passive_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			bar.add_child(passive_label)
 			var fate_icon := BattleFateIcon.new()
 			fate_icon.name = "FateIcon"
 			bar.add_child(fate_icon)
@@ -551,6 +565,10 @@ func render_units(values: Array) -> void:
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]
+		var passive_label_display := bars[u.id].get_node("PassiveLabel") as Label
+		var passive_key: String = str(u.get("passive", ""))
+		passive_label_display.text = str(PASSIVE_NAMES.get(passive_key, "")) if u.alive else ""
+		passive_label_display.visible = not passive_label_display.text.is_empty()
 		# Fate icon is revealed by the matching brand impact cue, never here.
 		# Clear only when the effect has ended or the unit has died.
 		var fate_icon_display := bars[u.id].get_node("FateIcon")
