@@ -326,7 +326,8 @@ func play_action(action: Dictionary) -> void:
 				var source_id: String = report.get("source",action.actor)
 				if not states.has(source_id) or not states.has(report.target): continue
 				set_focus(source_id,report.target)
-				if scene.bars.has(report.target): scene.bars[report.target].consume_preview()
+				if scene.bars.has(report.target) and not report.get("blocked", false):
+					scene.bars[report.target].consume_hit(int(report.get("amount", 0)), int(report.get("hp", 0)))
 				await play_strike(source_id,report.target,report)
 				played = true
 			else:
@@ -425,7 +426,8 @@ func show_reports(reports: Array) -> void:
 		add_art(node,center_of(id)+Vector2(-node.size.x/2,-25-offset*12),0.72,Vector2.ZERO,[],0.065,delay)
 		node.pivot_offset = node.size/2.0
 		art_items[-1]["pop"] = true
-		scene.bars[id].value = report.hp
+		if healing or scene.bars[id].preview_damage <= 0:
+			scene.bars[id].value = report.hp
 		if healing: heal_crosses(id,report.amount)
 		elif report.get("critical",false): show_label(id,"critical",delay)
 
