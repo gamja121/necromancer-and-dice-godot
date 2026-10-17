@@ -1,6 +1,6 @@
 extends Control
 # Minimal, transparent 2D mark above each HP bar. No text and no gameplay logic.
-# Manga-style taresen (drooping lines) for curse; a four-point star for blessing.
+# Manga-style taresen (drooping lines) for curse; three compact sparkles for blessing.
 var mode: String = ""
 var reveal: float = 1.0:
 	set(next):
@@ -34,15 +34,24 @@ func _draw() -> void:
 			var tip: float = 2.0 + lengths[i] * reveal
 			draw_line(Vector2(xs[i], 2), Vector2(xs[i], tip), Color("9184c3"), 2.3, true)
 	elif mode == "bless":
-		var center := Vector2(11.5, 10.5)
-		var points := PackedVector2Array([
-			center + Vector2(0,-10*reveal),
-			center + Vector2(3,-3),
-			center + Vector2(10*reveal,0),
-			center + Vector2(3,3),
-			center + Vector2(0,10*reveal),
-			center + Vector2(-3,3),
-			center + Vector2(-10*reveal,0),
-			center + Vector2(-3,-3)])
-		draw_colored_polygon(points, Color("4bfa8b"))
-		draw_line(center + Vector2(0,-6*reveal), center + Vector2(0,6*reveal), Color("baffd1"), 1.5)
+		# Three tiny four-point sparkles, like the ✨ emoji. The cluster stays
+		# narrower than the curse mark and readable on the battlefield.
+		_draw_sparkle(Vector2(11.5, 10.5), 5.8 * reveal)
+		_draw_sparkle(Vector2(4.5, 5.5), 2.8 * reveal)
+		_draw_sparkle(Vector2(19.0, 15.5), 3.1 * reveal)
+
+func _draw_sparkle(center: Vector2, radius: float) -> void:
+	if radius <= 0.01: return
+	var waist: float = radius * 0.24
+	var points := PackedVector2Array([
+		center + Vector2(0, -radius),
+		center + Vector2(waist, -waist),
+		center + Vector2(radius, 0),
+		center + Vector2(waist, waist),
+		center + Vector2(0, radius),
+		center + Vector2(-waist, waist),
+		center + Vector2(-radius, 0),
+		center + Vector2(-waist, -waist)
+	])
+	draw_colored_polygon(points, Color("4bfa8b"))
+	draw_circle(center, maxf(0.35, radius * 0.13), Color("dcffe6"))
