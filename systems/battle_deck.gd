@@ -1,4 +1,5 @@
 extends Control
+const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 
 signal confirmed(selected_ids: Array)
 signal rename_submitted(instance_id: String, candidate: String)
@@ -136,6 +137,7 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	button.mouse_entered.connect(func(): material.set_shader_parameter("highlight",1.0))
 	button.mouse_exited.connect(func(): material.set_shader_parameter("highlight",0.75 if selected_ids.has(unit.id) else 0.15))
 	parent.add_child(button)
+	CardDepthMotion.install(button, selected_ids.has(unit.id))
 	BrandFrameOverlay.sync(button,unit)
 	AltarUpgradeBadge.sync(button,unit)
 	button.pressed.connect(func(): toggle_unit(unit.id))
