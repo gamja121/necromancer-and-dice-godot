@@ -310,6 +310,15 @@ func play_action(action: Dictionary) -> void:
 	var cancelled = action.target.is_empty() or not action.attack_allowed
 	if not cancelled:
 		set_focus(action.actor,action.target)
+		# Forecast confirmed damage only; shields/blocks are already resolved.
+		var forecasts: Dictionary = {}
+		for hit in action.visual_hits:
+			if hit.get("type", "") != "damage" or hit.get("blocked", false): continue
+			var target_id: String = str(hit.get("target", ""))
+			if not scene.bars.has(target_id): continue
+			forecasts[target_id] = int(forecasts.get(target_id, 0)) + maxi(0, int(hit.get("amount", 0)))
+		for target_id in forecasts:
+			scene.bars[target_id].preview(int(forecasts[target_id]))
 		await scene.cues.play_intent(action.actor,action.target)
 		var played = false
 		for report in action.visual_hits:
@@ -317,6 +326,7 @@ func play_action(action: Dictionary) -> void:
 				var source_id: String = report.get("source",action.actor)
 				if not states.has(source_id) or not states.has(report.target): continue
 				set_focus(source_id,report.target)
+				if scene.bars.has(report.target): scene.bars[report.target].consume_preview()
 				await play_strike(source_id,report.target,report)
 				played = true
 			else:
@@ -335,6 +345,7 @@ func play_action(action: Dictionary) -> void:
 		if action.miss and not action.target.is_empty(): show_label(action.target,"miss")
 		await scene.wait_presentation(0.2)
 	set_focus()
+	for bar in scene.bars.values(): bar.clear_preview()
 	hit_motions.clear()
 	active.clear()
 	scene.render_units(action.after)
