@@ -17,6 +17,7 @@ const PresentationLayout = preload("res://systems/battle_presentation_layout.gd"
 const STATUS_FREEZE = preload("res://assets/battle/status/status_freeze.svg")
 const STATUS_POISON = preload("res://assets/battle/status/status_poison.svg")
 const STATUS_SHIELD = preload("res://assets/battle/status/status_shield.svg")
+const BattleFateIcon = preload("res://systems/battle_fate_icon.gd")
 var presentation_layout = PresentationLayout.new()
 
 const BrandReference = preload("res://systems/brand_reference.gd")
@@ -483,6 +484,10 @@ func render_units(values: Array) -> void:
 			bar.z_index = 48
 			layer.add_child(bar)
 			bars[u.id] = bar
+			var fate_icon := BattleFateIcon.new()
+			fate_icon.name = "FateIcon"
+			bar.add_child(fate_icon)
+			fate_icon.position = Vector2((bar.size.x - 23.0) * 0.5, -45.0)
 			# Icons are children of the health bar, so they follow its position.
 			for status_key in ["freeze", "poison", "shield"]:
 				var icon := TextureRect.new()
@@ -539,6 +544,12 @@ func render_units(values: Array) -> void:
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]
+		# A unit resolves either curse or blessing for the current die face.
+		# Curse takes priority if both dictionaries are unexpectedly populated.
+		var fate_mode: String = ""
+		if u.alive and not u.curse.is_empty(): fate_mode = "curse"
+		elif u.alive and not u.bless.is_empty(): fate_mode = "bless"
+		(bars[u.id].get_node("FateIcon") as Control).set_mode(fate_mode)
 		var visible_statuses: Array = []
 		if u.alive and u.frozen: visible_statuses.append("freeze")
 		if u.alive and not u.poison.is_empty(): visible_statuses.append("poison")
