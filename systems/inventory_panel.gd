@@ -10,6 +10,7 @@ const HAND_SCROLL_THRESHOLD = 10
 const UnitInfo = preload("res://systems/unit_info.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const FanMotion = preload("res://systems/card_fan_motion.gd")
+const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 var session
 var content: Control
 var fan
@@ -77,6 +78,7 @@ func focus_hand_card(option: TextureButton, home: Vector2, focused: bool) -> voi
 	if closing or not is_instance_valid(option): return
 	option.z_index = 20 if focused else 0
 	option.position = home+Vector2(0,-26 if focused else 0)
+	CardDepthMotion.set_shadow_lift(option, focused)
 
 func show_kind(kind: String) -> void:
 	if changing or closing: return
@@ -146,6 +148,13 @@ func show_kind(kind: String) -> void:
 			option.mouse_exited.connect(func(): option.get_child(0).visible = false; option.z_index = 0)
 			option.focus_entered.connect(func(): option.get_child(0).visible = true; option.z_index = 20)
 			option.focus_exited.connect(func(): option.get_child(0).visible = false; option.z_index = 0)
+		# FanMotion owns position/rotation; attach only the shared contact shadow.
+		CardDepthMotion.install(option, false, true)
+		if kind!="unit":
+			option.mouse_entered.connect(func(): CardDepthMotion.set_shadow_lift(option, true))
+			option.mouse_exited.connect(func(): CardDepthMotion.set_shadow_lift(option, false))
+			option.focus_entered.connect(func(): CardDepthMotion.set_shadow_lift(option, true))
+			option.focus_exited.connect(func(): CardDepthMotion.set_shadow_lift(option, false))
 		fan.register_card(option)
 	await get_tree().process_frame
 	if closing: return
