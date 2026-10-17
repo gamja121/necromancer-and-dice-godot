@@ -81,6 +81,8 @@ var world
 var stage: Control
 var buttons: Array = []
 var hero: TextureRect
+var hero_shadow: Node2D
+var hero_shadow_in_step: bool = false
 var dice: TextureButton
 # The 24 perimeter tiles form a wall; the painted die (including rotation)
 # must stay inside the open central board, on map AND in combat.
@@ -459,6 +461,7 @@ func render() -> void:
 	hero = image(stage,"res://assets/map/hero/necromancer-hero.png",Vector2.ZERO,Vector2(81.92,120))
 	hero.z_index = 16
 	hero.position = hero_position(world.position)
+	_create_hero_shadow()
 	dice = TextureButton.new()
 	dice.ignore_texture_size = true
 	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % world.dice_visual_face)
@@ -533,6 +536,32 @@ func render() -> void:
 	_sync_map_chrome()
 	highlight(world.position)
 
+# Three translucent ellipses create a soft grounded shadow without lights,
+# extra assets, or a full-screen shader. Kept separate from the hero sprite.
+func _create_hero_shadow() -> void:
+	hero_shadow = Node2D.new()
+	hero_shadow.name = "HeroContactShadow"
+	hero_shadow.z_index = 10
+	hero_shadow.position = hero.position + Vector2(40.96, 115.0)
+	stage.add_child(hero_shadow)
+	for layer in range(3):
+		var oval := Polygon2D.new()
+		var points := PackedVector2Array()
+		var radius_x: float = [24.0, 19.0, 13.0][layer]
+		var radius_y: float = [7.0, 5.3, 3.5][layer]
+		for segment in range(33):
+			var angle: float = TAU * float(segment) / 32.0
+			points.append(Vector2(cos(angle) * radius_x, sin(angle) * radius_y))
+		oval.polygon = points
+		oval.color = Color(0.055, 0.045, 0.05, [0.075, 0.095, 0.105][layer])
+		hero_shadow.add_child(oval)
+
+func _process(_delta: float) -> void:
+	if is_instance_valid(hero_shadow) and is_instance_valid(hero) and not hero_shadow_in_step:
+		hero_shadow.position = hero.position + Vector2(40.96, 115.0)
+		hero_shadow.scale = Vector2.ONE
+		hero_shadow.modulate.a = 1.0
+
 func hero_position(index: int) -> Vector2:
 	return center(index)-Vector2(40.96,86.4)
 
@@ -549,6 +578,11 @@ func _pose_hero_step(progress: float, start: Vector2, target: Vector2) -> void:
 	var travel: float = p * p * (3.0 - 2.0 * p)
 	var lift: float = sin(p * PI) * 14.0
 	hero.position = start.lerp(target, travel) + Vector2(0.0, -lift)
+	if is_instance_valid(hero_shadow):
+		# Shadow stays on the stone while the character rises above it.
+		hero_shadow.position = start.lerp(target, travel) + Vector2(40.96, 115.0)
+		hero_shadow.scale = Vector2.ONE * lerpf(1.0, 0.80, sin(p * PI))
+		hero_shadow.modulate.a = lerpf(1.0, 0.55, sin(p * PI))
 	# A little compression on push-off, stretch in flight, and compression at impact.
 	var squash: float = 0.0
 	if p < 0.16:
@@ -668,6 +702,7 @@ func _land_on_tile(index: int) -> void:
 	_spawn_landing_dust(index)
 
 func animate_hero_step(index: int) -> void:
+	hero_shadow_in_step = true
 	var start: Vector2 = hero.position
 	var target: Vector2 = hero_position(index)
 	var motion: Tween = create_tween()
@@ -675,6 +710,11 @@ func animate_hero_step(index: int) -> void:
 	await motion.finished
 	hero.position = target
 	hero.scale = Vector2.ONE
+	hero_shadow_in_step = false
+	if is_instance_valid(hero_shadow):
+		hero_shadow.position = target + Vector2(40.96, 115.0)
+		hero_shadow.scale = Vector2.ONE
+		hero_shadow.modulate.a = 1.0
 	_land_on_tile(index)
 	# Play the impact after the step, without changing the saved route.
 	await _tile_landing_feedback(index)
