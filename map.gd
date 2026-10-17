@@ -499,6 +499,9 @@ func render() -> void:
 	book_button = book
 	stage.add_child(book)
 	add_button_effect(book)
+	var book_feedback: ButtonEffectsModule = book.get_node("ButtonEffectsModule")
+	book_feedback.use_hover_rotation = false
+	book_feedback.hover_scale = Vector2(1.025,1.025)
 	book_lock = BookBattleLock.new()
 	book.add_child(book_lock)
 	var roster_count = label_at(stage,"보유 마물 %d" % world.roster.size(),Vector2(20,684),Vector2(130,26),12)
@@ -518,6 +521,9 @@ func render() -> void:
 			show_inventory("dice"))
 	stage.add_child(deck_button)
 	add_button_effect(deck_button)
+	var deck_feedback: ButtonEffectsModule = deck_button.get_node("ButtonEffectsModule")
+	deck_feedback.use_hover_rotation = false
+	deck_feedback.hover_scale = Vector2(1.025,1.025)
 	dice_count_label = label_at(stage,"주사위 카드 %d/5" % world.dice_cards.size(),Vector2(1120,684),Vector2(150,26),12)
 	dice_count_label.z_index = 51
 	map_chrome.append_array([dice,status,hud,restart_button,book,roster_count,deck_button,dice_count_label])
