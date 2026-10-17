@@ -14,6 +14,10 @@ var dice_base_scale = Vector2.ONE
 var chain_count: int = 0
 var chain_pulse: Dictionary = {}
 const MAX_BRAND_INDICATORS := 3
+const MAX_BRAND_PRESENTATION_SECONDS := 2.8
+const FAST_BRAND_UNIT_THRESHOLD := 5
+var brand_cue_interval: float = 0.105
+var brand_body_interval: float = 0.26
 
 func setup(battle_scene) -> void:
 	scene = battle_scene
@@ -114,6 +118,14 @@ func play_brands(units: Array) -> void:
 		side.sort_custom(func(a, b):
 			return scene.unit_x(a)<scene.unit_x(b) if team=="ally" else scene.unit_x(a)>scene.unit_x(b))
 		ordered.append_array(side)
+	var triggered_units: int = 0
+	for candidate in ordered:
+		if not candidate.bless.is_empty() or not candidate.curse.is_empty():
+			triggered_units += 1
+	# Bound the total cue time when all eight combatants have active marks.
+	var dense: bool = triggered_units >= FAST_BRAND_UNIT_THRESHOLD
+	brand_cue_interval = 0.055 if dense else 0.105
+	brand_body_interval = minf(0.18, MAX_BRAND_PRESENTATION_SECONDS / float(maxi(1, triggered_units))) if dense else 0.26
 	for unit in ordered:
 		var captions: Array = []
 		for mode in ["bless","curse"]:
@@ -151,7 +163,7 @@ func play_brands(units: Array) -> void:
 		var tween = create_tween()
 		tween.tween_property(sprite,"modulate",effect_color if is_blessed else Color("81738a"),0.075)
 		tween.tween_property(sprite,"modulate",base_modulate,0.17)
-		await scene.wait_presentation(0.26 if is_blessed else 0.29,0.23)
+		await scene.wait_presentation(brand_body_interval,0.12 if dense else 0.23)
 		if not is_inside_tree(): return
 		if is_instance_valid(tween): tween.kill()
 		if is_instance_valid(sprite): sprite.modulate = base_modulate
@@ -202,8 +214,9 @@ func _pulse_matching_brands(unit: Dictionary) -> void:
 		var flash := create_tween().set_parallel(true)
 		flash.tween_property(dot, "modulate:a", 1.0, 0.065)
 		flash.tween_property(dot, "scale", Vector2(1.22, 1.22), 0.095).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		step(("축복 " if entry.bless else "저주 ") + str(entry.name), Color("ffe19a") if entry.bless else Color("b49acb"))
-		await scene.wait_presentation(0.105, 0.075)
+		if brand_cue_interval >= 0.1:
+			step(("축복 " if entry.bless else "저주 ") + str(entry.name), Color("ffe19a") if entry.bless else Color("b49acb"))
+		await scene.wait_presentation(brand_cue_interval,0.045 if brand_cue_interval < 0.1 else 0.075)
 		if not is_inside_tree(): return
 	if is_instance_valid(indicator):
 		var fade := create_tween()
