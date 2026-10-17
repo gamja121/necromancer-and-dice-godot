@@ -294,8 +294,9 @@ func release_selected_cards_to(parent: Control) -> Dictionary:
 	var result: Dictionary = {}
 	var inverse: Transform2D = parent.get_global_transform_with_canvas().affine_inverse()
 	for i in range(selected_ids.size()):
-		if i>=lineup.get_child_count(): break
-		var chosen: TextureButton = lineup.get_child(i) as TextureButton
+		# Removing a child shifts numeric indices. Find each original named
+		# slot instead, so 2/3/4 selected cards cannot be skipped or mismapped.
+		var chosen: TextureButton = lineup.get_node_or_null("SelectedUnit_%d" % (i+1)) as TextureButton
 		if chosen==null: continue
 		var canvas: Transform2D = chosen.get_global_transform_with_canvas()
 		var origin: Vector2 = inverse * (canvas * Vector2.ZERO)
