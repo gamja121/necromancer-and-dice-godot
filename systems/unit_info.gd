@@ -1,6 +1,7 @@
 extends Control
 
 signal closed
+const PanelDepthMotion = preload("res://systems/panel_depth_motion.gd")
 signal rename_submitted(candidate: String)
 
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅","special":"소환물"}
@@ -95,6 +96,7 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	left.size = Vector2(474.65,567.36)
 	left.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(left)
+	PanelDepthMotion.enter(left)
 	artwork(left,"res://assets/battle/ui/unit-info-window-no-portrait.png",Vector2.ZERO,left.size)
 	name_label = label_at(left,current_name,Vector2(90.18,2.84),Vector2(277,43.12),22)
 	name_label.name = "UnitDisplayName"
@@ -173,6 +175,7 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	right.size = Vector2(483.84,353.67)
 	right.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(right)
+	PanelDepthMotion.enter(right)
 	artwork(right,"res://assets/battle/ui/legion-info-window-hd.png",Vector2.ZERO,right.size)
 	var title = label_at(right,"효과 정보",Vector2(33.87,28.29),Vector2(416.1,35.22),17)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
