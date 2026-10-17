@@ -1239,7 +1239,9 @@ func _fly_selected_cards_to_battle(battle: Control, selected: Dictionary) -> voi
 	# Abandon only unmatched transfers (e.g. a malformed old save), never
 	# leave an invisible duplicate on the stage or stall the summoning gate.
 	for id in selected:
-		var leftover: TextureButton = selected[id] as TextureButton
+		# A landed card may already have been freed by its tween callback.
+		# Never cast a stale Object to TextureButton before validity checking.
+		var leftover: Variant = selected[id]
 		if is_instance_valid(leftover): leftover.queue_free()
 	if is_instance_valid(battle):
 		battle.entry_card_transfer_pending=false
