@@ -554,9 +554,11 @@ func render_units(values: Array) -> void:
 			BrandFrameOverlay.sync(card,u)
 			AltarUpgradeBadge.sync(card,u)
 		var sprite: TextureRect = sprites[u.id]
-		var tex = texture(frame_path(u,"attack",1))
+		# Hold the seed image through dice/brand cues until its bloom is played.
+		var shown: Dictionary = visuals.displayed_unit(u)
+		var tex = texture(frame_path(shown,"attack",1))
 		if tex != null:
-			var geometry = presentation_layout.geometry(u,surface_size)
+			var geometry = presentation_layout.geometry(shown,surface_size)
 			sprite.size = geometry.size
 			sprite.pivot_offset = geometry.pivot
 			sprite.z_index = geometry.z

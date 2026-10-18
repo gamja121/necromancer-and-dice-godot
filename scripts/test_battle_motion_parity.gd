@@ -58,8 +58,8 @@ func _run() -> void:
 						if nonblank.size.x<=0 or nonblank.size.y<=0:
 							missing.append(file+":transparent")
 	check(missing.is_empty(),"all exact production motion paths decode: "+", ".join(missing.slice(0,12)))
-	check(decoded_count>700,"actual engine decoded %d attack/hit/death images" % decoded_count)
-	for expected in [["guardian-seed",[5,3,4]],["goblin-commoner",[10,7,8]],["soul-reaper",[10,4,11]]]:
+	check(decoded_count==1132,"actual engine decoded %d attack/hit/death images" % decoded_count)
+	for expected in [["guardian-seed",[10,6,8]],["goblin-commoner",[10,7,8]],["soul-reaper",[10,4,11]]]:
 		var slug: String = expected[0]
 		var counts: Array = expected[1]
 		for i in range(3):

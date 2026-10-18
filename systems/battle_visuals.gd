@@ -62,8 +62,14 @@ void fragment() {
 	ground.z_index = 0
 	parent.add_child(ground)
 
+func displayed_unit(unit: Dictionary) -> Dictionary:
+	if states.has(unit.id) and is_seed_bloom(states[unit.id],unit):
+		return states[unit.id]
+	return unit
+
 func sync(values: Array) -> void:
-	for unit in values:
+	for value in values:
+		var unit: Dictionary = displayed_unit(value)
 		states[unit.id] = unit.duplicate(true)
 		layouts[unit.id] = scene.presentation_layout.geometry(unit,scene.surface_size)
 		var sprite: TextureRect = scene.sprites[unit.id]
@@ -139,7 +145,7 @@ func _process(delta: float) -> void:
 			var wrap: Vector2 = layouts[id].wrap
 			desired += Vector2(wrap.x*0.36*(1.0 if unit.team=="ally" else -1.0),wrap.y*0.05)
 		sprite.position = sprite.position.lerp(desired,minf(1.0,dt*18.0))
-		if not active.has(id) and unit.alive and not unit.frozen:
+		if not active.has(id) and unit.alive and not unit.frozen and not scene.presentation_layout.metrics.get(unit.slug,{}).get("rigid_idle",false):
 			var period = 1.36 if unit.slot%3==0 else (1.58 if unit.slot%2==0 else 1.45)
 			var t = fposmod(idle_clock/period+unit.slot*0.29,1.0)
 			var keys = [0.0,0.38,0.58,0.76,1.0]
@@ -354,6 +360,7 @@ func play_action(action: Dictionary) -> void:
 
 func play_strike(actor_id: String, target_id: String, report: Dictionary) -> void:
 	var actor: Dictionary = states[actor_id]
+	if actor.slug=="guardian-seed": return
 	var sprite: TextureRect = scene.sprites[actor_id]
 	active[actor_id] = true
 	sprite.scale = Vector2.ONE
@@ -440,7 +447,54 @@ func heal_crosses(id: String, amount: int) -> void:
 		var node = original.sprite(self,load(OriginalEffects.ROOT+"heal-cross.png"),"cross",Vector2(size,size))
 		add_art(node,center_of(id)+Vector2(entry[0],entry[1])-node.size/2,float(entry[4])/1000,Vector2(entry[5],-48),[],0.065,float(entry[3])/1000)
 
+
+# Seed evolution is already decided by BattleRules. Only render its growth here.
+func is_seed_bloom(previous: Dictionary, current: Dictionary) -> bool:
+	return previous.get("slug","")=="guardian-seed" and current.get("slug","")=="crystal-devourer"
+
+func play_seed_blooms(before: Array, after: Array) -> void:
+	var blooming: Array = []
+	for current in after:
+		if not current.alive or not scene.sprites.has(current.id): continue
+		for previous in before:
+			if previous.id!=current.id or not is_seed_bloom(previous,current): continue
+			blooming.append({"seed":previous,"adult":current})
+			var geometry: Dictionary = scene.presentation_layout.geometry(previous,scene.surface_size)
+			var sprite: TextureRect = scene.sprites[current.id]
+			active[current.id] = true
+			states[current.id] = previous.duplicate(true)
+			layouts[current.id] = geometry
+			homes[current.id] = geometry.position
+			sprite.size = geometry.size
+			sprite.position = geometry.position
+			sprite.pivot_offset = geometry.pivot
+			sprite.scale = Vector2.ONE
+			sprite.modulate.a = 1.0
+	if blooming.is_empty(): return
+	var profile: Dictionary = scene.presentation_layout.metrics["guardian-seed"]
+	var frames: Array = scene.presentation_layout.frames("guardian-seed","attack")
+	var delays: Array = profile.get("attack_delays",[])
+	for i in range(frames.size()):
+		for pair in blooming:
+			var sprite: TextureRect = scene.sprites[pair.seed.id]
+			sprite.texture = scene.texture(scene.frame_path(pair.seed,"attack",int(frames[i])))
+		await scene.wait_time(float(delays[i]) if i<delays.size() else 0.16)
+	for pair in blooming:
+		var current: Dictionary = pair.adult
+		var geometry: Dictionary = scene.presentation_layout.geometry(current,scene.surface_size)
+		var sprite: TextureRect = scene.sprites[current.id]
+		sprite.texture = scene.texture(scene.frame_path(current,"attack",1))
+		sprite.size = geometry.size
+		sprite.position = geometry.position
+		sprite.pivot_offset = geometry.pivot
+		sprite.scale = Vector2.ONE
+		states[current.id] = current.duplicate(true)
+		layouts[current.id] = geometry
+		homes[current.id] = geometry.position
+		active.erase(current.id)
+
 func play_round(before: Array, after: Array, reports: Array) -> void:
+	await play_seed_blooms(before,after)
 	show_reports(reports)
 	var arriving: Array = []
 	for unit in after:
@@ -450,7 +504,7 @@ func play_round(before: Array, after: Array, reports: Array) -> void:
 			if old.id==unit.id: previous = old
 		if not previous.is_empty() and previous.slug==unit.slug and previous.hp!=unit.hp and not reports.any(func(report): return report.target==unit.id):
 			show_reports([{"type":"damage" if unit.hp<previous.hp else "heal","target":unit.id,"amount":absi(unit.hp-previous.hp),"kind":"cost","blocked":false,"critical":false,"hp":unit.hp}])
-		if previous.is_empty() or previous.slug!=unit.slug:
+		if previous.is_empty() or (previous.slug!=unit.slug and not is_seed_bloom(previous,unit)):
 			arriving.append(unit.id)
 			scene.sprites[unit.id].modulate.a = 0
 			scene.bars[unit.id].modulate.a = 0
