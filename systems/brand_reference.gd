@@ -1,6 +1,7 @@
 extends "res://systems/reward_ui.gd"
 signal closed
 const Inheritance = preload("res://systems/brand_inheritance.gd")
+const FateIcon = preload("res://systems/battle_fate_icon.gd")
 var battle
 var descriptions: Dictionary
 var summary: Label
@@ -9,11 +10,11 @@ var closing = false
 ## HTML reference: v2-auto-battle-practice.html / .brand-reference-grid.
 ## Presentation-only: never change the incoming rules or the curse-first resolver.
 const DICE_RESULT_PATH = "res://assets/battle/dice/result-%02d.png"
-# Use native Korean glyphs present in the bundled Nanum Gothic font.
-# Decorative Unicode symbols (✦, ☠) rendered as missing-glyph squares on Web.
+# Cell icons reuse the exact blessing/curse vector artwork shown above battle HP bars.
+# The explanatory detail panel remains text so brand descriptions are readable.
 const BLESSING_GLYPH = "축"
 const CURSE_GLYPH = "저"
-const LEGEND_TEXT = "축: 축복 · 저: 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다."
+const LEGEND_TEXT = "초록 별: 축복 · 보라색 선: 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다."
 const FRAME_PATH = "res://assets/map/ui/inheritance_info.webp"
 const GRID_WIDTH = 938.0
 const FIRST_COL = 230.0
@@ -129,18 +130,23 @@ func setup(rules) -> void:
 				cell.name="BrandFace%02d" % face
 				cell.set_meta("face",face)
 				cell.set_meta("mode",mode)
-				cell.text=BLESSING_GLYPH if mode=="blessing" else (CURSE_GLYPH if mode=="curse" else "")
+				cell.text=""  # Symbol belongs to the shared HP-bar FateIcon artwork.
 				cell.custom_minimum_size=Vector2(FACE_COL,ROW_HEIGHT)
 				cell.disabled=mode=="normal"
 				cell.tooltip_text="%s · %d번 · %s" % [str(u.name),face,"축복" if mode=="blessing" else ("저주" if mode=="curse" else "발동 없음")]
-				var ink_color: Color = Color("35692c") if mode=="blessing" else Color("752d25")
-				cell.add_theme_font_size_override("font_size",18)
-				cell.add_theme_color_override("font_color",ink_color)
-				cell.add_theme_color_override("font_hover_color",ink_color)
-				cell.add_theme_color_override("font_pressed_color",ink_color)
 				apply_cell_style(cell,Color("c6d0a1") if mode=="blessing" else (Color("d4afa2") if mode=="curse" else Color("dec9a9")))
 				cell.pressed.connect(func(): describe(u,marks,face))
 				row.add_child(cell)
+				if mode!="normal":
+					# Use the very same drawn symbols as Battlefield's FateIcon:
+					# asymmetrical green triple-stars or violet descending lines.
+					# Normal cells remain empty, preserving quick dice-face scanning.
+					var symbol = FateIcon.new()
+					symbol.name="BrandFaceFateIcon"
+					cell.add_child(symbol)
+					symbol.set_mode("bless" if mode=="blessing" else "curse",false)
+					symbol.scale=Vector2.ONE*1.15
+					symbol.position=(Vector2(FACE_COL,ROW_HEIGHT)-symbol.size*symbol.scale)*0.5
 				row_cells.append(cell)
 			face_cells.append(row_cells)
 	var detail_frame=Panel.new()
