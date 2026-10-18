@@ -349,9 +349,11 @@ void fragment() {
 			var key = enabled[i]
 			var x = 25.6+i*56 if team == "ally" else 1200.4-i*56
 			image(layer,"res://assets/battle/ui/legion-slot-frame.png",Vector2(x,82),Vector2(54,54))
-			var name_text = text(layer,LEGIONS[key],Vector2(x,92),Vector2(54,17),10)
+			var emblem := image(layer,"res://assets/battle/ui/legion-crossed-swords.svg",Vector2(x+17,84),Vector2(20,20))
+			emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var name_text = text(layer,LEGIONS[key],Vector2(x+1,105),Vector2(52,14),10)
 			name_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			var count = text(layer,"%d/%d" % [rules.legions[team].counts[key],rules.NEED[key]],Vector2(x,111),Vector2(54,12),8)
+			var count = text(layer,"%d/%d" % [rules.legions[team].counts[key],rules.NEED[key]],Vector2(x+1,119),Vector2(52,12),9)
 			count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if embedded and is_instance_valid(external_main_dice):
 		# The embedded arena NEVER creates or repositions a second die.
