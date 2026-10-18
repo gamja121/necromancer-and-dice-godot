@@ -22,6 +22,8 @@ func set_mode(next_mode: String) -> void:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = Vector2(23, 21)
+	pivot_offset = Vector2(11.5, 10.5)
+	scale = Vector2(2, 2)
 	visible = false
 
 func _draw() -> void:
