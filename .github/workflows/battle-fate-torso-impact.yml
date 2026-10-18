@@ -1,0 +1,51 @@
+name: Blessing and Curse Torso Impact
+on:
+  pull_request:
+    paths:
+      - "systems/combat_cues.gd"
+      - "scripts/test_battle_fate_impact.gd"
+      - ".github/workflows/battle-fate-torso-impact.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/combat_cues.gd"
+      - "scripts/test_battle_fate_impact.gd"
+      - ".github/workflows/battle-fate-torso-impact.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse visuals with Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual blessings, curses and chest anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 115s godot --headless --path . --script res://scripts/test_battle_fate_impact.gd 2>&1 | tee fate.log
+          grep -E '^BATTLE_FATE_IMPACT: [0-9]+ passed, 0 failed$' fate.log
+          if grep -E 'SCRIPT ERROR|Parse Error|^FAIL fate-impact:' fate.log; then exit 1; fi
+      - name: Core battle brands and dice outcome parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 100s godot --headless --path . --script res://scripts/test_battle_source_parity.gd 2>&1 | tee parity.log
+          grep -E '^BATTLE_SOURCE_PARITY_REGRESSION: [0-9]+ passed, 0 failed$' parity.log
+          if grep -E 'SCRIPT ERROR|Parse Error|^FAIL battle-parity:' parity.log; then exit 1; fi
+      - name: Whitespace
+        run: git diff --check
