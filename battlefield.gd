@@ -310,6 +310,7 @@ void fragment() {
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	message.clip_text = true
+	message.visible = false # Routine combat narration is shown by animations, not HUD text.
 	pause_button = button(layer,"일시정지",Vector2(986,18),Vector2(90,32),toggle_pause)
 	var pause_effects = ButtonEffects.new()
 	pause_effects.name = "ButtonEffectsModule"
@@ -664,7 +665,7 @@ func roll_round(instance_id: String = "") -> void:
 				storage_failed(str(result.get("reason","굴림 저장 실패")))
 				return
 		else: result = {"face":0,"label":""}
-		message.text = "주사위를 굴리는 중…"+(" · "+str(result.label) if not str(result.label).is_empty() else "")
+		message.text = ""
 		if embedded and is_instance_valid(map_owner):
 			# Bounce freely over the real board/battle without snapping to center.
 			await map_owner.roll_shared_die(int(result.face),true)
@@ -697,16 +698,17 @@ func roll_round(instance_id: String = "") -> void:
 			return
 		if action.is_empty(): break
 		render_units(action.before)
-		message.text = "%s 행동" % rules.find_id(action.actor).name
+		message.text = ""
 		await visuals.play_action(action)
-		message.text = " / ".join(action.events)
+		message.text = ""
 		await wait_time(0.22)
 	var winner = rules.winner()
 	if winner.is_empty() and map_mode and not session.checkpoint_battle(rules,"ready"):
 		storage_failed("턴 완료 저장 실패 · 주사위를 눌러 재개하세요")
 		return
 	if winner=="ally": sound("victory")
-	message.text = ("승리! · 새 전투 또는 편성 변경" if winner=="ally" else "패배 · 새 전투 또는 편성 변경") if not winner.is_empty() else "주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1)
+	message.text = ("승리! · 새 전투 또는 편성 변경" if winner=="ally" else "패배 · 새 전투 또는 편성 변경") if not winner.is_empty() else ""
+	message.visible = not message.text.is_empty()
 	busy = false
 	set_card_phase(false)
 	paused = false
@@ -718,12 +720,14 @@ func roll_round(instance_id: String = "") -> void:
 		if not session.finish_encounter(rules):
 			map_return.disabled = false
 			message.text = "전투 결과 저장 실패 · 전투 닫기로 다시 시도하세요"
+			message.visible = true
 			return
 		if winner=="enemy":
 			# The final loss has already been atomically saved. Do not reveal a
 			# return-to-map action or permit another roll on the dead expedition.
 			map_return.disabled=true
 			message.text="원정 종료 · 망자의 계약이 끊어졌다."
+			message.visible = true
 			if embedded and is_instance_valid(map_owner):
 				map_owner.show_game_over()
 			return
@@ -732,6 +736,7 @@ func roll_round(instance_id: String = "") -> void:
 			return
 		map_return.disabled = false
 		message.text = "승리! · 전투를 닫고 원정을 계속하세요"
+		message.visible = true
 
 func storage_failed(reason: String) -> void:
 	busy = false
@@ -743,6 +748,7 @@ func storage_failed(reason: String) -> void:
 	set_card_phase(false)
 	render_units(rules.units)
 	message.text = reason
+	message.visible = true
 
 func resume_battle() -> void:
 	await roll_round()
@@ -793,6 +799,7 @@ func return_to_map() -> void:
 		if rules.winner().is_empty(): return
 		if not session.finish_encounter(rules):
 			message.text = "전투 결과 저장 실패 · 다시 시도하세요"
+			message.visible = true
 			return
 		if not session.world.pending_reward.is_empty():
 			if not is_instance_valid(capture_panel): begin_capture()
