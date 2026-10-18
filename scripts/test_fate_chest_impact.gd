@@ -18,12 +18,10 @@ func check(value: bool, caption: String) -> void:
 
 func verify_cue(battle: Control, unit: Dictionary, blessings: bool, curses: bool, expected_mode: String) -> void:
 	var cues: Control=battle.cues
-	var count: int=0
 	var captured: Array=[]
 	var observed: Callable=func():
 		if not cues.impact.is_empty():
 			captured.append(str(cues.impact.get("mode","")))
-			count+=1
 	process_frame.connect(observed)
 	var original_bless: Dictionary=unit.bless.duplicate(true)
 	var original_curse: Dictionary=unit.curse.duplicate(true)
@@ -32,7 +30,7 @@ func verify_cue(battle: Control, unit: Dictionary, blessings: bool, curses: bool
 	# Invoke the real production presentation coroutine, no simulated state.
 	await cues.play_brands([unit])
 	process_frame.disconnect(observed)
-	check(count>=2 and expected_mode in captured,expected_mode+" impact visible across several actual rendered frames")
+	check(captured.size()>=2 and expected_mode in captured,expected_mode+" impact visible across several actual rendered frames")
 	check(cues.impact.is_empty(),expected_mode+" clears effect state after presentation")
 	var icon=battle.bars[unit.id].get_node_or_null("FateIcon")
 	check(icon!=null and icon.mode==("curse" if curses else "bless"),expected_mode+" uses the appropriate HP fate icon")
