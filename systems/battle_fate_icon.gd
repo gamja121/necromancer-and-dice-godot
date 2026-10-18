@@ -36,11 +36,11 @@ func _draw() -> void:
 			var tip: float = 2.0 + lengths[i] * reveal
 			draw_line(Vector2(xs[i], 2), Vector2(xs[i], tip), Color("9184c3"), 2.3, true)
 	elif mode == "bless":
-		# Non-collinear triangle: two small upper accents and a dominant
-		# lower sparkle. Avoid the former diagonal row of three stars.
-		_draw_sparkle(Vector2(11.5, 13.5), 6.0 * reveal)
-		_draw_sparkle(Vector2(3.5, 3.5), 2.2 * reveal)
-		_draw_sparkle(Vector2(19.5, 4.0), 2.6 * reveal)
+		# Asymmetric arrangement: large star on the right, medium upper-left,
+		# tiny lower-right. The three centers must not form a diagonal row.
+		_draw_sparkle(Vector2(15.5, 9.0), 5.6 * reveal)
+		_draw_sparkle(Vector2(4.5, 4.5), 3.3 * reveal)
+		_draw_sparkle(Vector2(20.0, 18.0), 1.7 * reveal)
 
 func _draw_sparkle(center: Vector2, radius: float) -> void:
 	if radius <= 0.01: return
