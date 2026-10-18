@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 110s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 300s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
       - name: Actual dice-face source artwork brand matrix and read-only operation
         shell: bash

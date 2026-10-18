@@ -90,8 +90,44 @@ def tracked_tree(root: Path) -> dict[str, tuple[str, int]]:
     return files
 
 
+# Hash-pinned owner-reviewed battle frames supersede only their historical
+# runtime mapping. The immutable web ledger and all other art gates stay intact.
+def battle_animation_replacements(root: Path, tracked: dict, problems: list) -> dict:
+    manifest = root / "docs/port_audit/battle_animation_replacements_20261019.json"
+    try:
+        release = json.loads(manifest.read_text(encoding="utf-8"))
+        pins = release["frames"]
+        units = set(release["units"])
+        if (release.get("schema") != 1 or release.get("frame_count") != 1032
+                or release.get("unit_count") != 43 or len(pins) != 1032 or len(units) != 43):
+            raise ValueError("expected exactly 43 reviewed sets / 1032 frames")
+        expected_paths = {
+            f"assets/battle/frames/{slug}/{motion}-{index:02d}.png"
+            for slug in units
+            for motion, count in (("attack", 10), ("hit", 6), ("death", 8))
+            for index in range(1, count + 1)
+        }
+        if (set(pins) != expected_paths
+                or any(not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug) for slug in units)
+                or units & {"dracula", "hydra", "goblin-commoner", "soul-reaper"}):
+            raise ValueError("replacement pins must contain only the 43 reviewed battle sets")
+        approved = {}
+        for path, pin in pins.items():
+            blob, size = pin["git_blob"], pin["size"]
+            if not re.fullmatch(r"[0-9a-f]{40}", blob) or not isinstance(size, int) or size <= 0:
+                raise ValueError("invalid battle animation blob pin: " + path)
+            approved[path] = (blob, size)
+            if tracked.get(path) != (blob, size):
+                problems.append("reviewed battle animation drift: " + path)
+        return approved
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        problems.append("invalid battle animation replacement record: " + str(error))
+        return {}
+
+
 def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
     problems = []
+    approved_animations = battle_animation_replacements(root, tracked, problems)
     features = read_rows(root / "docs/port_audit/feature_parity_audit.tsv")
     masters = read_rows(root / "docs/port_audit/web_feature_master.tsv")
     assets = read_rows(root / "docs/port_audit/asset_parity_audit.tsv")
@@ -164,7 +200,9 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
             sha, size = tracked[godot_path]
             expected = row["godot_sha"]
             if sha != expected or size != int(row["godot_size"]):
-                if godot_path in OWNER_APPROVED_TILE_SCENE_ART and (sha, size) == OWNER_APPROVED_TILE_SCENE_ART[godot_path]:
+                if approved_animations.get(godot_path) == (sha, size):
+                    pass  # Owner-reviewed replacement; keep the historical source mapping intact.
+                elif godot_path in OWNER_APPROVED_TILE_SCENE_ART and (sha, size) == OWNER_APPROVED_TILE_SCENE_ART[godot_path]:
                     pass  # Owner-selected, hash-pinned previous artwork restored from Git history.
                 elif godot_path in REVIEW_PENDING_BLOBS and sha == REVIEW_PENDING_BLOBS[godot_path]:
                     observed_review.add(godot_path)
