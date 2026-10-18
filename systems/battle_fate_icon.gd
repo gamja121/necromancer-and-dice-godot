@@ -36,11 +36,11 @@ func _draw() -> void:
 			var tip: float = 2.0 + lengths[i] * reveal
 			draw_line(Vector2(xs[i], 2), Vector2(xs[i], tip), Color("9184c3"), 2.3, true)
 	elif mode == "bless":
-		# Three tiny four-point sparkles, like the ✨ emoji. The cluster stays
-		# narrower than the curse mark and readable on the battlefield.
-		_draw_sparkle(Vector2(11.5, 10.5), 5.8 * reveal)
-		_draw_sparkle(Vector2(4.5, 5.5), 2.8 * reveal)
-		_draw_sparkle(Vector2(19.0, 15.5), 3.1 * reveal)
+		# Asymmetric constellation: one dominant central sparkle and two
+		# clearly separated accents at different heights, not a horizontal row.
+		_draw_sparkle(Vector2(12.0, 10.5), 6.7 * reveal)
+		_draw_sparkle(Vector2(3.5, 3.5), 2.4 * reveal)
+		_draw_sparkle(Vector2(20.0, 18.0), 2.0 * reveal)
 
 func _draw_sparkle(center: Vector2, radius: float) -> void:
 	if radius <= 0.01: return
