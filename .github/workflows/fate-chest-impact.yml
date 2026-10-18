@@ -1,0 +1,46 @@
+name: Chest Blessing and Visible Curse Impact
+on:
+  pull_request:
+    paths:
+      - "systems/combat_cues.gd"
+      - "scripts/test_fate_chest_impact.gd"
+      - ".github/workflows/fate-chest-impact.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/combat_cues.gd"
+      - "scripts/test_fate_chest_impact.gd"
+      - ".github/workflows/fate-chest-impact.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fate-impact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and GDScript validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Test real sprite chest location and blessings curses
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_fate_chest_impact.gd 2>&1 | tee effect.log
+          grep -E '^FATE_CHEST_IMPACT: [0-9]+ passed, 0 failed$' effect.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL fate-impact:' effect.log; then exit 1; fi
+      - name: Original brand resolution unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 125s godot --headless --path . --script res://scripts/test_battle_source_parity.gd 2>&1 | tee rules.log
+          grep -E '^BATTLE_SOURCE_PARITY_REGRESSION: [0-9]+ passed, 0 failed$' rules.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL battle-parity:' rules.log; then exit 1; fi
