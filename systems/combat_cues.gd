@@ -156,19 +156,24 @@ func play_brands(units: Array) -> void:
 			chain_pulse = {"id":unit.id,"started":clock,"duration":0.26,"count":chain_count}
 		_pulse_unit_card(unit.id, is_blessed)
 		var base_modulate: Color = sprite.modulate
-		var effect_color = Color("ffe4a3") if is_blessed else Color("80628d")
-		impact = {"id":unit.id,"mode":"bless" if is_blessed else "curse","started":clock,"duration":0.17 if is_blessed else 0.20}
+		# A dual trigger must show BOTH visual identities. Previously blessing
+		# silently masked the curse body cue even though the HP icon said curse.
+		var impact_mode: String = "mixed" if is_blessed and is_cursed else ("bless" if is_blessed else "curse")
+		var effect_color: Color = Color("efd1ff") if impact_mode=="mixed" else (Color("ffe4a3") if is_blessed else Color("c89aff"))
+		impact = {"id":unit.id,"mode":impact_mode,"started":clock,"duration":brand_body_interval}
 		# Reveal the HP-bar icon in the exact same frame as the body impact.
 		# Both animations now share their start; never reveal at round resolution.
 		if scene.bars.has(unit.id):
 			var fate_icon = scene.bars[unit.id].get_node_or_null("FateIcon")
 			if fate_icon != null:
 				fate_icon.set_mode("curse" if is_cursed else "bless")
-		step(("축복 " if is_blessed else "저주 ")+str(unit.name),effect_color)
-		# Upward gold column for blessing; descending dark veil for curse.
+		var caption: String = "축복·저주 " if impact_mode=="mixed" else ("축복 " if is_blessed else "저주 ")
+		step(caption+str(unit.name),effect_color)
+		# Brief, readable full-body feedback. The distinct chest effects below
+		# carry the actual blessing/curse shape rather than a faint dark veil.
 		var tween = create_tween()
-		tween.tween_property(sprite,"modulate",effect_color if is_blessed else Color("81738a"),0.075)
-		tween.tween_property(sprite,"modulate",base_modulate,0.17)
+		tween.tween_property(sprite,"modulate",effect_color,0.055)
+		tween.tween_property(sprite,"modulate",base_modulate,0.14)
 		await scene.wait_presentation(brand_body_interval,0.12 if dense else 0.23)
 		if not is_inside_tree(): return
 		if is_instance_valid(tween): tween.kill()
@@ -247,45 +252,74 @@ func _pulse_unit_card(unit_id: String, blessed: bool) -> void:
 		frame_tween.tween_property(frame, "modulate", glow, 0.07)
 		frame_tween.tween_property(frame, "modulate", frame_color, 0.20)
 
+# Use the opaque artwork's upper torso, not the ground-plane effect
+# coordinate. This follows individual monsters' real sprite scale, breathing
+# pose, depth, and hit displacement, even in embedded map battles.
+func chest_anchor(unit: Dictionary) -> Vector2:
+	if scene==null or not scene.sprites.has(unit.id):
+		return Vector2.ZERO
+	var sprite: TextureRect=scene.sprites[unit.id]
+	var metric: Dictionary=scene.presentation_layout.metrics.get(str(unit.slug),{})
+	var image_height: float=maxf(1.0,float(metric.get("height",320)))
+	var visible_top: float=float(metric.get("top",0))
+	var visible_bottom: float=float(metric.get("bottom",image_height-1.0))
+	var upper_torso: float=clampf((visible_top+(visible_bottom-visible_top)*0.43)/image_height,0.12,0.80)
+	var canvas_point: Vector2=sprite.get_global_transform_with_canvas()*Vector2(sprite.size.x*0.5,sprite.size.y*upper_torso)
+	return get_global_transform_with_canvas().affine_inverse()*canvas_point
+
+func _draw_chest_bless(center: Vector2, t: float, span: float) -> void:
+	# Starts at a bright HEART point and blossoms outward/upward. No shaft
+	# connected to the feet; the gold silhouette reads as beneficial energy.
+	var strength: float=pow(maxf(0.0,sin(t*PI)),0.52)
+	var expansion: float=lerpf(0.52,1.35,t)*span
+	draw_circle(center,7.0*span+9.0*t*span,Color(1.0,0.78,0.20,0.36*strength))
+	draw_circle(center,3.2*span+3.5*t*span,Color(1.0,0.99,0.78,0.86*strength))
+	draw_arc(center,expansion*21.0,0.0,TAU,36,Color(1.0,0.81,0.27,0.95*strength),3.8*span,true)
+	for i in range(8):
+		var angle: float=TAU*float(i)/8.0-PI*0.125
+		var direction: Vector2=Vector2.RIGHT.rotated(angle)
+		var from: Vector2=center+direction*(7.0+4.0*t)*span
+		var to: Vector2=center+direction*(22.0+25.0*t)*span
+		draw_line(from,to,Color(1.0,0.91,0.54,0.88*strength),2.6*span,true)
+	for i in range(4):
+		var dx: float=(float(i)-1.5)*12.0*span
+		var rise: float=(10.0+31.0*t+float(i%2)*7.0)*span
+		draw_circle(center+Vector2(dx,-rise),2.3*span,Color(1.0,0.95,0.64,0.9*strength))
+
+func _draw_chest_curse(center: Vector2, t: float, span: float) -> void:
+	# A BLACK heart mark, hard VIOLET rupture and jagged gravity-pulled
+	# strands. This remains visible against the game's dark battle scenery.
+	var strength: float=pow(maxf(0.0,sin(t*PI)),0.50)
+	var radius: float=(15.0+20.0*t)*span
+	draw_circle(center,radius*0.66,Color(0.035,0.005,0.065,0.73*strength))
+	draw_arc(center,radius,0.0,TAU,36,Color(0.82,0.39,1.0,0.97*strength),4.0*span,true)
+	draw_arc(center,radius*1.14,-PI*0.78,PI*0.78,28,Color(0.50,0.19,0.91,0.57*strength),2.7*span,true)
+	for i in range(5):
+		var dx: float=(float(i)-2.0)*10.5*span
+		var origin: Vector2=center+Vector2(dx*0.36,-8.0*span)
+		var kink: Vector2=center+Vector2(dx*0.8+(-5.0 if i%2==0 else 6.0)*span,(11.0+8.0*t)*span)
+		var tip: Vector2=center+Vector2(dx+(6.0 if i%2==0 else -5.0)*span,(30.0+23.0*t)*span)
+		draw_line(origin,kink,Color(0.73,0.30,1.0,0.96*strength),3.1*span,true)
+		draw_line(kink,tip,Color(0.92,0.62,1.0,0.84*strength),2.2*span,true)
+	# A final pale eye-catching flicker reads even on tiny enemy sprites.
+	draw_circle(center,3.4*span,Color(0.92,0.75,1.0,0.83*strength))
+
 func _draw() -> void:
 	if scene==null: return
 	if not impact.is_empty() and scene.visuals.states.has(impact.id):
-		var unit: Dictionary = scene.visuals.states[impact.id]
-		var t: float = clampf((clock-float(impact.started))/float(impact.duration),0.0,1.0)
-		var center: Vector2 = scene.presentation_layout.geometry(unit,scene.surface_size).effect
-		if impact.mode=="bless":
-			# Narrow upward light column: distinct from radial attack-hit bursts.
-			var alpha: float = sin(t*PI)*0.85
-			var rise: float = 155.0*t
-			var half_width: float = 29.0*(1.0-0.22*t)
-			var foot: Vector2 = center+Vector2(0,62)
-			draw_colored_polygon(PackedVector2Array([
-				foot+Vector2(-half_width,0),foot+Vector2(half_width,0),
-				foot+Vector2(half_width*0.54,-90.0-rise),
-				foot+Vector2(-half_width*0.54,-90.0-rise)
-			]),Color(1.0,0.75,0.24,0.24*alpha))
-			draw_line(foot+Vector2(0,-4),foot+Vector2(0,-95.0-rise),Color(1.0,0.95,0.70,0.8*alpha),10.0,true)
-			for i in range(5):
-				var dx: float = (float(i)-2.0)*11.0
-				var y: float = 42.0-float(i%3)*24.0-rise*(0.6+float(i)*0.09)
-				draw_circle(center+Vector2(dx,y),2.5+float(i%2),Color(1.0,0.9,0.5,alpha))
-		else:
-			# A localized veil settles DOWN over the monster; no expanding blast.
-			var alpha: float = sin(t*PI)
-			var descent: float = 55.0*t
-			var shade_top: float = -104.0+descent
-			draw_colored_polygon(PackedVector2Array([
-				center+Vector2(-39,shade_top),center+Vector2(39,shade_top),
-				center+Vector2(35,70),center+Vector2(-35,70)
-			]),Color(0.09,0.045,0.15,0.29*alpha))
-			for i in range(5):
-				var dx: float = (float(i)-2.0)*16.0
-				var top: Vector2 = center+Vector2(dx,shade_top+float(i%2)*10.0)
-				draw_line(top,top+Vector2(dx*0.12,48.0+25.0*t),Color(0.36,0.22,0.47,0.50*alpha),4.0,true)
+		var unit: Dictionary=scene.visuals.states[impact.id]
+		var t: float=clampf((clock-float(impact.started))/maxf(0.01,float(impact.duration)),0.0,1.0)
+		var center: Vector2=chest_anchor(unit)
+		var sprite: TextureRect=scene.sprites[unit.id]
+		var span: float=clampf(sprite.size.y/150.0,0.72,1.30)
+		if impact.mode in ["bless","mixed"]:
+			_draw_chest_bless(center,t,span)
+		if impact.mode in ["curse","mixed"]:
+			_draw_chest_curse(center,t,span)
 	if not chain_pulse.is_empty() and scene.visuals.states.has(chain_pulse.id):
 		var pulse_unit: Dictionary = scene.visuals.states[chain_pulse.id]
 		var progress: float = clampf((clock-float(chain_pulse.started))/float(chain_pulse.duration),0.0,1.0)
-		var center: Vector2 = scene.presentation_layout.geometry(pulse_unit,scene.surface_size).effect
+		var center: Vector2 = chest_anchor(pulse_unit)
 		var opacity: float = sin(progress*PI)*0.42
 		var radius: float = 22.0+progress*30.0
 		draw_arc(center,radius,-PI*0.82,PI*0.82,28,Color(1.0,0.83,0.40,opacity),2.0,true)
