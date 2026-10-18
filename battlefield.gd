@@ -574,7 +574,9 @@ func render_units(values: Array) -> void:
 		passive_label_display.visible = not passive_label_display.text.is_empty()
 		# Fate icon is revealed by the matching brand impact cue, never here.
 		# Clear only when the effect has ended or the unit has died.
-		var fate_icon_display := bars[u.id].get_node("FateIcon")
+		# bars is a Dictionary (Variant); Godot cannot infer the dynamic node type.
+		# Keep it explicitly dynamic because FateIcon.set_mode belongs to its script.
+		var fate_icon_display: Variant = bars[u.id].get_node("FateIcon")
 		if not u.alive or (u.bless.is_empty() and u.curse.is_empty()):
 			fate_icon_display.set_mode("")
 		var visible_statuses: Array = []
