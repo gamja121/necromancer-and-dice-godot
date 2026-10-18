@@ -8,13 +8,15 @@ var reveal: float = 1.0:
 		queue_redraw()
 var reveal_tween: Tween
 
-func set_mode(next_mode: String) -> void:
-	if mode == next_mode: return
+# Battle HP bars animate their triggered icon. Static information grids
+# reuse the same artwork but reveal it immediately at its final size.
+func set_mode(next_mode: String, animated: bool = true) -> void:
+	if mode == next_mode and (animated or is_equal_approx(reveal,1.0)): return
 	mode = next_mode
 	visible = not mode.is_empty()
 	if is_instance_valid(reveal_tween): reveal_tween.kill()
-	reveal = 0.0 if visible else 1.0
-	if visible:
+	reveal = 0.0 if visible and animated else 1.0
+	if visible and animated:
 		reveal_tween = create_tween()
 		reveal_tween.tween_property(self, "reveal", 1.0, 0.20).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	queue_redraw()

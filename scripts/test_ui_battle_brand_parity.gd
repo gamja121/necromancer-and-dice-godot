@@ -1,6 +1,7 @@
 extends SceneTree
 ## Stage5A – fixed HTML brand-reference grid vs native Godot battle rules.
 const BrandReference=preload("res://systems/brand_reference.gd")
+const FateIcon=preload("res://systems/battle_fate_icon.gd")
 const Rules=preload("res://systems/battlefield_rules.gd")
 var passed=0
 var failed=0
@@ -47,14 +48,25 @@ func _run() -> void:
 	check(panel.reference_rows.slice(4,8).all(func(row): return row.get_meta("team")=="enemy"),"enemy units in lower four rows")
 	check(panel.face_cells.all(func(row): return row.size()==6),"all 8 rows have all six dice faces")
 	check(panel.face_cells[0][1].get_meta("mode")=="blessing","2 shows blessing for selected ally")
-	check(panel.face_cells[0][1].text=="축","blessing is printed as readable Korean, not an unsupported symbol")
-	var bundled_font: Font = load("res://assets/fonts/nanum_gothic_regular.ttf")
-	check(bundled_font!=null and bundled_font.has_char("축".unicode_at(0)) and bundled_font.has_char("저".unicode_at(0)),"bundled UI font has both Korean blessing and curse glyphs")
+	var blessing_icon=panel.face_cells[0][1].get_node_or_null("BrandFaceFateIcon")
+	check(blessing_icon!=null and blessing_icon.get_script()==FateIcon and blessing_icon.mode=="bless","blessing cell reuses the real HP-bar three-green-star FateIcon")
+	check(blessing_icon!=null and blessing_icon.visible and is_equal_approx(blessing_icon.reveal,1.0),"blessing FateIcon renders immediately without delayed animation")
 	check(panel.face_cells[0][2].get_meta("mode")=="curse","3 shows base curse instead of inherited blessing")
-	check(panel.face_cells[0][2].text=="저","curse is printed as readable Korean, not an unsupported symbol")
-	check(panel.face_cells.all(func(row): return row.all(func(cell): return cell.text in ["축","저",""])),"no unsupported pictograph is baked into any dice cell")
+	var curse_icon=panel.face_cells[0][2].get_node_or_null("BrandFaceFateIcon")
+	check(curse_icon!=null and curse_icon.get_script()==FateIcon and curse_icon.mode=="curse","curse cell reuses the real HP-bar violet-line FateIcon")
+	check(curse_icon!=null and curse_icon.visible and is_equal_approx(curse_icon.reveal,1.0),"curse FateIcon renders immediately without delayed animation")
+	check(panel.face_cells.all(func(row): return row.all(func(cell): return cell.text.is_empty())),"all 48 dice face cells use images, never old letter glyphs")
+	var icon_mapping_ok: bool=true
+	for row in panel.face_cells:
+		for cell in row:
+			var symbol=cell.get_node_or_null("BrandFaceFateIcon")
+			var mode: String=str(cell.get_meta("mode"))
+			icon_mapping_ok=icon_mapping_ok and ((mode=="normal" and symbol==null) or
+				(mode=="blessing" and symbol!=null and symbol.mode=="bless") or
+				(mode=="curse" and symbol!=null and symbol.mode=="curse"))
+	check(icon_mapping_ok,"all actual blessing/curse faces carry the matching HP fate artwork, inactive cells stay empty")
 	var legend=panel.get_node_or_null("BrandReferenceLegend") as Label
-	check(legend!=null and legend.text=="축: 축복 · 저: 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다.","legend explains native Korean cell labels with no missing glyphs")
+	check(legend!=null and legend.text=="초록 별: 축복 · 보라색 선: 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다.","legend explains HP-bar green stars and violet lines")
 	check(panel.face_cells[0][3].get_meta("mode")=="blessing","4 shows inherited blessing on safe face")
 	check(panel.face_cells[0][0].disabled,"inactive face cannot be mistaken for a blessing")
 	panel.face_cells[0][2].pressed.emit()
@@ -81,7 +93,7 @@ func _run() -> void:
 	other.setup(minimal)
 	await process_frame
 	check(other.reference_rows.size()==2 and other.face_cells.size()==2,"small party scales to actual living roster")
-	check(other.face_cells[0].all(func(cell): return cell.disabled and cell.text.is_empty()),"empty brands produce no active icons")
+	check(other.face_cells[0].all(func(cell): return cell.disabled and cell.text.is_empty() and cell.get_node_or_null("BrandFaceFateIcon")==null),"empty brands produce no active icons")
 	other.queue_free()
 	await process_frame
 	print("UI_BATTLE_BRAND_PARITY: %d passed, %d failed" % [passed,failed])
