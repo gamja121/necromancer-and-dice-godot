@@ -6,6 +6,7 @@ var session
 var map
 var options: Array = []
 var status: Label
+var confirm_button: Button
 var busy = false
 # Original HTML reward-card presentation only. These collections do not enter saves.
 var reward_outlines: Array[Panel] = []
@@ -51,10 +52,11 @@ func setup(map_scene) -> void:
 		mimic_revealed.emit(int(session.world.pending_reward.index))
 		return
 	chest.modulate.a = 0.28
-	status.text = "선택한 카드를 한 번 더 누르면 획득합니다"
+	status.text = "보상 카드를 선택한 뒤 아래에서 획득을 확정하세요"
 	build_options()
 	await animate_offer_entrance()
 	busy = false
+	refresh()
 
 # Three successive source cards rise from 22% below, with 110ms staggering.
 # Keep the chest/selection receipt and save pipeline completely separate.
@@ -114,6 +116,11 @@ func build_options() -> void:
 		reward_materials.append(reward_shade(option))
 		reward_outlines.append(reward_outline(option))
 		options.append(option)
+	# Card taps only choose; this explicit button commits a reward transaction.
+	confirm_button=button(self,"선택한 보상 받기",Vector2(490,626),Vector2(300,52),confirm_selection)
+	confirm_button.name="TreasureClaimConfirm"
+	confirm_button.add_theme_font_size_override("font_size",18)
+	confirm_button.disabled=true
 	refresh()
 
 func refresh() -> void:
@@ -129,6 +136,9 @@ func refresh() -> void:
 		reward_outlines[index].visible=active
 		reward_materials[index].set_shader_parameter("desaturate",0.22 if faded else 0.0)
 		reward_materials[index].set_shader_parameter("brightness",0.72 if faded else 1.0)
+	if is_instance_valid(confirm_button):
+		confirm_button.disabled=busy or selected<0
+		confirm_button.text="선택한 보상 받기" if selected>=0 else "보상을 선택하세요"
 
 func show_confirmed_choice(index: int) -> void:
 	# Presentation after a successfully stored reward, not before.
@@ -148,16 +158,22 @@ func show_confirmed_choice(index: int) -> void:
 
 func choose(index: int) -> void:
 	if busy: return
-	if int(session.world.pending_reward.selected)!=index:
+	if int(session.world.pending_reward.get("selected",-1))!=index:
 		if not session.select_treasure(index):
 			status.text = "선택 저장 실패 · 다시 시도하세요"
 			return
-		refresh()
-		status.text = options[index].tooltip_text+" 선택 · 한 번 더 누르면 획득"
-		return
+	refresh()
+	status.text = options[index].tooltip_text+" 선택 · 아래 획득 버튼으로 확정"
+ 
+func confirm_selection() -> void:
+	if busy or not is_instance_valid(confirm_button) or confirm_button.disabled: return
+	var index: int=int(session.world.pending_reward.get("selected",-1))
+	if index<0 or index>=options.size(): return
 	busy = true
+	confirm_button.disabled=true
 	if not session.prepare_treasure_reward(index):
 		busy = false
+		refresh()
 		status.text = "보상 준비 저장 실패 · 다시 시도하세요"
 		return
 	await receive(index)
@@ -168,6 +184,7 @@ func resume_reward() -> void:
 
 func receive(index: int) -> void:
 	for option in options: option.disabled = true
+	if is_instance_valid(confirm_button): confirm_button.disabled=true
 	var kind: String = session.world.pending_reward.reward.kind
 	var outcome: Dictionary = session.claim_reward()
 	if outcome.get("overflow",false):
@@ -179,6 +196,7 @@ func receive(index: int) -> void:
 		status.text = "획득 저장 실패 · 다시 시도하세요"
 		for option in options: option.disabled = false
 		busy = false
+		refresh()
 		return
 	if outcome.kept:
 		show_confirmed_choice(index)
