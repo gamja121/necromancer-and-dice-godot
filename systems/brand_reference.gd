@@ -11,7 +11,7 @@ var closing = false
 ## Presentation-only: never change the incoming rules or the curse-first resolver.
 const DICE_RESULT_PATH = "res://assets/battle/dice/result-%02d.png"
 # Cell icons reuse the exact blessing/curse vector artwork shown above battle HP bars.
-# The explanatory detail panel remains text so brand descriptions are readable.
+# Show readable descriptions in a compact popup only after a unit or die is selected.
 const BLESSING_GLYPH = "축"
 const CURSE_GLYPH = "저"
 const LEGEND_TEXT = "초록 별: 축복 · 보라색 선: 저주 · 마물 이름이나 눈금을 누르면 효과를 볼 수 있습니다."
@@ -29,6 +29,7 @@ var face_cells: Array = []
 var reference_scroll: ScrollContainer
 var reference_grid: VBoxContainer
 var detail_scroll: ScrollContainer
+var detail_popup: PanelContainer
 var frame_art: TextureRect
 
 func setup(rules) -> void:
@@ -36,8 +37,14 @@ func setup(rules) -> void:
 	descriptions = JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json")).brands
 	z_index = 205
 	backdrop()
-	# The HTML uses an 82%-wide / 78%-tall, centered parchment frame.
-	frame_art = art(self,FRAME_PATH,Vector2(116,77),Vector2(1048,566))
+	# Keep the frame compact: no permanently empty description footer.
+	var visible_rows: int = 0
+	for unit in rules.units:
+		if unit.alive and not unit.is_summon and unit.slot < 4 and unit.team in ["ally", "enemy"]:
+			visible_rows += 1
+	var grid_height: float = minf(345.0, 12.0 + HEADER_HEIGHT + float(visible_rows) * (ROW_HEIGHT + 2.0))
+	var frame_height: float = 170.0 + grid_height
+	frame_art = art(self,FRAME_PATH,Vector2(116,77),Vector2(1048,frame_height))
 	frame_art.stretch_mode = TextureRect.STRETCH_SCALE
 	label_at(self,"BRAND REFERENCE",Vector2(174,99),Vector2(540,19),11)
 	label_at(self,"낙인 정보판",Vector2(174,119),Vector2(710,34),23)
@@ -47,7 +54,7 @@ func setup(rules) -> void:
 	var grid_frame=Panel.new()
 	grid_frame.name="BrandReferenceGridFrame"
 	grid_frame.position=Vector2(169,170)
-	grid_frame.size=Vector2(943,345)
+	grid_frame.size=Vector2(943,grid_height)
 	grid_frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	var paper=StyleBoxFlat.new()
 	paper.bg_color=Color("ead9bb66")
@@ -58,7 +65,7 @@ func setup(rules) -> void:
 	reference_scroll=ScrollContainer.new()
 	reference_scroll.name="BrandReferenceScroll"
 	reference_scroll.position=Vector2(174,176)
-	reference_scroll.size=Vector2(932,332)
+	reference_scroll.size=Vector2(932,grid_height-13.0)
 	reference_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	reference_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
 	add_child(reference_scroll)
@@ -149,33 +156,52 @@ func setup(rules) -> void:
 					symbol.position=(Vector2(FACE_COL,ROW_HEIGHT)-symbol.size*symbol.scale)*0.5
 				row_cells.append(cell)
 			face_cells.append(row_cells)
-	var detail_frame=Panel.new()
-	detail_frame.name="BrandReferenceDetailFrame"
-	detail_frame.position=Vector2(170,541)
-	detail_frame.size=Vector2(943,99)
-	detail_frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var detail_style=StyleBoxFlat.new()
-	detail_style.bg_color=Color("f2e4ccbb")
-	detail_style.border_color=Color("6d5139")
-	detail_style.set_border_width_all(1)
-	detail_frame.add_theme_stylebox_override("panel",detail_style)
-	add_child(detail_frame)
-	var note=label_at(self,LEGEND_TEXT,Vector2(171,514),Vector2(942,23),13)
+	var note=label_at(self,LEGEND_TEXT,Vector2(171,176+grid_height),Vector2(942,23),13)
 	note.name="BrandReferenceLegend"
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	# Compact, initially hidden popup replaces the empty full-width footer.
+	detail_popup=PanelContainer.new()
+	detail_popup.name="BrandReferenceDetailPopup"
+	detail_popup.position=Vector2(340,204)
+	detail_popup.custom_minimum_size=Vector2(600,0)
+	detail_popup.size=Vector2(600,0)
+	detail_popup.visible=false
+	detail_popup.z_index=10
+	var popup_style=StyleBoxFlat.new()
+	popup_style.bg_color=Color("f2e4cc")
+	popup_style.border_color=Color("6d5139")
+	popup_style.set_border_width_all(2)
+	popup_style.set_corner_radius_all(8)
+	popup_style.set_content_margin_all(12)
+	detail_popup.add_theme_stylebox_override("panel",popup_style)
+	add_child(detail_popup)
+	var popup_content=VBoxContainer.new()
+	popup_content.add_theme_constant_override("separation",5)
+	detail_popup.add_child(popup_content)
+	var popup_header=HBoxContainer.new()
+	popup_content.add_child(popup_header)
+	var popup_title=Label.new()
+	popup_title.text="낙인 효과"
+	popup_title.add_theme_color_override("font_color",Color("34251c"))
+	popup_title.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	popup_header.add_child(popup_title)
+	var popup_close=Button.new()
+	popup_close.text="×"
+	popup_close.tooltip_text="효과 설명 닫기"
+	popup_close.pressed.connect(func(): detail_popup.hide())
+	popup_header.add_child(popup_close)
 	detail_scroll=ScrollContainer.new()
 	detail_scroll.name="BrandReferenceDescription"
-	detail_scroll.position=Vector2(174,545)
-	detail_scroll.size=Vector2(933,91)
+	detail_scroll.custom_minimum_size=Vector2(570,65)
+	detail_scroll.size=Vector2(570,145)
 	detail_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(detail_scroll)
+	popup_content.add_child(detail_scroll)
 	summary=Label.new()
 	summary.name="BrandReferenceSummary"
-	summary.text="마물 또는 낙인 눈금을 선택하세요."
+	summary.text=""
 	summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	# A wrapped Label inside ScrollContainer must have a bounded width to grow vertically.
-	summary.custom_minimum_size=Vector2(895,0)
-	summary.custom_maximum_size=Vector2(895,0)
+	summary.custom_minimum_size=Vector2(550,0)
+	summary.custom_maximum_size=Vector2(550,0)
 	summary.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	summary.vertical_alignment=VERTICAL_ALIGNMENT_TOP
 	summary.add_theme_color_override("font_color",Color("34251c"))
@@ -209,6 +235,7 @@ func describe(u: Dictionary, marks: Array, face: int = 0) -> void:
 			lines.append("%s %s · %s" % [BLESSING_GLYPH,definition.name,definition.blessing])
 	if lines.size()==1: lines.append("낙인 없음" if face==0 else "발동 없음")
 	summary.text = "\n".join(lines)
+	detail_popup.show()
 	# Always start at the selected mark name rather than retaining the previous scroll offset.
 	detail_scroll.set_deferred("scroll_vertical",0)
 
