@@ -175,7 +175,7 @@ func setup_shop_visual() -> void:
 	donor_hint=label_at(self,"교환할 마물 선택",trade_origin+Vector2(15,247),Vector2(225,32),14)
 	shop_cancel_button=button(self,"거래대에서 내리기",trade_origin+Vector2(38,281),Vector2(189,37),reset_shop_selection)
 	style_shop_button(shop_cancel_button,3)
-	shop_confirm_button=button(self,"교환 확정",Vector2(873,482),Vector2(206,45),confirm_shop_trade)
+	shop_confirm_button=button(self,"교환 확정",Vector2(875,476),Vector2(206,38),confirm_shop_trade)
 	shop_confirm_button.name="ShopTradeConfirm"
 	shop_confirm_button.disabled=true
 	style_shop_button(shop_confirm_button,2)
