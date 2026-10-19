@@ -41,5 +41,12 @@ jobs:
           timeout 140s godot --headless --path . --script res://scripts/test_battle_entry_summon.gd 2>&1 | tee handoff.log
           grep -E '^BATTLE_ENTRY_SUMMON: [0-9]+ passed, 0 failed$' handoff.log
           if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL entry-summon:' handoff.log; then exit 1; fi
+      - name: Verify every in-game monster card keeps its original texture reference
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_p4_all_monster_presentation.gd 2>&1 | tee monsters.log
+          grep -E '^P4_ALL_MONSTER_PRESENTATION: [0-9]+ passed, 0 failed
+ monsters.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL p4-all-monsters:' monsters.log; then exit 1; fi
       - name: Verify intended diff
         run: git diff --check
