@@ -185,7 +185,7 @@ func show_item(kind: String, item: Dictionary) -> void:
 	info.closed.connect(func(): info = null)
 
 func show_card_detail(kind: String, item: Dictionary) -> void:
-	if kind not in ["dice","brand"] or is_instance_valid(info): return
+	if not kind in ["dice","brand"] or is_instance_valid(info): return
 	info=Control.new()
 	info.name="InventoryCardDetail"
 	info.size=size
