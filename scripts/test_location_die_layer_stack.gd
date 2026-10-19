@@ -36,7 +36,7 @@ func check_location(map: Control, label: String, control_name: String, die_in_fr
 	var art: TextureRect=find_location_art(panel)
 	var frame: NinePatchRect=find_location_frame(panel)
 	var action: Button=find_button(panel,control_name)
-	check(art!=null and frame!=null and action!=null,label+": source illustration, border and action exist")
+	check(art!=null and frame!=null and (control_name.is_empty() or action!=null),label+": source illustration, border and any required action exist")
 	if die_in_front:
 		check(map.dice.is_visible_in_tree() and map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,label+": live fortune die paints ABOVE its original art and receives user input")
 		check(map.stage.get_child(map.stage.get_child_count()-1)==map.dice,label+": fortune die is last sibling for actual Godot click hit-testing")
@@ -105,9 +105,9 @@ func _run() -> void:
 	check_location(map,"fortune-teller location painting","예언")
 	map.close_overlay()
 	map.show_place_actions(0)
-	check_location(map,"fortune-teller function","예언 듣기",true)
+	check_location(map,"fortune-teller function","",true)
 	var fortune_panel: Control=map.overlay
-	check(fortune_panel.get("dice")==die and find_button(fortune_panel,"예언 듣기")!=null,"prophecy uses one original visible shared die above its art, not a duplicate")
+	check(fortune_panel.get("dice")==die and fortune_panel.confirm_button==null and find_button(fortune_panel,"예언 듣기")==null,"prophecy has no separate button and reuses the original die above its art")
 	check(not die.disabled,"unused fortune die is immediately clickable before the one-time prophecy")
 	map.close_overlay()
 	check(die.z_index==map.DIE_FOREGROUND_Z and die.mouse_filter==Control.MOUSE_FILTER_STOP,"closing fortune returns original map die to normal clickable layer")
