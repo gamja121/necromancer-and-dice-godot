@@ -33,6 +33,8 @@ func setup(map_scene) -> void:
 	label_at(self,"보물상자",Vector2(280,90),Vector2(720,42),25)
 	status = label_at(self,"보물상자를 여는 중…",Vector2(250,565),Vector2(780,54),17)
 	if session.world.pending_reward.has("reward"):
+		# Prepared transaction resumes automatically; do not briefly enable claim.
+		busy = true
 		build_options()
 		call_deferred("resume_reward")
 		return
@@ -171,6 +173,9 @@ func confirm_selection() -> void:
 	if index<0 or index>=options.size(): return
 	busy = true
 	confirm_button.disabled=true
+	if session.world.pending_reward.has("reward"):
+		await receive(index)
+		return
 	if not session.prepare_treasure_reward(index):
 		busy = false
 		refresh()
