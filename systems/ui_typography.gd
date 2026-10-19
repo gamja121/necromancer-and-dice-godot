@@ -16,9 +16,11 @@ func _enter_tree() -> void:
 
 func _on_node_added(node: Node) -> void:
 	if node is Control:
-		_apply_after_setup.call_deferred(node)
+		_apply_after_setup.call_deferred(weakref(node))
 
-func _apply_after_setup(node: Node) -> void:
+func _apply_after_setup(node_ref: WeakRef) -> void:
+	# Short-lived panels may be freed before the deferred font pass runs.
+	var node: Node=node_ref.get_ref()
 	if is_instance_valid(node) and body_font!=null and heading_font!=null:
 		apply_ui_font(node,body_font,heading_font)
 

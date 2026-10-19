@@ -23,6 +23,29 @@ func wait_idle(view: Control) -> bool:
 		await process_frame
 	return not view.changing
 
+func check_shadow_feedback(card: TextureButton, kind: String) -> void:
+	var shadow=card.get_node_or_null("CardContactShadow") as TextureRect
+	check(shadow!=null,kind+": contact shadow exists on the real owned card")
+	if shadow==null: return
+	var home: Vector2=card.position
+	var angle: float=card.rotation
+	var scale_before: Vector2=card.scale
+	card.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	check(shadow.position.is_equal_approx(Vector2(5,10)) and is_equal_approx(shadow.modulate.a,0.20),kind+": first pointer entry lifts the shadow")
+	# Interrupt an unfinished return with another entry and a focus exit.
+	card.mouse_exited.emit()
+	card.mouse_entered.emit()
+	card.focus_exited.emit()
+	await create_timer(0.2).timeout
+	check(shadow.position.is_equal_approx(Vector2(3,5)) and is_equal_approx(shadow.modulate.a,0.31),kind+": rapid pointer and focus changes settle at the latest target")
+	card.focus_entered.emit()
+	await create_timer(0.2).timeout
+	var focus_raised: bool=shadow.position.is_equal_approx(Vector2(5,10)) and is_equal_approx(shadow.modulate.a,0.20)
+	card.focus_exited.emit()
+	await create_timer(0.2).timeout
+	check(focus_raised and shadow.position.is_equal_approx(Vector2(3,5)) and is_equal_approx(shadow.modulate.a,0.31) and card.position.is_equal_approx(home) and is_equal_approx(card.rotation,angle) and card.scale.is_equal_approx(scale_before),kind+": keyboard focus returns shadow and card to their original pose")
+
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")
 	if session==null:
@@ -48,6 +71,7 @@ func _run() -> void:
 	var dice_button=view.content.get_node_or_null("InventoryInspect_dice_0") as TextureButton
 	check(dice_button!=null and dice_button.texture_normal!=null,"same owned die card art remains visible")
 	if dice_button!=null:
+		await check_shadow_feedback(dice_button,"dice")
 		dice_button.pressed.emit()
 		check(is_instance_valid(view.info) and view.info.name=="InventoryCardDetail","tapping die opens a card detail instead of consuming it")
 		if is_instance_valid(view.info):
@@ -68,6 +92,7 @@ func _run() -> void:
 	var brand_button=view.content.get_node_or_null("InventoryInspect_brand_0") as TextureButton
 	check(brand_button!=null and brand_button.texture_normal!=null,"brand owns a tappable card art")
 	if brand_button!=null:
+		await check_shadow_feedback(brand_button,"brand")
 		brand_button.pressed.emit()
 		var details=view.info.get_node_or_null("InventoryDetailPanel/InventoryDetailEffects") as Label
 		var definitions: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json")).brands
@@ -82,6 +107,7 @@ func _run() -> void:
 	var roster_button=view.content.get_node_or_null("InventoryInspect_unit_0") as TextureButton
 	check(roster_button!=null and roster_button.texture_normal!=null,"original monster inventory cards remain clickable")
 	if roster_button!=null:
+		await check_shadow_feedback(roster_button,"unit")
 		roster_button.pressed.emit()
 		check(is_instance_valid(view.info) and view.info.get_script().resource_path.ends_with("unit_info.gd"),"owned monsters retain original detailed unit window")
 		view.info.queue_free()
