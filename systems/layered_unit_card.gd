@@ -38,10 +38,10 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	if not (ResourceLoader.exists(BACKGROUND) and ResourceLoader.exists(NAMEPLATE) and ResourceLoader.exists(PORTRAITS[slug])):
 		return false
 	var original_texture := card.texture_normal
-	# Transparent 2:3 hit target. Do NOT bake the character into this texture.
-	var empty := Image.create(2, 3, false, Image.FORMAT_RGBA8)
-	empty.fill(Color.TRANSPARENT)
-	card.texture_normal = ImageTexture.create_from_image(empty)
+	# Keep the original TextureButton texture identity for existing card
+	# presentations/tests and hit-area sizing; render ONLY the live layers.
+	# self_modulate affects this CanvasItem, not its TextureRect children.
+	card.self_modulate = Color(1.0, 1.0, 1.0, 0.0)
 	card.ignore_texture_size = true
 	card.clip_contents = false # spear/bow/skull can extend beyond the card edge
 	card.set_meta("layered_original_texture", original_texture)
