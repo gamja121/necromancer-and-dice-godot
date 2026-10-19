@@ -59,7 +59,7 @@ func setup(map_scene, tile_index: int) -> void:
 	# as the location screen; action-specific controls are layered above it.
 	map.location_scene_image(self,"res://assets/map/events/%s.jpg" % background)
 	label_at(self,{"unknown":"세계수 · 정화 기도","graveyard":"공동묘지 · 낙인 추출","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
-	close_button=button(self,"돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
+	close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	content=Control.new()
@@ -74,7 +74,7 @@ func setup(map_scene, tile_index: int) -> void:
 		if saved.get("visit","")==session.place_visit_id("purify",index):
 			status.text="기도 결과 %d · 오염도 %+d · 현재 %d/100" % [int(saved.face),int(saved.delta),session.world.contamination]
 	elif type=="graveyard":
-		close_button.text="닫기"
+		close_button.text="← 돌아가기"
 		close_button.position=Vector2(911,148)
 		close_button.size=Vector2(109,35)
 		var close_style=StyleBoxTexture.new()
@@ -109,7 +109,7 @@ func setup(map_scene, tile_index: int) -> void:
 		# An existing run saved before hill editing has only monster/rest keys.
 		if not plan.selection.has("forest"): plan.selection["forest"]=0
 		initialize_route_slot_layout()
-		close_button.text="닫기"
+		close_button.text="← 돌아가기"
 		close_button.position=Vector2(430,561)
 		close_button.size=Vector2(128,36)
 		# Keep the selection status BELOW the +/- click targets; the
