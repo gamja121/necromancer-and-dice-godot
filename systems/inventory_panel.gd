@@ -8,6 +8,7 @@ const HAND_BOOK_OFFSET = Vector2(24.0,-105.0)
 const HAND_SCROLL_WIDTH = 944.0
 const HAND_SCROLL_THRESHOLD = 10
 const UnitInfo = preload("res://systems/unit_info.gd")
+const DiceControl = preload("res://systems/dice_control.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const FanMotion = preload("res://systems/card_fan_motion.gd")
 const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
@@ -81,7 +82,7 @@ func focus_hand_card(option: TextureButton, home: Vector2, focused: bool) -> voi
 	CardDepthMotion.set_shadow_lift(option, focused)
 
 func show_kind(kind: String) -> void:
-	if changing or closing: return
+	if changing or closing or is_instance_valid(info): return
 	changing = true
 	for tab in tab_buttons: tab.disabled = true
 	layout_shell(kind)
@@ -92,7 +93,11 @@ func show_kind(kind: String) -> void:
 	add_child(content)
 	fan = FanMotion.new()
 	content.add_child(fan)
+	# The inventory never consumes cards: taps inspect only, unlike the battle hand.
 	var items: Array = session.world.roster if kind=="unit" else (session.world.dice_cards if kind=="dice" else session.world.brand_cards)
+	if kind!="unit":
+		var guidance = label_at(content,"카드를 눌러 상세 효과 확인 · 여기서는 사용되지 않습니다",Vector2(290,206),Vector2(700,31),15)
+		guidance.name="InventoryInspectHint"
 	if items.is_empty():
 		label_at(content,"보유한 마물이 없습니다" if kind=="unit" else "보유한 카드가 없습니다",
 			Vector2(385,568) if kind=="unit" else Vector2(300,335),
@@ -132,6 +137,7 @@ func show_kind(kind: String) -> void:
 			holder.add_child(parent)
 			pos = Vector2(8,12)
 		var option = card(parent,kind,item,pos,HAND_CARD_SIZE,func(): show_item(kind,item))
+		option.name="InventoryInspect_%s_%d" % [kind,i]
 		option.rotation_degrees = (3.0-7.0*float(i)/float(maxi(items.size()-1,1))) if kind=="unit" else clampf((i-half)*1.6,-5,5)
 		if kind=="unit":
 			option.get_child(0).text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]
@@ -163,9 +169,13 @@ func show_kind(kind: String) -> void:
 	changing = false
 	for tab in tab_buttons: tab.disabled = false
 
+## Card inspection is intentionally visual-only. No RunSession mutations, RNG,
+## item consumption, or callbacks into dice/shop/battle actions may occur here.
 func show_item(kind: String, item: Dictionary) -> void:
-	if closing or changing or kind!="unit": return
-	if is_instance_valid(info): return
+	if closing or changing or is_instance_valid(info): return
+	if kind!="unit":
+		show_card_detail(kind,item)
+		return
 	var rules = Rules.new(session.world.definitions,1)
 	rules.start([item.duplicate(true)],[])
 	rules.units[0].hp = item.current_hp
@@ -173,6 +183,79 @@ func show_item(kind: String, item: Dictionary) -> void:
 	add_child(info)
 	info.setup(rules.units[0],rules,session.world.prophecy)
 	info.closed.connect(func(): info = null)
+
+func show_card_detail(kind: String, item: Dictionary) -> void:
+	if not kind in ["dice","brand"] or is_instance_valid(info): return
+	info=Control.new()
+	info.name="InventoryCardDetail"
+	info.size=size
+	info.z_index=100
+	info.mouse_filter=Control.MOUSE_FILTER_STOP
+	add_child(info)
+	var shade=ColorRect.new()
+	shade.color=Color("050403bd")
+	shade.size=size
+	shade.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	info.add_child(shade)
+	var outside=Button.new()
+	outside.name="InventoryDetailOutsideClose"
+	outside.flat=true
+	outside.size=size
+	outside.pressed.connect(close_card_detail)
+	info.add_child(outside)
+	var panel=Panel.new()
+	panel.name="InventoryDetailPanel"
+	panel.position=Vector2(246,167)
+	panel.size=Vector2(788,386)
+	panel.mouse_filter=Control.MOUSE_FILTER_STOP
+	var style=StyleBoxFlat.new()
+	style.bg_color=Color("ebd9ba")
+	style.border_color=Color("7d5332")
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(8)
+	panel.add_theme_stylebox_override("panel",style)
+	info.add_child(panel)
+	var title=label_at(panel,Catalog.label(kind,item),Vector2(30,19),Vector2(650,43),22)
+	title.name="InventoryDetailTitle"
+	title.add_theme_color_override("font_color",Color("3c281e"))
+	title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+	title.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	var dismiss=button(panel,"×",Vector2(715,15),Vector2(53,46),close_card_detail)
+	dismiss.name="InventoryDetailClose"
+	dismiss.tooltip_text="카드 상세 닫기"
+	dismiss.add_theme_font_size_override("font_size",24)
+	var picture=art(panel,Catalog.image(kind,item),Vector2(36,81),Vector2(172,256))
+	picture.name="InventoryDetailArtwork"
+	var details: Array[String]=[]
+	if kind=="dice":
+		details.append("주사위 제어 카드")
+		details.append(DiceControl.description(str(item.get("card_id",""))))
+		if str(item.get("card_id","")) in ["repeat","echo"]:
+			details.append("이전 굴림이나 카드 사용 이력에 따라 사용 조건이 달라집니다.")
+	else:
+		var definitions: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json")).brands
+		var mark: Dictionary=item.get("brand",{})
+		var rule: Dictionary=definitions.get(str(mark.get("type","")),{})
+		details.append("낙인 카드 · 축복 효과")
+		details.append("축복 눈금: "+(", ".join(mark.get("bless",[]).map(func(n): return str(int(n)))) if not mark.get("bless",[]).is_empty() else "없음"))
+		details.append(str(rule.get("blessing","효과 정보 없음")))
+		if not mark.get("curse",[]).is_empty():
+			details.append("저주 눈금: "+", ".join(mark.curse.map(func(n): return str(int(n)))))
+			details.append(str(rule.get("penalty","")))
+	details.append("보관함에서는 확인만 가능합니다. 카드를 사용하거나 소모하지 않습니다.")
+	var explanation=label_at(panel,"\n\n".join(details),Vector2(239,85),Vector2(509,256),18)
+	explanation.name="InventoryDetailEffects"
+	explanation.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+	explanation.vertical_alignment=VERTICAL_ALIGNMENT_TOP
+	explanation.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	explanation.add_theme_color_override("font_color",Color("473022"))
+	explanation.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+
+func close_card_detail() -> void:
+	if not is_instance_valid(info) or info.name!="InventoryCardDetail": return
+	info.queue_free()
+	info=null
 
 func close_cards() -> void:
 	if closing: return
@@ -186,7 +269,12 @@ func close_cards() -> void:
 		await fan.animate(false,origin_global)
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if is_instance_valid(info): return
+	if event.is_action_pressed("ui_cancel") and is_instance_valid(info):
+		# UnitInfo owns its own escape handler; only dismiss our card detail here.
+		if info.name=="InventoryCardDetail":
+			get_viewport().set_input_as_handled()
+			close_card_detail()
+		return
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		if not closing: closed.emit()

@@ -52,7 +52,7 @@ func test_deck() -> void:
 	check(deck.selected_ids==[roster[1].id,roster[0].id],"actual unique instance IDs retain chosen order")
 	check(deck.lineup.get_node_or_null("SelectedUnit_1")!=null and deck.lineup.get_node_or_null("SelectedUnit_2")!=null,"occupied slots render selected card artwork")
 	var rate = deck.lineup.get_node("SelectedUnit_1/TargetRate/TargetRateLabel") as Label
-	check(rate.text=="피격 35%" and deck.status.text.contains("35 · 65%"),"two-monster hit targeting rates match original")
+	check(rate.text=="피격 35%" and deck.status.text.contains("출전 마물 2/4"),"two-monster hit targeting rates match original")
 	var first_card = deck.hand.get_child(0)
 	var selected_card = deck.hand.get_child(1)
 	check(first_card.get_node_or_null("SelectionOrderBadge")!=null and selected_card.get_node_or_null("SelectionOrderBadge")!=null,"hand shows selected order marker")
