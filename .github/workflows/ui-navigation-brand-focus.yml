@@ -1,0 +1,62 @@
+name: Navigation And Brand Detail UX
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/place_actions.gd"
+      - "systems/exploration_actions.gd"
+      - "systems/brand_reference.gd"
+      - "scripts/test_ui_location_layout_stage5s.gd"
+      - "scripts/test_ui_battle_brand_parity.gd"
+      - ".github/workflows/ui-navigation-brand-focus.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/place_actions.gd"
+      - "systems/exploration_actions.gd"
+      - "systems/brand_reference.gd"
+      - "scripts/test_ui_location_layout_stage5s.gd"
+      - "scripts/test_ui_battle_brand_parity.gd"
+      - ".github/workflows/ui-navigation-brand-focus.yml"
+permissions:
+  contents: read
+jobs:
+  navigation-and-brand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project and validate scripts
+        run: |
+          set -euo pipefail
+          timeout 190s godot --headless --path . --editor --quit 2>&1 | tee parse.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' parse.log; then exit 1; fi
+      - name: Location frames and truthful exit labels
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_location_layout_stage5s.gd 2>&1 | tee location.log
+          grep -E 'UI_LOCATION_LAYOUT_STAGE5S: [0-9]+ passed, 0 failed' location.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ui-location-layout:' location.log; then exit 1; fi
+      - name: Brand popup selection and battle-state safety
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_ui_battle_brand_parity.gd 2>&1 | tee brand.log
+          grep -E 'UI_BATTLE_BRAND_PARITY: [0-9]+ passed, 0 failed' brand.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ui-brand-reference:' brand.log; then exit 1; fi
+      - name: Fortune die and saved-result regression
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_fortune_prophecy_stage5l.gd 2>&1 | tee fortune.log
+          grep -E 'UI_FORTUNE_PROPHECY_PARITY: [0-9]+ passed, 0 failed' fortune.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ui-fortune:' fortune.log; then exit 1; fi
+      - name: World-tree die and saved-result regression
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_world_tree_shared_die.gd 2>&1 | tee prayer.log
+          grep -E 'WORLD_TREE_SHARED_DIE: [0-9]+ passed, 0 failed' prayer.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL prayer-die:' prayer.log; then exit 1; fi
