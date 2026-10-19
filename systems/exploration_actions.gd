@@ -42,6 +42,8 @@ var route_minus_buttons: Dictionary = {}
 var route_count_labels: Dictionary = {}
 var route_unlock_button: Button
 var selected_route_slot: int = 0
+# UI-only slot order; the existing save format still stores per-kind counts.
+var route_slot_layout: Array[String] = []
 var hill_selected_steps: int = 0
 var hill_choice_buttons: Array = []
 
@@ -106,6 +108,7 @@ func setup(map_scene, tile_index: int) -> void:
 		plan=session.world.patrol_plan.duplicate(true) if RoutePlan.is_new(session.world.patrol_plan) else RoutePlan.default_plan()
 		# An existing run saved before hill editing has only monster/rest keys.
 		if not plan.selection.has("forest"): plan.selection["forest"]=0
+		initialize_route_slot_layout()
 		close_button.text="닫기"
 		close_button.position=Vector2(430,561)
 		close_button.size=Vector2(128,36)
@@ -151,6 +154,8 @@ func reset_route() -> void:
 	plan["rest_discovered"]=bool(session.world.patrol_plan.get("rest_discovered",false))
 	selected_current=-1
 	selected_reserve=-1
+	selected_route_slot=0
+	initialize_route_slot_layout()
 	render_route()
 
 func clear_content() -> void:
@@ -298,14 +303,18 @@ func confirm_hill_route() -> void:
 	hill_route_chosen.emit(hill_selected_steps)
 
 
+func initialize_route_slot_layout() -> void:
+	route_slot_layout.clear()
+	for kind in RoutePlan.CHOICES:
+		for _i in range(int(plan.selection.get(kind,0))):
+			route_slot_layout.append(kind)
+	while route_slot_layout.size()<RoutePlan.OPTIONAL_CAPACITY:
+		route_slot_layout.append("basic")
+
 func route_slot_kind(slot: int) -> String:
-	var monster_count: int=int(plan.selection.get("monster",0))
-	var rest_count: int=int(plan.selection.get("rest",0))
-	var forest_count: int=int(plan.selection.get("forest",0))
-	if slot<monster_count: return "monster"
-	if slot<monster_count+rest_count: return "rest"
-	if slot<monster_count+rest_count+forest_count: return "forest"
-	return "basic"
+	if route_slot_layout.size()!=RoutePlan.OPTIONAL_CAPACITY:
+		initialize_route_slot_layout()
+	return route_slot_layout[clampi(slot,0,RoutePlan.OPTIONAL_CAPACITY-1)]
 
 func choose_route_slot(slot: int) -> void:
 	selected_route_slot=clampi(slot,0,RoutePlan.OPTIONAL_CAPACITY-1)
@@ -323,6 +332,7 @@ func set_route_slot_kind(kind: String) -> void:
 	if kind!="basic": next.selection[kind]=int(next.selection.get(kind,0))+1
 	if not RoutePlan.valid(next): return
 	plan=next
+	route_slot_layout[selected_route_slot]=kind
 	render_route()
 
 func render_route() -> void:
@@ -447,6 +457,7 @@ func unlock_rest() -> void:
 		plan=RoutePlan.default_plan()
 	plan["rest_unlocked"]=true
 	plan["rest_discovered"]=bool(session.world.patrol_plan.get("rest_discovered",false))
+	# Preserve the current six-slot preview after the unlock.
 	render_route()
 	status.text=str(result.reason)
 
