@@ -66,9 +66,8 @@ func setup(map_scene, tile_index: int) -> void:
 		# World-tree prayers use the same full-stage die at its last rest pose.
 		# No local decorative copy is created and nothing snaps to (610,245).
 		dice=map.dice
-		action_button=button(self,"기도",Vector2(525,465),Vector2(230,42),pray)
-		action_button.disabled=session.place_visit_id("purify",index) in session.world.reward_receipts
-		status.text="1~3 실패: 오염도 +1 · 4~5 축복: -3 · 6 대축복: -5\n방문당 한 번 · 현재 오염도 %d/100" % session.world.contamination
+		# The existing board die starts prayer; no second action control.
+		status.text="정화 기도를 하려면 주사위를 누르세요.\n방문당 1회 · 1~3 실패(+1) · 4~5 축복(-3) · 6 대축복(-5) · 오염 %d/100" % session.world.contamination
 		var saved=session.world.prayer_result
 		if saved.get("visit","")==session.place_visit_id("purify",index):
 			status.text="기도 결과 %d · 오염도 %+d · 현재 %d/100" % [int(saved.face),int(saved.delta),session.world.contamination]
@@ -472,7 +471,6 @@ func pray() -> void:
 	if not result.ok: status.text=result.reason; return
 	busy=true
 	close_button.disabled=true
-	action_button.disabled=true
 	status.text="세계수에 정화 기도 중…"
 	await map.roll_shared_die(int(result.face))
 	status.text=result.reason
