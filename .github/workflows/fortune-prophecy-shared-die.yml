@@ -4,6 +4,8 @@ on:
     paths:
       - "map.gd"
       - "systems/place_actions.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_ui_world_tree_shared_die.gd"
       - "scripts/test_location_die_layer_stack.gd"
       - "scripts/test_ui_fortune_prophecy_stage5l.gd"
       - ".github/workflows/fortune-prophecy-shared-die.yml"
@@ -12,6 +14,8 @@ on:
     paths:
       - "map.gd"
       - "systems/place_actions.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_ui_world_tree_shared_die.gd"
       - "scripts/test_location_die_layer_stack.gd"
       - "scripts/test_ui_fortune_prophecy_stage5l.gd"
       - ".github/workflows/fortune-prophecy-shared-die.yml"
@@ -47,6 +51,13 @@ jobs:
           timeout 140s godot --headless --path . --script res://scripts/test_ui_fortune_prophecy_stage5l.gd 2>&1 | tee fortune.log
           grep -E 'UI_FORTUNE_PROPHECY_PARITY: [0-9]+ passed, 0 failed' fortune.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-fortune:' fortune.log; then exit 1; fi
+      - name: Shared world-tree prayer die with no duplicate button and persistent one-time result
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_ui_world_tree_shared_die.gd 2>&1 | tee prayer.log
+          grep -E 'WORLD_TREE_SHARED_DIE: [0-9]+ passed, 0 failed' prayer.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL prayer-die:' prayer.log; then exit 1; fi
       - name: Collision wall and battle button unchanged
         shell: bash
         run: |
