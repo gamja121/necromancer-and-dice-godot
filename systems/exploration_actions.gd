@@ -362,7 +362,7 @@ func render_route() -> void:
 		sidebar.stretch_mode=TextureRect.STRETCH_SCALE
 	var heading=label_at(content,"다음 바퀴 · 추가 타일",Vector2(170,136),Vector2(680,43),24)
 	heading.add_theme_color_override("font_color",Color("392519"))
-	var guide=label_at(content,"바꾸고 싶은 칸을 누른 뒤 종류를 선택하세요.",Vector2(170,187),Vector2(710,30),15)
+	var guide=label_at(content,"칸을 눌러 추가할 종류를 고르세요 · 실제 타일 위치는 자동 배치됩니다.",Vector2(170,187),Vector2(710,30),14)
 	guide.add_theme_color_override("font_color",Color("67432b"))
 	var count_label=label_at(content,"추가 편성 %d / %d칸 · 남은 길 %d칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining],Vector2(170,228),Vector2(700,35),19)
 	count_label.add_theme_color_override("font_color",Color("392519"))
