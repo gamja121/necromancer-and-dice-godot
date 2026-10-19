@@ -35,10 +35,10 @@ func _run() -> void:
 	panel.setup(rules)
 	await process_frame
 	check(panel.frame_art!=null and panel.frame_art.texture!=null,"original parchment-frame art remains rendered")
-	check(absf(panel.frame_art.position.x-116)<1 and absf(panel.frame_art.position.y-77)<=6.1 and panel.frame_art.size==Vector2(1048,566),"frame matches web size; entrance tween may temporarily offset 6px")
+	check(absf(panel.frame_art.position.x-116)<1 and absf(panel.frame_art.position.y-77)<=6.1 and panel.frame_art.size==Vector2(1048,506),"frame matches web size; entrance tween may temporarily offset 6px")
 	check(panel.frame_art.texture.resource_path=="res://assets/map/ui/inheritance_info.webp","reference panel uses existing cleaned transparent parchment asset")
-	check(panel.detail_scroll.size.y>=90 and absf(panel.detail_scroll.position.y-545)<=6.1,"effect description keeps readable multi-line space during entry tween")
-	check(panel.summary.autowrap_mode==TextServer.AUTOWRAP_WORD_SMART and panel.summary.custom_maximum_size.x==895,"description has a bounded width for reliable word wrapping")
+	check(panel.detail_scroll.size.y>=90 and panel.detail_popup!=null and not panel.detail_popup.visible,"effect description keeps readable multi-line space during entry tween")
+	check(panel.summary.autowrap_mode==TextServer.AUTOWRAP_WORD_SMART and panel.summary.custom_maximum_size.x==550,"description has a bounded width for reliable word wrapping")
 	check(panel.reference_rows[0].get_child(0).custom_minimum_size.y==34,"compact rows preserve all eight monster rows")
 	check(panel.dice_headers.size()==6 and panel.dice_headers.all(func(d): return d.texture!=null),"six actual result-dice images replace numbers")
 	for i in range(6):
@@ -73,12 +73,18 @@ func _run() -> void:
 	check(panel.summary.text.contains("저 ") and panel.summary.text.contains("3번"),"tapping a curse displays readable Korean and the correct face")
 	panel.face_cells[0][1].pressed.emit()
 	check(panel.summary.text.contains("축 ") and panel.summary.text.contains("2번"),"tapping a blessing displays readable Korean and the correct face")
+	check(panel.popup_title.text.contains("2번 눈금") and panel.selected_face==2,"focused popup identifies the selected face")
+	check(panel.reference_rows[0].modulate==Color.WHITE and panel.reference_rows[1].modulate.r<0.9,"selected unit remains bright while unrelated rows dim")
 	panel.reference_rows[0].get_child(0).pressed.emit()
 	var gameplay_src: String=FileAccess.get_file_as_string("res://battlefield.gd")
 	check(gameplay_src.contains('button(layer,"낙인표",') and not gameplay_src.contains("✦☠ 낙인표"),"real battlefield opens the same board through a readable button")
+	check(panel.selected_face==0 and panel.popup_title.text.contains("전체 낙인"),"tapping monster name opens its overall marks")
 	check(panel.summary.text.contains("축복 [") and panel.summary.text.contains("저주 ["),"tapping unit reveals full brand list")
 	check(before==JSON.stringify(rules.snapshot()),"opening and using reference never mutates RNG, roster or battle state")
 	check(panel.reference_scroll.size.x>=930 and panel.reference_grid.get_child_count()==9,"source seven-column grid has room for 8 units plus dice header")
+	panel.hide_detail()
+	check(not panel.detail_popup.visible and panel.selected_unit_id.is_empty(),"detail close restores glanceable overview")
+	check(panel.reference_rows.all(func(row): return row.modulate==Color.WHITE),"all rows return to full contrast after detail closes")
 	panel.queue_free()
 	await process_frame
 	# Empty brand slots and living/summoned filtering should never invent icons.

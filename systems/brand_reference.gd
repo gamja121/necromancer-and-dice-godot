@@ -30,6 +30,9 @@ var reference_scroll: ScrollContainer
 var reference_grid: VBoxContainer
 var detail_scroll: ScrollContainer
 var detail_popup: PanelContainer
+var popup_title: Label
+var selected_unit_id: String = ""
+var selected_face: int = 0
 var frame_art: TextureRect
 
 func setup(rules) -> void:
@@ -48,7 +51,7 @@ func setup(rules) -> void:
 	frame_art.stretch_mode = TextureRect.STRETCH_SCALE
 	label_at(self,"BRAND REFERENCE",Vector2(174,99),Vector2(540,19),11)
 	label_at(self,"낙인 정보판",Vector2(174,119),Vector2(710,34),23)
-	var dismiss=button(self,"×",Vector2(1084,101),Vector2(35,35),close)
+	var dismiss=button(self,"×",Vector2(1076,96),Vector2(46,44),close)
 	dismiss.add_theme_font_size_override("font_size",21)
 	dismiss.tooltip_text="낙인 정보판 닫기"
 	var grid_frame=Panel.new()
@@ -180,15 +183,17 @@ func setup(rules) -> void:
 	detail_popup.add_child(popup_content)
 	var popup_header=HBoxContainer.new()
 	popup_content.add_child(popup_header)
-	var popup_title=Label.new()
+	popup_title=Label.new()
 	popup_title.text="낙인 효과"
 	popup_title.add_theme_color_override("font_color",Color("34251c"))
+	popup_title.add_theme_font_size_override("font_size",17)
 	popup_title.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	popup_header.add_child(popup_title)
 	var popup_close=Button.new()
 	popup_close.text="×"
+	popup_close.custom_minimum_size=Vector2(42,40)
 	popup_close.tooltip_text="효과 설명 닫기"
-	popup_close.pressed.connect(func(): detail_popup.hide())
+	popup_close.pressed.connect(hide_detail)
 	popup_header.add_child(popup_close)
 	detail_scroll=ScrollContainer.new()
 	detail_scroll.name="BrandReferenceDescription"
@@ -234,10 +239,23 @@ func describe(u: Dictionary, marks: Array, face: int = 0) -> void:
 		elif mode=="blessing" and face in mark.bless:
 			lines.append("%s %s · %s" % [BLESSING_GLYPH,definition.name,definition.blessing])
 	if lines.size()==1: lines.append("낙인 없음" if face==0 else "발동 없음")
+	selected_unit_id=str(u.id)
+	selected_face=face
+	popup_title.text="%s · %s" % [str(u.name),"전체 낙인" if face==0 else "%d번 눈금" % face]
+	# Preserve the full eight-monster/six-face board; only de-emphasize
+	# unrelated rows while the selected unit's effect is open.
+	for row in reference_rows:
+		row.modulate=Color.WHITE if str(row.get_meta("unit_id"))==selected_unit_id else Color(0.76,0.76,0.76,1.0)
 	summary.text = "\n".join(lines)
 	detail_popup.show()
 	# Always start at the selected mark name rather than retaining the previous scroll offset.
 	detail_scroll.set_deferred("scroll_vertical",0)
+
+func hide_detail() -> void:
+	if is_instance_valid(detail_popup): detail_popup.hide()
+	selected_unit_id=""
+	selected_face=0
+	for row in reference_rows: row.modulate=Color.WHITE
 
 func close() -> void:
 	if closing: return

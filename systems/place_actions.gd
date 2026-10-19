@@ -57,7 +57,7 @@ func setup(map_scene, tile_index: int) -> void:
 		setup_shop_visual()
 	else:
 		label_at(self,{"altar":"제단 · 피의 의식","fortune-teller-camp":"점술가 · 예언"}[type],Vector2(290,22),Vector2(700,40),24)
-		close_button=button(self,"돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
+		close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 		status=label_at(self,"",Vector2(130,435),Vector2(1020,58),15)
 		status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if type=="fortune-teller-camp":
@@ -130,7 +130,7 @@ func setup_altar_visual() -> void:
 	altar_level.z_index=9
 	close_button.position=Vector2(1114,29)
 	close_button.size=Vector2(112,39)
-	close_button.text="닫기"
+	close_button.text="← 돌아가기"
 	close_button.z_index=10
 	style_shop_button(close_button,4)
 
@@ -199,7 +199,7 @@ func setup_shop_visual() -> void:
 	status.add_theme_color_override("font_color",Color("49301d"))
 	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	close_button=button(self,"✕ 닫기",Vector2(992,55),Vector2(146,42),func(): if not busy: closed.emit())
+	close_button=button(self,"← 돌아가기",Vector2(992,55),Vector2(146,42),func(): if not busy: closed.emit())
 	style_shop_button(close_button,4)
 
 func style_shop_button(control: Button, variant: int) -> void:
