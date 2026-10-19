@@ -21,8 +21,11 @@ func _run() -> void:
 			card.ignore_texture_size = true
 			card.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 			card.texture_normal = load("res://assets/cards/unit-card-%s.png" % slug)
+			var original := card.texture_normal
 			root.add_child(card)
 			check(Layered.install(card, slug, "검사 이름"), "%s installed at %s" % [slug, dims])
+			check(card.texture_normal == original, "original TextureButton art identity remains available")
+			check(is_zero_approx(card.self_modulate.a), "only the flattened art is hidden, not the children")
 			var base := card.get_node_or_null("LayeredCardBase") as TextureRect
 			var actor := card.get_node_or_null("LayeredCardCharacter") as TextureRect
 			var ribbon := card.get_node_or_null("LayeredCardRibbon") as TextureRect
