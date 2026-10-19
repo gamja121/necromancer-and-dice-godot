@@ -46,6 +46,9 @@ jobs:
           set -euo pipefail
           timeout 180s godot --headless --path . --script res://scripts/test_p4_all_monster_presentation.gd 2>&1 | tee monsters.log
           grep -E '^P4_ALL_MONSTER_PRESENTATION: [0-9]+ passed, 0 failed
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL p4-all-monsters:' monsters.log; then exit 1; fi
+      - name: Verify intended diff
+        run: git diff --check
  monsters.log
           if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL p4-all-monsters:' monsters.log; then exit 1; fi
       - name: Verify intended diff
