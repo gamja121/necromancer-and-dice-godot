@@ -1441,7 +1441,7 @@ func show_home(interior: bool = false) -> void:
 		if session.event_flag_is_set(Discovery.home_flag(kind)):
 			UnlockNoticeBadge.attach(place_icon,"NEW")
 		discovery_row+=1
-	location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
+	location_button(panel,"다음 바퀴 출발",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
 	if not interior:
 		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			var injured = world.roster.any(func(u): return u.current_hp<u.max_hp)
@@ -2342,7 +2342,7 @@ func show_location(index: int) -> void:
 	var scene_art = location_scene_image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type])
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
 	InkSceneReveal.play(scene_art)
-	var exit = location_button(panel,"나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func(): dismiss_overlay(render),4)
+	var exit = location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func(): dismiss_overlay(render),4)
 	if type=="rest":
 		var allowed = session.rest_allowed(index)
 		var heal = location_button(panel,"전체 회복",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
