@@ -281,6 +281,12 @@ func render_hill_choices() -> void:
 		var column: int=(steps-1)%2
 		var option: Button=button(content,caption,Vector2(232+column*420,190+row*85),Vector2(400,66),func(): select_hill_step(chosen_step))
 		option.name="HillStep%d" % steps
+		# Show the destination tile art next to each distance, not text alone.
+		var preview: TextureRect=art(option,"res://assets/map/tiles/%s.png" % session.world.tiles[destination],Vector2(8,5),Vector2(66,56))
+		preview.name="HillDestinationPreview"
+		preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		preview.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		option.tooltip_text="앞으로 %d칸 이동 · %s" % [steps,MapState.NAMES[session.world.tiles[destination]]]
 		option.disabled=not allowed
 		option.add_theme_font_size_override("font_size",19)
 		hill_choice_buttons.append(option)

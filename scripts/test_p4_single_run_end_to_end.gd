@@ -235,9 +235,10 @@ func claim_treasure_and_resume(session: Node, map: Control) -> Control:
 	if not restored: return null
 	var kind: String = str(world.pending_reward.offers[0].kind)
 	var count_before: int = world.roster.size() if kind=="unit" else (world.dice_cards.size() if kind=="dice" else world.brand_cards.size())
-	map.overlay.options[0].pressed.emit()
+	check(not map.overlay.confirm_button.disabled,"saved selection is ready for explicit reward confirmation")
+	map.overlay.confirm_button.pressed.emit()
 	var claimed: bool = await until_ready(func(): return world.pending_reward.is_empty() and not is_instance_valid(map.overlay),30000)
-	check(claimed,"second press claims actual card and closes reward panel")
+	check(claimed,"explicit confirmation claims actual card and closes reward panel")
 	var count_after: int = world.roster.size() if kind=="unit" else (world.dice_cards.size() if kind=="dice" else world.brand_cards.size())
 	check(count_after==count_before+1,"one new inventory card in correct collection")
 	check(world.reward_receipts.size()==receipts+1 and reward_id in world.reward_receipts,"one unique treasure receipt, no duplicate capture")

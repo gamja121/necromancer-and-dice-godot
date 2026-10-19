@@ -2368,7 +2368,8 @@ func show_location(index: int) -> void:
 		if Discovery.exists(type) and session.event_flag_is_set("ui:unlock:%s:action_pending" % type):
 			UnlockNoticeBadge.attach(action,"NEW")
 		var key = "ritual" if type=="altar" else "prophecy"
-		if type!="village": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
+		# Keep one-time actions locked inside their own panels; allow past results to be viewed.
+		if type=="altar": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
 	elif type in ["unknown","graveyard","forest"]:
 		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"이동 위치 선택"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]
@@ -2378,7 +2379,7 @@ func show_location(index: int) -> void:
 			show_exploration_actions(index),variant)
 		if Discovery.exists(type) and session.event_flag_is_set("ui:unlock:%s:action_pending" % type):
 			UnlockNoticeBadge.attach(action,"NEW")
-		if type=="unknown": action.disabled = session.place_visit_id("purify",index) in world.reward_receipts
+		# Reopen a spent world tree to inspect the saved prayer result; only its die is disabled.
 		if type=="graveyard": action.disabled = world.graveyard_corpses.is_empty() or session.place_visit_id("grave-extract",index) in world.reward_receipts
 
 func use_warp(index: int) -> void:

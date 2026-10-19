@@ -36,6 +36,7 @@ func _run() -> void:
 	check(shop.offer_area is HBoxContainer and shop.shop_offer_scroll!=null,"offer horizontal scroll implemented")
 	check(shop.close_button.position.x<1045 and shop.close_button.position.y<100,"original upper-right close button position")
 	check(not shop.shop_cancel_button.visible,"cancel hidden before selecting donor")
+	check(is_instance_valid(shop.shop_confirm_button) and shop.shop_confirm_button.disabled,"explicit trade button is initially disabled")
 	var sample: Dictionary={"kind":"unit","item":session.world.roster[0]}
 	for count in [3,4,5]:
 		shop.offers=[]
@@ -46,7 +47,24 @@ func _run() -> void:
 		if count==5:
 			check(shop.shop_offer_scroll.get_h_scroll_bar().max_value>shop.shop_offer_scroll.size.x,"five cards scroll horizontally")
 	shop.reset_shop_selection()
-	check(shop.offers.is_empty() and shop.chosen==-1,"cancel leaves no pending selection")
+	check(shop.offers.is_empty() and shop.chosen==-1 and shop.shop_confirm_button.disabled,"cancel leaves no pending selection")
+	var donor: String=str(session.world.roster[0].id)
+	shop.select_unit(donor)
+	check(shop.offers.size()>=3 and shop.shop_confirm_button.disabled,"real donor opens offers but does not enable trade")
+	var before_roster: int=session.world.roster.size()
+	var before_receipts: int=session.world.reward_receipts.size()
+	var chosen_kind: String=str(shop.offers[0].kind)
+	var before_items: int=session.world.dice_cards.size() if chosen_kind=="dice" else session.world.brand_cards.size()
+	shop.choose_offer(0)
+	check(shop.chosen==0 and not shop.shop_confirm_button.disabled,"choosing one valid offer enables explicit confirmation")
+	shop.choose_offer(0)
+	check(session.world.roster.size()==before_roster and session.world.reward_receipts.size()==before_receipts,"repeated offer tap never consumes a monster")
+	shop.shop_confirm_button.pressed.emit()
+	var after_items: int=session.world.dice_cards.size() if chosen_kind=="dice" else session.world.brand_cards.size()
+	check(session.world.roster.size()==before_roster-1 and after_items==before_items+1,"one explicit trade consumes exactly one monster and awards one item")
+	check(session.world.reward_receipts.size()==before_receipts,"shop preserves existing exchange rules without inventing a per-visit receipt")
+	check(not session.world.shop_trade.offers.has(donor),"traded donor's offers cannot be reused")
+	check(shop.shop_confirm_button.disabled and shop.chosen==-1,"completed trade resets the confirmation state")
 	shop.queue_free()
 	await process_frame
 	for kind in ["altar","fortune-teller-camp"]:

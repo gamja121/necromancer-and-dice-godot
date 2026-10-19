@@ -35,6 +35,7 @@ var unit_options: Dictionary = {}
 var offer_options: Array = []
 var shop_counter: TextureRect
 var shop_cancel_button: Button
+var shop_confirm_button: Button
 var shop_offer_scroll: ScrollContainer
 var altar_slots: TextureRect
 var altar_info: TextureRect
@@ -174,6 +175,10 @@ func setup_shop_visual() -> void:
 	donor_hint=label_at(self,"교환할 마물 선택",trade_origin+Vector2(15,247),Vector2(225,32),14)
 	shop_cancel_button=button(self,"거래대에서 내리기",trade_origin+Vector2(38,281),Vector2(189,37),reset_shop_selection)
 	style_shop_button(shop_cancel_button,3)
+	shop_confirm_button=button(self,"교환 확정",Vector2(875,476),Vector2(206,38),confirm_shop_trade)
+	shop_confirm_button.name="ShopTradeConfirm"
+	shop_confirm_button.disabled=true
+	style_shop_button(shop_confirm_button,2)
 	shop_offer_scroll=ScrollContainer.new()
 	shop_offer_scroll.position=offer_origin+Vector2(2,35)
 	shop_offer_scroll.size=Vector2(425,218)
@@ -277,7 +282,8 @@ func refresh() -> void:
 		confirm_button.disabled=busy or completed or used or donor.is_empty() or receiver.is_empty() or level>=3
 		if not completed: status.text="이번 방문의 의식은 완료했습니다" if used else ("강화 한도 3회에 도달했습니다" if level>=3 else "재물을 먼저 고른 뒤 강화할 마물을 선택하세요")
 	else:
-		status.text="제안 카드를 두 번 눌러 확정 · 마물은 영구 소멸" if not offers.is_empty() else "아래에서 교환할 마물을 선택하세요 · 마지막 마물은 교환할 수 없습니다"
+		status.text="상품 선택 후 교환 확정 · 선택한 마물은 영구 소멸" if not offers.is_empty() else "아래에서 교환할 마물을 선택하세요 · 마지막 마물은 교환할 수 없습니다"
+		if is_instance_valid(shop_confirm_button): shop_confirm_button.disabled=busy or donor.is_empty() or chosen<0 or chosen>=offers.size()
 		if is_instance_valid(shop_cancel_button):
 			shop_cancel_button.visible=not donor.is_empty()
 			shop_cancel_button.disabled=busy
@@ -306,18 +312,29 @@ func render_offers() -> void:
 		option.disabled=busy or (offer.kind=="dice" and session.world.dice_cards.size()>=Catalog.DICE_CAPACITY)
 		option.modulate=Color.WHITE if i==chosen or chosen<0 else Color(0.5,0.5,0.5)
 		offer_options.append(option)
+	if is_instance_valid(shop_confirm_button): shop_confirm_button.disabled=busy or donor_id.is_empty() or chosen<0 or chosen>=offer_options.size()
 
 func choose_offer(i: int) -> void:
-	if busy: return
-	if chosen!=i: chosen=i; render_offers(); status.text="한 번 더 누르면 거래 확정 · 재물 마물은 영구 소멸합니다"; return
+	if busy or donor_id.is_empty() or i<0 or i>=offer_options.size(): return
+	if offer_options[i].disabled: return
+	chosen=i
+	render_offers()
+	status.text="%s 소모 → %s 획득 · 아래 교환 확정" % [str(session.owned_unit(donor_id).get("name","선택 마물")),offer_options[i].tooltip_text]
+
+func confirm_shop_trade() -> void:
+	if busy or not is_instance_valid(shop_confirm_button) or shop_confirm_button.disabled: return
+	if donor_id.is_empty() or chosen<0 or chosen>=offers.size(): return
 	busy=true
-	var result=session.shop_trade(index,donor_id,i)
+	shop_confirm_button.disabled=true
+	var result=session.shop_trade(index,donor_id,chosen)
 	busy=false
 	if result.ok:
 		donor_id=""; offers=[]; chosen=-1
 		render_offers()
 		build_hand()
 		refresh()
+	else:
+		render_offers()
 	status.text=result.reason
 
 func perform_ritual() -> void:

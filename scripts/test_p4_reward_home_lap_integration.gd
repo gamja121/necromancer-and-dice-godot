@@ -101,9 +101,10 @@ func test_treasure(session: Node) -> void:
 		return
 	var offer_kind: String = str(world.pending_reward.offers[0].kind)
 	var count_before: int = world.roster.size() if offer_kind=="unit" else (world.dice_cards.size() if offer_kind=="dice" else world.brand_cards.size())
-	map.overlay.options[0].pressed.emit()
+	check(not map.overlay.confirm_button.disabled,"saved selection is ready for explicit reward confirmation")
+	map.overlay.confirm_button.pressed.emit()
 	var finished: bool = await until_ready(func(): return world.pending_reward.is_empty() and not is_instance_valid(map.overlay),30000)
-	check(finished,"second card press prepares, claims and closes real reward UI")
+	check(finished,"explicit reward button prepares, claims and closes real reward UI")
 	check(world.reward_receipts.size()==initial_receipts+1 and reward_id in world.reward_receipts,"one durable unique reward receipt")
 	var count_after: int = world.roster.size() if offer_kind=="unit" else (world.dice_cards.size() if offer_kind=="dice" else world.brand_cards.size())
 	check(count_after==count_before+1,"exactly one card entered the correct inventory")

@@ -122,6 +122,12 @@ func _run() -> void:
 	map=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
+	map.show_location(index)
+	var visit_button: Button=null
+	for child in map.overlay.get_children():
+		if child is Button and child.text=="예언": visit_button=child
+	check(visit_button!=null and not visit_button.disabled,"used fortune remains accessible for viewing results from location art")
+	map.close_overlay()
 	map.show_place_actions(index)
 	panel=map.overlay
 	check(panel.confirm_button==null and map.dice.disabled,"loaded already-used fortune disables the single shared die without adding a button")

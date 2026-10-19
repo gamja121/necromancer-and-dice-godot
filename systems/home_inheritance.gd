@@ -157,10 +157,22 @@ func render_selection() -> void:
 		detail("받는 마물 · %d / 3칸" % receiver.brands.size())
 		append_brands(BrandInheritance.normalize(receiver,session.world.definitions),"결과" if completed else "기존")
 	if receiver.is_empty() and material.is_empty() and source_card.is_empty(): detail("재료 마물 또는 낙인 카드를 선택하세요.")
-	status.text = notice if not notice.is_empty() else ("계승 완료 · 받는 마물의 능력치와 체력은 유지됩니다" if completed else ("낙인 카드 1장 소모 · 축복만 적용" if not source_card.is_empty() else "재료 마물 소모 · 무작위 낙인 1개의 축복만 계승"))
+	# Show the next input, not an unexplained material/recipient rule.
+	if not notice.is_empty():
+		status.text=notice
+	elif completed:
+		status.text="계승 완료 · 받는 마물의 능력치와 체력은 유지됩니다"
+	elif material.is_empty() and source_card.is_empty():
+		status.text="① 재료 마물 또는 낙인 카드 선택 → ② 받을 마물 선택"
+	elif receiver.is_empty():
+		status.text="② 축복을 받을 마물을 선택하세요 · 재료는 확정 시 소모됩니다"
+	elif not source_card.is_empty():
+		status.text="③ 낙인 카드 1장 소모 · 축복만 계승 · 아래 버튼으로 확정"
+	else:
+		status.text="③ 재료 마물 영구 소모 · 무작위 낙인 1개의 축복 계승"
 	var eligible = not receiver.is_empty() and receiver.brands.size()<3 and (not source_card.is_empty() or (not material.is_empty() and not material.brands.is_empty()))
 	confirm_button.disabled = busy or completed or not eligible or not session.home_action_allowed().ok
-	confirm_button.text = "계승 완료" if completed else ("카드 소모 · 적용" if not source_card.is_empty() else "재료 소모 · 계승")
+	confirm_button.text = "계승 완료" if completed else ("낙인 카드 적용 확정" if not source_card.is_empty() else "마물 소모 · 계승 확정")
 	for id in unit_options:
 		var option: TextureButton = unit_options[id]
 		option.modulate = Color(1.14,1.08,0.87) if id in [material_id,receiver_id] else Color.WHITE

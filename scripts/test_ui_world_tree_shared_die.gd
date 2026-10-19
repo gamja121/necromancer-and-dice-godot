@@ -95,6 +95,12 @@ func _run() -> void:
 	map = MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
+	map.show_location(index)
+	var visit_button: Button=null
+	for child in map.overlay.get_children():
+		if child is Button and child.text=="기도": visit_button=child
+	check(visit_button!=null and not visit_button.disabled,"used world tree remains accessible to inspect saved prayer results")
+	map.close_overlay()
 	map.show_exploration_actions(index)
 	panel = map.overlay
 	check(panel.action_button==null and map.dice.disabled,"reopened spent prayer leaves only a disabled die")

@@ -227,8 +227,9 @@ func render_selection() -> void:
 		info_action.name = "OwnedCardInfo"
 		info_action.text = "정보"
 		info_action.tooltip_text = "마물 정보 · 이름 변경"
-		info_action.position = Vector2(68,150)
-		info_action.size = Vector2(46,28)
+		# Larger, independent touch target does not toggle the underlying card.
+		info_action.position = Vector2(58,144)
+		info_action.size = Vector2(60,40)
 		info_action.mouse_filter = Control.MOUSE_FILTER_STOP
 		button.add_child(info_action)
 		var card_id: String = str(unit.id)
@@ -249,11 +250,9 @@ func render_selection() -> void:
 			button.z_index = 3 if is_selected else 0
 			button.position.y = y
 			button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE)
-	status.text = "마물 카드 %d / 4" % selected_ids.size()
-	if not rates.is_empty():
-		var parts = PackedStringArray()
-		for rate in rates: parts.append(str(rate))
-		status.text += " · 왼쪽부터 피격 %s%%" % " · ".join(parts)
+	# Exact percentages remain in the four lineup badges; avoid repeating a long
+	# list in the narrow status area, especially on mobile.
+	status.text = "출전 마물 %d/4 · 선택 순서대로 피격 확률 표시" % selected_ids.size()
 	confirm_button.disabled = selected_ids.is_empty()
 
 
