@@ -148,9 +148,11 @@ func refresh_shared_die_input() -> void:
 		dice.disabled = false
 		return
 	if overlay is ExplorationActions and overlay.type=="unknown":
-		dice.disabled = overlay.busy or overlay.action_button.disabled
+		var prayer_used: bool = session.place_visit_id("purify",overlay.index) in session.world.reward_receipts
+		dice.disabled = overlay.busy or prayer_used
 	elif overlay is PlaceActions and overlay.type=="fortune-teller-camp":
-		dice.disabled = overlay.busy or overlay.confirm_button.disabled
+		var prophecy_used: bool = session.place_visit_id("prophecy",overlay.index) in session.world.reward_receipts
+		dice.disabled = overlay.busy or prophecy_used
 	else:
 		dice.disabled = true
 
@@ -194,12 +196,13 @@ func raise_shared_die_for_input() -> void:
 
 func _sync_map_chrome() -> void:
 	# A single persistent die changes PAINT and INPUT priority with the scene.
-	# Battles and the fortune prophecy roll need the REAL shared die above art
-	# and clickable. Other location paintings still cover the inactive die.
+	# Battles, world-tree prayer and fortune prophecy use the REAL shared die
+	# above their artwork. Other location paintings cover the inactive die.
 	var has_overlay: bool = is_instance_valid(overlay)
 	var central_battle: bool = has_overlay and overlay.name=="CentralBattle"
 	var fortune_prophecy: bool = has_overlay and overlay is PlaceActions and overlay.type=="fortune-teller-camp"
-	var foreground_die: bool = not has_overlay or central_battle or fortune_prophecy
+	var world_tree_prayer: bool = has_overlay and overlay is ExplorationActions and overlay.type=="unknown"
+	var foreground_die: bool = not has_overlay or central_battle or fortune_prophecy or world_tree_prayer
 	var show_board_controls: bool = not has_overlay or overlay is InventoryPanel
 	var show_die: bool = not (overlay is BattleDeck or overlay is HomeInheritance)
 	for control in map_chrome:
@@ -209,7 +212,7 @@ func _sync_map_chrome() -> void:
 	if is_instance_valid(dice):
 		dice.z_index = DIE_FOREGROUND_Z if foreground_die else DIE_BEHIND_LOCATION_Z
 		# Godot GUI input depends on sibling order, NOT z_index alone.
-		# Make the shared die the LAST sibling in battle/map/prophecy. Other
+		# Make the shared die the LAST sibling in battle/map/prophecy/prayer. Other
 		# location overlays must retain painting and click precedence.
 		if foreground_die and show_die:
 			raise_shared_die_for_input()
