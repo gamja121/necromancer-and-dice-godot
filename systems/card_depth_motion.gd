@@ -48,7 +48,7 @@ static func set_shadow_lift(card: TextureButton, raised: bool) -> void:
 	if not is_instance_valid(card): return
 	var shadow: TextureRect = card.get_node_or_null("CardContactShadow")
 	if shadow == null: return
-	var old: Tween = card.get_meta("card_shadow_tween", null)
+	var old: Tween = card.get_meta("card_shadow_tween") if card.has_meta("card_shadow_tween") else null
 	if old != null and old.is_valid(): old.kill()
 	var tween: Tween = card.create_tween().set_parallel(true)
 	card.set_meta("card_shadow_tween", tween)

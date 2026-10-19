@@ -80,7 +80,7 @@ func _run() -> void:
 
 	map.show_home(true)
 	check_location(map,"home interior","낙인 계승")
-	check(find_button(map.overlay,"순찰경로")!=null and find_button(map.overlay,"나가기")!=null,"all three home actions stay above art")
+	check(find_button(map.overlay,"순찰경로")!=null and find_button(map.overlay,"다음 바퀴 출발")!=null,"all three home actions stay above art")
 	map.close_overlay()
 
 	var inheritance: Control=map.HomeInheritance.new()

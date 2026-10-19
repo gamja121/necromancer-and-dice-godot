@@ -3,12 +3,16 @@ on:
   pull_request:
     paths:
       - "systems/inventory_panel.gd"
+      - "systems/card_depth_motion.gd"
+      - "systems/ui_typography.gd"
       - "scripts/test_inventory_touch_inspection.gd"
       - ".github/workflows/inventory-touch-inspection.yml"
   push:
     branches: [main]
     paths:
       - "systems/inventory_panel.gd"
+      - "systems/card_depth_motion.gd"
+      - "systems/ui_typography.gd"
       - "scripts/test_inventory_touch_inspection.gd"
       - ".github/workflows/inventory-touch-inspection.yml"
 permissions:
@@ -27,13 +31,13 @@ jobs:
         run: |
           set -euo pipefail
           timeout 190s godot --headless --path . --editor --quit 2>&1 | tee parse.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' parse.log; then exit 1; fi
+          if grep -E 'ERROR:|SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' parse.log; then exit 1; fi
       - name: Real inventory tap inspection and no-consumption regression
         run: |
           set -euo pipefail
           timeout 130s godot --headless --path . --script res://scripts/test_inventory_touch_inspection.gd 2>&1 | tee inventory.log
           grep -E 'INVENTORY_TOUCH_INSPECTION: [0-9]+ passed, 0 failed' inventory.log
-          if grep -E 'SCRIPT ERROR|Parse Error|FAIL inventory-inspection:' inventory.log; then exit 1; fi
+          if grep -E 'ERROR:|SCRIPT ERROR|Parse Error|FAIL inventory-inspection:' inventory.log; then exit 1; fi
       - name: Deck selection and capacity overflow remain unchanged
         run: |
           set -euo pipefail
