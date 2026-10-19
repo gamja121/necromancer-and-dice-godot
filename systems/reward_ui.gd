@@ -3,6 +3,7 @@ const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 
 func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2, font_size: int = 16) -> Label:
@@ -59,6 +60,8 @@ func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensi
 	node.tooltip_text = Catalog.label(kind,item)
 	if callback.is_valid(): node.pressed.connect(callback)
 	parent.add_child(node)
+	if kind=="unit":
+		LayeredUnitCard.install(node, str(item.slug), str(item.name))
 	var caption = label_at(node,Catalog.label(kind,item),Vector2(-12,dimensions.y+8),Vector2(dimensions.x+24,50),13)
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if kind=="unit":

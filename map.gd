@@ -1289,7 +1289,8 @@ func _return_battle_cards_to_book() -> void:
 		var x_axis: Vector2 = inverse * (transform * Vector2(card.size.x, 0))
 		var y_axis: Vector2 = inverse * (transform * Vector2(0, card.size.y))
 		var ghost := TextureRect.new()
-		ghost.texture = card.texture_normal
+		# The live skeleton card has a transparent hit texture. Keep defeat ghosts visible.
+		ghost.texture = card.get_meta("layered_original_texture", card.texture_normal) as Texture2D
 		ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ghost.stretch_mode = TextureRect.STRETCH_SCALE
 		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
