@@ -44,7 +44,7 @@ func _run() -> void:
 	root.add_child(view)
 	view.setup(session,"dice")
 	check(await wait_idle(view),"inventory die card entrance finishes")
-	check(view.get_node_or_null("Control/InventoryInspect_dice_0")!=null,"dice card exposes a real tap target")
+	check(view.content.get_node_or_null("InventoryInspect_dice_0")!=null,"dice card exposes a real tap target")
 	var dice_button=view.content.get_node_or_null("InventoryInspect_dice_0") as TextureButton
 	check(dice_button!=null and dice_button.texture_normal!=null,"same owned die card art remains visible")
 	if dice_button!=null:
