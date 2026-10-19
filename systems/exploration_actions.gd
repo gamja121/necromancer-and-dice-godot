@@ -41,6 +41,7 @@ var route_plus_buttons: Dictionary = {}
 var route_minus_buttons: Dictionary = {}
 var route_count_labels: Dictionary = {}
 var route_unlock_button: Button
+var selected_route_slot: int = 0
 var hill_selected_steps: int = 0
 var hill_choice_buttons: Array = []
 
@@ -298,6 +299,33 @@ func confirm_hill_route() -> void:
 	hill_route_chosen.emit(hill_selected_steps)
 
 
+func route_slot_kind(slot: int) -> String:
+	var monster_count: int=int(plan.selection.get("monster",0))
+	var rest_count: int=int(plan.selection.get("rest",0))
+	var forest_count: int=int(plan.selection.get("forest",0))
+	if slot<monster_count: return "monster"
+	if slot<monster_count+rest_count: return "rest"
+	if slot<monster_count+rest_count+forest_count: return "forest"
+	return "basic"
+
+func choose_route_slot(slot: int) -> void:
+	selected_route_slot=clampi(slot,0,RoutePlan.OPTIONAL_CAPACITY-1)
+	render_route()
+
+func set_route_slot_kind(kind: String) -> void:
+	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
+	if kind!="basic" and not kind in RoutePlan.CHOICES: return
+	if kind=="rest" and not bool(plan.get("rest_unlocked",false)): return
+	if kind=="forest" and not Discovery.is_unlocked(session.world,"forest"): return
+	var old_kind: String=route_slot_kind(selected_route_slot)
+	if old_kind==kind: return
+	var next: Dictionary=plan.duplicate(true)
+	if old_kind!="basic": next.selection[old_kind]=int(next.selection.get(old_kind,0))-1
+	if kind!="basic": next.selection[kind]=int(next.selection.get(kind,0))+1
+	if not RoutePlan.valid(next): return
+	plan=next
+	render_route()
+
 func render_route() -> void:
 	clear_content()
 	current_options=[]
@@ -310,124 +338,91 @@ func render_route() -> void:
 	var total: int=RoutePlan.total_selected(plan)
 	var remaining: int=RoutePlan.available(plan)
 	var rest_unlocked: bool=bool(plan.get("rest_unlocked",false))
-	var rest_add_limit: int=RoutePlan.REST_LIMIT-(1 if bool(plan.get("rest_discovered",false)) else 0)
-	# Preserve authentic parchment texture and the original enter/exit
-	# buttons; remove the obscure 6-current vs 5-reserve swap puzzle.
+	var hill_unlocked: bool=Discovery.is_unlocked(session.world,"forest")
 	if ResourceLoader.exists(ROUTE_RESERVE_ART):
 		var parchment=art(content,ROUTE_RESERVE_ART,Vector2(74,92),Vector2(829,541))
 		parchment.stretch_mode=TextureRect.STRETCH_SCALE
 	if ResourceLoader.exists(ROUTE_CURRENT_ART):
 		var sidebar=art(content,ROUTE_CURRENT_ART,Vector2(925,65),Vector2(284,590))
 		sidebar.stretch_mode=TextureRect.STRETCH_SCALE
-	var heading=label_at(content,"다음 바퀴 · 타일 편성",Vector2(190,138),Vector2(630,40),24)
+	var heading=label_at(content,"다음 바퀴 · 추가 타일",Vector2(170,136),Vector2(680,43),24)
 	heading.add_theme_color_override("font_color",Color("392519"))
-	var note=label_at(content,"일반 마물 5칸은 자동 배치 · 아래에서 추가할 타일만 선택",Vector2(170,185),Vector2(680,27),14)
-	note.add_theme_color_override("font_color",Color("67432b"))
-	for metric in [
-		{"title":"추가 가능","value":RoutePlan.OPTIONAL_CAPACITY,"x":181.0},
-		{"title":"내가 선택","value":total,"x":397.0},
-		{"title":"남은 칸","value":remaining,"x":613.0}
-	]:
-		var label=label_at(content,str(metric.title),Vector2(float(metric.x),219),Vector2(160,24),14)
-		label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		label.add_theme_color_override("font_color",Color("6f4932"))
-		var number=label_at(content,"%d칸" % int(metric.value),Vector2(float(metric.x),246),Vector2(160,47),29)
-		number.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		number.add_theme_color_override("font_color",Color("342619"))
-	var slot_positions: Array=[]
+	var guide=label_at(content,"바꾸고 싶은 칸을 누른 뒤 종류를 선택하세요.",Vector2(170,187),Vector2(710,30),15)
+	guide.add_theme_color_override("font_color",Color("67432b"))
+	var count_label=label_at(content,"추가 편성 %d / %d칸 · 남은 길 %d칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining],Vector2(170,228),Vector2(700,35),19)
+	count_label.add_theme_color_override("font_color",Color("392519"))
 	for i in range(RoutePlan.OPTIONAL_CAPACITY):
-		var id: String="basic"
-		if i<int(plan.selection.monster):
-			id="monster"
-		elif i<int(plan.selection.get("monster",0))+int(plan.selection.get("rest",0)):
-			id="rest"
-		elif i<total:
-			id="forest"
+		var kind: String=route_slot_kind(i)
 		var x: float=150.0+float(i)*121.0
-		slot_positions.append(x)
-		var tile: TextureRect=art(content,"res://assets/map/tiles/%s.png" % id,Vector2(x,310),Vector2(81,78))
-		tile.name="SelectedPatrolSlot%d" % i
+		var chosen: int=i
+		var tile_button=button(content,"%d" % (i+1),Vector2(x,300),Vector2(96,104),func(): choose_route_slot(chosen))
+		tile_button.name="SelectedPatrolSlot%d" % i
+		tile_button.disabled=used
+		tile_button.add_theme_font_size_override("font_size",13)
+		var box_style=StyleBoxFlat.new()
+		box_style.bg_color=Color("f1d9aa") if i==selected_route_slot else Color("d6c3a3")
+		box_style.border_color=Color("b37d38") if i==selected_route_slot else Color("8c7455")
+		box_style.set_border_width_all(3 if i==selected_route_slot else 1)
+		box_style.set_corner_radius_all(6)
+		tile_button.add_theme_stylebox_override("normal",box_style)
+		tile_button.add_theme_stylebox_override("disabled",box_style)
+		var tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x+12,320),Vector2(72,61))
+		tile.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		tile.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tile.modulate=Color.WHITE if i<total else Color(0.72,0.70,0.66,0.65)
-		var caption=label_at(content,"선택 %d" % (i+1) if i<total else "빈 칸",Vector2(x-8,389),Vector2(97,23),12)
+		tile.modulate=Color.WHITE if kind!="basic" else Color(0.75,0.74,0.72)
+		var caption=label_at(content,{"basic":"빈 길","monster":"마물","rest":"숙영","forest":"언덕"}.get(kind,kind),Vector2(x-2,408),Vector2(100,24),14)
 		caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		caption.add_theme_color_override("font_color",Color("584132"))
-	var guide=label_at(content,"타일을 누르면 수량이 바뀝니다 · 선택하지 않은 칸은 길로 남습니다",Vector2(158,422),Vector2(698,28),13)
-	guide.add_theme_color_override("font_color",Color("684b36"))
-	# Hill becomes a third choice ONLY after a real discovery, not merely
-	# because a legacy board happens to contain its default forest tile.
-	var hill_unlocked: bool=Discovery.is_unlocked(session.world,"forest")
-	var editor_choices: Array=["monster","rest"]
-	if hill_unlocked: editor_choices.append("forest")
-	for j in range(editor_choices.size()):
-		var kind: String=str(editor_choices[j])
-		var unlocked: bool=kind=="monster" or (rest_unlocked if kind=="rest" else hill_unlocked)
-		var count: int=int(plan.selection.get(kind,0))
-		# Reflow three independent columns inside the existing parchment frame.
-		# Original two-column coordinates remain intact before hill discovery.
-		var compact: bool=editor_choices.size()==3
-		var x: float=(131.0+j*257.0) if compact else (182.0+j*369.0)
-		var art_size: Vector2=Vector2(65,68) if compact else Vector2(75,71)
-		var art_tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x,454),art_size)
-		art_tile.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		if not unlocked: art_tile.modulate=Color(0.50,0.49,0.47)
-		var label_text: String={"monster":"일반 마물","rest":"숙영","forest":"언덕"}.get(kind,kind)
-		var text_offset: float=70.0 if compact else 79.0
-		var label=label_at(content,label_text,Vector2(x+text_offset,451),Vector2(177 if compact else 240,27),18)
-		label.add_theme_color_override("font_color",Color("352519"))
-		var limit_text: String="추가 수량 제한 없음"
-		if kind=="rest":
-			limit_text=("추가 최대 %d칸 · 전체 최대 3칸" % rest_add_limit) if unlocked else "첫 바퀴 완주 후 해금"
-		elif kind=="forest":
-			limit_text="발견 보상 1칸 + 추가 선택"
-		var limit=label_at(content,limit_text,Vector2(x+text_offset,480),Vector2(179 if compact else 250,22),12 if compact else 13)
-		limit.add_theme_color_override("font_color",Color("795536"))
-		var controls_offset: float=65.0 if compact else 83.0
-		var minus=button(content,"−",Vector2(x+controls_offset,506),Vector2(48 if compact else 53,45),func(): adjust_route_tile(kind,-1))
-		minus.name="PatrolMinus_"+kind
-		minus.disabled=used or count<=0
-		var quantity=label_at(content,"%d" % count,Vector2(x+controls_offset+52,512),Vector2(52,35),22)
-		quantity.name="PatrolCount_"+kind
-		quantity.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		quantity.add_theme_color_override("font_color",Color("322317"))
-		var plus=button(content,"+",Vector2(x+controls_offset+112,506),Vector2(48 if compact else 53,45),func(): adjust_route_tile(kind,1))
-		plus.name="PatrolPlus_"+kind
-		plus.disabled=used or not unlocked or remaining<=0 or (kind=="rest" and count>=rest_add_limit)
-		if kind=="rest" and unlocked and session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
-			UnlockNoticeBadge.attach(plus,"NEW")
+		caption.add_theme_color_override("font_color",Color("49301e"))
+	var choice_heading=label_at(content,"%d번 칸 변경" % (selected_route_slot+1),Vector2(169,450),Vector2(250,31),19)
+	choice_heading.add_theme_color_override("font_color",Color("392519"))
+	var choices: Array=["basic","monster","rest"]
+	if hill_unlocked: choices.append("forest")
+	for i in range(choices.size()):
+		var kind: String=str(choices[i])
+		var x: float=145.0+float(i)*176.0
+		var caption: String={"basic":"빈 길","monster":"일반 마물","rest":"숙영","forest":"언덕"}[kind]
+		var selected_kind: String=kind
+		var choice=button(content,caption,Vector2(x,493),Vector2(158,48),func(): set_route_slot_kind(selected_kind))
+		choice.name="PatrolChoice_"+kind
+		choice.disabled=used or (kind=="rest" and not rest_unlocked) or (kind=="forest" and not hill_unlocked)
+		if kind=="rest" and rest_unlocked and session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
+			UnlockNoticeBadge.attach(choice,"NEW")
 		if kind=="forest" and session.event_flag_is_set(Discovery.home_flag("forest")):
-			UnlockNoticeBadge.attach(plus,"NEW")
-		route_minus_buttons[kind]=minus
-		route_plus_buttons[kind]=plus
-		route_count_labels[kind]=quantity
-		if kind=="rest" and not unlocked:
-			# Existing rest unlock button remains available in the compact UI.
-			minus.visible=false
-			quantity.visible=false
-			plus.visible=false
-			route_unlock_button=button(content,"숙영 해금",Vector2(x+text_offset,506),Vector2(170 if compact else 179,45),unlock_rest)
-			route_unlock_button.name="PatrolUnlockRest"
-			var eligibility: Dictionary=session.rest_unlock_allowed()
-			route_unlock_button.disabled=not bool(eligibility.get("ok",false))
-			route_unlock_button.tooltip_text="첫 바퀴를 완주한 뒤 해금 가능" if route_unlock_button.disabled else "해금 후 숙영을 최대 3칸까지 편성 가능"
-	var sidebar_title=label_at(content,"자동 배치",Vector2(950,159),Vector2(240,37),21)
+			UnlockNoticeBadge.attach(choice,"NEW")
+		var current: bool=route_slot_kind(selected_route_slot)==kind
+		var choice_style=StyleBoxFlat.new()
+		choice_style.bg_color=Color("d8b578") if current else Color("e4d2b6")
+		choice_style.border_color=Color("9d703e")
+		choice_style.set_border_width_all(2 if current else 1)
+		choice_style.set_corner_radius_all(5)
+		choice.add_theme_stylebox_override("normal",choice_style)
+		choice.add_theme_stylebox_override("disabled",choice_style)
+	if not rest_unlocked:
+		route_unlock_button=button(content,"숙영 해금",Vector2(540,553),Vector2(166,37),unlock_rest)
+		route_unlock_button.name="PatrolUnlockRest"
+		var eligibility: Dictionary=session.rest_unlock_allowed()
+		route_unlock_button.disabled=used or not bool(eligibility.get("ok",false))
+		route_unlock_button.tooltip_text="첫 바퀴 완주 후 해금 가능"
+	var help=label_at(content,"숙영은 전체 최대 3칸 · 언덕은 발견 후 선택 가능",Vector2(154,558),Vector2(460,27),13)
+	help.add_theme_color_override("font_color",Color("684b36"))
+	var sidebar_title=label_at(content,"고정 경로",Vector2(950,155),Vector2(240,37),21)
 	sidebar_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	sidebar_title.add_theme_color_override("font_color",Color("382416"))
-	for row in [
-		{"label":"일반 마물","value":"5칸 확정"},
-		{"label":"사건","value":"1칸 확정"},
-		{"label":"보호 길","value":"2칸 고정"},
-		{"label":"숙영","value":"%d / 3칸" % (int(plan.selection.rest)+(1 if bool(plan.get("rest_discovered",false)) else 0))},
-		{"label":"늪지대","value":"시작 0칸"}
-	]:
-		var idx: int=int(["일반 마물","사건","보호 길","숙영","늪지대"].find(row.label))
-		var first=label_at(content,str(row.label),Vector2(952,215+idx*58),Vector2(219,24),14)
+	for i in range(5):
+		var entries: Array=[
+			{"label":"일반 마물","value":"5칸 자동"},
+			{"label":"사건","value":"1칸 고정"},
+			{"label":"보호 길","value":"2칸 고정"},
+			{"label":"숙영","value":"%d / 3칸" % (int(plan.selection.get("rest",0))+(1 if bool(plan.get("rest_discovered",false)) else 0))},
+			{"label":"늪지대","value":"시작 0칸"}
+		]
+		var row: Dictionary=entries[i]
+		var first=label_at(content,str(row.label),Vector2(950,215+i*58),Vector2(230,23),14)
 		first.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		first.add_theme_color_override("font_color",Color("63442e"))
-		var value=label_at(content,str(row.value),Vector2(952,238+idx*58),Vector2(219,28),17)
+		var value=label_at(content,str(row.value),Vector2(950,237+i*58),Vector2(230,28),17)
 		value.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		value.add_theme_color_override("font_color",Color("382719"))
-	# All event-discovered tiles appear as independent persistent art rows.
 	var discovery_row: int=0
 	for kind in Discovery.ORDER:
 		if not session.event_flag_is_set(Discovery.unlock_flag(kind)): continue
@@ -443,9 +438,7 @@ func render_route() -> void:
 		discovery_row+=1
 	action_button.disabled=used
 	route_reset_button.disabled=used
-	status.text=("이번 방문 편성 확정 · 다음 집 방문에서 다시 선택 가능" if used else
-		("추가 %d/%d칸 선택 · %d칸 남음 · 언덕은 발견 후 편성 가능" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining] if not hill_unlocked else
-		"추가 %d/%d칸 선택 · %d칸 남음 · 발견 언덕 1칸은 자동 배치" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining]))
+	status.text="이번 방문 편성 확정 · 다음 집 방문에서 다시 선택 가능" if used else "추가 %d/%d칸 선택 · %d칸 남음" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining]
 
 func unlock_rest() -> void:
 	if type!="home" or bool(session.world.patrol_plan.get("rest_unlocked",false)): return
