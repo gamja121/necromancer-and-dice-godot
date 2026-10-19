@@ -163,6 +163,8 @@ func _run() -> void:
 		if button != null: button.pressed.emit()
 		var scene_name: String = str(map.EVENT_IMAGES[tile_name])
 		check_action_frame(map,map.overlay,tile_name + " function",scene_name)
+		var function_back: Button=map.overlay.get("close_button") as Button
+		check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")
 		map.close_overlay()
 		map.show_location(idx)
 		check_frame(map,tile_name + " return","전체 회복" if tile_name == "rest" else str(target.button),map.TILE_EVENT_ACTION_RECT)
