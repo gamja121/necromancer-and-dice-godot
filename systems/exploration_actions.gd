@@ -354,7 +354,7 @@ func render_route() -> void:
 		var kind: String=route_slot_kind(i)
 		var x: float=150.0+float(i)*121.0
 		var chosen: int=i
-		var tile_button=button(content,"%d" % (i+1),Vector2(x,300),Vector2(96,104),func(): choose_route_slot(chosen))
+		var tile_button=button(content,"%d" % (i+1),Vector2(x,307),Vector2(96,97),func(): choose_route_slot(chosen))
 		tile_button.name="SelectedPatrolSlot%d" % i
 		tile_button.disabled=used
 		tile_button.add_theme_font_size_override("font_size",13)
@@ -365,11 +365,11 @@ func render_route() -> void:
 		box_style.set_corner_radius_all(6)
 		tile_button.add_theme_stylebox_override("normal",box_style)
 		tile_button.add_theme_stylebox_override("disabled",box_style)
-		var tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x+12,320),Vector2(72,61))
+		var tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x+12,327),Vector2(72,61))
 		tile.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		tile.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tile.modulate=Color.WHITE if kind!="basic" else Color(0.75,0.74,0.72)
-		var caption=label_at(content,{"basic":"빈 길","monster":"마물","rest":"숙영","forest":"언덕"}.get(kind,kind),Vector2(x-2,408),Vector2(100,24),14)
+		var caption=label_at(content,{"basic":"빈 길","monster":"마물","rest":"숙영","forest":"언덕"}.get(kind,kind),Vector2(x-2,410),Vector2(100,24),14)
 		caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		caption.add_theme_color_override("font_color",Color("49301e"))
 	var choice_heading=label_at(content,"%d번 칸 변경" % (selected_route_slot+1),Vector2(169,450),Vector2(250,31),19)
@@ -379,11 +379,13 @@ func render_route() -> void:
 	for i in range(choices.size()):
 		var kind: String=str(choices[i])
 		var x: float=145.0+float(i)*176.0
-		var caption: String={"basic":"빈 길","monster":"일반 마물","rest":"숙영","forest":"언덕"}[kind]
+		var caption: String=("숙영 해금" if kind=="rest" and not rest_unlocked else {"basic":"빈 길","monster":"일반 마물","rest":"숙영","forest":"언덕"}[kind])
 		var selected_kind: String=kind
-		var choice=button(content,caption,Vector2(x,493),Vector2(158,48),func(): set_route_slot_kind(selected_kind))
+		var choice=button(content,caption,Vector2(x,493),Vector2(158,48),func():
+			if selected_kind=="rest" and not bool(plan.get("rest_unlocked",false)): unlock_rest()
+			else: set_route_slot_kind(selected_kind))
 		choice.name="PatrolChoice_"+kind
-		choice.disabled=used or (kind=="rest" and not rest_unlocked) or (kind=="forest" and not hill_unlocked)
+		choice.disabled=used or (kind=="rest" and not rest_unlocked and not bool(session.rest_unlock_allowed().get("ok",false))) or (kind=="forest" and not hill_unlocked)
 		if kind=="rest" and rest_unlocked and session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
 			UnlockNoticeBadge.attach(choice,"NEW")
 		if kind=="forest" and session.event_flag_is_set(Discovery.home_flag("forest")):
@@ -396,13 +398,7 @@ func render_route() -> void:
 		choice_style.set_corner_radius_all(5)
 		choice.add_theme_stylebox_override("normal",choice_style)
 		choice.add_theme_stylebox_override("disabled",choice_style)
-	if not rest_unlocked:
-		route_unlock_button=button(content,"숙영 해금",Vector2(540,553),Vector2(166,37),unlock_rest)
-		route_unlock_button.name="PatrolUnlockRest"
-		var eligibility: Dictionary=session.rest_unlock_allowed()
-		route_unlock_button.disabled=used or not bool(eligibility.get("ok",false))
-		route_unlock_button.tooltip_text="첫 바퀴 완주 후 해금 가능"
-	var help=label_at(content,"숙영은 전체 최대 3칸 · 언덕은 발견 후 선택 가능",Vector2(154,558),Vector2(460,27),13)
+	var help=label_at(content,"숙영 전체 최대 3칸 · 언덕은 발견 후 선택 가능",Vector2(170,269),Vector2(650,25),13)
 	help.add_theme_color_override("font_color",Color("684b36"))
 	var sidebar_title=label_at(content,"고정 경로",Vector2(950,155),Vector2(240,37),21)
 	sidebar_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
