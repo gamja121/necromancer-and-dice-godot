@@ -60,10 +60,11 @@ func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensi
 	node.tooltip_text = Catalog.label(kind,item)
 	if callback.is_valid(): node.pressed.connect(callback)
 	parent.add_child(node)
-	if kind=="unit":
-		LayeredUnitCard.install(node, str(item.slug), str(item.name))
+	# Older inventory/home code expects the name caption to be child index 0.
 	var caption = label_at(node,Catalog.label(kind,item),Vector2(-12,dimensions.y+8),Vector2(dimensions.x+24,50),13)
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if kind=="unit":
+		LayeredUnitCard.install(node, str(item.slug), str(item.name))
 	if kind=="unit":
 		BrandFrameOverlay.sync(node,item)
 		AltarUpgradeBadge.sync(node,item)
