@@ -63,10 +63,9 @@ func setup(map_scene, tile_index: int) -> void:
 		setup_fortune_visual()
 		# Fortune uses the persistent map die; never spawn/center a duplicate.
 		dice=map.dice
-		confirm_button=button(self,"예언 듣기",Vector2(525,505),Vector2(230,42),roll_prophecy)
+		# The persistent map die is the only prophecy action: no duplicate button.
 		var used=session.place_visit_id("prophecy",index) in session.world.reward_receipts
-		confirm_button.disabled=used
-		status.text="방문당 한 번 · 다음 전투에 적용할 예언을 주사위로 결정합니다\n누적: "+session.prophecy_label()
+		status.text="예언을 받으려면 주사위를 누르세요.\n방문당 1회 · 다음 전투에 적용"
 		if used and session.world.last_prophecy.get("visit","")==session.place_visit_id("prophecy",index):
 			status.text=session.world.last_prophecy.detail+"\n누적: "+session.prophecy_label()
 			show_fortune_stone(false)
@@ -395,7 +394,6 @@ func roll_prophecy() -> void:
 	if not result.ok: status.text=result.reason; return
 	busy=true
 	close_button.disabled=true
-	confirm_button.disabled=true
 	show_fortune_stone(true)
 	status.text="예언의 주사위를 굴리는 중…"
 	await map.roll_shared_die(int(result.face))
