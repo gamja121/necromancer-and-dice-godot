@@ -32,6 +32,7 @@ const CombatCues = preload("res://systems/combat_cues.gd")
 const BattleVisuals = preload("res://systems/battle_visuals.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
 const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
@@ -551,6 +552,7 @@ func render_units(values: Array) -> void:
 			(detail_parent if uses_map_tile_dock() else layer).add_child(card)
 			card.z_index = 44
 			cards[u.id] = card
+			LayeredUnitCard.install(card, str(u.slug), str(u.name))
 			BrandFrameOverlay.sync(card,u)
 			AltarUpgradeBadge.sync(card,u)
 		var sprite: TextureRect = sprites[u.id]
@@ -916,6 +918,7 @@ func show_selection() -> void:
 			slot.tooltip_text = definitions[slug].name+" 선택 해제"
 			slot.pressed.connect(func(): toggle_selection(slug))
 			selected_group.add_child(slot)
+			LayeredUnitCard.install(slot, slug, str(definitions[slug].name), true)
 		for slug in roster_cards:
 			var card: TextureButton = roster_cards[slug]
 			var selected = slug in selection
@@ -938,6 +941,7 @@ func show_selection() -> void:
 		card.rotation_degrees = [-4,2,-1,3,-2][i%5]
 		card.tooltip_text = definitions[slug].name
 		card.pressed.connect(func(): toggle_selection(slug))
+		LayeredUnitCard.install(card, slug, str(definitions[slug].name))
 		var order = text(card,"",Vector2(10,16),Vector2(24,24),15)
 		order.name = "Order"
 		order.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -945,6 +949,7 @@ func show_selection() -> void:
 		var name_label = text(card,definitions[slug].name,Vector2(6,187),Vector2(109,20),11)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_label.visible = not LayeredUnitCard.supports(slug)
 		roster_cards[slug] = card
 		card.mouse_entered.connect(func(): card.z_index = 4)
 		card.mouse_exited.connect(func(): card.z_index = 2 if slug in selection else 0)

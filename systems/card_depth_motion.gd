@@ -6,7 +6,9 @@ static func install(card: TextureButton, selected: bool = false, shadow_only: bo
 	if card.has_node("CardContactShadow"): return
 	var shadow := TextureRect.new()
 	shadow.name = "CardContactShadow"
-	shadow.texture = card.texture_normal
+	# A layered card uses its real parchment silhouette for the contact shadow.
+	var layered_base := card.get_node_or_null("LayeredCardBase") as TextureRect
+	shadow.texture = layered_base.texture if layered_base != null else card.texture_normal
 	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	shadow.size = card.size

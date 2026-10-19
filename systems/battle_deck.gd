@@ -5,6 +5,7 @@ signal confirmed(selected_ids: Array)
 signal rename_submitted(instance_id: String, candidate: String)
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
 const BattleRules = preload("res://systems/battlefield_rules.gd")
@@ -140,6 +141,8 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	button.mouse_entered.connect(func(): material.set_shader_parameter("highlight",1.0))
 	button.mouse_exited.connect(func(): material.set_shader_parameter("highlight",0.75 if selected_ids.has(unit.id) else 0.15))
 	parent.add_child(button)
+	# Card art is built from independent runtime nodes, not a flattened PNG.
+	LayeredUnitCard.install(button, str(unit.slug), str(unit.name), selected_ids.has(unit.id))
 	CardDepthMotion.install(button, selected_ids.has(unit.id))
 	BrandFrameOverlay.sync(button,unit)
 	AltarUpgradeBadge.sync(button,unit)
@@ -201,6 +204,7 @@ func render_selection() -> void:
 		button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE
 		var name_label = text_label(button,unit.name,Vector2(6,185),Vector2(110,24),11)
 		name_label.name = "OwnedCardName"
+		name_label.visible = not LayeredUnitCard.supports(str(unit.slug))
 		if is_selected:
 			# Numbered source-style marker makes the actual selection order visible.
 			var order = Panel.new()
