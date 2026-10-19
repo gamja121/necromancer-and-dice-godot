@@ -1,0 +1,45 @@
+name: Layered Skeleton Monster Cards
+on:
+  pull_request:
+    paths:
+      - "assets/cards/layered/**"
+      - "systems/layered_unit_card.gd"
+      - "systems/battle_deck.gd"
+      - "systems/reward_ui.gd"
+      - "systems/card_depth_motion.gd"
+      - "battlefield.gd"
+      - "map.gd"
+      - "scripts/test_layered_unit_cards.gd"
+      - ".github/workflows/layered-skeleton-cards.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  layered-skeleton:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import textures and validate GDScript
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Verify actual runtime layers resize and card interactions
+        run: |
+          set -euo pipefail
+          timeout 90s godot --headless --path . --script res://scripts/test_layered_unit_cards.gd 2>&1 | tee layers.log
+          grep -E '^LAYERED_CARD_REGRESSION: 0 failures$' layers.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|FAIL layered-card:' layers.log; then exit 1; fi
+      - name: Check original selection and deck-to-battle transition
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_battle_entry_summon.gd 2>&1 | tee handoff.log
+          grep -E '^BATTLE_ENTRY_SUMMON: [0-9]+ passed, 0 failed$' handoff.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL entry-summon:' handoff.log; then exit 1; fi
+      - name: Verify intended diff
+        run: git diff --check
