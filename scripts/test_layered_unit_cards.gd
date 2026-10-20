@@ -14,6 +14,41 @@ func check(ok: bool, name: String) -> void:
 		failed += 1
 		printerr("FAIL layered-card: ", name)
 
+func _brand_positions_ok(row: Control, base: TextureRect, expected_count: int) -> bool:
+	if row == null or base == null or row.get_child_count() != expected_count:
+		return false
+	if absf(row.position.x + row.size.x * 0.5 - (base.position.x + base.size.x * 0.5)) > 0.5:
+		return false
+	if expected_count == 0:
+		return true
+	var first := row.get_child(0) as TextureRect
+	var last := row.get_child(expected_count - 1) as TextureRect
+	if first == null or last == null:
+		return false
+	var left_space := first.position.x
+	var right_space := row.size.x - (last.position.x + last.size.x)
+	if left_space < -0.5 or right_space < -0.5 or absf(left_space - right_space) > 0.5:
+		return false
+	var prior_icon: TextureRect = null
+	var previous_gap := -1.0
+	for i in range(expected_count):
+		var icon := row.get_child(i) as TextureRect
+		if icon == null or icon.size.x <= 0.0 or absf(icon.size.x - icon.size.y) > 0.5:
+			return false
+		if icon.position.x < -0.5 or icon.position.x + icon.size.x > row.size.x + 0.5:
+			return false
+		if icon.position.y < -0.5 or icon.position.y + icon.size.y > row.size.y + 0.5:
+			return false
+		if absf(icon.position.y - (row.size.y - icon.size.y) * 0.5) > 0.5:
+			return false
+		if prior_icon != null:
+			var gap := icon.position.x - (prior_icon.position.x + prior_icon.size.x)
+			if gap < -0.5 or (previous_gap >= 0.0 and absf(gap - previous_gap) > 0.5):
+				return false
+			previous_gap = gap
+		prior_icon = icon
+	return true
+
 func _run() -> void:
 	# Runtime card art is opt-in by slug. All forty-seven share the same zoom,
 	# real owned brands, return-to-book visual layers and legacy hit texture.
@@ -91,12 +126,10 @@ func _run() -> void:
 				var second := brands.get_child(1) as TextureRect
 				var third := brands.get_child(2) as TextureRect
 				check(first.texture is AtlasTexture and second.texture is AtlasTexture and third.texture is AtlasTexture, "brand icons use existing atlases")
-				check(first.position.x == 0.0 and first.position.y == second.position.y and first.position.y == third.position.y and first.position.x < second.position.x and second.position.x < third.position.x, "owned brand icons form one left-aligned row")
-				check(brands.position.x - (card.get_node("LayeredCardBase") as TextureRect).position.x >= (card.get_node("LayeredCardBase") as TextureRect).size.x * 0.15, "owned brands stay inset from the LEFT frame")
-				var bg_extent := (card.get_node("LayeredCardBase") as TextureRect).size
+				check(_brand_positions_ok(brands, base, 3), "%s three brands centered with equal gaps and no overflow at %s" % [slug, dims])
+				var bg_extent := base.size
 				var previous_side := minf(bg_extent.x * 0.19, bg_extent.y * 0.098)
-				check(first.size.x >= previous_side * 1.2 and first.size.y >= previous_side * 1.2, "owned brands are at least 20 percent bigger")
-				check(third.position.x + third.size.x <= brands.size.x + 0.5, "three enlarged brand icons remain within the info area")
+				check(first.size.x >= previous_side * 1.10 and first.size.y >= previous_side * 1.10, "three centered brand icons remain readable on small cards")
 			if dims == Vector2(136,218):
 				# Regression: a defeated enemy must not revert to the
 				# flattened source card on the post-victory soul harvest screen.
@@ -108,12 +141,14 @@ func _run() -> void:
 				check(reward_actor != null and reward_actor.texture.resource_path.ends_with("%s.webp" % slug.replace("-", "_")) or slug in ["skeleton-spear","skeleton-archer"] and reward_actor != null, "%s soul-harvest choice uses approved art path" % slug)
 				var reward_flight := Layered.flight_visual_copy(reward_choice)
 				check(reward_flight != null and reward_flight.has_node("LayeredCardCharacter") and reward_flight.has_node("LayeredCardBrands"), "%s harvested card flies to book with live layers" % slug)
+				check(_brand_positions_ok(reward_choice.get_node_or_null("LayeredCardBrands") as Control, reward_choice.get_node_or_null("LayeredCardBase") as TextureRect, 3), "%s soul-harvest option keeps centered brands" % slug)
 				if reward_flight != null: reward_flight.free()
 				reward_choice.queue_free()
 			var flight := Layered.flight_visual_copy(card)
 			check(flight != null and flight.has_node("LayeredCardCharacter") and flight.has_node("LayeredCardBrands") and flight.has_node("LayeredCardBase") and flight.has_node("LayeredCardRibbon"), "book flight keeps ALL separately rendered visual layers")
 			if flight != null:
 				check((flight.get_node("LayeredCardBrands") as Control).get_child_count() == 3, "book flight keeps actual owned brand icons")
+				check(_brand_positions_ok(flight.get_node("LayeredCardBrands") as Control, flight.get_node("LayeredCardBase") as TextureRect, 3), "book-flight brands remain centered")
 				check(flight.get_node("LayeredCardCharacter") != card.get_node("LayeredCardCharacter"), "book flight uses independent reusable visual node copies")
 				flight.free()
 			check(base != null and actor != null and ribbon != null and title != null, "independent textures and title")
@@ -135,12 +170,15 @@ func _run() -> void:
 				card.size = dims * 0.83
 				Layered.relayout(card)
 				check(actor.size.x < old_width, "layer responds to changed card size")
+				check(_brand_positions_ok(brands, base, 3), "three brands stay centered after card resize")
 				Layered.set_selected(card, true)
 				check(bool(card.get_meta("layered_selected", false)), "selection affects artwork only")
+			Layered.sync_brands(card, [{"type":"healing"}, {"type":"freeze"}])
+			check(_brand_positions_ok(brands, base, 2), "two owned brands stay centered after a change")
 			Layered.sync_brands(card, [{"type":"healing"}])
-			check((card.get_node("LayeredCardBrands") as Control).get_child_count() == 1, "updated owned brands replace the old icons")
+			check(_brand_positions_ok(brands, base, 1), "one owned brand stays centered after a change")
 			Layered.sync_brands(card, [])
-			check((card.get_node("LayeredCardBrands") as Control).get_child_count() == 0, "no brands displays no placeholder icons")
+			check(_brand_positions_ok(brands, base, 0), "no brands leaves an empty centered row")
 			card.queue_free()
 	var unrelated := TextureButton.new()
 	unrelated.size = Vector2(120,220)
