@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="194" viewBox="0 0 256 194">
+<!-- deliberately irregular hand-painted panel, nine-slice friendly 24px edges -->
+<path d="M15 7 L52 5 Q102 8 128 5 L195 7 L239 6 L248 16 L250 45 L247 82 L249 143 L246 179 L239 188 L183 187 Q123 190 88 187 L17 189 L7 177 L8 137 L6 103 L9 62 L7 17 Z" fill="#211c17" opacity=".98"/>
+<path d="M12 11 Q38 8 73 9 L146 10 Q204 7 242 11 M245 17 Q248 67 244 106 L245 174 M237 184 Q190 182 143 185 L76 184 L17 185 M11 174 L12 111 Q9 62 12 19" fill="none" stroke="#b18d5b" stroke-width="5" stroke-linecap="round" opacity=".78"/>
+<path d="M17 14 L106 14 L177 15 L238 15 M241 22 L241 150 M229 179 L152 180 L20 181 M15 159 L16 45" fill="none" stroke="#ead0a0" stroke-width="1.6" stroke-linecap="round" opacity=".68"/>
+<path d="M23 22 Q100 21 151 23 L230 22 M232 34 L233 121 M229 169 L152 170 L25 172 M22 151 L23 46" fill="none" stroke="#5d452e" stroke-width="2" opacity=".8"/>
+<path d="M17 9 L23 8 M229 10 L237 9 M12 179 L17 185 M239 183 L244 178" stroke="#e5c18c" stroke-width="3.2" stroke-linecap="round" opacity=".85"/>
+<path d="M35 30 L99 30 M160 162 L216 162 M36 167 L60 167" stroke="#8b6a43" stroke-width="1.8" stroke-linecap="round" opacity=".22"/>
+</svg>

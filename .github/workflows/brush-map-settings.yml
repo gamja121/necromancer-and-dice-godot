@@ -1,0 +1,45 @@
+name: Brush Painted Map Settings UI
+on:
+  push:
+    branches:
+      - ui/brush-map-settings-20261021
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  painted-settings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse and import new brush SVG assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Map painted settings layout and real audio persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_ui_map_audio_options_stage5m.gd 2>&1 | tee audio.log
+          grep -E 'UI_MAP_AUDIO_OPTIONS_PARITY: [0-9]+ passed, 0 failed' audio.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-audio:' audio.log; then exit 1; fi
+      - name: Overlay modal and input blocking regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_ui_map_overlay_audio_stage5q.gd 2>&1 | tee modal.log
+          grep -E 'UI_MAP_OVERLAY_AUDIO_PARITY: [0-9]+ passed, 0 failed' modal.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-overlay-audio:' modal.log; then exit 1; fi
+      - name: Board UI and shared die unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_ui_map_chrome_stage5r.gd 2>&1 | tee chrome.log
+          grep -E 'UI_MAP_CHROME_STAGE5R: [0-9]+ passed, 0 failed' chrome.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-chrome:' chrome.log; then exit 1; fi
