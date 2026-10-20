@@ -1,6 +1,7 @@
 extends SceneTree
 ## Shared dialogue art is a decoration only; all actions are still Godot buttons.
 const FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
+const INTRO_FRAME = "res://assets/intro/dialogue_frame.webp"
 const MAP = preload("res://map.tscn")
 const INTRO = preload("res://intro.tscn")
 var failed: int = 0
@@ -60,6 +61,8 @@ func _run() -> void:
 		check(body.contains("shared_story_frame(panel)"), "shared parchment added to " + fn)
 	map.queue_free()
 	await process_frame
+	var original_intro = load(INTRO_FRAME) as Texture2D
+	check(original_intro != null and original_intro.get_width() == 607 and original_intro.get_height() == 268, "intro source artwork imports at original 607×268 resolution")
 	var intro = INTRO.instantiate()
 	root.add_child(intro)
 	await process_frame
@@ -67,9 +70,9 @@ func _run() -> void:
 	for node in intro.dialogue_stage.get_children():
 		if node is Control:
 			for child in node.get_children():
-				if child is TextureRect and child.texture != null and child.texture.resource_path == FRAME:
+				if child is TextureRect and child.texture != null and child.texture.resource_path == INTRO_FRAME:
 					intro_art_found = true
-	check(intro_art_found, "intro uses exactly the same parchment texture")
+	check(intro_art_found, "intro uses its own 607×268 original artwork from the frozen web introduction")
 	check(intro.advance_button is Button and intro.skip_button is Button, "intro click and skip affordances remain")
 	intro.queue_free()
 	await process_frame
