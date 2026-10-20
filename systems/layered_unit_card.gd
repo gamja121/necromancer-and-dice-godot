@@ -1,6 +1,6 @@
 extends RefCounted
-## Optional in-game card layers for the approved skeleton card-art pilot.
-## Gameplay/card buttons stay unchanged; only skeleton-spear/archer use these assets.
+## In-game layered cards use the same live background / separate portrait / ribbon / brands.
+## Gameplay and TextureButton inputs stay unchanged. Character pose/size can vary.
 ## Each layer is an independent TextureRect so portrait zoom never enlarges the UI.
 
 const UnitInfo = preload("res://systems/unit_info.gd")
@@ -10,7 +10,38 @@ const NAMEPLATE := ROOT + "scroll_nameplate.webp"
 const PORTRAITS := {
 	"skeleton-spear": ROOT + "skeleton_spear.webp",
 	"skeleton-archer": ROOT + "skeleton_archer.webp",
+	"corpse-slime": ROOT + "corpse_slime.webp",
+	"dracula": ROOT + "dracula.webp",
+	"ice-lord": ROOT + "ice_lord.webp",
+	"grave-worm": ROOT + "grave_worm.webp",
+	"skeleton-cavalry": ROOT + "skeleton_cavalry.webp",
+	"mummy-guardian": ROOT + "mummy_guardian.webp",
+	"soul-reaper": ROOT + "soul_reaper.webp",
+	"bone-hound": ROOT + "bone_hound.webp",
+	"mimic": ROOT + "mimic.webp",
+	"ice-princess": ROOT + "ice_princess.webp",
 }
+
+# Legion scenery stays clipped to the paper card; the character is independent
+# and can protrude beyond the frame. The two existing skeleton cards keep their
+# already-approved background and layout.
+const BACKGROUNDS := {
+	"corpse-slime": ROOT + "base_corpse.webp",
+	"dracula": ROOT + "base_demon.webp",
+	"ice-lord": ROOT + "base_ice.webp",
+	"grave-worm": ROOT + "base_plague.webp",
+	"skeleton-cavalry": ROOT + "base_skeleton_mist.webp",
+	"mummy-guardian": ROOT + "base_corpse.webp",
+	"soul-reaper": ROOT + "base_skeleton_mist.webp",
+	"bone-hound": ROOT + "base_corpse.webp",
+	"mimic": ROOT + "base_summon.webp",
+	"ice-princess": ROOT + "base_ice.webp",
+}
+
+const WIDE_PORTRAITS := [
+	"skeleton-archer", "corpse-slime", "grave-worm",
+	"skeleton-cavalry", "bone-hound", "mimic",
+]
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"
 const BANNER_NAME := "LayeredCardRibbon"
@@ -39,7 +70,8 @@ static func _art(parent: Control, name: String, texture: Texture2D) -> TextureRe
 static func install(card: TextureButton, slug: String, title: String, selected: bool = false, brands: Array = []) -> bool:
 	if not supports(slug) or card.has_node(BASE_NAME):
 		return false
-	if not (ResourceLoader.exists(BACKGROUND) and ResourceLoader.exists(NAMEPLATE) and ResourceLoader.exists(PORTRAITS[slug])):
+	var background_path: String = str(BACKGROUNDS.get(slug, BACKGROUND))
+	if not (ResourceLoader.exists(background_path) and ResourceLoader.exists(NAMEPLATE) and ResourceLoader.exists(PORTRAITS[slug])):
 		return false
 	var original_texture := card.texture_normal
 	# Keep the original TextureButton texture identity for existing card
@@ -52,7 +84,7 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	card.set_meta("layered_slug", slug)
 	card.set_meta("layered_selected", selected)
 	card.set_meta("layered_hover", false)
-	_art(card, BASE_NAME, load(BACKGROUND))
+	_art(card, BASE_NAME, load(background_path))
 	var actor := _art(card, ACTOR_NAME, load(PORTRAITS[slug]))
 	actor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_art(card, BANNER_NAME, load(NAMEPLATE))
@@ -94,7 +126,7 @@ static func relayout(card: TextureButton) -> void:
 	# Widen only the independent character: its top, spear and arrow can
 	# overlap the frame without stretching the background or bottom label.
 	var slug := str(card.get_meta("layered_slug", ""))
-	var wide := slug == "skeleton-archer"
+	var wide := slug in WIDE_PORTRAITS
 	var portrait_width := 1.20 if wide else 1.13
 	var portrait_height := 0.76 if wide else 0.78
 	actor.position = rect.position + Vector2(-extent.x * (0.10 if wide else 0.07), -extent.y * 0.07)

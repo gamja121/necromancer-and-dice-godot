@@ -14,7 +14,23 @@ func check(ok: bool, name: String) -> void:
 		printerr("FAIL layered-card: ", name)
 
 func _run() -> void:
-	for slug in ["skeleton-spear", "skeleton-archer"]:
+	# Runtime card art is opt-in by slug. All twelve share the same zoom,
+	# real owned brands, return-to-book visual layers and legacy hit texture.
+	var expected_backgrounds := {
+		"skeleton-spear": "base_skeleton.webp",
+		"skeleton-archer": "base_skeleton.webp",
+		"corpse-slime": "base_corpse.webp",
+		"dracula": "base_demon.webp",
+		"ice-lord": "base_ice.webp",
+		"grave-worm": "base_plague.webp",
+		"skeleton-cavalry": "base_skeleton_mist.webp",
+		"mummy-guardian": "base_corpse.webp",
+		"soul-reaper": "base_skeleton_mist.webp",
+		"bone-hound": "base_corpse.webp",
+		"mimic": "base_summon.webp",
+		"ice-princess": "base_ice.webp",
+	}
+	for slug in expected_backgrounds.keys():
 		for dims in [Vector2(136,218), Vector2(121.856,225.216), Vector2(90,120), Vector2(170,302.4)]:
 			var card := TextureButton.new()
 			card.size = dims
@@ -46,6 +62,12 @@ func _run() -> void:
 				check(flight.get_node("LayeredCardCharacter") != card.get_node("LayeredCardCharacter"), "book flight uses independent reusable visual node copies")
 				flight.free()
 			check(base != null and actor != null and ribbon != null and title != null, "independent textures and title")
+			if base != null and actor != null:
+				check(base.texture.resource_path.ends_with(str(expected_backgrounds[slug])), "%s uses the approved legion scenery" % slug)
+				check(actor.texture.resource_path.ends_with("%s.webp" % slug.replace("-", "_")) or slug in ["skeleton-spear", "skeleton-archer"], "%s uses its own cutout art asset" % slug)
+				if dims == Vector2(136, 218):
+					var source_image := actor.texture.get_image()
+					check(source_image.get_pixel(0, 0).a < 0.05 and source_image.get_pixel(source_image.get_width()-1, source_image.get_height()-1).a < 0.05, "%s portrait has transparent exterior pixels" % slug)
 			if base != null and actor != null and ribbon != null and title != null:
 				check(title.text == "검사 이름", "title is runtime text")
 				check(actor.mouse_filter == Control.MOUSE_FILTER_IGNORE and not card.clip_contents, "character protrusion and click passthrough")
