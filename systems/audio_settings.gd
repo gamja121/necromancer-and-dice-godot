@@ -4,8 +4,7 @@ extends Control
 ## Always use the OS default output; Advanced retains only master volume.
 const SAVE = "user://audio_settings.cfg"
 const PANEL_RECT = Rect2(995.84, 82.8, 256.0, 194.0)
-const BRUSH_PANEL = preload("res://assets/map/ui/brush_settings_panel.svg")
-const BRUSH_BUTTON = preload("res://assets/map/ui/brush_settings_button.svg")
+const BrushArt = preload("res://systems/brush_map_settings_art.gd")
 
 var save_file_path: String = SAVE
 var panel: PanelContainer
@@ -58,7 +57,7 @@ func style_action(node: Button, compact: bool = false) -> void:
 	# Brush-painted chips reuse the same nine-slice texture, avoiding the
 	# factory-perfect rounded rectangles of Godot's default theme.
 	var normal = StyleBoxTexture.new()
-	normal.texture = BRUSH_BUTTON
+	normal.texture = BrushArt.painted_texture("button")
 	for side in [SIDE_LEFT,SIDE_RIGHT]:
 		normal.set_texture_margin(side,9.0)
 	for side in [SIDE_TOP,SIDE_BOTTOM]:
@@ -124,7 +123,7 @@ func setup(parent: Control) -> void:
 	# stock rectangle. 24px nine-slice edges preserve corners when the
 	# advanced sound controls increase the height of the settings window.
 	var style = StyleBoxTexture.new()
-	style.texture = BRUSH_PANEL
+	style.texture = BrushArt.painted_texture("panel")
 	for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]:
 		style.set_texture_margin(side,24.0)
 	style.content_margin_left = 20.0
