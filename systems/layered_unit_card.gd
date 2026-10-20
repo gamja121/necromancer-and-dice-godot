@@ -39,6 +39,7 @@ const PORTRAITS := {
 	"scorpion-knight": ROOT + "scorpion_knight.webp",
 	"death-knight": ROOT + "death_knight.webp",
 	"hell-mantis": ROOT + "hell_mantis.webp",
+	"doom-executor": ROOT + "doom_executor.webp",
 }
 
 # Legion scenery stays clipped to the paper card; the character is independent
@@ -74,6 +75,7 @@ const BACKGROUNDS := {
 	"scorpion-knight": ROOT + "base_plague.webp",
 	"death-knight": ROOT + "base_demon.webp",
 	"hell-mantis": ROOT + "base_plague.webp",
+	"doom-executor": ROOT + "base_demon.webp",
 }
 
 const WIDE_PORTRAITS := [
@@ -83,6 +85,7 @@ const WIDE_PORTRAITS := [
 	"boulder-ogre", "orc-warrior",
 	"goblin-rider", "cerberus", "ancient-treant", "spider-knight", "crystal-devourer", "kraken",
 	"stone-golem", "raging-treant", "scorpion-knight", "death-knight", "hell-mantis",
+	"doom-executor",
 ]
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"
