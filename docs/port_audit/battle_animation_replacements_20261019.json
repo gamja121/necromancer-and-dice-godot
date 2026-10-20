@@ -4732,124 +4732,124 @@
       "sha256": "df6de71232d8534af3314c269f6face9acfc1d44545e8163946b54818443c939"
     },
     "assets/battle/frames/spider-knight/attack-01.png": {
-      "git_blob": "61031d1b6f7cff5e85964cf8078151523c3df1bc",
-      "size": 576540,
-      "sha256": "2c32d397bc2d4493f4b920528c96ef2994dbf13a4829d8678ec96678fd6c504e"
+      "git_blob": "76689b80327b24073492a7fe647c9bf448d013af",
+      "size": 522955,
+      "sha256": "c542cefa35410aa053e9d13d4cdf28088af40485b3c021dac75538016d1205c9"
     },
     "assets/battle/frames/spider-knight/attack-02.png": {
-      "git_blob": "4ddf284b67e3a610e728a1632a612f0a05ff26f4",
-      "size": 606898,
-      "sha256": "e879bec083116b077868ddad6a6e1121e957e037d86c8eb4ea440a380a3bade2"
+      "git_blob": "c1558042fa12f0f60a2f235ca69829de6cce0edf",
+      "size": 600535,
+      "sha256": "ed923b1235a1a2f92374b0660ae26714bf08294e3a86b851a172e21539b84817"
     },
     "assets/battle/frames/spider-knight/attack-03.png": {
-      "git_blob": "4f4d6218ad3018523409e9552fc06921b0bd2978",
-      "size": 585452,
-      "sha256": "9ad5c8ec4507fe3a50480c0b895c91b0c743fcc394474d827947c6dee478e4ca"
+      "git_blob": "8b64719c338583b4ee6dce7a88c59583be173687",
+      "size": 594459,
+      "sha256": "07731a497c3af97e7228f6ae6c2899394edeb45ff6a3b6752fd58731544f0cef"
     },
     "assets/battle/frames/spider-knight/attack-04.png": {
-      "git_blob": "591ee25fea03ab12efdf79b0f7c8041053acbd53",
-      "size": 623623,
-      "sha256": "1b598716a82975719377c948f0717863baf84145346edb9d93e898e6496eedf8"
+      "git_blob": "5fdf49ff7e826a698a03072b34ec9b2ba86955c7",
+      "size": 598266,
+      "sha256": "5f92c93eb17e392827ef2fef29910c655cd605355b0af55d77df80c23457595c"
     },
     "assets/battle/frames/spider-knight/attack-05.png": {
-      "git_blob": "91935dac0890e2524bf94b9e93e9af5d50860e36",
-      "size": 573871,
-      "sha256": "22cf79e9fedec147640a9fd6f2626abd4901d86c504cc5fe6afbeae8cf11e67b"
+      "git_blob": "eda5018d1e7f79a6f2d24be2fdd3031db27b3033",
+      "size": 602148,
+      "sha256": "d8a82e3cd36b889bb9bccbe429e9d296d494f45c321dd873ab5eddcdfbf2cc27"
     },
     "assets/battle/frames/spider-knight/attack-06.png": {
-      "git_blob": "89e776621dfd618e6c263ac5550ad6e5bcbc2b34",
-      "size": 548177,
-      "sha256": "dd859c1d75f8cf1509338fa4067758add48be9f4abf8e280a8f3e8b922dc2bc7"
+      "git_blob": "b5c8b994d7fb0d545943750b7da43ba249581c3c",
+      "size": 611143,
+      "sha256": "a5e67dec36c4711b57883568f3e357d9da844f417596bd1859f8fa900c4bcfbf"
     },
     "assets/battle/frames/spider-knight/attack-07.png": {
-      "git_blob": "ad385f63263534003617886a0d83046ab0552e81",
-      "size": 588574,
-      "sha256": "2a46849d10d4c7e023025bca394fa35ce2f184db82968f6529f8eacbc43f6dc1"
+      "git_blob": "b1a9cd71b8dc1d7f9403ec86763c86316412eb1b",
+      "size": 613881,
+      "sha256": "08b0d60e4a2c7dea6fa25bf7dd877cd38ed0d0aae7a40f959d256cfd191b846e"
     },
     "assets/battle/frames/spider-knight/attack-08.png": {
-      "git_blob": "0b00dbd3ec878321d8b2d844cfee24e9eb4e3123",
-      "size": 593291,
-      "sha256": "a1d44b9f86a878073f1e7654eaf2e7e234bcf85e6ec57a2678c900cd172bb673"
+      "git_blob": "16b35bb9f40fbea1475779276c572a77c4fa9a72",
+      "size": 592960,
+      "sha256": "12d1b1474f2e62dcefc4eb2f2579036dfdc00fc9dd0fbbd2378f431d99148155"
     },
     "assets/battle/frames/spider-knight/attack-09.png": {
-      "git_blob": "aac9e1a3a1aab5788610863d191588aca3f83a62",
-      "size": 583810,
-      "sha256": "307918a370071489bdd0107e23e4235a215abf85e7e60e0477256dc3832b5078"
+      "git_blob": "2a307a33b867d2f88470043a30b085076c864ff9",
+      "size": 587027,
+      "sha256": "3c3e32b73b1ea888d93013e87ea9c71de881bb1d85ff1a2a0d1337b2345855e0"
     },
     "assets/battle/frames/spider-knight/attack-10.png": {
-      "git_blob": "0e5647c439716d7c8b4dd772e1c7607fe6e6ca4c",
-      "size": 567966,
-      "sha256": "25657bf943a01a3fa6e6dddc9c2ec7a0bca64a4dbf0b618b5c214a06a839b798"
+      "git_blob": "76689b80327b24073492a7fe647c9bf448d013af",
+      "size": 522955,
+      "sha256": "c542cefa35410aa053e9d13d4cdf28088af40485b3c021dac75538016d1205c9"
     },
     "assets/battle/frames/spider-knight/death-01.png": {
-      "git_blob": "bfbfe92651faf30a3e70ed0e68c077a4f702404f",
-      "size": 531961,
-      "sha256": "cc914f8a38e0ff9cb3bd92786ecd8c108aa6e6d49c33fe2224f9b9c0f5f396bc"
+      "git_blob": "76689b80327b24073492a7fe647c9bf448d013af",
+      "size": 522955,
+      "sha256": "c542cefa35410aa053e9d13d4cdf28088af40485b3c021dac75538016d1205c9"
     },
     "assets/battle/frames/spider-knight/death-02.png": {
-      "git_blob": "5c65d136f1cd1ab53024ad4bc2520689c0c24b3a",
-      "size": 480699,
-      "sha256": "634f8abb2244d6395cf4ca7237ae61b2653ecd9f3db6d76e8ed65c2661d5b8a3"
+      "git_blob": "a878f2b4c3227912f668638377254190dae9e5e8",
+      "size": 524876,
+      "sha256": "e030267b96ca226f8fbfa340a3346df1acc0d02cca4ddc8b11a46f7648b16088"
     },
     "assets/battle/frames/spider-knight/death-03.png": {
-      "git_blob": "ba43cd14aa9482a9135f303660f0a49e27d542e4",
-      "size": 477674,
-      "sha256": "0db9e8901a4f756a024285a15adfa63cdbebe854c485ff0de53677425bacc186"
+      "git_blob": "b34b842f192402dd6aafef5159dc40feb4c49b1c",
+      "size": 389362,
+      "sha256": "2c64ec8baed5b68afd112138aa73cddb04c68993b4a69e3e432a30d972dcb723"
     },
     "assets/battle/frames/spider-knight/death-04.png": {
-      "git_blob": "c002c8fc2a2a8a71a37152a665192642a8b37615",
-      "size": 432531,
-      "sha256": "7b60a44f00fe603d36931e1af2b9b5650aaec8e0a8cbe73997c93e92965fdbbe"
+      "git_blob": "834a6e6d085bfdb82afea9f0c34b0f5e0ec6afde",
+      "size": 277184,
+      "sha256": "5b0916165e18029adf86b4e4716ef22d1068f33cd1556d9e59e0d5a5fbdee80d"
     },
     "assets/battle/frames/spider-knight/death-05.png": {
-      "git_blob": "37ebdd05c3f8ddcbaf9da52b4440c8215598ce9a",
-      "size": 369392,
-      "sha256": "a0ced2d11582ebc54a8e74f5c7e1f0d29e1fffef405d7217350d8092d5b8b09b"
+      "git_blob": "5b71ede28b6613080b5dc29d752a79df927ee4e7",
+      "size": 274758,
+      "sha256": "004ec9ad0b08e062a758a3fd18b66959ec22e4d2f9d6ea82d35a8955b0d3934c"
     },
     "assets/battle/frames/spider-knight/death-06.png": {
-      "git_blob": "137d444c0d1019de709181a65bc4bf4226ecc770",
-      "size": 326452,
-      "sha256": "bc36c7f8e1fe0cf34c9a26d2905be60aa98a7f587b9641de75fb0d179b3a6d64"
+      "git_blob": "76f5717fe374d75519c905a53334d077bebbda27",
+      "size": 259740,
+      "sha256": "e74d1a900d97f95b7ae475cade6a8a8ec71d8250f2ac08c165335e7c6232151d"
     },
     "assets/battle/frames/spider-knight/death-07.png": {
-      "git_blob": "888b33ffc70ea473f09354e041293857c0a6ceac",
-      "size": 261681,
-      "sha256": "d1b4a7d8ebea419f0a2427b249177d761166bfbe8be9ae555eddd5a5f5562a66"
+      "git_blob": "980acd990351da54263bcf1863d9c6e057d53b6a",
+      "size": 259474,
+      "sha256": "e4ba54a6929bc1e30d1e504578b7e6c72cdfb2c62b479dea884beb421ca363fa"
     },
     "assets/battle/frames/spider-knight/death-08.png": {
-      "git_blob": "9426036f64c38cc87c945b01de183d8afa9ec927",
-      "size": 172549,
-      "sha256": "3185119e9fd348b99b7a82ef6a49fc270530bb14443c7c771ac7e7440875c7c3"
+      "git_blob": "9baaa4ad8db07a5e7328c5bd2101d0433c5a2c87",
+      "size": 224447,
+      "sha256": "2c60898afeb743347e4d54157657e98c4bdc926365b2c500a3e25debdd6329de"
     },
     "assets/battle/frames/spider-knight/hit-01.png": {
-      "git_blob": "2bdc4796e4f483e0d3104f8e22e069b730200f73",
-      "size": 588686,
-      "sha256": "51fa6f73a8e088d366173cd3571badc465f5d7ad3bb7cb093a90cdddfb26fb92"
+      "git_blob": "76689b80327b24073492a7fe647c9bf448d013af",
+      "size": 522955,
+      "sha256": "c542cefa35410aa053e9d13d4cdf28088af40485b3c021dac75538016d1205c9"
     },
     "assets/battle/frames/spider-knight/hit-02.png": {
-      "git_blob": "8f9beb88e5d813ed232c9aaf75e8e4c017be1a0a",
-      "size": 565088,
-      "sha256": "1d35d2020f30286fdf39e316f5f8f1cc38a8d7e7423b47e72d075e0861aff979"
+      "git_blob": "dab398170180b2885f2e2d91332d546ed8c8c196",
+      "size": 601044,
+      "sha256": "597061b81b11db81d451492d375f74ba131d536d53f95412be2852e3bf0432e8"
     },
     "assets/battle/frames/spider-knight/hit-03.png": {
-      "git_blob": "0826d587f6362cbf78224594430c9de109a2581d",
-      "size": 593128,
-      "sha256": "52b6c3b7c2726b898645a989a8995b8e239c035cdeb177ee0b5f4a9fcd7132b9"
+      "git_blob": "670560a1bc1c0fbe8fea8313b39b0947a06c029a",
+      "size": 602169,
+      "sha256": "fdc7a83527fa7a1906da7795e7673ad6392a4eb6dd48b34aaa775ed42fcedc61"
     },
     "assets/battle/frames/spider-knight/hit-04.png": {
-      "git_blob": "31131fcfec55f769038979e867c1cb938fa0daa3",
-      "size": 567787,
-      "sha256": "0bed12486cf93619c092156920148af5dc32cd740b79c3d9e0fa643380ff85b8"
+      "git_blob": "b2bfb0f01b7e3ef9d156bd25956f9908a8ae9f09",
+      "size": 605092,
+      "sha256": "461c61743feed1cbec114b5166cbc5302dc27fc0258e91e6270e98a3a990ef46"
     },
     "assets/battle/frames/spider-knight/hit-05.png": {
-      "git_blob": "3f793013f458a781f68f656b98aca53d95d88b3a",
-      "size": 588147,
-      "sha256": "92027ce3f81a0d8f9987fbbb059712dcd22f47f6c3da29bd50fb544128291381"
+      "git_blob": "a226777d510d81af901f516e05fadfb1c500f645",
+      "size": 609056,
+      "sha256": "9d7f4e5d3b874330690b669827f2e1b01106ef8347312317dc355fd013fafb95"
     },
     "assets/battle/frames/spider-knight/hit-06.png": {
-      "git_blob": "81647dd8ad4c33cf3c480bed0c49cd3bb160f66d",
-      "size": 576764,
-      "sha256": "e7dabece3611219f361755a42002603fd40a181802e1fa6dd80fcfbdf8ac5ee8"
+      "git_blob": "76689b80327b24073492a7fe647c9bf448d013af",
+      "size": 522955,
+      "sha256": "c542cefa35410aa053e9d13d4cdf28088af40485b3c021dac75538016d1205c9"
     },
     "assets/battle/frames/spiderling/attack-01.png": {
       "git_blob": "b448dfcbf8ffea8ddef5a31d40e0e9ff732b0b32",
@@ -5211,5 +5211,137 @@
       "size": 394251,
       "sha256": "9b360cc2e4d781c07e4a913c1df2233963d6b0ef4ebae0a76c6cb7889595b097"
     }
-  }
+  },
+  "subsequent_owner_requested_replacements": [
+    {
+      "date": "2026-10-20",
+      "unit": "spider-knight",
+      "authorization": "일단게임에 적용해",
+      "asset_commit": "9b1c8e9f23d2018169b1456f8d4154cc8eb5f238",
+      "candidate_build_key": "7b86adba5b0c5c2c3b4294c396bb7b1fbe3450e503be986362010117900db859",
+      "verification": "docs/spider_queen_runtime_2026_10_20.md",
+      "previous_frame_pins": {
+        "assets/battle/frames/spider-knight/attack-01.png": {
+          "git_blob": "61031d1b6f7cff5e85964cf8078151523c3df1bc",
+          "size": 576540,
+          "sha256": "2c32d397bc2d4493f4b920528c96ef2994dbf13a4829d8678ec96678fd6c504e"
+        },
+        "assets/battle/frames/spider-knight/attack-02.png": {
+          "git_blob": "4ddf284b67e3a610e728a1632a612f0a05ff26f4",
+          "size": 606898,
+          "sha256": "e879bec083116b077868ddad6a6e1121e957e037d86c8eb4ea440a380a3bade2"
+        },
+        "assets/battle/frames/spider-knight/attack-03.png": {
+          "git_blob": "4f4d6218ad3018523409e9552fc06921b0bd2978",
+          "size": 585452,
+          "sha256": "9ad5c8ec4507fe3a50480c0b895c91b0c743fcc394474d827947c6dee478e4ca"
+        },
+        "assets/battle/frames/spider-knight/attack-04.png": {
+          "git_blob": "591ee25fea03ab12efdf79b0f7c8041053acbd53",
+          "size": 623623,
+          "sha256": "1b598716a82975719377c948f0717863baf84145346edb9d93e898e6496eedf8"
+        },
+        "assets/battle/frames/spider-knight/attack-05.png": {
+          "git_blob": "91935dac0890e2524bf94b9e93e9af5d50860e36",
+          "size": 573871,
+          "sha256": "22cf79e9fedec147640a9fd6f2626abd4901d86c504cc5fe6afbeae8cf11e67b"
+        },
+        "assets/battle/frames/spider-knight/attack-06.png": {
+          "git_blob": "89e776621dfd618e6c263ac5550ad6e5bcbc2b34",
+          "size": 548177,
+          "sha256": "dd859c1d75f8cf1509338fa4067758add48be9f4abf8e280a8f3e8b922dc2bc7"
+        },
+        "assets/battle/frames/spider-knight/attack-07.png": {
+          "git_blob": "ad385f63263534003617886a0d83046ab0552e81",
+          "size": 588574,
+          "sha256": "2a46849d10d4c7e023025bca394fa35ce2f184db82968f6529f8eacbc43f6dc1"
+        },
+        "assets/battle/frames/spider-knight/attack-08.png": {
+          "git_blob": "0b00dbd3ec878321d8b2d844cfee24e9eb4e3123",
+          "size": 593291,
+          "sha256": "a1d44b9f86a878073f1e7654eaf2e7e234bcf85e6ec57a2678c900cd172bb673"
+        },
+        "assets/battle/frames/spider-knight/attack-09.png": {
+          "git_blob": "aac9e1a3a1aab5788610863d191588aca3f83a62",
+          "size": 583810,
+          "sha256": "307918a370071489bdd0107e23e4235a215abf85e7e60e0477256dc3832b5078"
+        },
+        "assets/battle/frames/spider-knight/attack-10.png": {
+          "git_blob": "0e5647c439716d7c8b4dd772e1c7607fe6e6ca4c",
+          "size": 567966,
+          "sha256": "25657bf943a01a3fa6e6dddc9c2ec7a0bca64a4dbf0b618b5c214a06a839b798"
+        },
+        "assets/battle/frames/spider-knight/hit-01.png": {
+          "git_blob": "2bdc4796e4f483e0d3104f8e22e069b730200f73",
+          "size": 588686,
+          "sha256": "51fa6f73a8e088d366173cd3571badc465f5d7ad3bb7cb093a90cdddfb26fb92"
+        },
+        "assets/battle/frames/spider-knight/hit-02.png": {
+          "git_blob": "8f9beb88e5d813ed232c9aaf75e8e4c017be1a0a",
+          "size": 565088,
+          "sha256": "1d35d2020f30286fdf39e316f5f8f1cc38a8d7e7423b47e72d075e0861aff979"
+        },
+        "assets/battle/frames/spider-knight/hit-03.png": {
+          "git_blob": "0826d587f6362cbf78224594430c9de109a2581d",
+          "size": 593128,
+          "sha256": "52b6c3b7c2726b898645a989a8995b8e239c035cdeb177ee0b5f4a9fcd7132b9"
+        },
+        "assets/battle/frames/spider-knight/hit-04.png": {
+          "git_blob": "31131fcfec55f769038979e867c1cb938fa0daa3",
+          "size": 567787,
+          "sha256": "0bed12486cf93619c092156920148af5dc32cd740b79c3d9e0fa643380ff85b8"
+        },
+        "assets/battle/frames/spider-knight/hit-05.png": {
+          "git_blob": "3f793013f458a781f68f656b98aca53d95d88b3a",
+          "size": 588147,
+          "sha256": "92027ce3f81a0d8f9987fbbb059712dcd22f47f6c3da29bd50fb544128291381"
+        },
+        "assets/battle/frames/spider-knight/hit-06.png": {
+          "git_blob": "81647dd8ad4c33cf3c480bed0c49cd3bb160f66d",
+          "size": 576764,
+          "sha256": "e7dabece3611219f361755a42002603fd40a181802e1fa6dd80fcfbdf8ac5ee8"
+        },
+        "assets/battle/frames/spider-knight/death-01.png": {
+          "git_blob": "bfbfe92651faf30a3e70ed0e68c077a4f702404f",
+          "size": 531961,
+          "sha256": "cc914f8a38e0ff9cb3bd92786ecd8c108aa6e6d49c33fe2224f9b9c0f5f396bc"
+        },
+        "assets/battle/frames/spider-knight/death-02.png": {
+          "git_blob": "5c65d136f1cd1ab53024ad4bc2520689c0c24b3a",
+          "size": 480699,
+          "sha256": "634f8abb2244d6395cf4ca7237ae61b2653ecd9f3db6d76e8ed65c2661d5b8a3"
+        },
+        "assets/battle/frames/spider-knight/death-03.png": {
+          "git_blob": "ba43cd14aa9482a9135f303660f0a49e27d542e4",
+          "size": 477674,
+          "sha256": "0db9e8901a4f756a024285a15adfa63cdbebe854c485ff0de53677425bacc186"
+        },
+        "assets/battle/frames/spider-knight/death-04.png": {
+          "git_blob": "c002c8fc2a2a8a71a37152a665192642a8b37615",
+          "size": 432531,
+          "sha256": "7b60a44f00fe603d36931e1af2b9b5650aaec8e0a8cbe73997c93e92965fdbbe"
+        },
+        "assets/battle/frames/spider-knight/death-05.png": {
+          "git_blob": "37ebdd05c3f8ddcbaf9da52b4440c8215598ce9a",
+          "size": 369392,
+          "sha256": "a0ced2d11582ebc54a8e74f5c7e1f0d29e1fffef405d7217350d8092d5b8b09b"
+        },
+        "assets/battle/frames/spider-knight/death-06.png": {
+          "git_blob": "137d444c0d1019de709181a65bc4bf4226ecc770",
+          "size": 326452,
+          "sha256": "bc36c7f8e1fe0cf34c9a26d2905be60aa98a7f587b9641de75fb0d179b3a6d64"
+        },
+        "assets/battle/frames/spider-knight/death-07.png": {
+          "git_blob": "888b33ffc70ea473f09354e041293857c0a6ceac",
+          "size": 261681,
+          "sha256": "d1b4a7d8ebea419f0a2427b249177d761166bfbe8be9ae555eddd5a5f5562a66"
+        },
+        "assets/battle/frames/spider-knight/death-08.png": {
+          "git_blob": "9426036f64c38cc87c945b01de183d8afa9ec927",
+          "size": 172549,
+          "sha256": "3185119e9fd348b99b7a82ef6a49fc270530bb14443c7c771ac7e7440875c7c3"
+        }
+      }
+    }
+  ]
 }
