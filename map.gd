@@ -48,7 +48,7 @@ const TILE_EVENT_PATROL_RECT = Rect2(515.0,595.0,216.0,58.0)
 # Frozen CSS places the ghoul at 55%/18% of the event art frame,
 # sized to 30%/64% (not stretched across the whole scene).
 const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
-const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/shared_dialogue_panel.svg"
+const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
 const SHARED_DIALOGUE_RECT = Rect2(205.0, 516.0, 870.0, 132.0)
 const GRAVEYARD_DIALOGUE_RECT = SHARED_DIALOGUE_RECT # unified 132-pixel safe parchment
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -285,7 +285,7 @@ func image(parent: Control, path: String, pos: Vector2, dimensions: Vector2) -> 
 	return node
 
 func shared_story_frame(panel: Control) -> TextureRect:
-	# Decorative art only. No labels, buttons, named tabs, hit-testing or saved state.
+	# Reuse the original web dialogue parchment; it does not own text, clicks or saved state.
 	var frame = image(panel, GRAVEYARD_DIALOGUE_FRAME, SHARED_DIALOGUE_RECT.position, SHARED_DIALOGUE_RECT.size)
 	frame.name = "SharedStoryDialogueFrame"
 	frame.stretch_mode = TextureRect.STRETCH_SCALE

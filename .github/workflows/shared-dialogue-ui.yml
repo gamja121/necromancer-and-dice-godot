@@ -1,8 +1,9 @@
-name: Shared Parchment Dialogue UI
+name: Original Parchment Dialogue UI
 on:
   pull_request:
     paths:
-      - 'assets/map/ui/shared_dialogue_panel.svg'
+      - 'assets/map/ui/intro-dialogue-box.webp'
+      - 'assets/intro/dialogue_frame.webp'
       - 'systems/intro_scene.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
@@ -11,7 +12,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'assets/map/ui/shared_dialogue_panel.svg'
+      - 'assets/map/ui/intro-dialogue-box.webp'
+      - 'assets/intro/dialogue_frame.webp'
       - 'systems/intro_scene.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
@@ -32,7 +34,7 @@ jobs:
           set -euo pipefail
           timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
-      - name: Verify shared parchment UI across intro and events
+      - name: Verify original parchment UI across intro and events
         run: |
           set -euo pipefail
           timeout 180s godot --headless --path . --script res://scripts/test_shared_dialogue_panel.gd 2>&1 | tee shared.log
