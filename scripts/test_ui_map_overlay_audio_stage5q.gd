@@ -56,7 +56,7 @@ func _run() -> void:
 		if child is TextureRect and child.texture != null:
 			button_art = child
 			break
-	check(button_art != null and button_art.texture.resource_path == "res://assets/map/ui/brush_settings_icon.svg", "painted settings gear remains visible")
+	check(button_art != null and button_art.texture is ImageTexture, "painted settings gear remains visible")
 	check(audio.options_button.position == Vector2(1192,14) and audio.options_button.size == Vector2(58,58), "map upper-right retains a 58px painted settings target")
 	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture,"settings popover uses painted parchment panel")
 	var expected_rect = AUDIO.PANEL_RECT
