@@ -23,13 +23,28 @@ func _run() -> void:
 			card.texture_normal = load("res://assets/cards/unit-card-%s.png" % slug)
 			var original := card.texture_normal
 			root.add_child(card)
-			check(Layered.install(card, slug, "검사 이름"), "%s installed at %s" % [slug, dims])
+			var owned_brands: Array = [{"type":"critical"}, {"type":"freeze"}, {"type":"counter"}]
+			check(Layered.install(card, slug, "검사 이름", false, owned_brands), "%s installed at %s" % [slug, dims])
 			check(card.texture_normal == original, "original TextureButton art identity remains available")
 			check(is_zero_approx(card.self_modulate.a), "only the flattened art is hidden, not the children")
 			var base := card.get_node_or_null("LayeredCardBase") as TextureRect
 			var actor := card.get_node_or_null("LayeredCardCharacter") as TextureRect
 			var ribbon := card.get_node_or_null("LayeredCardRibbon") as TextureRect
 			var title := card.get_node_or_null("LayeredCardTitle") as Label
+			var brands := card.get_node_or_null("LayeredCardBrands") as Control
+			check(brands != null and brands.get_child_count() == 3, "three owned brands displayed with atlas art")
+			if brands != null and brands.get_child_count() == 3:
+				var first := brands.get_child(0) as TextureRect
+				var second := brands.get_child(1) as TextureRect
+				var third := brands.get_child(2) as TextureRect
+				check(first.texture is AtlasTexture and second.texture is AtlasTexture and third.texture is AtlasTexture, "brand icons use existing atlases")
+				check(first.position.x == 0.0 and first.position.y == second.position.y and first.position.y == third.position.y and first.position.x < second.position.x and second.position.x < third.position.x, "owned brand icons form one left-aligned row")
+			var flight := Layered.flight_visual_copy(card)
+			check(flight != null and flight.has_node("LayeredCardCharacter") and flight.has_node("LayeredCardBrands") and flight.has_node("LayeredCardBase") and flight.has_node("LayeredCardRibbon"), "book flight keeps ALL separately rendered visual layers")
+			if flight != null:
+				check((flight.get_node("LayeredCardBrands") as Control).get_child_count() == 3, "book flight keeps actual owned brand icons")
+				check(flight.get_node("LayeredCardCharacter") != card.get_node("LayeredCardCharacter"), "book flight uses independent reusable visual node copies")
+				flight.free()
 			check(base != null and actor != null and ribbon != null and title != null, "independent textures and title")
 			if base != null and actor != null and ribbon != null and title != null:
 				check(title.text == "검사 이름", "title is runtime text")
@@ -42,12 +57,17 @@ func _run() -> void:
 				check(actor.size.x < old_width, "layer responds to changed card size")
 				Layered.set_selected(card, true)
 				check(bool(card.get_meta("layered_selected", false)), "selection affects artwork only")
+			Layered.sync_brands(card, [{"type":"healing"}])
+			check((card.get_node("LayeredCardBrands") as Control).get_child_count() == 1, "updated owned brands replace the old icons")
+			Layered.sync_brands(card, [])
+			check((card.get_node("LayeredCardBrands") as Control).get_child_count() == 0, "no brands displays no placeholder icons")
 			card.queue_free()
 	var unrelated := TextureButton.new()
 	unrelated.size = Vector2(120,220)
 	unrelated.texture_normal = load("res://assets/cards/unit-card-siren.png")
 	root.add_child(unrelated)
 	check(not Layered.install(unrelated, "siren", "세이렌"), "other monsters keep original cards")
+	check(Layered.flight_visual_copy(unrelated) == null, "unlayered cards use the existing flight art path")
 	unrelated.queue_free()
 	print("LAYERED_CARD_REGRESSION: %d failures" % failed)
 	quit(0 if failed==0 else 1)
