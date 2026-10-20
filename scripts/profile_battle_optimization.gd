@@ -113,6 +113,11 @@ func _run() -> void:
 	for i in range(8): scene.visuals.show_reports([report])
 	print("BATTLE_EIGHT_HEAL_REPORTS_CPU_US: ",Time.get_ticks_usec()-start)
 	print("BATTLE_EIGHT_HEAL_REPORTS_NODES: ",scene.visuals.art_items.size())
+	if not capture_dir.is_empty():
+		scene.paused = false
+		await scene.wait_time(0.08)
+		scene.paused = true
+		await capture("06_healing_effects")
 	scene.paused = false
 	await scene.wait_time(1.3)
 	check(scene.visuals.art_items.is_empty(),"stacked healing effects expire without lingering active items")

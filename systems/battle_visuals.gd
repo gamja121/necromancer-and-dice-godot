@@ -178,7 +178,7 @@ func _process(delta: float) -> void:
 		item.node.visible = age>=0
 		if age<0: continue
 		if age>=item.life:
-			item.node.queue_free()
+			original.release_art(item.node)
 			art_items.remove_at(i)
 			continue
 		if item.get("pop",false):
@@ -454,7 +454,7 @@ func heal_crosses(id: String, amount: int) -> void:
 	for i in range(count):
 		var entry: Array = pattern[i]
 		var size = float(entry[2])
-		var node = original.sprite(self,load(OriginalEffects.ROOT+"heal-cross.png"),"cross",Vector2(size,size))
+		var node = original.sprite(self,original.sheet_texture("heal-cross.png"),"cross",Vector2(size,size))
 		add_art(node,center_of(id)+Vector2(entry[0],entry[1])-node.size/2,float(entry[4])/1000,Vector2(entry[5],-48),[],0.065,float(entry[3])/1000)
 
 

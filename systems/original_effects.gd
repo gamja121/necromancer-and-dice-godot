@@ -109,15 +109,41 @@ func crop(sheet: String, cell: Array) -> Texture2D:
 		cache[key] = frame
 	return cache[key]
 
+const MAX_IDLE_SPRITES: int = 64
+var idle_sprites: Array[TextureRect] = []
+
+# Only direct, self-managed art sprites are returned here. Number containers
+# and their glyph children retain their existing lifetime.
+func release_art(node: Control) -> void:
+	if node is TextureRect and idle_sprites.has(node): return
+	if not node is TextureRect or idle_sprites.size()>=MAX_IDLE_SPRITES:
+		node.queue_free()
+		return
+	node.hide()
+	node.texture = null
+	node.material = null
+	idle_sprites.append(node)
+
 func sprite(parent: Control, texture: Texture2D, kind: String, dimensions: Vector2) -> TextureRect:
-	var node = TextureRect.new()
+	var node: TextureRect = idle_sprites.pop_back() if not idle_sprites.is_empty() and idle_sprites.back().get_parent()==parent else TextureRect.new()
+	node.show()
+	node.position = Vector2.ZERO
+	node.scale = Vector2.ONE
+	node.rotation = 0.0
+	node.pivot_offset = Vector2.ZERO
+	node.modulate = Color.WHITE
+	node.self_modulate = Color.WHITE
+	node.flip_h = false
+	node.flip_v = false
+	node.z_index = 0
 	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	node.texture = texture
 	node.size = dimensions
 	node.stretch_mode = TextureRect.STRETCH_SCALE
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if kind!="cross": node.material = material(kind)
-	parent.add_child(node)
+	node.material = null if kind=="cross" else material(kind)
+	if node.get_parent()==null: parent.add_child(node)
+	else: parent.move_child(node,-1)
 	return node
 
 func number(parent: Control, amount: int) -> Control:
