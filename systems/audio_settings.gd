@@ -61,6 +61,11 @@ static func brush_style(source: Texture2D, inset_x: float, inset_y: float) -> St
 	painted.texture_margin_right = inset_x
 	painted.texture_margin_top = inset_y
 	painted.texture_margin_bottom = inset_y
+	# Painting border slices must not become huge logical button padding.
+	painted.content_margin_left = 5.0
+	painted.content_margin_right = 5.0
+	painted.content_margin_top = 3.0
+	painted.content_margin_bottom = 3.0
 	return painted
 
 func style_action(node: Button, compact: bool = false) -> void:
