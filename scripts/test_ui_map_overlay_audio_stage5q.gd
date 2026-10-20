@@ -51,15 +51,14 @@ func _run() -> void:
 	var audio = map.map_audio
 	check(is_instance_valid(audio) and audio.options_button.name == "MapOptionsButton", "real map instantiates original sound icon")
 	check(is_unblocked(map), "source map starts with clickable icon and a closed options panel")
-	var button_art: TextureRect
-	for child in audio.options_button.get_children():
-		if child is TextureRect and child.texture != null:
-			button_art = child
-			break
-	check(button_art != null and button_art.texture.resource_path == "res://assets/map/ui/map_audio_options.webp", "byte-exact original audio icon remains visible")
-	check(audio.options_button.position == Vector2(1053,133) and audio.options_button.size == Vector2(58,58), "source map icon retains the existing footprint")
+	var brush_icon: StyleBox = audio.options_button.get_theme_stylebox("normal")
+	check(brush_icon is StyleBoxTexture and (brush_icon as StyleBoxTexture).texture.resource_path == "res://assets/map/ui/brush_settings_button.svg",
+		"map settings button uses the ink-brush illustration without a separate old icon")
+	check(audio.options_button.text=="설정" and audio.options_button.position==Vector2(1164,20) and audio.options_button.size==Vector2(90,50),
+		"brush-painted settings remains in map upper-right")
 	var expected_rect = AUDIO.PANEL_RECT
-	check(audio.panel.position.distance_to(expected_rect.position) < 1.0 and absf(audio.panel.size.x-expected_rect.size.x)<1.0, "source OPTION popup coordinates remain unchanged")
+	check(audio.panel.position.distance_to(expected_rect.position)<1.0 and absf(audio.panel.size.x-expected_rect.size.x)<1.0,
+		"brush settings popup is aligned below map button")
 	audio.options_button.pressed.emit()
 	check(audio.panel.visible, "map icon opens original OPTION controls")
 	var before_snapshot: Dictionary = session.world.snapshot().duplicate(true)
