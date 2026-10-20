@@ -5,6 +5,12 @@ on:
       - "map.gd"
       - "battlefield.gd"
       - "systems/battle_visuals.gd"
+      - "systems/presentation_accent.gd"
+      - "systems/combat_cues.gd"
+      - "systems/battle_deck.gd"
+      - "systems/map_presentation.gd"
+      - "systems/event_discovery_card.gd"
+      - "scripts/test_natural_presentation.gd"
       - "scripts/test_battle_entry_summon.gd"
       - "scripts/test_p4_combat_map_return_integration.gd"
       - ".github/workflows/battle-entry-summon.yml"
@@ -14,6 +20,12 @@ on:
       - "map.gd"
       - "battlefield.gd"
       - "systems/battle_visuals.gd"
+      - "systems/presentation_accent.gd"
+      - "systems/combat_cues.gd"
+      - "systems/battle_deck.gd"
+      - "systems/map_presentation.gd"
+      - "systems/event_discovery_card.gd"
+      - "scripts/test_natural_presentation.gd"
       - "scripts/test_battle_entry_summon.gd"
       - "scripts/test_p4_combat_map_return_integration.gd"
       - ".github/workflows/battle-entry-summon.yml"
@@ -41,6 +53,13 @@ jobs:
           set -euo pipefail
           timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Presentation input, save, pause and confirmed-impact contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 250s godot --headless --path . --script res://scripts/test_natural_presentation.gd --fixed-fps 60 2>&1 | tee presentation.log
+          grep -E '^NATURAL_PRESENTATION: [0-9]+ passed, 0 failed$' presentation.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|^FAIL natural-presentation:' presentation.log; then exit 1; fi
       - name: Summon 1, 2 and 4 allies with a circle and black-to-art reveal
         shell: bash
         run: |

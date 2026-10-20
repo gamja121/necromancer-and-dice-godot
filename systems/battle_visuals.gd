@@ -1,6 +1,7 @@
 extends Control
 const OriginalEffects = preload("res://systems/original_effects.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
+const Accent = preload("res://systems/presentation_accent.gd")
 
 class Ground extends Control:
 	var effects
@@ -379,6 +380,7 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 				scene.cues.show_damage(report.amount)
 				if report.amount>0:
 					play_hit(target_id,original.hit_kind(actor.slug))
+					play_species_accent(actor_id,target_id)
 					scene.sound("heavy" if attack_kind(actor)=="heavy" else "hit")
 					flashes[target_id] = clock+0.26*speed
 					var target_profile: Dictionary = scene.presentation_layout.metrics.get(states[target_id].slug,{})
@@ -401,6 +403,28 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 	while hit_motions.has(target_id): await scene.wait_presentation(0.01)
 	active.erase(actor_id)
 	sprite.texture = scene.texture(scene.frame_path(actor,"attack",1))
+
+func play_species_accent(actor_id: String, target_id: String) -> void:
+	var actor: Dictionary = states[actor_id]
+	var effect_kind := ""
+	var points: Array[Vector2] = []
+	var color := Color("9f927d")
+	if actor.slug=="spider-knight":
+		effect_kind = "silk"
+		color = Color("d0cbb7")
+		points = [center_of(actor_id),center_of(target_id)]
+	elif "skeleton" in actor.legions:
+		effect_kind = "bone"
+		color = Color("c7bca3")
+		points = [center_of(target_id)]
+	elif attack_kind(actor)=="heavy":
+		effect_kind = "dust"
+		points = [Vector2(center_of(target_id).x,scene.unit_floor_y())]
+	if effect_kind.is_empty(): return
+	var reference = weakref(self)
+	Accent.create(self,effect_kind,points,color,0.65,func():
+		var live = reference.get_ref()
+		return float(live.clock) if is_instance_valid(live) else 999999.0)
 
 func add_art(node: Control, origin: Vector2, life: float, velocity: Vector2 = Vector2.ZERO, frames: Array = [], interval: float = 0.065, delay: float = 0.0) -> void:
 	node.position = origin

@@ -9,6 +9,7 @@ const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
 const BattleRules = preload("res://systems/battlefield_rules.gd")
+const Accent = preload("res://systems/presentation_accent.gd")
 const TARGET_RATES = {1:[100],2:[35,65],3:[20,33,47],4:[15,20,27,38]}
 var click_audio: AudioStreamPlayer
 var card_shader: Shader
@@ -22,6 +23,7 @@ var hand: Control
 var status: Label
 var confirm_button: Button
 var info_window: Control
+var active_legion_keys: Array = []
 
 func setup(roster: Array) -> void:
 	owned = roster.duplicate(true)
@@ -258,6 +260,39 @@ func render_selection() -> void:
 	# list in the narrow status area, especially on mobile.
 	status.text = "출전 마물 %d/4 · 선택 순서대로 피격 확률 표시" % selected_ids.size()
 	confirm_button.disabled = selected_ids.is_empty()
+	show_new_legion_links()
+
+func show_new_legion_links() -> void:
+	var previous := board.get_node_or_null("PresentationAccent_legion")
+	if is_instance_valid(previous):
+		board.remove_child(previous)
+		previous.queue_free()
+	var selected: Array = []
+	for id in selected_ids:
+		for unit in owned:
+			if str(unit.id)==str(id): selected.append(unit)
+	var groups := Accent.legion_groups(selected,BattleRules.NEED)
+	var newly_active: Array = []
+	var points: Array[Vector2] = []
+	var names := {"skeleton":"언데드","beast":"야수","corpse":"시체","plague":"역병","ice":"얼음","summon":"소환","demon":"악마","plant":"식물","insect":"벌레","element":"원소"}
+	var captions: Array[String] = []
+	for key in groups:
+		if key in active_legion_keys: continue
+		newly_active.append(key)
+		captions.append(str(names.get(key,key)))
+	for i in range(selected.size()):
+		var participates := false
+		for key in newly_active:
+			if str(selected[i].id) in groups[key]: participates = true
+		if not participates: continue
+		var node: Control = lineup.get_node_or_null("SelectedUnit_%d" % (i+1))
+		if is_instance_valid(node):
+			points.append(board.get_global_transform_with_canvas().affine_inverse()*(node.get_global_transform_with_canvas()*(node.size*Vector2(0.5,0.80))))
+	active_legion_keys = groups.keys()
+	if points.is_empty(): return
+	var cue := Accent.create(board,"legion",points,Color("e6c68b"),0.80)
+	cue.caption = " · ".join(captions)+" 군단 성립"
+	cue.caption_rect = Rect2(230,89,710,32)
 
 
 ## One real owned-instance panel, with a disposable battle-rules preview.

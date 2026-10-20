@@ -1,4 +1,5 @@
 extends Control
+const Accent = preload("res://systems/presentation_accent.gd")
 # Only displays confirmed battle data; never changes rules, saves or gameplay RNG.
 const DICE_TIME = 0.20
 const NAMES = {"critical":"치명타","vampire":"흡혈","combo":"연타","freeze":"빙결","poison":"독","guard":"보호","summon":"소환","counter":"반격","healing":"치유","lightspeed":"광속"}
@@ -100,6 +101,29 @@ func play_dice_result(face: int) -> void:
 func play_intent(actor_id: String, target_id: String) -> void:
 	if not scene.sprites.has(actor_id) or not scene.sprites.has(target_id): return
 	await scene.wait_presentation(0.32,0.18)
+
+func play_legion_entry() -> void:
+	var active: Array[String] = []
+	var points: Array[Vector2] = []
+	for key in scene.rules.legions.get("ally",{}).get("active",[]):
+		if scene.rules.active("ally",key): active.append(str(key))
+	if active.is_empty(): return
+	for unit in scene.rules.units:
+		if unit.team!="ally" or unit.is_summon or not unit.alive: continue
+		var participates := false
+		for key in unit.legions:
+			if key in active: participates = true
+		if participates: points.append(Vector2(scene.unit_x(unit),scene.unit_floor_y()-6.0))
+	if points.is_empty(): return
+	var visual = weakref(scene.visuals)
+	var cue := Accent.create(self,"legion",points,Color("e0c28a"),0.90,func():
+		var live = visual.get_ref()
+		return float(live.clock) if is_instance_valid(live) else 999999.0)
+	var captions: Array[String] = []
+	for key in active: captions.append(str(scene.LEGIONS.get(key,key)))
+	cue.caption = " · ".join(captions)+" 군단"
+	cue.caption_rect = Rect2(size.x*0.15,size.y*0.10,size.x*0.7,32)
+	await scene.wait_presentation(0.90)
 
 func show_attack(name_text: String) -> void:
 	step("공격 "+name_text,Color("ffd39b"))

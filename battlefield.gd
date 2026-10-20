@@ -407,6 +407,8 @@ func _play_entry_summon(ids: Array) -> void:
 		await visuals.play_entry_summon_unit(str(id))
 		if not is_inside_tree(): return
 	visuals.clear_entry_summon()
+	await cues.play_legion_entry()
+	if not is_inside_tree(): return
 	entry_summon_active=false
 	if is_instance_valid(capture_panel):
 		refresh_after_entry_capture()
