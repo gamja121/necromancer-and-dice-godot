@@ -27,6 +27,13 @@ const PORTRAITS := {
 	"abyss-harpy": ROOT + "abyss_harpy.webp",
 	"boulder-ogre": ROOT + "boulder_ogre.webp",
 	"orc-warrior": ROOT + "orc_warrior.webp",
+	"goblin-rider": ROOT + "goblin_rider.webp",
+	"mushroom-soldier": ROOT + "mushroom_soldier.webp",
+	"cerberus": ROOT + "cerberus.webp",
+	"ancient-treant": ROOT + "ancient_treant.webp",
+	"spider-knight": ROOT + "spider_knight.webp",
+	"crystal-devourer": ROOT + "crystal_devourer.webp",
+	"kraken": ROOT + "kraken.webp",
 }
 
 # Legion scenery stays clipped to the paper card; the character is independent
@@ -50,6 +57,13 @@ const BACKGROUNDS := {
 	"abyss-harpy": ROOT + "base_demon.webp",
 	"boulder-ogre": ROOT + "base_beast.webp",
 	"orc-warrior": ROOT + "base_beast.webp",
+	"goblin-rider": ROOT + "base_beast.webp",
+	"mushroom-soldier": ROOT + "base_plant.webp",
+	"cerberus": ROOT + "base_beast.webp",
+	"ancient-treant": ROOT + "base_plant.webp",
+	"spider-knight": ROOT + "base_summon.webp",
+	"crystal-devourer": ROOT + "base_plant.webp",
+	"kraken": ROOT + "base_ice.webp",
 }
 
 const WIDE_PORTRAITS := [
@@ -57,6 +71,7 @@ const WIDE_PORTRAITS := [
 	"skeleton-cavalry", "bone-hound", "mimic",
 	"hydra", "flesh-golem", "bone-golem", "abyss-harpy",
 	"boulder-ogre", "orc-warrior",
+	"goblin-rider", "cerberus", "ancient-treant", "spider-knight", "crystal-devourer", "kraken",
 ]
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"
