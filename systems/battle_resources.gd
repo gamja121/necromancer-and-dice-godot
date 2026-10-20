@@ -5,6 +5,9 @@ var pending: Array[String] = []
 var requested: Dictionary = {}
 var queued: Dictionary = {}
 
+func _ready() -> void:
+	set_process(not pending.is_empty() or not requested.is_empty())
+
 func setup(world) -> void:
 	var metadata = JSON.parse_string(FileAccess.get_file_as_string("res://assets/battle/effects/original_effects.json"))
 	for config in metadata.effects.values():
@@ -23,19 +26,25 @@ func enqueue(path: String) -> void:
 	if queued.has(path) or not ResourceLoader.exists(path): return
 	queued[path] = true
 	pending.append(path)
+	set_process(true)
 
 func _process(_delta: float) -> void:
 	if not pending.is_empty():
 		var path: String = pending.pop_front()
 		var result = ResourceLoader.load_threaded_request(path)
 		if result == OK: requested[path] = true
+		else: resources[path] = null
 	# Never block waiting for unfinished disk work. Accept at most one result per frame.
+	var finished: String = ""
 	for path in requested:
-		if resources.has(path): continue
 		var status = ResourceLoader.load_threaded_get_status(path)
 		if status == ResourceLoader.THREAD_LOAD_LOADED:
 			resources[path] = ResourceLoader.load_threaded_get(path)
+			finished = path
 			break
-		if status == ResourceLoader.THREAD_LOAD_FAILED:
+		if status in [ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE]:
 			resources[path] = null
+			finished = path
 			break
+	if not finished.is_empty(): requested.erase(finished)
+	if pending.is_empty() and requested.is_empty(): set_process(false)
