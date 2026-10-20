@@ -20,6 +20,13 @@ const PORTRAITS := {
 	"bone-hound": ROOT + "bone_hound.webp",
 	"mimic": ROOT + "mimic.webp",
 	"ice-princess": ROOT + "ice_princess.webp",
+	"hydra": ROOT + "hydra.webp",
+	"flesh-golem": ROOT + "flesh_golem.webp",
+	"forest-fairy": ROOT + "forest_fairy.webp",
+	"bone-golem": ROOT + "bone_golem.webp",
+	"abyss-harpy": ROOT + "abyss_harpy.webp",
+	"boulder-ogre": ROOT + "boulder_ogre.webp",
+	"orc-warrior": ROOT + "orc_warrior.webp",
 }
 
 # Legion scenery stays clipped to the paper card; the character is independent
@@ -36,11 +43,20 @@ const BACKGROUNDS := {
 	"bone-hound": ROOT + "base_corpse.webp",
 	"mimic": ROOT + "base_summon.webp",
 	"ice-princess": ROOT + "base_ice.webp",
+	"hydra": ROOT + "base_plague.webp",
+	"flesh-golem": ROOT + "base_corpse.webp",
+	"forest-fairy": ROOT + "base_plant.webp",
+	"bone-golem": ROOT + "base_skeleton_mist.webp",
+	"abyss-harpy": ROOT + "base_demon.webp",
+	"boulder-ogre": ROOT + "base_beast.webp",
+	"orc-warrior": ROOT + "base_beast.webp",
 }
 
 const WIDE_PORTRAITS := [
 	"skeleton-archer", "corpse-slime", "grave-worm",
 	"skeleton-cavalry", "bone-hound", "mimic",
+	"hydra", "flesh-golem", "bone-golem", "abyss-harpy",
+	"boulder-ogre", "orc-warrior",
 ]
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"
