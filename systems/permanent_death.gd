@@ -24,6 +24,12 @@ void fragment() {
 }
 """
 
+func _apply_material_to_capture_layers(parent: Node, mat: ShaderMaterial) -> void:
+	for child in parent.get_children():
+		if child is CanvasItem:
+			(child as CanvasItem).material = mat
+		_apply_material_to_capture_layers(child, mat)
+
 func play_failed_capture(battle_scene, failed_cards: Array) -> void:
 	scene = battle_scene
 	# Parent lives in the same coordinates as candidate cards: the map stage
@@ -39,6 +45,11 @@ func play_failed_capture(battle_scene, failed_cards: Array) -> void:
 		var mat = ShaderMaterial.new()
 		mat.shader = dissolve_shader
 		card.material = mat
+		# Layered cards have a transparent original TextureButton and draw
+		# the portrait, banner and brands as children. Dissolve the visible
+		# layers too; shading the old flattened texture alone is invisible.
+		if card.has_node("LayeredCardBase"):
+			_apply_material_to_capture_layers(card, mat)
 		card.disabled = true
 		souls.append({"card":card,"center":card.position+card.size*0.5})
 	if souls.is_empty(): return

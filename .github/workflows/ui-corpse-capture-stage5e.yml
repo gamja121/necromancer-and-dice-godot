@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 125s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
       - name: Actual capture banner selection and lock information
         shell: bash

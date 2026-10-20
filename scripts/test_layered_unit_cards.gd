@@ -1,6 +1,7 @@
 extends SceneTree
 ## Usage: godot --headless --path . --script res://scripts/test_layered_unit_cards.gd
 const Layered = preload("res://systems/layered_unit_card.gd")
+const SoulCapture = preload("res://systems/corpse_capture.gd")
 var failed := 0
 
 func _initialize() -> void:
@@ -81,6 +82,19 @@ func _run() -> void:
 				var previous_side := minf(bg_extent.x * 0.19, bg_extent.y * 0.098)
 				check(first.size.x >= previous_side * 1.2 and first.size.y >= previous_side * 1.2, "owned brands are at least 20 percent bigger")
 				check(third.position.x + third.size.x <= brands.size.x + 0.5, "three enlarged brand icons remain within the info area")
+			if dims == Vector2(136,218):
+				# Regression: a defeated enemy must not revert to the
+				# flattened source card on the post-victory soul harvest screen.
+				var reward_choice: TextureButton = SoulCapture.make_choice_card(card, {"slug":slug,"name":"검사 이름","brands":owned_brands})
+				root.add_child(reward_choice)
+				check(reward_choice.texture_normal == card.texture_normal and reward_choice.texture_disabled == card.texture_normal, "%s capture retains original hit and disabled texture" % slug)
+				check(reward_choice.has_node("LayeredCardBase") and reward_choice.has_node("LayeredCardCharacter") and reward_choice.has_node("LayeredCardRibbon") and reward_choice.has_node("LayeredCardBrands"), "%s soul-harvest choice uses live layered portrait" % slug)
+				var reward_actor := reward_choice.get_node_or_null("LayeredCardCharacter") as TextureRect
+				check(reward_actor != null and reward_actor.texture.resource_path.ends_with("%s.webp" % slug.replace("-", "_")) or slug in ["skeleton-spear","skeleton-archer"] and reward_actor != null, "%s soul-harvest choice uses approved art path" % slug)
+				var reward_flight := Layered.flight_visual_copy(reward_choice)
+				check(reward_flight != null and reward_flight.has_node("LayeredCardCharacter") and reward_flight.has_node("LayeredCardBrands"), "%s harvested card flies to book with live layers" % slug)
+				if reward_flight != null: reward_flight.free()
+				reward_choice.queue_free()
 			var flight := Layered.flight_visual_copy(card)
 			check(flight != null and flight.has_node("LayeredCardCharacter") and flight.has_node("LayeredCardBrands") and flight.has_node("LayeredCardBase") and flight.has_node("LayeredCardRibbon"), "book flight keeps ALL separately rendered visual layers")
 			if flight != null:
@@ -119,6 +133,9 @@ func _run() -> void:
 	root.add_child(unrelated)
 	check(not Layered.install(unrelated, "siren", "세이렌"), "other monsters keep original cards")
 	check(Layered.flight_visual_copy(unrelated) == null, "unlayered cards use the existing flight art path")
+	var legacy_choice := SoulCapture.make_choice_card(unrelated, {"slug":"siren","name":"세이렌","brands":[]})
+	check(not legacy_choice.has_node("LayeredCardBase") and legacy_choice.texture_normal == unrelated.texture_normal, "unlayered capture choice retains flat fallback")
+	legacy_choice.free()
 	unrelated.queue_free()
 	print("LAYERED_CARD_REGRESSION: %d failures" % failed)
 	quit(0 if failed==0 else 1)
