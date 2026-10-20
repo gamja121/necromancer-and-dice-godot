@@ -1,11 +1,13 @@
-# Card art: 13 original WebP files NOT YET uploaded (2026-10-20)
+# Card art: 13 original WebP files uploaded to GitHub PR #207 (2026-10-20)
 
-**BLOCKER — DO NOT MERGE THIS BRANCH WITHOUT THE ACTUAL 13 WEBP FILES.** Code-only mappings are staged here so the main game stays functional while binary uploads are pending. These are not placeholders.
+**UPLOAD COMPLETE.** All 13 approved original WebP assets are now committed at their in-game paths on the PR branch. The image bytes were compared against their source bytes using Git blob SHA-1, and file transparency corners were checked in the supplied pack. Godot CI / visual sign-off is tracked separately.
 
-- Six current layered portraits need content replacement, seven new portraits need files added.
-- Put approved images at the exact path shown; verify SHA-256 before merging.
+- Six existing layered portraits were replaced and seven additional portraits added.
+- All 13 approved WebPs are present at the exact resource paths below. There are 26 registered layered card monster slugs in `systems/layered_unit_card.gd`.
 - Never overwrite flattened `assets/cards/unit-card-*.png`, cards frame, combat rules, original sprites/animations.
-- After all 13 WebP uploads, run Godot headless editor import and `scripts/test_layered_unit_cards.gd`, then visual regression check for black backgrounds and clipping. Only then merge.
+- GitHub Actions runs Godot headless editor import and `scripts/test_layered_unit_cards.gd` before merging; inspect final checks and do not claim real PC visual sign-off unless actually performed.
+- A backup of all 13 originals is also stored in the user's Google Drive project folder `네크로멘서 앤드 다이스/카드원화_13종_20261020`.
+- Original image upload commit: `c32a0c251e408cc0f2a07ed26d96090b3a34878b`.
 
 | Monster | Portrait path | SHA-256 of approved file |
 |---|---|---|
