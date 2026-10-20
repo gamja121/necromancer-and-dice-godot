@@ -56,8 +56,9 @@ func _run() -> void:
 		if child is TextureRect and child.texture != null:
 			button_art = child
 			break
-	check(button_art != null and button_art.texture.resource_path == "res://assets/map/ui/map_audio_options.webp", "byte-exact original audio icon remains visible")
-	check(audio.options_button.position == Vector2(1053,133) and audio.options_button.size == Vector2(58,58), "source map icon retains the existing footprint")
+	check(button_art != null and button_art.texture.resource_path == "res://assets/map/ui/brush_settings_icon.svg", "painted settings gear remains visible")
+	check(audio.options_button.position == Vector2(1192,14) and audio.options_button.size == Vector2(58,58), "map upper-right retains a 58px painted settings target")
+	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture,"settings popover uses painted parchment panel")
 	var expected_rect = AUDIO.PANEL_RECT
 	check(audio.panel.position.distance_to(expected_rect.position) < 1.0 and absf(audio.panel.size.x-expected_rect.size.x)<1.0, "source OPTION popup coordinates remain unchanged")
 	audio.options_button.pressed.emit()
