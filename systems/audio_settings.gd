@@ -1,9 +1,11 @@
 extends Control
 
-## Frozen web map audio options: compact OPTION panel and separate ON/OFF rows.
-## Always use the OS default output; Advanced retains only master volume.
+## Ink-brushed parchment settings panel anchored above the map at upper-right.
+## Music/SFX toggles, automatic output and saved master volume stay unchanged.
 const SAVE = "user://audio_settings.cfg"
-const PANEL_RECT = Rect2(995.84, 82.8, 256.0, 170.0)
+const PANEL_RECT = Rect2(950.0, 82.0, 296.0, 194.0)
+const BRUSH_BUTTON = preload("res://assets/map/ui/brush_settings_button.svg")
+const BRUSH_PANEL = preload("res://assets/map/ui/brush_settings_panel.svg")
 
 var save_file_path: String = SAVE
 var panel: PanelContainer
@@ -52,21 +54,26 @@ static func apply_saved(save_path: String = SAVE) -> void:
 	# "Default" follows the host system's current preferred output device.
 	use_system_default_output()
 
+static func brush_style(source: Texture2D, inset_x: float, inset_y: float) -> StyleBoxTexture:
+	var painted = StyleBoxTexture.new()
+	painted.texture = source
+	painted.texture_margin_left = inset_x
+	painted.texture_margin_right = inset_x
+	painted.texture_margin_top = inset_y
+	painted.texture_margin_bottom = inset_y
+	return painted
+
 func style_action(node: Button, compact: bool = false) -> void:
-	var normal = StyleBoxFlat.new()
-	normal.bg_color = Color("35261a")
-	normal.border_color = Color("866943")
-	normal.set_border_width_all(1)
-	normal.set_corner_radius_all(3)
-	var highlight = normal.duplicate()
-	highlight.bg_color = Color("4d3523")
-	for state in ["normal","disabled"]:
-		node.add_theme_stylebox_override(state,normal)
-	for state in ["hover","pressed","focus"]:
-		node.add_theme_stylebox_override(state,highlight)
-	node.add_theme_color_override("font_color",Color("f0ddb9"))
-	node.add_theme_color_override("font_hover_color",Color("f6e8c8"))
-	node.add_theme_font_size_override("font_size",12 if compact else 13)
+	# The same imperfect, ink-edged brush swatch is reused for all controls.
+	# No native rectangular widget chrome sits over the parchment drawing.
+	for state in ["normal","disabled","hover","pressed","focus"]:
+		node.add_theme_stylebox_override(state,brush_style(BRUSH_BUTTON,22.0,18.0))
+	node.add_theme_color_override("font_color",Color("342419"))
+	node.add_theme_color_override("font_hover_color",Color("22170e"))
+	node.add_theme_color_override("font_pressed_color",Color("261b13"))
+	node.add_theme_color_override("font_disabled_color",Color("796a56"))
+	node.add_theme_font_size_override("font_size",13 if compact else 15)
+	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 func add_toggle_row(column: VBoxContainer, label_text: String, category: String) -> Button:
 	var row = HBoxContainer.new()
@@ -77,7 +84,7 @@ func add_toggle_row(column: VBoxContainer, label_text: String, category: String)
 	var caption = Label.new()
 	caption.text = label_text
 	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	caption.add_theme_color_override("font_color",Color("ead9bb"))
+	caption.add_theme_color_override("font_color",Color("34291f"))
 	caption.add_theme_font_size_override("font_size",13)
 	row.add_child(caption)
 	var toggle = Button.new()
@@ -98,11 +105,13 @@ func setup(parent: Control) -> void:
 	# Keep this as the first child: the map owns its exact original image.
 	options_button = Button.new()
 	options_button.name = "MapOptionsButton"
-	options_button.text = "오디오"
-	options_button.position = Vector2(896,18)
-	options_button.size = Vector2(82,32)
+	options_button.text = "설정"
+	options_button.position = Vector2(1164,20)
+	options_button.size = Vector2(90,50)
+	options_button.tooltip_text = "설정 · 배경음악 / 효과음"
 	options_button.pressed.connect(toggle_panel)
 	add_child(options_button)
+	style_action(options_button)
 
 	panel = PanelContainer.new()
 	panel.name = "MapAudioOptionsPanel"
@@ -110,18 +119,14 @@ func setup(parent: Control) -> void:
 	panel.size = PANEL_RECT.size
 	panel.custom_minimum_size = Vector2(PANEL_RECT.size.x,0)
 	panel.z_index = 40
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.10,0.075,0.055,0.98)
-	style.border_color = Color("786048")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 10
-	style.content_margin_bottom = 12
-	style.shadow_color = Color(0,0,0,0.60)
-	style.shadow_size = 8
-	panel.add_theme_stylebox_override("panel",style)
+	# Nine-sliced hand-painted edges expand with advanced settings without
+	# cropping the brush silhouette. The translucent texture itself is the frame.
+	var paper = brush_style(BRUSH_PANEL,44.0,40.0)
+	paper.content_margin_left = 27.0
+	paper.content_margin_right = 27.0
+	paper.content_margin_top = 20.0
+	paper.content_margin_bottom = 21.0
+	panel.add_theme_stylebox_override("panel",paper)
 	add_child(panel)
 
 	var column = VBoxContainer.new()
@@ -133,10 +138,10 @@ func setup(parent: Control) -> void:
 	header.custom_minimum_size = Vector2(0,28)
 	column.add_child(header)
 	var title = Label.new()
-	title.text = "OPTION"
+	title.text = "설정"
 	title.name = "AudioOptionsTitle"
-	title.add_theme_color_override("font_color",Color("cbb68f"))
-	title.add_theme_font_size_override("font_size",13)
+	title.add_theme_color_override("font_color",Color("33261a"))
+	title.add_theme_font_size_override("font_size",19)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	close_button = Button.new()
@@ -147,6 +152,10 @@ func setup(parent: Control) -> void:
 	header.add_child(close_button)
 	style_action(close_button,true)
 	var rule = HSeparator.new()
+	var painted_rule = StyleBoxLine.new()
+	painted_rule.color = Color("745334")
+	painted_rule.thickness = 2
+	rule.add_theme_stylebox_override("separator",painted_rule)
 	column.add_child(rule)
 	music_toggle = add_toggle_row(column,"배경음악","Music")
 	sfx_toggle = add_toggle_row(column,"효과음","SFX")
@@ -171,10 +180,12 @@ func setup(parent: Control) -> void:
 	output_label.name = "MapAudioSystemDefaultOutput"
 	output_label.text = "출력: 시스템 기본 장치 (자동)"
 	output_label.add_theme_font_size_override("font_size",12)
+	output_label.add_theme_color_override("font_color",Color("514131"))
 	advanced_content.add_child(output_label)
 	var volume_label = Label.new()
 	volume_label.text = "전체 음량"
 	volume_label.add_theme_font_size_override("font_size",12)
+	volume_label.add_theme_color_override("font_color",Color("34291f"))
 	advanced_content.add_child(volume_label)
 	volume_slider = HSlider.new()
 	volume_slider.name = "MapAudioMasterVolume"
