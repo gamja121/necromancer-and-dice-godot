@@ -17,6 +17,7 @@ var detail_parent: Control
 var surface_size = Vector2(1280,720)
 
 const PresentationLayout = preload("res://systems/battle_presentation_layout.gd")
+const BattleResources = preload("res://systems/battle_resources.gd")
 const STATUS_FREEZE = preload("res://assets/battle/status/status_freeze.svg")
 const STATUS_POISON = preload("res://assets/battle/status/status_poison.svg")
 const STATUS_SHIELD = preload("res://assets/battle/status/status_shield.svg")
@@ -373,6 +374,10 @@ void fragment() {
 		dice.tooltip_text = "클릭하여 다음 라운드 진행"
 		layer.add_child(dice)
 	render_units(rules.units)
+	var frame_resources = BattleResources.new()
+	frame_resources.name = "BattleFrameResources"
+	layer.add_child(frame_resources)
+	frame_resources.warm_combatants(rules.units,presentation_layout.metrics)
 	AudioSettings.new().setup(layer)
 	cues = CombatCues.new()
 	layer.add_child(cues)
@@ -608,6 +613,8 @@ func render_units(values: Array) -> void:
 		for node in [sprite,bars[u.id],cards[u.id]]:
 			node.visible = not visuals.removed.has(u.id)
 	visuals.sync(values)
+	var frame_resources = layer.get_node_or_null("BattleFrameResources")
+	if frame_resources!=null: frame_resources.warm_combatants(values,presentation_layout.metrics)
 	# Dock cards are appended to the map stage AFTER the battle viewport.
 	# Re-raise the single shared die for mouse hit-testing, not just drawing.
 	if uses_map_tile_dock() and is_instance_valid(map_owner):

@@ -116,6 +116,12 @@ func _run() -> void:
 	scene.paused = false
 	await scene.wait_time(1.3)
 	check(scene.visuals.art_items.is_empty(),"stacked healing effects expire without lingering active items")
+	for repeat in range(3):
+		start = Time.get_ticks_usec()
+		for i in range(8): scene.visuals.show_reports([report])
+		print("BATTLE_WARM_HEAL_BURST_CPU_US: ",Time.get_ticks_usec()-start)
+		await scene.wait_time(1.3)
+		check(scene.visuals.art_items.is_empty(),"repeated healing burst expires "+str(repeat))
 	scene.queue_free()
 	await settle()
 	print("BATTLE_OPTIMIZATION: %d passed, %d failed" % [passed,failed])
