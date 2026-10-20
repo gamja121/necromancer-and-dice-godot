@@ -6,6 +6,7 @@
 - `data/battle_visual_metrics.json`: 이 유닛의 공격·사망 프레임 시간만 갱신. 타격은 공격 7번, 피격 간격은 0.1초. 대기/복귀는 새 공격 1번 그림을 사용한다.
 - `scripts/unit_art_pipeline/profiles/spider_queen.json`: 승인된 최종 프레임을 보존하는 입력으로 변경. 기존 원화 재분할·추가 업스케일 없이 재패킹 가능하며, 재빌드한 24장 SHA-256이 승인본과 모두 일치한다.
 - 검토 후보 키: `7b86adba5b0c5c2c3b4294c396bb7b1fbe3450e503be986362010117900db859`.
+- `docs/port_audit/battle_animation_replacements_20261019.json`: 사용자가 새 그림의 게임 적용을 요청한 거미여왕 24장의 활성 해시를 갱신하고 이전 24장 핀을 교체 이력에 보존한다. 다른 1,008장과 원본 웹 791행 장부는 그대로다. 기존 엄격한 해시 검사도 유지한다.
 
 실제 게임의 `BattleVisuals.play_strike`와 `PermanentDeath.play`를 사용해 타격·피격·사망 및 일시정지/재개를 검사했다. 별도 원화 뷰어만 실행한 결과가 아니다.
 
