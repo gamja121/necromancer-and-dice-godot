@@ -1,6 +1,6 @@
 extends SceneTree
 ## Shared dialogue art is a decoration only; all actions are still Godot buttons.
-const FRAME = "res://assets/map/ui/shared_dialogue_panel.svg"
+const FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
 const MAP = preload("res://map.tscn")
 const INTRO = preload("res://intro.tscn")
 var failed: int = 0
@@ -24,8 +24,9 @@ func _run() -> void:
 		quit(1)
 		return
 	check(art.get_width() >= 800 and art.get_height() >= 180, "source art retains sufficient native resolution")
-	var raw = FileAccess.get_file_as_string(FRAME)
-	check(not raw.contains("계속") and not raw.contains("나가기") and not raw.contains("nameplate"), "art has no baked text, buttons or nameplate")
+	var raw = FileAccess.get_file_as_bytes(FRAME)
+	check(raw.size() > 12000 and raw.slice(0,4) == "RIFF".to_ascii_buffer() and raw.slice(8,12) == "WEBP".to_ascii_buffer(), "original recovered RIFF/WEBP parchment asset is the dialogue source")
+	check(art.get_width() == 768 and art.get_height() == 288, "web original dialogue painting keeps its 768×288 intrinsic dimensions")
 	var session = root.get_node_or_null("RunSession")
 	check(session != null, "RunSession autoload is available")
 	if session == null:
