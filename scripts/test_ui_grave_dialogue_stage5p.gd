@@ -6,7 +6,7 @@ const SESSION = preload("res://systems/run_session.gd")
 const STORY = preload("res://systems/story_event_entry.gd")
 const GATE = preload("res://systems/story_contamination_gate.gd")
 const BEATS = preload("res://systems/graveyard_story_beats.gd")
-const SOURCE = "res://assets/map/ui/shared_dialogue_panel.svg"
+const SOURCE = "res://assets/map/ui/intro-dialogue-box.webp"
 var passed: int = 0
 var failed: int = 0
 var save: String = ""
@@ -93,8 +93,8 @@ func _run() -> void:
 	var frame=panel.get_node_or_null("StoryDialogueFrame") as TextureRect
 	check(frame!=null,"spoken child scene creates dedicated original dialogue artwork node")
 	if frame!=null:
-		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame uses the shared blank parchment asset")
-		check(frame.stretch_mode==TextureRect.STRETCH_SCALE,"shared blank frame stretches to map dialogue window without letterboxing")
+		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame uses the preserved source web parchment art")
+		check(frame.stretch_mode==TextureRect.STRETCH_SCALE,"original web parchment scales to current collision-safe dialogue footprint")
 		# PanelEffectsModule moves all non-backdrop children by 6 px during
 		# the 200 ms entrance; compare settled coordinates, not mid-tween.
 		await create_timer(0.29).timeout
