@@ -6,6 +6,7 @@ extends SceneTree
 
 const MapScene = preload("res://map.tscn")
 const SessionScript = preload("res://systems/run_session.gd")
+const Layered = preload("res://systems/layered_unit_card.gd")
 
 var passed: int = 0
 var failed: int = 0
@@ -209,13 +210,19 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 			check(candidates.size()==world.pending_reward.corpses.size() and not candidates.is_empty(),
 				label+": each fallen enemy has a selectable capture card")
 			var candidates_on_tiles: bool = true
+			var layered_capture_matches: bool = true
 			for candidate in candidates:
 				var card: TextureButton = candidate.card
 				var enemy: Dictionary = battle.rules.find_id(str(world.pending_reward.corpses[int(candidate.index)].id))
 				candidates_on_tiles = candidates_on_tiles and (card.get_parent()==map.stage and enemy.team=="enemy"
 					and card.position==battle.cards[enemy.id].position
 					and card.position.y==battle.MAP_BOTTOM_TILE_CARD_Y)
+				if Layered.supports(str(enemy.slug)):
+					var live_portrait := card.get_node_or_null("LayeredCardCharacter") as TextureRect
+					layered_capture_matches = layered_capture_matches and live_portrait!=null and live_portrait.texture.resource_path.ends_with("%s.webp" % str(enemy.slug).replace("-","_"))
+					layered_capture_matches = layered_capture_matches and card.get_node_or_null("LayeredCardBrands")!=null
 			check(candidates_on_tiles,label+": defeated enemy capture cards stay on exact lower map tiles")
+			check(layered_capture_matches,label+": post-victory capture choices preserve approved layered monster art")
 			if force_capture_failure:
 				# Emulate a legitimately exhausted capture phase in an isolated save.
 				# The real UI then commits failure before the permanent-death effect.
@@ -236,15 +243,16 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				world.pending_reward.corpses[int(world.pending_reward.selected)].target=1
 				check(session.save_world(),label+": test-only guaranteed-success capture persisted")
 				var book_center: Vector2=map.book_button.position+map.book_button.size*0.5
-				var flight_probe: Dictionary={"seen":false,"first_distance":0.0,"closest_distance":INF,"frames":0,"book_pulse":false}
+				var flight_probe: Dictionary={"seen":false,"first_distance":0.0,"closest_distance":INF,"frames":0,"book_pulse":false,"layered":false}
 				var flight_observer: Callable=func() -> void:
 					if not is_instance_valid(map) or not is_instance_valid(map.stage): return
-					var flyer: TextureRect=map.stage.get_node_or_null("RewardToInventoryFlight") as TextureRect
+					var flyer: Control=map.stage.get_node_or_null("RewardToInventoryFlight") as Control
 					if flyer!=null:
 						var mid: Vector2=flyer.position+flyer.size*0.5
 						var distance: float=mid.distance_to(book_center)
 						if not bool(flight_probe["seen"]): flight_probe["first_distance"]=distance
 						flight_probe["seen"]=true
+						flight_probe["layered"] = bool(flight_probe["layered"]) or flyer.has_node("LayeredCardCharacter")
 						flight_probe["frames"]=int(flight_probe["frames"])+1
 						flight_probe["closest_distance"]=minf(float(flight_probe["closest_distance"]),distance)
 					if is_instance_valid(map.book_button) and map.book_button.scale.x>1.04:
@@ -278,6 +286,8 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				check(float(flight_probe["closest_distance"])<35.0,
 					label+": captured card's center physically arrives at bottom-left monster book, not screen center")
 				check(bool(flight_probe["book_pulse"]),label+": real monster book responds subtly when captured card arrives")
+				# A layered source must remain layered all the way to the book.
+				# Unsupported slugs still use their intentionally flattened legacy art.
 				check(world.roster.size()==original_units+1,label+": visually received card corresponds to one actually saved owned monster")
 	else:
 		check(not target in world.cleared and world.contamination==3,label+": defeat neither clears tile nor changes contamination")

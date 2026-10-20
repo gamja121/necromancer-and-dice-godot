@@ -2,6 +2,7 @@ extends Control
 const Overflow = preload("res://systems/reward_overflow.gd")
 const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
 var scene
 var session
@@ -15,6 +16,19 @@ func _exit_tree() -> void:
 	for node in external_choice_nodes:
 		if is_instance_valid(node): node.queue_free()
 	external_choice_nodes.clear()
+
+# Keep the original TextureButton for compatibility, but install the
+# approved live portrait/scenery/ribbon/brands also used by the battle card.
+# Used both by real soul harvest and the layered-card regression fixture.
+static func make_choice_card(source: TextureButton, unit: Dictionary) -> TextureButton:
+	var option := TextureButton.new()
+	option.texture_normal = source.texture_normal
+	option.texture_disabled = option.texture_normal
+	option.ignore_texture_size = true
+	option.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	option.size = source.size
+	LayeredUnitCard.install(option, str(unit.get("slug", "")), str(unit.get("name", "")), false, unit.get("brands", []))
+	return option
 
 func place_choice_node(node: Control, parent: Control) -> void:
 	if parent != self:
@@ -48,13 +62,10 @@ func setup(battle_scene) -> void:
 		if unit.is_empty(): continue
 		scene.cards[unit.id].hide()
 		scene.bars[unit.id].hide()
-		var option = TextureButton.new()
-		option.texture_normal = scene.cards[unit.id].texture_normal
-		# Locked/rolling candidates must stay legible even when disabled.
-		option.texture_disabled = option.texture_normal
-		option.ignore_texture_size = true
-		option.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		option.size = scene.cards[unit.id].size
+		# Do not copy only the old flattened texture: the in-battle
+		# approved portrait is a separate child layer on the source card.
+		# A new choice must install the same layers, even when locked.
+		var option: TextureButton = make_choice_card(scene.cards[unit.id], unit)
 		var on_map_tiles: bool = scene.uses_map_tile_dock()
 		var choice_parent: Control = scene.detail_parent if on_map_tiles else self
 		# During capture, use the SAME bottom-tile rectangle as the defeated
@@ -271,10 +282,16 @@ func complete_success() -> void:
 			# Preserve their old collection effect instead of targeting a
 			# nonexistent UI button. Normal gameplay always uses the map.
 			var spirit_parent: Control = scene.detail_parent if scene.uses_map_tile_dock() else self
-			var spirit = scene.image(spirit_parent,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
+			var spirit: Control = LayeredUnitCard.flight_visual_copy(selected_card)
+			if spirit != null:
+				spirit_parent.add_child(spirit)
+				spirit.position = selected_card.position
+			else:
+				# Only monsters without layered art use the legacy texture.
+				spirit = scene.image(spirit_parent,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
+				BrandFrameOverlay.sync(spirit,scene.rules.find_id(str(corpse.id)))
+				AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
 			spirit.z_index = 76 if spirit_parent!=self else 0
-			BrandFrameOverlay.sync(spirit,scene.rules.find_id(str(corpse.id)))
-			AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
 			spirit.pivot_offset = spirit.size*0.5
 			spirit.modulate = Color(0.8,1,1)
 			selected_card.hide()
