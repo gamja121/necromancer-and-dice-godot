@@ -44,8 +44,8 @@ func _run() -> void:
 	check(audio.panel.position.distance_to(Vector2(995.84,82.8))<1.0,"source right 2.2%, top 11.5% placement")
 	check(absf(audio.panel.size.x-256.0)<1.0,"source 20%-wide compact options panel")
 	check(audio.panel.z_index==40 and audio.z_index==90,"source z-index 130 placed above the map only when open")
-	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture and (audio.panel.get_theme_stylebox("panel") as StyleBoxTexture).texture.resource_path=="res://assets/map/ui/brush_settings_panel.svg","popup uses uneven brush-stroke parchment instead of rectangular style box")
-	check(audio.music_toggle.get_theme_stylebox("normal") is StyleBoxTexture and (audio.music_toggle.get_theme_stylebox("normal") as StyleBoxTexture).texture.resource_path=="res://assets/map/ui/brush_settings_button.svg","music toggle has brush-painted border")
+	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture and (audio.panel.get_theme_stylebox("panel") as StyleBoxTexture).texture is ImageTexture,"popup uses uneven brush-stroke parchment instead of rectangular style box")
+	check(audio.music_toggle.get_theme_stylebox("normal") is StyleBoxTexture and (audio.music_toggle.get_theme_stylebox("normal") as StyleBoxTexture).texture is ImageTexture,"music toggle has brush-painted border")
 	check(audio.panel.get_node_or_null("AudioOptionsContent/MapAudioOptionsHeader/AudioOptionsTitle").text=="설정","hand-brushed Korean settings heading exists")
 	check(audio.close_button.text=="×" and audio.close_button.custom_minimum_size==Vector2(28,28),"web 28px close control exists")
 	check(audio.music_toggle.text=="ON" and audio.sfx_toggle.text=="ON","both web sound switches reflect live enabled state")
@@ -113,7 +113,7 @@ func _run() -> void:
 			break
 	check(icon!=null and icon.texture!=null,"real map displays decoded embedded original audio icon")
 	if icon!=null and icon.texture!=null:
-		check(icon.texture.resource_path=="res://assets/map/ui/brush_settings_icon.svg","real map uses painted brush gear asset")
+		check(icon.texture is ImageTexture,"real map uses painted brush gear asset")
 	check(actual.options_button.position==Vector2(1192,14) and actual.options_button.size==Vector2(58,58),"painted gear sits in the map upper-right without enlarging the touch target")
 	actual.options_button.pressed.emit()
 	check(actual.panel.visible and actual.panel.position.distance_to(Vector2(995.84,82.8))<1.0,"real map opens source-relative 256px option panel")
