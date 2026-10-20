@@ -153,13 +153,14 @@ static func relayout(card: TextureButton) -> void:
 	caption.position = ribbon.position + Vector2(ribbon.size.x * 0.10, ribbon.size.y * 0.17)
 	caption.size = Vector2(ribbon.size.x * 0.80, ribbon.size.y * 0.63)
 	caption.add_theme_font_size_override("font_size", maxi(8, int(extent.y * 0.077)))
-	# Left-aligned engraved brands in the lower parchment panel.
+	# Left-aligned engraved brands: 25% larger, inset from the outer frame.
+	# Keep all three in the information panel even on small in-game cards.
 	var brand_row := card.get_node_or_null(BRAND_ROW_NAME) as Control
 	if brand_row != null:
-		brand_row.position = rect.position + Vector2(extent.x * 0.105, extent.y * 0.775)
-		brand_row.size = Vector2(extent.x * 0.79, extent.y * 0.105)
-		var side := minf(extent.x * 0.19, extent.y * 0.098)
-		var gap := extent.x * 0.025
+		brand_row.position = rect.position + Vector2(extent.x * 0.16, extent.y * 0.79)
+		brand_row.size = Vector2(extent.x * 0.72, extent.y * 0.13)
+		var side := minf(extent.x * 0.235, extent.y * 0.125)
+		var gap := extent.x * 0.028
 		for i in range(brand_row.get_child_count()):
 			var icon := brand_row.get_child(i) as TextureRect
 			if icon != null:

@@ -63,6 +63,11 @@ func _run() -> void:
 				var third := brands.get_child(2) as TextureRect
 				check(first.texture is AtlasTexture and second.texture is AtlasTexture and third.texture is AtlasTexture, "brand icons use existing atlases")
 				check(first.position.x == 0.0 and first.position.y == second.position.y and first.position.y == third.position.y and first.position.x < second.position.x and second.position.x < third.position.x, "owned brand icons form one left-aligned row")
+				check(brands.position.x - (card.get_node("LayeredCardBase") as TextureRect).position.x >= (card.get_node("LayeredCardBase") as TextureRect).size.x * 0.15, "owned brands stay inset from the LEFT frame")
+				var bg_extent := (card.get_node("LayeredCardBase") as TextureRect).size
+				var previous_side := minf(bg_extent.x * 0.19, bg_extent.y * 0.098)
+				check(first.size.x >= previous_side * 1.2 and first.size.y >= previous_side * 1.2, "owned brands are at least 20 percent bigger")
+				check(third.position.x + third.size.x <= brands.size.x + 0.5, "three enlarged brand icons remain within the info area")
 			var flight := Layered.flight_visual_copy(card)
 			check(flight != null and flight.has_node("LayeredCardCharacter") and flight.has_node("LayeredCardBrands") and flight.has_node("LayeredCardBase") and flight.has_node("LayeredCardRibbon"), "book flight keeps ALL separately rendered visual layers")
 			if flight != null:
@@ -72,6 +77,9 @@ func _run() -> void:
 			check(base != null and actor != null and ribbon != null and title != null, "independent textures and title")
 			if base != null and actor != null:
 				check(base.texture.resource_path.ends_with(str(expected_backgrounds[slug])), "%s uses the approved legion scenery" % slug)
+				if slug != "skeleton-spear" and slug != "skeleton-archer" and dims == Vector2(136,218):
+					var bg_image := base.texture.get_image()
+					check(bg_image.get_pixel(0, 0).a < 0.03 and bg_image.get_pixel(bg_image.get_width()-1, 0).a < 0.03 and bg_image.get_pixel(0, bg_image.get_height()-1).a < 0.03 and bg_image.get_pixel(bg_image.get_width()-1, bg_image.get_height()-1).a < 0.03, "%s approved legion background has no black opaque exterior corners" % slug)
 				check(actor.texture.resource_path.ends_with("%s.webp" % slug.replace("-", "_")) or slug in ["skeleton-spear", "skeleton-archer"], "%s uses its own cutout art asset" % slug)
 				if dims == Vector2(136, 218):
 					var source_image := actor.texture.get_image()
