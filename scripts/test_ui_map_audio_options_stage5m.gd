@@ -41,10 +41,10 @@ func _run() -> void:
 	await process_frame
 	check(audio.get_child(0)==audio.options_button and audio.options_button.name=="MapOptionsButton","existing map integration keeps original image button as first child")
 	check(audio.panel.name=="MapAudioOptionsPanel" and not audio.panel.visible,"source OPTION panel starts hidden")
-	check(audio.panel.position.distance_to(Vector2(995.84,82.8))<1.0,"source right 2.2%, top 11.5% placement")
-	check(absf(audio.panel.size.x-256.0)<1.0,"source 20%-wide compact options panel")
+	check(audio.panel.position.distance_to(Vector2(950,82))<1.0,"brush parchment panel anchored to upper-right of map")
+	check(absf(audio.panel.size.x-296.0)<1.0,"compact hand-painted parchment option panel width")
 	check(audio.panel.z_index==40 and audio.z_index==90,"source z-index 130 placed above the map only when open")
-	check(audio.panel.get_node_or_null("AudioOptionsContent/MapAudioOptionsHeader/AudioOptionsTitle").text=="OPTION","original OPTION heading exists")
+	check(audio.panel.get_node_or_null("AudioOptionsContent/MapAudioOptionsHeader/AudioOptionsTitle").text=="설정","brush menu has clear Korean settings heading")
 	check(audio.close_button.text=="×" and audio.close_button.custom_minimum_size==Vector2(28,28),"web 28px close control exists")
 	check(audio.music_toggle.text=="ON" and audio.sfx_toggle.text=="ON","both web sound switches reflect live enabled state")
 	check(audio.advanced_content!=null and not audio.advanced_content.visible,"automatic OS output and native master volume remain folded away")
@@ -104,17 +104,16 @@ func _run() -> void:
 	var actual = map.map_audio
 	check(actual!=null and actual.options_button!=null,"real map initializes audio settings correctly")
 	check(actual.get_child(0)==actual.options_button,"real map original audio image targets expected first button")
-	var icon: TextureRect
-	for child in actual.options_button.get_children():
-		if child is TextureRect and child.texture!=null:
-			icon=child
-			break
-	check(icon!=null and icon.texture!=null,"real map displays decoded embedded original audio icon")
-	if icon!=null and icon.texture!=null:
-		check(icon.texture.resource_path=="res://assets/map/ui/map_audio_options.webp","real map icon is the byte-exact original web asset")
-	check(actual.options_button.position==Vector2(1053,133) and actual.options_button.size==Vector2(58,58),"frozen web map button position and max-width preserved")
+	var brush_icon: StyleBox = actual.options_button.get_theme_stylebox("normal")
+	check(brush_icon is StyleBoxTexture and (brush_icon as StyleBoxTexture).texture.resource_path=="res://assets/map/ui/brush_settings_button.svg",
+		"real map draws its option button with editable ink-brushed SVG, not old image icon")
+	var brush_panel: StyleBox = actual.panel.get_theme_stylebox("panel")
+	check(brush_panel is StyleBoxTexture and (brush_panel as StyleBoxTexture).texture.resource_path=="res://assets/map/ui/brush_settings_panel.svg",
+		"settings panel uses painted parchment frame instead of flat rectangle")
+	check(actual.options_button.text=="설정" and actual.options_button.position==Vector2(1164,20) and actual.options_button.size==Vector2(90,50),
+		"map settings label is readable, clickable and anchored at upper-right")
 	actual.options_button.pressed.emit()
-	check(actual.panel.visible and actual.panel.position.distance_to(Vector2(995.84,82.8))<1.0,"real map opens source-relative 256px option panel")
+	check(actual.panel.visible and actual.panel.position.distance_to(Vector2(950,82))<1.0,"map opens parchment settings immediately below upper-right button")
 	actual.close_button.pressed.emit()
 	check(not actual.panel.visible,"real map close returns to board")
 	map.queue_free()
