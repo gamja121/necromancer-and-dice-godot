@@ -4,6 +4,7 @@ on:
     paths:
       - 'assets/map/ui/shared_dialogue_panel.svg'
       - 'assets/map/ui/intro-dialogue-box.webp'
+      - 'assets/intro/dialogue_frame.webp'
       - 'systems/intro_scene.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'assets/map/ui/shared_dialogue_panel.svg'
       - 'assets/map/ui/intro-dialogue-box.webp'
+      - 'assets/intro/dialogue_frame.webp'
       - 'systems/intro_scene.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
