@@ -4,8 +4,8 @@ extends Control
 ## Music/SFX toggles, automatic output and saved master volume stay unchanged.
 const SAVE = "user://audio_settings.cfg"
 const PANEL_RECT = Rect2(950.0, 82.0, 296.0, 194.0)
-const BRUSH_BUTTON = preload("res://assets/map/ui/brush_settings_button.svg")
-const BRUSH_PANEL = preload("res://assets/map/ui/brush_settings_panel.svg")
+const BRUSH_BUTTON_PATH = "res://assets/map/ui/brush_settings_button.svg"
+const BRUSH_PANEL_PATH = "res://assets/map/ui/brush_settings_panel.svg"
 
 var save_file_path: String = SAVE
 var panel: PanelContainer
@@ -54,9 +54,9 @@ static func apply_saved(save_path: String = SAVE) -> void:
 	# "Default" follows the host system's current preferred output device.
 	use_system_default_output()
 
-static func brush_style(source: Texture2D, inset_x: float, inset_y: float) -> StyleBoxTexture:
+static func brush_style(source_path: String, inset_x: float, inset_y: float) -> StyleBoxTexture:
 	var painted = StyleBoxTexture.new()
-	painted.texture = source
+	painted.texture = load(source_path) as Texture2D
 	painted.texture_margin_left = inset_x
 	painted.texture_margin_right = inset_x
 	painted.texture_margin_top = inset_y
@@ -72,7 +72,7 @@ func style_action(node: Button, compact: bool = false) -> void:
 	# The same imperfect, ink-edged brush swatch is reused for all controls.
 	# No native rectangular widget chrome sits over the parchment drawing.
 	for state in ["normal","disabled","hover","pressed","focus"]:
-		node.add_theme_stylebox_override(state,brush_style(BRUSH_BUTTON,22.0,18.0))
+		node.add_theme_stylebox_override(state,brush_style(BRUSH_BUTTON_PATH,22.0,18.0))
 	node.add_theme_color_override("font_color",Color("342419"))
 	node.add_theme_color_override("font_hover_color",Color("22170e"))
 	node.add_theme_color_override("font_pressed_color",Color("261b13"))
@@ -126,7 +126,7 @@ func setup(parent: Control) -> void:
 	panel.z_index = 40
 	# Nine-sliced hand-painted edges expand with advanced settings without
 	# cropping the brush silhouette. The translucent texture itself is the frame.
-	var paper = brush_style(BRUSH_PANEL,44.0,40.0)
+	var paper = brush_style(BRUSH_PANEL_PATH,44.0,40.0)
 	paper.content_margin_left = 27.0
 	paper.content_margin_right = 27.0
 	paper.content_margin_top = 20.0
