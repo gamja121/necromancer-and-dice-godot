@@ -12,6 +12,8 @@ var art_items: Array = []
 var scene
 var world_layer: Control
 var ground: Control
+var _ground_removed: Dictionary = {}
+var _ground_had_circles: bool = false
 var states: Dictionary = {}
 var homes: Dictionary = {}
 var layouts: Dictionary = {}
@@ -79,6 +81,7 @@ func sync(values: Array) -> void:
 			var material = ShaderMaterial.new()
 			material.shader = shader
 			sprite.material = material
+	ground.queue_redraw()
 
 # Store only visual states: the already-confirmed roster's own slot order.
 func prepare_entry_summon() -> Array:
@@ -201,7 +204,14 @@ func _process(delta: float) -> void:
 		shake_left = maxf(0,shake_left-dt)
 		world_layer.position = Vector2(sin(clock*113),cos(clock*97))*shake_strength*minf(1,shake_left/0.12)
 	else: world_layer.position = Vector2.ZERO
-	ground.queue_redraw()
+	# Static shadows reuse cached commands. Keep the existing circle/shadow
+	# draw order, and clear the last circle frame when the intro ends.
+	var circles_active: bool = not entry_circles.is_empty()
+	var removed_changed: bool = removed != _ground_removed
+	if circles_active or _ground_had_circles or removed_changed:
+		ground.queue_redraw()
+	_ground_had_circles = circles_active
+	if removed_changed: _ground_removed = removed.duplicate()
 	queue_redraw()
 
 func center_of(id: String) -> Vector2:
@@ -471,6 +481,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 			sprite.scale = Vector2.ONE
 			sprite.modulate.a = 1.0
 	if blooming.is_empty(): return
+	ground.queue_redraw()
 	var profile: Dictionary = scene.presentation_layout.metrics["guardian-seed"]
 	var frames: Array = scene.presentation_layout.frames("guardian-seed","attack")
 	var delays: Array = profile.get("attack_delays",[])
@@ -492,6 +503,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 		layouts[current.id] = geometry
 		homes[current.id] = geometry.position
 		active.erase(current.id)
+		ground.queue_redraw()
 
 func play_round(before: Array, after: Array, reports: Array) -> void:
 	await play_seed_blooms(before,after)
