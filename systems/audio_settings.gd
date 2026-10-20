@@ -1,9 +1,11 @@
 extends Control
 
-## Frozen web map audio options: compact OPTION panel and separate ON/OFF rows.
+## Map settings: hand-brushed painted panel and controls, preserving audio behaviors.
 ## Always use the OS default output; Advanced retains only master volume.
 const SAVE = "user://audio_settings.cfg"
-const PANEL_RECT = Rect2(995.84, 82.8, 256.0, 170.0)
+const PANEL_RECT = Rect2(995.84, 82.8, 256.0, 194.0)
+const BRUSH_PANEL = preload("res://assets/map/ui/brush_settings_panel.svg")
+const BRUSH_BUTTON = preload("res://assets/map/ui/brush_settings_button.svg")
 
 var save_file_path: String = SAVE
 var panel: PanelContainer
@@ -53,19 +55,27 @@ static func apply_saved(save_path: String = SAVE) -> void:
 	use_system_default_output()
 
 func style_action(node: Button, compact: bool = false) -> void:
-	var normal = StyleBoxFlat.new()
-	normal.bg_color = Color("35261a")
-	normal.border_color = Color("866943")
-	normal.set_border_width_all(1)
-	normal.set_corner_radius_all(3)
-	var highlight = normal.duplicate()
-	highlight.bg_color = Color("4d3523")
+	# Brush-painted chips reuse the same nine-slice texture, avoiding the
+	# factory-perfect rounded rectangles of Godot's default theme.
+	var normal = StyleBoxTexture.new()
+	normal.texture = BRUSH_BUTTON
+	for side in [SIDE_LEFT,SIDE_RIGHT]:
+		normal.set_texture_margin(side,9.0)
+	for side in [SIDE_TOP,SIDE_BOTTOM]:
+		normal.set_texture_margin(side,9.0)
+	normal.set_content_margin_all(3.0)
+	var hover = normal.duplicate()
+	hover.modulate_color = Color(1.10,1.08,1.02,1.0)
+	var pressed = normal.duplicate()
+	pressed.modulate_color = Color(0.79,0.75,0.65,1.0)
 	for state in ["normal","disabled"]:
 		node.add_theme_stylebox_override(state,normal)
-	for state in ["hover","pressed","focus"]:
-		node.add_theme_stylebox_override(state,highlight)
+	for state in ["hover","focus"]:
+		node.add_theme_stylebox_override(state,hover)
+	node.add_theme_stylebox_override("pressed",pressed)
 	node.add_theme_color_override("font_color",Color("f0ddb9"))
-	node.add_theme_color_override("font_hover_color",Color("f6e8c8"))
+	node.add_theme_color_override("font_hover_color",Color("fff1d0"))
+	node.add_theme_color_override("font_pressed_color",Color("f0ddb9"))
 	node.add_theme_font_size_override("font_size",12 if compact else 13)
 
 func add_toggle_row(column: VBoxContainer, label_text: String, category: String) -> Button:
@@ -110,17 +120,17 @@ func setup(parent: Control) -> void:
 	panel.size = PANEL_RECT.size
 	panel.custom_minimum_size = Vector2(PANEL_RECT.size.x,0)
 	panel.z_index = 40
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.10,0.075,0.055,0.98)
-	style.border_color = Color("786048")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 10
-	style.content_margin_bottom = 12
-	style.shadow_color = Color(0,0,0,0.60)
-	style.shadow_size = 8
+	# Hand-brushed dark parchment and an irregular ink outline, not a
+	# stock rectangle. 24px nine-slice edges preserve corners when the
+	# advanced sound controls increase the height of the settings window.
+	var style = StyleBoxTexture.new()
+	style.texture = BRUSH_PANEL
+	for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]:
+		style.set_texture_margin(side,24.0)
+	style.content_margin_left = 20.0
+	style.content_margin_right = 20.0
+	style.content_margin_top = 17.0
+	style.content_margin_bottom = 19.0
 	panel.add_theme_stylebox_override("panel",style)
 	add_child(panel)
 
@@ -133,9 +143,9 @@ func setup(parent: Control) -> void:
 	header.custom_minimum_size = Vector2(0,28)
 	column.add_child(header)
 	var title = Label.new()
-	title.text = "OPTION"
+	title.text = "설정"
 	title.name = "AudioOptionsTitle"
-	title.add_theme_color_override("font_color",Color("cbb68f"))
+	title.add_theme_color_override("font_color",Color("efd7a9"))
 	title.add_theme_font_size_override("font_size",13)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
