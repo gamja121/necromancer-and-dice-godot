@@ -52,6 +52,9 @@ const PORTRAITS := {
 	"goblin-commoner": ROOT + "goblin_commoner.webp",
 	"spiderling": ROOT + "spiderling.webp",
 	"guardian-seed": ROOT + "guardian_seed.webp",
+	"abyss-claw-hunter": ROOT + "abyss_claw_hunter.webp",
+	"plague-frog": ROOT + "plague_frog.webp",
+	"siren": ROOT + "siren.webp",
 }
 
 # Legion scenery stays clipped to the paper card; the character is independent
@@ -100,6 +103,9 @@ const BACKGROUNDS := {
 	"goblin-commoner": ROOT + "base_beast.webp",
 	"spiderling": ROOT + "base_summon.webp",
 	"guardian-seed": ROOT + "base_plant.webp",
+	"abyss-claw-hunter": ROOT + "base_demon.webp",
+	"plague-frog": ROOT + "base_plague.webp",
+	"siren": ROOT + "base_ice.webp",
 }
 
 const WIDE_PORTRAITS := [
@@ -112,6 +118,7 @@ const WIDE_PORTRAITS := [
 	"doom-executor",
 	"abyss-eye", "grave-priest", "sea-wolf", "goblin-chief", "yeti",
 	"minotaur", "spiderling",
+	"abyss-claw-hunter", "plague-frog", "siren",
 ]
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"

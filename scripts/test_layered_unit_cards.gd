@@ -15,7 +15,7 @@ func check(ok: bool, name: String) -> void:
 		printerr("FAIL layered-card: ", name)
 
 func _run() -> void:
-	# Runtime card art is opt-in by slug. All forty-four share the same zoom,
+	# Runtime card art is opt-in by slug. All forty-seven share the same zoom,
 	# real owned brands, return-to-book visual layers and legacy hit texture.
 	var expected_backgrounds := {
 		"skeleton-spear": "base_skeleton.webp",
@@ -62,8 +62,11 @@ func _run() -> void:
 	"goblin-commoner": "base_beast.webp",
 	"spiderling": "base_summon.webp",
 	"guardian-seed": "base_plant.webp",
+	"abyss-claw-hunter": "base_demon.webp",
+	"plague-frog": "base_plague.webp",
+	"siren": "base_ice.webp",
 	}
-	check(expected_backgrounds.size() == 44, "all 44 real monster slugs have approved layered scenery")
+	check(expected_backgrounds.size() == 47, "all 47 real monster slugs have approved layered scenery")
 	for slug in expected_backgrounds.keys():
 		for dims in [Vector2(136,218), Vector2(121.856,225.216), Vector2(90,120), Vector2(170,302.4)]:
 			var card := TextureButton.new()
@@ -143,9 +146,9 @@ func _run() -> void:
 	unrelated.size = Vector2(120,220)
 	unrelated.texture_normal = load("res://assets/cards/unit-card-siren.png")
 	root.add_child(unrelated)
-	check(not Layered.install(unrelated, "siren", "세이렌"), "other monsters keep original cards")
+	check(not Layered.install(unrelated, "unregistered-fallback", "미등록"), "other monsters keep original cards")
 	check(Layered.flight_visual_copy(unrelated) == null, "unlayered cards use the existing flight art path")
-	var legacy_choice := SoulCapture.make_choice_card(unrelated, {"slug":"siren","name":"세이렌","brands":[]})
+	var legacy_choice := SoulCapture.make_choice_card(unrelated, {"slug":"unregistered-fallback","name":"미등록","brands":[]})
 	check(not legacy_choice.has_node("LayeredCardBase") and legacy_choice.texture_normal == unrelated.texture_normal, "unlayered capture choice retains flat fallback")
 	legacy_choice.free()
 	unrelated.queue_free()
