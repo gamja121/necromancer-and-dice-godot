@@ -142,7 +142,7 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	button.mouse_exited.connect(func(): material.set_shader_parameter("highlight",0.75 if selected_ids.has(unit.id) else 0.15))
 	parent.add_child(button)
 	# Card art is built from independent runtime nodes, not a flattened PNG.
-	LayeredUnitCard.install(button, str(unit.slug), str(unit.name), selected_ids.has(unit.id))
+	LayeredUnitCard.install(button, str(unit.slug), str(unit.name), selected_ids.has(unit.id), unit.get("brands", []))
 	CardDepthMotion.install(button, selected_ids.has(unit.id))
 	BrandFrameOverlay.sync(button,unit)
 	AltarUpgradeBadge.sync(button,unit)

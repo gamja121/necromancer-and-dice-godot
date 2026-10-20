@@ -552,7 +552,7 @@ func render_units(values: Array) -> void:
 			(detail_parent if uses_map_tile_dock() else layer).add_child(card)
 			card.z_index = 44
 			cards[u.id] = card
-			LayeredUnitCard.install(card, str(u.slug), str(u.name))
+			LayeredUnitCard.install(card, str(u.slug), str(u.name), false, u.get("brands", []))
 			BrandFrameOverlay.sync(card,u)
 			AltarUpgradeBadge.sync(card,u)
 		var sprite: TextureRect = sprites[u.id]

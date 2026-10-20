@@ -3,6 +3,7 @@ extends RefCounted
 ## Gameplay/card buttons stay unchanged; only skeleton-spear/archer use these assets.
 ## Each layer is an independent TextureRect so portrait zoom never enlarges the UI.
 
+const UnitInfo = preload("res://systems/unit_info.gd")
 const ROOT := "res://assets/cards/layered/"
 const BACKGROUND := ROOT + "base_skeleton.webp"
 const NAMEPLATE := ROOT + "scroll_nameplate.webp"
@@ -14,6 +15,9 @@ const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"
 const BANNER_NAME := "LayeredCardRibbon"
 const TEXT_NAME := "LayeredCardTitle"
+const BRAND_ROW_NAME := "LayeredCardBrands"
+const BRAND_ICON_SHEET = preload("res://assets/battle/ui/brand-icons-sheet.jpg")
+const BRAND_ICON_EXTRA = preload("res://assets/battle/ui/brand-icons-extra-sheet.jpg")
 
 static func supports(slug: String) -> bool:
 	return PORTRAITS.has(slug)
@@ -32,7 +36,7 @@ static func _art(parent: Control, name: String, texture: Texture2D) -> TextureRe
 	parent.add_child(item)
 	return item
 
-static func install(card: TextureButton, slug: String, title: String, selected: bool = false) -> bool:
+static func install(card: TextureButton, slug: String, title: String, selected: bool = false, brands: Array = []) -> bool:
 	if not supports(slug) or card.has_node(BASE_NAME):
 		return false
 	if not (ResourceLoader.exists(BACKGROUND) and ResourceLoader.exists(NAMEPLATE) and ResourceLoader.exists(PORTRAITS[slug])):
@@ -62,6 +66,7 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	caption.add_theme_constant_override("shadow_offset_y", 1)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(caption)
+	sync_brands(card, brands)
 	card.resized.connect(func(): relayout(card))
 	card.mouse_entered.connect(func(): _focus(card, true))
 	card.mouse_exited.connect(func(): _focus(card, false))
@@ -100,6 +105,74 @@ static func relayout(card: TextureButton) -> void:
 	caption.position = ribbon.position + Vector2(ribbon.size.x * 0.10, ribbon.size.y * 0.17)
 	caption.size = Vector2(ribbon.size.x * 0.80, ribbon.size.y * 0.63)
 	caption.add_theme_font_size_override("font_size", maxi(8, int(extent.y * 0.077)))
+	# Left-aligned engraved brands in the lower parchment panel.
+	var brand_row := card.get_node_or_null(BRAND_ROW_NAME) as Control
+	if brand_row != null:
+		brand_row.position = rect.position + Vector2(extent.x * 0.105, extent.y * 0.775)
+		brand_row.size = Vector2(extent.x * 0.79, extent.y * 0.105)
+		var side := minf(extent.x * 0.19, extent.y * 0.098)
+		var gap := extent.x * 0.025
+		for i in range(brand_row.get_child_count()):
+			var icon := brand_row.get_child(i) as TextureRect
+			if icon != null:
+				icon.position = Vector2(i * (side + gap), 0.0)
+				icon.size = Vector2(side, side)
+
+
+## Same icon atlas coordinates as the original unit information window.
+## All this state is transient visual data; do not modify the roster.
+static func sync_brands(card: TextureButton, brands: Array) -> void:
+	if not card.has_node(BASE_NAME): return
+	var row := card.get_node_or_null(BRAND_ROW_NAME) as Control
+	if row == null:
+		row = Control.new()
+		row.name = BRAND_ROW_NAME
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.clip_contents = false
+		card.add_child(row)
+	var keys: Array[String] = []
+	for brand in brands:
+		if keys.size() >= 3: break
+		if not (brand is Dictionary): continue
+		var kind := str(brand.get("type", ""))
+		if UnitInfo.ICONS.has(kind): keys.append(kind)
+	var signature := ",".join(keys)
+	if card.get_meta("layered_brand_signature", "#new") == signature: return
+	card.set_meta("layered_brand_signature", signature)
+	for child in row.get_children():
+		row.remove_child(child)
+		child.queue_free()
+	for kind in keys:
+		var atlas := AtlasTexture.new()
+		atlas.atlas = BRAND_ICON_EXTRA if kind in ["combo", "freeze", "lightspeed", "counter"] else BRAND_ICON_SHEET
+		atlas.region = UnitInfo.ICONS[kind]
+		var icon := TextureRect.new()
+		icon.name = "BrandIcon_%d" % row.get_child_count()
+		icon.texture = atlas
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.material = card.material
+		row.add_child(icon)
+	relayout(card)
+
+## Copy the current composited card for animations, not the obsolete
+## flattened unit-card image kept for compatibility with existing tests.
+static func flight_visual_copy(card: TextureButton) -> Control:
+	if not card.has_node(BASE_NAME): return null
+	var flyer := Control.new()
+	flyer.name = "LayeredCardFlight"
+	flyer.size = card.size
+	flyer.clip_contents = false
+	flyer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flyer.modulate = card.modulate
+	for child in card.get_children():
+		if child.name in [BASE_NAME, ACTOR_NAME, BANNER_NAME, TEXT_NAME, BRAND_ROW_NAME, "BrandFrameOverlay", "AltarUpgradeBadge"]:
+			var copied := child.duplicate(0) as Control
+			if copied != null:
+				copied.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				flyer.add_child(copied)
+	return flyer
 
 static func _apply_scale(card: TextureButton, animate: bool) -> void:
 	var actor := card.get_node_or_null(ACTOR_NAME) as TextureRect

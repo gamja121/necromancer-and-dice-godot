@@ -64,7 +64,7 @@ func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensi
 	var caption = label_at(node,Catalog.label(kind,item),Vector2(-12,dimensions.y+8),Vector2(dimensions.x+24,50),13)
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if kind=="unit":
-		LayeredUnitCard.install(node, str(item.slug), str(item.name))
+		LayeredUnitCard.install(node, str(item.slug), str(item.name), false, item.get("brands", []))
 	if kind=="unit":
 		BrandFrameOverlay.sync(node,item)
 		AltarUpgradeBadge.sync(node,item)
