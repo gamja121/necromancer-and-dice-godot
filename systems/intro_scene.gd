@@ -124,7 +124,7 @@ func _build_dialogue() -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dialogue_stage.add_child(box)
 	var frame = TextureRect.new()
-	frame.texture = load("res://assets/map/ui/intro-dialogue-box.webp")
+	frame.texture = load("res://assets/intro/dialogue_frame.webp")
 	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	frame.stretch_mode = TextureRect.STRETCH_SCALE
 	frame.size = box.size
