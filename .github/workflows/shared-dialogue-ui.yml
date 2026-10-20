@@ -7,6 +7,8 @@ on:
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
       - 'scripts/test_ui_grave_dialogue_stage5p.gd'
+      - 'scripts/test_story_event_layout.gd'
+      - 'assets/map/ui/intro-dialogue-box.webp'
       - '.github/workflows/shared-dialogue-ui.yml'
   push:
     branches: [main]
@@ -16,6 +18,8 @@ on:
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
       - 'scripts/test_ui_grave_dialogue_stage5p.gd'
+      - 'scripts/test_story_event_layout.gd'
+      - 'assets/map/ui/intro-dialogue-box.webp'
       - '.github/workflows/shared-dialogue-ui.yml'
 jobs:
   check:
@@ -38,6 +42,17 @@ jobs:
           timeout 180s godot --headless --path . --script res://scripts/test_shared_dialogue_panel.gd 2>&1 | tee shared.log
           grep -E '^SHARED_DIALOGUE_UI: [0-9]+ passed, 0 failed$' shared.log
           if grep -E 'FAIL shared-dialogue:|SCRIPT ERROR|Parse Error|Invalid call' shared.log; then exit 1; fi
+      - name: Verify map story original parchment geometry and readable dark ink
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_story_event_layout.gd 2>&1 | tee layout.log
+          grep -E '^STORY_EVENT_LAYOUT: [0-9]+ passed, 0 failed        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_grave_dialogue_stage5p.gd 2>&1 | tee grave.log
+          grep -E '^UI_GRAVE_DIALOGUE_FRAME_PARITY: [0-9]+ passed, 0 failed$' grave.log
+          if grep -E 'FAIL ui-grave-dialogue:|SCRIPT ERROR|Parse Error|Invalid call' grave.log; then exit 1; fi
+ layout.log
+          if grep -E 'FAIL story-event-layout:|SCRIPT ERROR|Parse Error|Invalid call' layout.log; then exit 1; fi
       - name: Verify canonical graveyard dialogue interaction and save reload
         run: |
           set -euo pipefail
