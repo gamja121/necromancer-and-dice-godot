@@ -23,7 +23,7 @@ func _run() -> void:
 	if art == null:
 		quit(1)
 		return
-	check(art.get_width() >= 800 and art.get_height() >= 180, "source art retains sufficient native resolution")
+	check(art.get_width() >= 768 and art.get_height() >= 180, "source art retains sufficient native resolution")
 	var raw = FileAccess.get_file_as_bytes(FRAME)
 	check(raw.size() > 12000 and raw.slice(0,4) == "RIFF".to_ascii_buffer() and raw.slice(8,12) == "WEBP".to_ascii_buffer(), "original recovered RIFF/WEBP parchment asset is the dialogue source")
 	check(art.get_width() == 768 and art.get_height() == 288, "web original dialogue painting keeps its 768×288 intrinsic dimensions")
