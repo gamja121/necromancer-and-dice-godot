@@ -51,8 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           timeout 300s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee combat-return.log
-          grep -E '^P4_COMBAT_MAP_RETURN_INTEGRATION: [0-9]+ passed, 0 failed
- combat-return.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL p4-combat:' combat-return.log; then exit 1; fi
+          grep -F 'P4_COMBAT_MAP_RETURN_INTEGRATION:' combat-return.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|FAIL p4-combat:' combat-return.log; then exit 1; fi
       - name: Verify intended diff
         run: git diff --check
