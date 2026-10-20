@@ -536,11 +536,14 @@ func render() -> void:
 	map_audio.set_modal_blocked(is_instance_valid(overlay))
 	var options: Button = map_audio.get_child(0)
 	options.text = ""
-	options.position = Vector2(1053,133)
+	# Move the one settings control to the actual upper-right corner.
+	# Painted gear art replaces the old polished icon; the sound settings
+	# workflow and child-index contract remain exactly the same.
+	options.position = Vector2(1192,14)
 	options.size = Vector2(58,58)
-	options.tooltip_text = "오디오 옵션"
+	options.tooltip_text = "설정 · 배경음악 / 효과음"
 	for state in ["normal","hover","pressed","disabled","focus"]: options.add_theme_stylebox_override(state,StyleBoxEmpty.new())
-	image(options,"res://assets/map/ui/map_audio_options.webp",Vector2.ZERO,options.size)
+	image(options,"res://assets/map/ui/brush_settings_icon.svg",Vector2.ZERO,options.size)
 	add_button_effect(options)
 	dice.disabled = moving
 	_sync_map_chrome()
