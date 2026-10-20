@@ -1,0 +1,52 @@
+name: Painted Map Settings UI
+on:
+  push:
+    branches:
+      - ui/brush-options-topright-20261021
+    paths:
+      - 'systems/audio_settings.gd'
+      - 'map.gd'
+      - 'assets/map/ui/brush_settings_*.svg'
+      - 'scripts/test_ui_map_audio_options_stage5m.gd'
+      - 'scripts/test_ui_map_overlay_audio_stage5q.gd'
+      - '.github/workflows/painted-map-settings.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  painted-map-settings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import SVGs and parse Godot scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Painted UI and persisted audio controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 145s godot --headless --path . --script res://scripts/test_ui_map_audio_options_stage5m.gd 2>&1 | tee audio.log
+          grep -E 'UI_MAP_AUDIO_OPTIONS_PARITY: [0-9]+ passed, 0 failed' audio.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-audio:' audio.log; then exit 1; fi
+      - name: All location and inventory overlays block settings input
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 165s godot --headless --path . --script res://scripts/test_ui_map_overlay_audio_stage5q.gd 2>&1 | tee overlay.log
+          grep -E 'UI_MAP_OVERLAY_AUDIO_PARITY: [0-9]+ passed, 0 failed' overlay.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-overlay-audio:' overlay.log; then exit 1; fi
+      - name: Location chrome and dice remain unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 165s godot --headless --path . --script res://scripts/test_ui_map_chrome_stage5r.gd 2>&1 | tee chrome.log
+          grep -E 'UI_MAP_CHROME_STAGE5R: [0-9]+ passed, 0 failed' chrome.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-map-chrome:' chrome.log; then exit 1; fi
