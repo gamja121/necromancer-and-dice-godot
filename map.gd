@@ -67,6 +67,7 @@ const TreasureReward = preload("res://systems/treasure_reward.gd")
 const DiceHand = preload("res://systems/dice_control_hand.gd")
 const InventoryPanel = preload("res://systems/inventory_panel.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
+const BrushSettingsArt = preload("res://systems/brush_map_settings_art.gd")
 const Battlefield = preload("res://battlefield.tscn")
 const GameOverScreen = preload("res://systems/game_over_screen.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
@@ -543,7 +544,14 @@ func render() -> void:
 	options.size = Vector2(58,58)
 	options.tooltip_text = "설정 · 배경음악 / 효과음"
 	for state in ["normal","hover","pressed","disabled","focus"]: options.add_theme_stylebox_override(state,StyleBoxEmpty.new())
-	image(options,"res://assets/map/ui/brush_settings_icon.svg",Vector2.ZERO,options.size)
+	var painted_icon = TextureRect.new()
+	painted_icon.name = "PaintedSettingsGear"
+	painted_icon.texture = BrushSettingsArt.painted_texture("icon")
+	painted_icon.size = options.size
+	painted_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	painted_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	painted_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	options.add_child(painted_icon)
 	add_button_effect(options)
 	dice.disabled = moving
 	_sync_map_chrome()
