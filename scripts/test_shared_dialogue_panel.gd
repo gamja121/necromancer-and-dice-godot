@@ -1,6 +1,7 @@
 extends SceneTree
 ## Shared dialogue art is a decoration only; all actions are still Godot buttons.
-const FRAME = "res://assets/map/ui/shared_dialogue_panel.svg"
+const FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
+const INTRO_FRAME = "res://assets/intro/dialogue_frame.webp"
 const MAP = preload("res://map.tscn")
 const INTRO = preload("res://intro.tscn")
 var failed: int = 0
@@ -23,9 +24,10 @@ func _run() -> void:
 	if art == null:
 		quit(1)
 		return
-	check(art.get_width() >= 800 and art.get_height() >= 180, "source art retains sufficient native resolution")
-	var raw = FileAccess.get_file_as_string(FRAME)
-	check(not raw.contains("계속") and not raw.contains("나가기") and not raw.contains("nameplate"), "art has no baked text, buttons or nameplate")
+	check(art.get_width() >= 768 and art.get_height() >= 180, "source art retains sufficient native resolution")
+	var raw = FileAccess.get_file_as_bytes(FRAME)
+	check(raw.size() > 12000 and raw.slice(0,4) == "RIFF".to_ascii_buffer() and raw.slice(8,12) == "WEBP".to_ascii_buffer(), "original recovered RIFF/WEBP parchment asset is the dialogue source")
+	check(art.get_width() == 768 and art.get_height() == 288, "web original dialogue painting keeps its 768×288 intrinsic dimensions")
 	var session = root.get_node_or_null("RunSession")
 	check(session != null, "RunSession autoload is available")
 	if session == null:
@@ -59,6 +61,8 @@ func _run() -> void:
 		check(body.contains("shared_story_frame(panel)"), "shared parchment added to " + fn)
 	map.queue_free()
 	await process_frame
+	var original_intro = load(INTRO_FRAME) as Texture2D
+	check(original_intro != null and original_intro.get_width() == 607 and original_intro.get_height() == 268, "intro source artwork imports at original 607×268 resolution")
 	var intro = INTRO.instantiate()
 	root.add_child(intro)
 	await process_frame
@@ -66,9 +70,9 @@ func _run() -> void:
 	for node in intro.dialogue_stage.get_children():
 		if node is Control:
 			for child in node.get_children():
-				if child is TextureRect and child.texture != null and child.texture.resource_path == FRAME:
+				if child is TextureRect and child.texture != null and child.texture.resource_path == INTRO_FRAME:
 					intro_art_found = true
-	check(intro_art_found, "intro uses exactly the same parchment texture")
+	check(intro_art_found, "intro uses its own 607×268 original artwork from the frozen web introduction")
 	check(intro.advance_button is Button and intro.skip_button is Button, "intro click and skip affordances remain")
 	intro.queue_free()
 	await process_frame

@@ -3,24 +3,30 @@ on:
   pull_request:
     paths:
       - 'assets/map/ui/shared_dialogue_panel.svg'
+      - 'assets/map/ui/intro-dialogue-box.webp'
+      - 'assets/intro/dialogue_frame.webp'
       - 'systems/intro_scene.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
+      - 'scripts/test_story_event_layout.gd'
       - 'scripts/test_ui_grave_dialogue_stage5p.gd'
       - '.github/workflows/shared-dialogue-ui.yml'
   push:
     branches: [main]
     paths:
       - 'assets/map/ui/shared_dialogue_panel.svg'
+      - 'assets/map/ui/intro-dialogue-box.webp'
+      - 'assets/intro/dialogue_frame.webp'
       - 'systems/intro_scene.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
+      - 'scripts/test_story_event_layout.gd'
       - 'scripts/test_ui_grave_dialogue_stage5p.gd'
       - '.github/workflows/shared-dialogue-ui.yml'
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 17
     steps:
       - uses: actions/checkout@v4
       - uses: chickensoft-games/setup-godot@v2
@@ -38,6 +44,12 @@ jobs:
           timeout 180s godot --headless --path . --script res://scripts/test_shared_dialogue_panel.gd 2>&1 | tee shared.log
           grep -E '^SHARED_DIALOGUE_UI: [0-9]+ passed, 0 failed$' shared.log
           if grep -E 'FAIL shared-dialogue:|SCRIPT ERROR|Parse Error|Invalid call' shared.log; then exit 1; fi
+      - name: Verify map story original parchment geometry and ink
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_story_event_layout.gd 2>&1 | tee layout.log
+          grep -E '^STORY_EVENT_LAYOUT: [0-9]+ passed, 0 failed$' layout.log
+          if grep -E 'FAIL story-event-layout:|SCRIPT ERROR|Parse Error|Invalid call' layout.log; then exit 1; fi
       - name: Verify canonical graveyard dialogue interaction and save reload
         run: |
           set -euo pipefail

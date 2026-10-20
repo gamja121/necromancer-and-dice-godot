@@ -48,7 +48,7 @@ const TILE_EVENT_PATROL_RECT = Rect2(515.0,595.0,216.0,58.0)
 # Frozen CSS places the ghoul at 55%/18% of the event art frame,
 # sized to 30%/64% (not stretched across the whole scene).
 const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
-const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/shared_dialogue_panel.svg"
+const GRAVEYARD_DIALOGUE_FRAME = "res://assets/map/ui/intro-dialogue-box.webp"
 const SHARED_DIALOGUE_RECT = Rect2(205.0, 516.0, 870.0, 132.0)
 const GRAVEYARD_DIALOGUE_RECT = SHARED_DIALOGUE_RECT # unified 132-pixel safe parchment
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -316,9 +316,12 @@ func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2,
 	if story_frame and pos.y >= 525.0 and pos.y < 645.0 and dimensions.x >= 450.0 and not node.has_meta("ui_story_copy_role"):
 		node.set_meta("ui_story_copy_role","speech" if pos.y >= 590.0 else "narration")
 	node.add_theme_font_size_override("font_size",display_size)
-	node.add_theme_color_override("font_color",Color("f2dfb5"))
-	node.add_theme_color_override("font_shadow_color",Color.BLACK)
-	node.add_theme_constant_override("shadow_offset_y",2)
+	# The original parchment is light: all copy printed inside its bounds
+	# uses dark ink, while headings over dark scene artwork keep light text.
+	var on_parchment: bool = story_frame and node.position.y >= SHARED_DIALOGUE_RECT.position.y and node.position.y < SHARED_DIALOGUE_RECT.end.y
+	node.add_theme_color_override("font_color",Color("21150d") if on_parchment else Color("f2dfb5"))
+	node.add_theme_color_override("font_shadow_color",Color.TRANSPARENT if on_parchment else Color.BLACK)
+	node.add_theme_constant_override("shadow_offset_y",0 if on_parchment else 2)
 	parent.add_child(node)
 	return node
 
