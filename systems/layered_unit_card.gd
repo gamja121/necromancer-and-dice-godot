@@ -40,6 +40,13 @@ const PORTRAITS := {
 	"death-knight": ROOT + "death_knight.webp",
 	"hell-mantis": ROOT + "hell_mantis.webp",
 	"doom-executor": ROOT + "doom_executor.webp",
+	"abyss-eye": ROOT + "abyss_eye.webp",
+	"sea-wolf": ROOT + "sea_wolf.webp",
+	"goblin-soldier": ROOT + "goblin_soldier.webp",
+	"goblin-chief": ROOT + "goblin_chief.webp",
+	"ghoul": ROOT + "ghoul.webp",
+	"plague-doctor": ROOT + "plague_doctor.webp",
+	"yeti": ROOT + "yeti.webp",
 }
 
 # Legion scenery stays clipped to the paper card; the character is independent
@@ -76,6 +83,13 @@ const BACKGROUNDS := {
 	"death-knight": ROOT + "base_demon.webp",
 	"hell-mantis": ROOT + "base_plague.webp",
 	"doom-executor": ROOT + "base_demon.webp",
+	"abyss-eye": ROOT + "base_demon.webp",
+	"sea-wolf": ROOT + "base_ice.webp",
+	"goblin-soldier": ROOT + "base_beast.webp",
+	"goblin-chief": ROOT + "base_beast.webp",
+	"ghoul": ROOT + "base_corpse.webp",
+	"plague-doctor": ROOT + "base_plague.webp",
+	"yeti": ROOT + "base_ice.webp",
 }
 
 const WIDE_PORTRAITS := [
@@ -86,6 +100,7 @@ const WIDE_PORTRAITS := [
 	"goblin-rider", "cerberus", "ancient-treant", "spider-knight", "crystal-devourer", "kraken",
 	"stone-golem", "raging-treant", "scorpion-knight", "death-knight", "hell-mantis",
 	"doom-executor",
+	"abyss-eye", "soul-reaper", "sea-wolf", "goblin-chief", "yeti",
 ]
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"

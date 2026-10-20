@@ -15,7 +15,7 @@ func check(ok: bool, name: String) -> void:
 		printerr("FAIL layered-card: ", name)
 
 func _run() -> void:
-	# Runtime card art is opt-in by slug. All thirty-two share the same zoom,
+	# Runtime card art is opt-in by slug. All thirty-nine share the same zoom,
 	# real owned brands, return-to-book visual layers and legacy hit texture.
 	var expected_backgrounds := {
 		"skeleton-spear": "base_skeleton.webp",
@@ -50,8 +50,15 @@ func _run() -> void:
 	"death-knight": "base_demon.webp",
 	"hell-mantis": "base_plague.webp",
 	"doom-executor": "base_demon.webp",
+	"abyss-eye": "base_demon.webp",
+	"sea-wolf": "base_ice.webp",
+	"goblin-soldier": "base_beast.webp",
+	"goblin-chief": "base_beast.webp",
+	"ghoul": "base_corpse.webp",
+	"plague-doctor": "base_plague.webp",
+	"yeti": "base_ice.webp",
 	}
-	check(expected_backgrounds.size() == 32, "all 32 real monster slugs have approved layered scenery")
+	check(expected_backgrounds.size() == 39, "all 39 real monster slugs have approved layered scenery")
 	for slug in expected_backgrounds.keys():
 		for dims in [Vector2(136,218), Vector2(121.856,225.216), Vector2(90,120), Vector2(170,302.4)]:
 			var card := TextureButton.new()
