@@ -534,13 +534,13 @@ func render() -> void:
 	map_audio = AudioSettings.new()
 	map_audio.setup(stage)
 	map_audio.set_modal_blocked(is_instance_valid(overlay))
-	var options: Button = map_audio.get_child(0)
-	options.text = ""
-	options.position = Vector2(1053,133)
-	options.size = Vector2(58,58)
-	options.tooltip_text = "오디오 옵션"
-	for state in ["normal","hover","pressed","disabled","focus"]: options.add_theme_stylebox_override(state,StyleBoxEmpty.new())
-	image(options,"res://assets/map/ui/map_audio_options.webp",Vector2.ZERO,options.size)
+	# Compact ink-brushed settings label sits at the map's upper-right.
+	# The AudioSettings component owns the painted button and saved audio logic.
+	var options: Button = map_audio.options_button
+	options.text = "설정"
+	options.position = Vector2(1164,20)
+	options.size = Vector2(90,50)
+	options.tooltip_text = "설정 · 배경음악 / 효과음"
 	add_button_effect(options)
 	dice.disabled = moving
 	_sync_map_chrome()
