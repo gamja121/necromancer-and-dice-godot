@@ -8,6 +8,7 @@ var map_music: AudioStreamPlayer
 
 const BattleResources = preload("res://systems/battle_resources.gd")
 const BookBattleLock = preload("res://systems/book_battle_lock.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
@@ -1052,15 +1053,21 @@ func show_treasure(index: int = -1) -> void:
 
 func animate_reward_to_inventory(kind: String, source: TextureButton) -> void:
 	var target: TextureButton = deck_button if kind=="dice" else book_button
-	var flyer = image(stage,source.texture_normal.resource_path,source.global_position,source.size)
+	# Use the current live layers when a won/captured monster flies to the book.
+	var flyer: Control = LayeredUnitCard.flight_visual_copy(source)
+	if flyer != null:
+		stage.add_child(flyer)
+		flyer.position = stage.get_global_transform_with_canvas().affine_inverse() * (source.get_global_transform_with_canvas() * Vector2.ZERO)
+	else:
+		flyer = image(stage,source.texture_normal.resource_path,source.global_position,source.size)
+		# Ordinary unlayered reward cards keep their old decoration path.
+		for overlay_name in ["BrandFrameOverlay","AltarUpgradeBadge"]:
+			var overlay = source.get_node_or_null(overlay_name)
+			if overlay is TextureRect:
+				var copy: TextureRect = overlay.duplicate()
+				copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				flyer.add_child(copy)
 	flyer.name = "RewardToInventoryFlight"
-	# Carry visual-only badges with the reward card during the flying-to-inventory animation.
-	for overlay_name in ["BrandFrameOverlay","AltarUpgradeBadge"]:
-		var overlay = source.get_node_or_null(overlay_name)
-		if overlay is TextureRect:
-			var copy: TextureRect = overlay.duplicate()
-			copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			flyer.add_child(copy)
 	flyer.z_index = 220
 	flyer.pivot_offset = flyer.size*0.5
 	var start = flyer.position
@@ -1288,15 +1295,20 @@ func _return_battle_cards_to_book() -> void:
 		var origin: Vector2 = inverse * (transform * Vector2.ZERO)
 		var x_axis: Vector2 = inverse * (transform * Vector2(card.size.x, 0))
 		var y_axis: Vector2 = inverse * (transform * Vector2(0, card.size.y))
-		var ghost := TextureRect.new()
-		# The live skeleton card has a transparent hit texture. Keep defeat ghosts visible.
-		ghost.texture = card.get_meta("layered_original_texture", card.texture_normal) as Texture2D
-		ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ghost.stretch_mode = TextureRect.STRETCH_SCALE
+		# A layered card remains layered all the way into the book.
+		var ghost: Control = LayeredUnitCard.flight_visual_copy(card)
+		if ghost == null:
+			var flat := TextureRect.new()
+			flat.texture = card.texture_normal
+			flat.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			flat.stretch_mode = TextureRect.STRETCH_SCALE
+			ghost = flat
 		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ghost.z_index = 95
 		ghost.position = origin
-		ghost.size = Vector2(origin.distance_to(x_axis), origin.distance_to(y_axis))
+		ghost.size = card.size
+		ghost.pivot_offset = Vector2.ZERO
+		ghost.scale = Vector2(origin.distance_to(x_axis)/card.size.x, origin.distance_to(y_axis)/card.size.y)
 		ghost.rotation = (x_axis-origin).angle()
 		stage.add_child(ghost)
 		card.modulate.a = 0.0
@@ -1304,20 +1316,22 @@ func _return_battle_cards_to_book() -> void:
 	if ghosts.is_empty(): return
 	var longest: float = 0.0
 	for entry in ghosts:
-		var ghost: TextureRect = entry.node
+		var ghost: Control = entry.node
 		var delay: float = float(entry.slot) * 0.045 if entry.ally else 0.0
 		var duration: float = 0.48 if entry.ally else 0.26
 		longest = maxf(longest, delay+duration)
 		var tween := create_tween().set_parallel(true)
 		if entry.ally:
-			# Align the shrinking card's center with the actual book artwork.
-			var target_size: Vector2 = ghost.size * 0.12
+			# Scaling the composite parent preserves its internal illustrations,
+			# owned-brand icons, and parchment name ribbon during flight.
+			var target_scale: Vector2 = ghost.scale * 0.12
+			var target_size: Vector2 = ghost.size * target_scale
 			tween.tween_property(ghost, "position", book_center-target_size*0.5, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-			tween.tween_property(ghost, "size", target_size, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			tween.tween_property(ghost, "scale", target_scale, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 			tween.tween_property(ghost, "rotation", 0.0, duration).set_delay(delay)
 			tween.tween_property(ghost, "modulate:a", 0.0, 0.12).set_delay(delay+duration-0.12)
 		else:
-			tween.tween_property(ghost, "scale", Vector2(0.72,0.72), duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			tween.tween_property(ghost, "scale", ghost.scale*0.72, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 			tween.tween_property(ghost, "modulate:a", 0.0, duration)
 		tween.chain().tween_callback(ghost.queue_free)
 	await get_tree().create_timer(longest+0.03).timeout
