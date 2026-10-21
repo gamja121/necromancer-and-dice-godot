@@ -10,6 +10,8 @@ on:
       - "systems/reward_ui.gd"
       - "systems/battle_deck.gd"
       - "systems/corpse_capture.gd"
+      - "systems/permanent_death.gd"
+      - "systems/combat_cues.gd"
       - "systems/home_inheritance.gd"
       - "systems/place_actions.gd"
       - "systems/layered_unit_card.gd"
