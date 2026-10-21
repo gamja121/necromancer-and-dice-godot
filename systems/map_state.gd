@@ -457,7 +457,7 @@ func restore(saved: Dictionary) -> bool:
 	# Permanently lost owned units are saved in the graveyard with the
 	# same numeric/card shape as roster units. JSON parses numbers as float;
 	# restore their ints too, so a loss -> reload does not subtly change
-	# the corpse item used later for extraction or inheritance.
+	# historical defeat records. Corpses are no longer brand-card materials.
 	for corpse in graveyard_corpses:
 		if not corpse is Dictionary: continue
 		for key in ["max_hp","attack","speed","current_hp"]:
