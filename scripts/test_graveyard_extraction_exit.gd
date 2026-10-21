@@ -81,7 +81,7 @@ func _run() -> void:
 	# Keep the traditional 'close to location' navigation as well.
 	if is_instance_valid(close):
 		close.pressed.emit()
-		check(await wait_for(func(): return find_button(map.overlay,"나가기")!=null),"close returns to original location screen")
+		check(await wait_for(func(): return find_button(map.overlay,"맵으로 나가기")!=null),"close returns to original location screen")
 		map.close_overlay()
 	map.show_location(grave)
 	entry = find_button(map.overlay,"시체 파헤치기")
@@ -118,7 +118,7 @@ func _run() -> void:
 				# the standard exit remains available.
 				map.show_location(grave)
 				var spent: Button = find_button(map.overlay,"시체 파헤치기")
-				check(spent!=null and spent.disabled and find_button(map.overlay,"나가기")!=null,"used extraction is disabled but regular exit remains available")
+				check(spent!=null and spent.disabled and find_button(map.overlay,"맵으로 나가기")!=null,"used extraction is disabled but regular exit remains available")
 				map.close_overlay()
 	map.queue_free()
 	await process_frame

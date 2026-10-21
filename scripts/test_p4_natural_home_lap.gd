@@ -87,7 +87,7 @@ func select_natural_seed(world) -> int:
 				valid = false
 				break
 			visits[tile] = true
-		if valid and position == STATE.HOME and turns >= 5 and visits.size() >= 3 and (visits.has("forest") or visits.has("basic")):
+		if valid and position == STATE.HOME and turns >= 5 and visits.size() >= 2 and visits.has("basic") and visits.has("monster"):
 			return seed
 	return -1
 
@@ -140,9 +140,9 @@ func perform_lap(session: Node) -> void:
 	check(world.roster[0].current_hp < original_hp, "only disposable owned unit starts wounded for home-healing proof")
 	check(session.save_world(), "genuine seeded 24-tile board persisted without tile permutations")
 	check(world.position == STATE.HOME and world.map_serial == 1 and world.move_serial == 0, "fresh original board and starting house")
-	check(world.tiles.count("basic")==10 and world.tiles.count("monster")==5 and world.tiles.count("event")==2 and world.tiles.count("rest")==0 and world.tiles.count("swamp")==0 and world.tiles.count("graveyard")==0 and world.tiles.count("altar")==0
+	check(world.tiles.count("basic")==11 and world.tiles.count("monster")==5 and world.tiles.count("event")==2 and world.tiles.count("rest")==0 and world.tiles.count("swamp")==0 and world.tiles.count("graveyard")==0 and world.tiles.count("altar")==0
 		and world.tiles.count("unknown")==0 and world.tiles.count("rare-monster")==0,
-		"first expedition guarantees five monsters, two events and no swamp/rest with 10 empty roads")
+		"first expedition guarantees five monsters, two events and no swamp/rest with 11 empty roads")
 	var map: Control = MAP.instantiate()
 	root.add_child(map)
 	await process_frame
@@ -186,15 +186,15 @@ func perform_lap(session: Node) -> void:
 			map = await reload_during_route(session, map, turns)
 			world = session.world
 	check(home_reached and turns >= 5, "one original unshortened lap naturally returns home in %d die rolls" % turns)
-	check(places.size() >= 3, "natural lap visits at least three distinct tile types")
+	check(places.has("basic") and places.has("monster"), "natural first lap visits the actual two available non-event tile types")
 	check(world.position == STATE.HOME and world.lap_ready and world.laps == 0, "home landing only arms one future lap; does not advance prematurely")
-	check(panel_button(map, "들어가기") != null and panel_button(map, "나가기") != null, "actual home entrance and exit displayed")
+	check(panel_button(map, "들어가기") != null and panel_button(map, "다음 바퀴 출발") != null, "actual home entrance and exit displayed")
 	if home_reached and panel_button(map, "들어가기") != null:
 		panel_button(map, "들어가기").pressed.emit()
 		var interior: bool = await until_ready(func(): return panel_button(map, "낙인 계승") != null and panel_button(map, "순찰경로") != null, 14000)
 		check(interior, "actual house interior opens inheritance and patrol UI")
 		check(world.roster.all(func(u): return int(u.current_hp) == int(u.max_hp)), "home entrance restores all surviving monster HP")
-		var exit: Button = panel_button(map, "나가기")
+		var exit: Button = panel_button(map, "다음 바퀴 출발")
 		check(exit != null, "home interior exposes original shuffle exit")
 		if exit != null:
 			var receipts_before_exit: Array = world.reward_receipts.duplicate(true)
@@ -203,7 +203,7 @@ func perform_lap(session: Node) -> void:
 			check(shuffled, "actual gather/rotation/scatter completes one saved natural shuffle")
 			check(world.laps == 1 and world.contamination == 7 and not world.lap_ready, "home exit commits exactly one lap and +7 contamination")
 			check(world.position == STATE.HOME and world.tiles.size() == 24 and world.tiles[0] == "fortune-teller-camp" and world.tiles[8] == "village" and world.tiles[STATE.HOME] == "home", "reshuffled board preserves all three fixed anchors")
-			check(world.tiles.count("graveyard")==1 and world.tiles.count("basic")==9 and world.tiles.count("event")==2,
+			check(world.tiles.count("graveyard")==1 and world.tiles.count("basic")==10 and world.tiles.count("event")==2,
 				"first completed lap unlocks exactly one graveyard in place of one road")
 			check(world.tiles.count("unknown")==0 and world.tiles.count("altar")==0 and world.tiles.count("rare-monster")==0,
 				"world tree, altar, rare monster remain excluded after the first lap")
