@@ -316,6 +316,14 @@ func restore(saved: Dictionary) -> bool:
 		if reward.get("phase","")=="overflow":
 			if str(entry.effect)!="dice" or not reward.has("reward"): return false
 			if reward.reward.get("kind","")!="dice" or not reward.reward.get("item",{}) is Dictionary: return false
+	if reward.get("kind","")=="grave-dig":
+		var grave_index: int = int(reward.get("index",-1))
+		if grave_index<0 or grave_index>=24 or int(saved.position)!=grave_index or saved.tiles[grave_index]!="graveyard": return false
+		if not str(reward.get("id","")).begins_with("grave-extract-visit:"): return false
+		if reward.id in saved.get("reward_receipts",[]): return false
+		if reward.get("reward",{}).get("kind","")!="dice": return false
+		var found: Dictionary = reward.reward.get("item",{})
+		if not found.has("id") or not found.has("card_id") or not found.has("label") or not found.has("image"): return false
 	if reward.get("kind","")=="mimic":
 		var tile_index = int(reward.get("index",-1))
 		var count = int(reward.get("count",0))
@@ -336,7 +344,7 @@ func restore(saved: Dictionary) -> bool:
 		for k in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			run_result[k] = int(run_result[k])
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
-	if pending_reward.get("kind","")=="routine":
+	if pending_reward.get("kind","") in ["routine","grave-dig"]:
 		pending_reward["index"] = int(pending_reward.get("index",-1))
 	# The unopened 10% mimic chest is a durable reward like a treasure.
 	# Godot JSON converts the native enemy count and gem index into floats;
