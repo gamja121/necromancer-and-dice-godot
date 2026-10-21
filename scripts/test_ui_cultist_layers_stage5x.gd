@@ -127,6 +127,9 @@ func _run()->void:
 	check(altar_bounds.position.distance_to(scene.position+scene.size*Vector2(0.20,0.18))<0.01,"web altar left 20%, bottom 7% geometry")
 	check(altar_bounds.size.distance_to(scene.size*Vector2(0.60,0.64))<0.01,"altar ritual/summon 60% of source event image")
 	check(approximately(MOTION.RUMOR_SECONDS,0.50,0.001) and approximately(MOTION.ALTAR_SECONDS,0.48,0.001),"web .50s/.48s story layer reveal durations")
+	# Source CSS fractions stay canonical; only the rendered story rectangle moves left.
+	rumor_bounds=map.StorySplit.map_art_rect(rumor_bounds)
+	altar_bounds=map.StorySplit.map_art_rect(altar_bounds)
 	var receipts:Array=session.world.reward_receipts.duplicate()
 
 	for i in range(CULTIST_BEATS.count()):

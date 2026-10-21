@@ -37,22 +37,33 @@ func _run() -> void:
 	root.add_child(map)
 	for i in range(3): await process_frame
 	var before: Dictionary = session.world.snapshot().duplicate(true)
-	var panel = map.modal()
+	var panel = map.story_modal()
+	var art = map.image(panel,"res://assets/map/events/forest.jpg",map.TILE_EVENT_SCENE_RECT.position,map.TILE_EVENT_SCENE_RECT.size)
 	var frame = map.shared_story_frame(panel)
+	var title = map.label_at(panel,"사건 · 오래된 길",Vector2(350,84),Vector2(582,42),24)
 	var narrative = map.label_at(panel,"의식이 시작되자 폐허를 감싼 그림자들이 눈을 뜬다.",Vector2(285,573),Vector2(710,64),18)
+	check(panel.get_node_or_null("StorySplitSpeechFrame") == null,"silent beat has no separate character dialogue box")
+	check(rect_for(frame) == Rect2(758,164,456,365),"silent narration expands to available right-hand height")
+	check(rect_for(narrative) == Rect2(782,209,408,291),"silent narration uses full reading lane")
 	var speech = map.label_at(panel,"기사단장: 네 마물들이 정말 저 어둠을 물리칠 수 있겠나?",Vector2(285,619),Vector2(710,34),16)
 	var action = map.location_button(panel,"계속",Vector2(463,653),Vector2(171,48),func():pass,1)
 	var secondary = map.location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func():pass,4)
 	var exit = map.location_button(panel,"나가기",Vector2(866,653),Vector2(171,48),func():pass,4)
-	check(rect_for(frame) == Rect2(205,516,870,132),"parchment is identical for all story events")
-	check(rect_for(narrative) == Rect2(275,535,730,51),"narration fixed upper ink lane")
-	check(rect_for(speech) == Rect2(275,593,730,44),"dialogue fixed lower ink lane")
-	check(not rect_for(narrative).intersects(rect_for(speech)),"description and spoken line do not overlap")
-	check(not rect_for(narrative).intersects(rect_for(action)) and not rect_for(speech).intersects(rect_for(action)),"copy clear of primary action")
-	check(not rect_for(frame).intersects(rect_for(action)) and not rect_for(frame).intersects(rect_for(secondary)) and not rect_for(frame).intersects(rect_for(exit)),"paper frame clear of all footer buttons")
-	check(not rect_for(action).intersects(rect_for(secondary)) and not rect_for(secondary).intersects(rect_for(exit)),"footer buttons have independent click areas")
+	check(panel.get_node_or_null("StorySplitSidebar") is Panel,"split story has its independent right information panel")
+	check(rect_for(art) == Rect2(55,176,650,365.625),"existing 16:9 story illustration is placed left without stretching")
+	check(is_equal_approx(art.size.x/art.size.y,16.0/9.0),"left scene preserves its 16:9 ratio")
+	check(rect_for(title) == Rect2(772,103,427,48),"story heading lives above the right narration")
+	check(rect_for(frame) == Rect2(758,164,456,233),"narration panel contracts only for spoken beats")
+	check(rect_for(narrative) == Rect2(782,209,408,160),"narration is its own expanded upper right copy")
+	check(rect_for(speech) == Rect2(782,434,408,79),"spoken dialogue is separate below the narration")
+	check(rect_for(panel.get_node("StorySplitSpeechFrame")) == Rect2(758,403,456,132),"spoken line is backed by a separate parchment")
+	check(not rect_for(narrative).intersects(rect_for(speech)),"narration and character text never overlap")
+	check(not rect_for(speech).intersects(rect_for(action)),"speech does not intersect decisions")
+	check(not rect_for(art).intersects(rect_for(frame)) and not rect_for(art).intersects(rect_for(panel.get_node("StorySplitSpeechFrame"))),"illustration never sits under reading zones")
+	check(not rect_for(action).intersects(rect_for(secondary)) and not rect_for(action).intersects(rect_for(exit)) and not rect_for(secondary).intersects(rect_for(exit)),"story action and secondary choices have independent click areas")
+	check(rect_for(action).position.x >= 758.0 and rect_for(secondary).position.x >= 758.0 and rect_for(exit).position.x >= 758.0,"all story action buttons are inside the right information region")
+	check(action.position.y < secondary.position.y and exit.position.y == secondary.position.y,"choices occupy upper row and secondary exits lower row")
 	var safe_scene: Rect2 = map.TILE_EVENT_SCENE_RECT
-	var paper_y: float = map.SHARED_DIALOGUE_RECT.position.y
 	for entry in [
 		["commander",COMMANDER.source_rect(safe_scene,false)],
 		["player",COMMANDER.source_rect(safe_scene,true)],
@@ -63,7 +74,9 @@ func _run() -> void:
 		["portal energy",PORTAL.source_rect(safe_scene)]
 	]:
 		var bounds: Rect2 = entry[1]
-		check(bounds.position.x >= safe_scene.position.x and bounds.position.y >= safe_scene.position.y and bounds.end.x <= safe_scene.end.x and bounds.end.y <= paper_y - 2.0,"%s layer stays inside visible story art" % entry[0])
+		var transformed = map.StorySplit.map_art_rect(bounds)
+		check(bounds.position.x >= safe_scene.position.x and bounds.position.y >= safe_scene.position.y and bounds.end.x <= safe_scene.end.x and bounds.end.y <= safe_scene.position.y + safe_scene.size.y,"%s source art is within its legacy scene" % entry[0])
+		check(transformed.position.x >= art.position.x and transformed.position.y >= art.position.y and transformed.end.x <= art.position.x + art.size.x + 0.5 and transformed.end.y <= art.position.y + art.size.y + 0.5,"%s remapped art stays inside left scene" % entry[0])
 	check(session.world.snapshot() == before,"presentation checks do not mutate current run")
 	map.close_overlay()
 	map.queue_free()

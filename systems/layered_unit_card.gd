@@ -52,6 +52,9 @@ const PORTRAITS := {
 	"goblin-commoner": ROOT + "goblin_commoner.webp",
 	"spiderling": ROOT + "spiderling.webp",
 	"guardian-seed": ROOT + "guardian_seed.webp",
+	"abyss-claw-hunter": ROOT + "abyss_claw_hunter.webp",
+	"plague-frog": ROOT + "plague_frog.webp",
+	"siren": ROOT + "siren.webp",
 }
 
 # Legion scenery stays clipped to the paper card; the character is independent
@@ -100,6 +103,9 @@ const BACKGROUNDS := {
 	"goblin-commoner": ROOT + "base_beast.webp",
 	"spiderling": ROOT + "base_summon.webp",
 	"guardian-seed": ROOT + "base_plant.webp",
+	"abyss-claw-hunter": ROOT + "base_demon.webp",
+	"plague-frog": ROOT + "base_plague.webp",
+	"siren": ROOT + "base_ice.webp",
 }
 
 const WIDE_PORTRAITS := [
@@ -112,6 +118,7 @@ const WIDE_PORTRAITS := [
 	"doom-executor",
 	"abyss-eye", "grave-priest", "sea-wolf", "goblin-chief", "yeti",
 	"minotaur", "spiderling",
+	"abyss-claw-hunter", "plague-frog", "siren",
 ]
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"
@@ -208,19 +215,26 @@ static func relayout(card: TextureButton) -> void:
 	caption.position = ribbon.position + Vector2(ribbon.size.x * 0.10, ribbon.size.y * 0.17)
 	caption.size = Vector2(ribbon.size.x * 0.80, ribbon.size.y * 0.63)
 	caption.add_theme_font_size_override("font_size", maxi(8, int(extent.y * 0.077)))
-	# Left-aligned engraved brands: 25% larger, inset from the outer frame.
-	# Keep all three in the information panel even on small in-game cards.
+	# Center the whole brand group inside the card's bottom information panel.
+	# Cap icon size to keep three engraved brands equally spaced and fully in bounds.
 	var brand_row := card.get_node_or_null(BRAND_ROW_NAME) as Control
 	if brand_row != null:
-		brand_row.position = rect.position + Vector2(extent.x * 0.16, extent.y * 0.79)
+		brand_row.position = rect.position + Vector2(extent.x * 0.14, extent.y * 0.79)
 		brand_row.size = Vector2(extent.x * 0.72, extent.y * 0.13)
-		var side := minf(extent.x * 0.235, extent.y * 0.125)
-		var gap := extent.x * 0.028
-		for i in range(brand_row.get_child_count()):
-			var icon := brand_row.get_child(i) as TextureRect
-			if icon != null:
-				icon.position = Vector2(i * (side + gap), 0.0)
-				icon.size = Vector2(side, side)
+		var icon_count := brand_row.get_child_count()
+		if icon_count > 0:
+			var gap := extent.x * 0.024
+			var inset := extent.x * 0.018
+			var available := maxf(0.0, brand_row.size.x - inset * 2.0 - gap * float(icon_count - 1))
+			var side := minf(minf(extent.x * 0.235, extent.y * 0.125), available / float(icon_count))
+			var total_width := side * float(icon_count) + gap * float(icon_count - 1)
+			var start_x := (brand_row.size.x - total_width) * 0.5
+			var start_y := (brand_row.size.y - side) * 0.5
+			for i in range(icon_count):
+				var icon := brand_row.get_child(i) as TextureRect
+				if icon != null:
+					icon.position = Vector2(start_x + float(i) * (side + gap), start_y)
+					icon.size = Vector2(side, side)
 
 
 ## Same icon atlas coordinates as the original unit information window.
