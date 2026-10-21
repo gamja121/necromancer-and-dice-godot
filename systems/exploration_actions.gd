@@ -12,6 +12,7 @@ const PATROL_EXIT_PARCHMENT = "res://assets/map/events/exit-parchment.png"
 const MapState = preload("res://systems/map_state.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
+const RewardOverflow = preload("res://systems/reward_overflow.gd")
 const GRADES = {"normal":"일반","advanced":"고급","hero":"영웅"}
 const LEGIONS = {"skeleton":"언데드","beast":"야수","corpse":"시체","plague":"역병","ice":"얼음","summon":"소환","demon":"악마","plant":"식물","insect":"벌레","element":"원소"}
 var map
@@ -26,12 +27,9 @@ var action_button: Button
 var route_reset_button: Button
 var content: Control
 var dice: TextureButton
-var corpse_id = ""
-var corpse_options: Dictionary = {}
-var graveyard_columns: Array = []
-var graveyard_corpses_grid: GridContainer
-var graveyard_brands_grid: GridContainer
-var brand_options: Array = []
+var graveyard_result: Dictionary = {}
+var graveyard_message: String = ""
+var graveyard_overflow: Control
 var plan: Dictionary = {}
 var selected_current = -1
 var selected_reserve = -1
@@ -58,7 +56,7 @@ func setup(map_scene, tile_index: int) -> void:
 	# The action layer uses the same 980x406 painting and 1024x450 nine-patch
 	# as the location screen; action-specific controls are layered above it.
 	map.location_scene_image(self,"res://assets/map/events/%s.jpg" % background)
-	label_at(self,{"unknown":"세계수 · 정화 기도","graveyard":"공동묘지 · 낙인 추출","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
+	label_at(self,{"unknown":"세계수 · 정화 기도","graveyard":"공동묘지 · 시체 파헤치기","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
 	close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -85,7 +83,11 @@ func setup(map_scene, tile_index: int) -> void:
 		status.size=Vector2(674,39)
 		status.add_theme_font_size_override("font_size",13)
 		render_graveyard()
-		# The extraction frame is added after the original close button.
+		# A full dice hand may have a saved unfinished discard/replace choice.
+		# Reopen that exact card; never roll another reward on reload.
+		if str(session.world.pending_reward.get("kind",""))=="grave-dig":
+			call_deferred("show_graveyard_overflow")
+		# The digging frame is added after the original close button.
 		# Draw/input-order the close control over that frame, not behind it.
 		close_button.name="GraveyardExtractClose"
 		close_button.z_index=10
@@ -161,98 +163,71 @@ func reset_route() -> void:
 func clear_content() -> void:
 	for child in content.get_children(): content.remove_child(child); child.queue_free()
 
-# Original map-practice extraction overlay: dark framed two-column panel,
-# three-column corpse/brand card grids; game exchange rules remain unchanged.
+## Cemetery rewards do not depend on killed allied monsters. The corpse
+## archive is preserved by the run rules, but is no longer a loot material.
 func render_graveyard() -> void:
 	clear_content()
-	corpse_options={}
-	brand_options=[]
-	graveyard_columns=[]
-	var frame=Panel.new()
-	frame.name="GraveyardExtractFrame"
-	frame.position=Vector2(256,135)
-	frame.size=Vector2(768,470)
-	frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var outer=StyleBoxFlat.new()
-	outer.bg_color=Color("191818")
-	outer.border_color=Color("66584c")
-	outer.set_border_width_all(2)
-	outer.set_corner_radius_all(8)
-	frame.add_theme_stylebox_override("panel",outer)
+	var frame = Panel.new()
+	frame.name = "GraveyardDigFrame"
+	frame.position = Vector2(256,135)
+	frame.size = Vector2(768,470)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("191818")
+	style.border_color = Color("66584c")
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	frame.add_theme_stylebox_override("panel",style)
 	content.add_child(frame)
-	var heading=label_at(content,"공동묘지 · 낙인 추출",Vector2(287,160),Vector2(566,37),23)
-	heading.add_theme_color_override("font_color",Color("ddd0be"))
-	var guide=label_at(content,"전투에서 죽은 내 마물 시체를 선택한 뒤 낙인 1개를 추출하면 시체가 사라집니다.",Vector2(287,205),Vector2(710,37),13)
-	guide.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	guide.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
-	guide.add_theme_color_override("font_color",Color("b8ada0"))
-	for k in range(2):
-		var column=Panel.new()
-		column.name="CorpseColumn" if k==0 else "BrandColumn"
-		column.position=Vector2(280,264) if k==0 else Vector2(670,264)
-		column.size=Vector2(371,267) if k==0 else Vector2(329,267)
-		var boxed=StyleBoxFlat.new()
-		boxed.bg_color=Color("171615")
-		boxed.border_color=Color("514a43")
-		boxed.set_border_width_all(1)
-		boxed.set_corner_radius_all(5)
-		column.add_theme_stylebox_override("panel",boxed)
-		content.add_child(column)
-		graveyard_columns.append(column)
-		var txt=label_at(content,"전투에서 죽은 마물" if k==0 else "추출할 낙인",Vector2(288,277) if k==0 else Vector2(675,277),Vector2(351,30) if k==0 else Vector2(316,30),17)
-		txt.add_theme_color_override("font_color",Color("d1c2af"))
-	var corpses_scroll=ScrollContainer.new()
-	corpses_scroll.position=Vector2(293,319)
-	corpses_scroll.size=Vector2(346,199)
-	corpses_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	content.add_child(corpses_scroll)
-	graveyard_corpses_grid=GridContainer.new()
-	graveyard_corpses_grid.columns=3
-	graveyard_corpses_grid.add_theme_constant_override("h_separation",8)
-	graveyard_corpses_grid.add_theme_constant_override("v_separation",8)
-	corpses_scroll.add_child(graveyard_corpses_grid)
-	var used=session.place_visit_id("grave-extract",index) in session.world.reward_receipts
-	for corpse in session.world.graveyard_corpses:
-		var box=Control.new()
-		box.custom_minimum_size=Vector2(104,165)
-		graveyard_corpses_grid.add_child(box)
-		var id: String=str(corpse.id)
-		var option=card(box,"unit",corpse,Vector2(5,2),Vector2(94,134),func(): if not busy: corpse_id=id; render_graveyard())
-		option.disabled=used or busy
-		option.tooltip_text="%s · 시체" % str(corpse.name)
-		option.modulate=Color(0.93,0.90,0.83) if id==corpse_id else Color(0.61,0.59,0.57)
-		corpse_options[id]=option
-	var brands_scroll=ScrollContainer.new()
-	brands_scroll.position=Vector2(683,319)
-	brands_scroll.size=Vector2(304,199)
-	brands_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	content.add_child(brands_scroll)
-	graveyard_brands_grid=GridContainer.new()
-	graveyard_brands_grid.columns=3
-	graveyard_brands_grid.add_theme_constant_override("h_separation",7)
-	graveyard_brands_grid.add_theme_constant_override("v_separation",7)
-	brands_scroll.add_child(graveyard_brands_grid)
-	var choices: Array=session.graveyard_choices(corpse_id)
-	for choice in choices:
-		var slot=Control.new()
-		slot.custom_minimum_size=Vector2(94,169)
-		graveyard_brands_grid.add_child(slot)
-		var option=card(slot,"brand",choice.item,Vector2(2,2),Vector2(90,134),func(): extract(int(choice.index)))
-		option.disabled=used or busy
-		brand_options.append(option)
-	if choices.is_empty():
-		var placeholder=label_at(content,"시체를 선택하세요" if corpse_id.is_empty() else "추출 가능한 낙인이 없습니다",Vector2(687,378),Vector2(293,59),14)
-		placeholder.add_theme_color_override("font_color",Color("8f857b"))
-	status.text="이번 방문의 추출은 완료했습니다" if used else ("전투에서 죽은 마물의 시체가 없습니다" if session.world.graveyard_corpses.is_empty() else ("시체를 선택하세요 · 낙인 하나를 추출하면 시체가 소모됩니다" if corpse_id.is_empty() else ("추출할 축복 낙인이 없습니다" if choices.is_empty() else "추출할 낙인을 누르세요 · 선택한 시체는 영구 소모됩니다")))
+	var title = label_at(content,"공동묘지 · 시체 파헤치기",Vector2(315,171),Vector2(644,40),23)
+	title.name = "GraveyardDigTitle"
+	title.add_theme_color_override("font_color",Color("ddd0be"))
+	var info = label_at(content,"묘지를 파헤쳐 무작위 주사위 제어 카드 1장을 발견합니다.\n방문당 1회 · 제어 카드 보관 한도 5장",Vector2(319,223),Vector2(645,65),16)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_theme_color_override("font_color",Color("d1c2af"))
+	var used: bool = session.place_visit_id("grave-extract",index) in session.world.reward_receipts
+	var pending: bool = str(session.world.pending_reward.get("kind",""))=="grave-dig"
+	action_button = button(content,"시체 파헤치기",Vector2(507,436),Vector2(268,58),dig_graveyard)
+	action_button.name = "GraveyardDigConfirm"
+	action_button.disabled = used or pending or busy
+	if not graveyard_result.is_empty():
+		var reward_card = card(content,"dice",graveyard_result,Vector2(556,293),Vector2(164,140),Callable())
+		reward_card.name = "GraveyardFoundDiceCard"
+		reward_card.disabled = true
+		action_button.position = Vector2(507,495)
+	else:
+		var notice=label_at(content,"흙 아래 남겨진 마법의 흔적을 조사한다",Vector2(400,341),Vector2(484,41),17)
+		notice.add_theme_color_override("font_color",Color("b9a68f"))
+	status.text = graveyard_message if not graveyard_message.is_empty() else ("이번 방문의 발굴은 완료했습니다" if used else ("발굴한 주사위 카드의 교체를 완료하세요" if pending else "시체를 파헤쳐 카드 1장을 찾아보세요"))
 
-func extract(brand_index: int) -> void:
+func dig_graveyard() -> void:
 	if busy: return
-	busy=true
-	var result=session.extract_graveyard(index,corpse_id,brand_index)
-	busy=false
-	if result.ok: corpse_id=""
+	busy = true
+	var result: Dictionary = session.dig_graveyard(index)
+	busy = false
+	if not result.get("ok",false):
+		graveyard_message = str(result.get("reason","발굴을 진행할 수 없습니다."))
+		render_graveyard()
+		return
+	graveyard_result = result.item.duplicate(true)
+	graveyard_message = str(result.reason)
 	render_graveyard()
-	status.text=result.reason
+	if result.get("overflow",false):
+		show_graveyard_overflow()
+
+func show_graveyard_overflow() -> void:
+	if str(session.world.pending_reward.get("kind",""))!="grave-dig": return
+	if is_instance_valid(graveyard_overflow): return
+	graveyard_result = session.world.pending_reward.reward.item.duplicate(true)
+	var popup = RewardOverflow.new()
+	graveyard_overflow = popup
+	add_child(popup)
+	popup.resolved.connect(func(outcome: Dictionary):
+		graveyard_result = graveyard_result if outcome.get("kept",false) else {}
+		graveyard_message = "주사위 제어 카드 획득" if outcome.get("kept",false) else "새 카드를 포기했습니다."
+		render_graveyard()
+	)
+	popup.setup(session)
 
 ## Six forward routes are displayed; crossing the fixed HOME tile is
 ## forbidden by the same path-stop rule as normal die movement.
