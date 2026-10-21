@@ -25,6 +25,15 @@ func button(map: Control, caption: String) -> Button:
 		if node is Button and node.visible and node.text==caption: return node
 	return null
 
+## Finish the visible line first, then perform the deliberate story action.
+func press_with_reveal(map: Control, caption: String) -> void:
+	var action: Button = button(map,caption)
+	if action == null: return
+	var typewriter = map.overlay.get_node_or_null("StoryTypewriter")
+	if typewriter != null and typewriter.is_revealing():
+		action.pressed.emit()
+	action.pressed.emit()
+
 func clear_save() -> void:
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(save+suffix):
@@ -81,13 +90,13 @@ func _run() -> void:
 	var snapshot: Dictionary=session.world.snapshot().duplicate(true)
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),"art initialization does not automatically begin battle")
 	var advance=button(map,"계속")
-	advance.pressed.emit()
+	press_with_reveal(map,"계속")
 	await process_frame
 	check(STORY.current_beat(session)==1 and session.world.snapshot()!=snapshot,"first Continue persists exactly next story beat")
 	check(map.overlay.get_node_or_null("StoryDialogueFrame")==null,"threat beat without spoken words keeps frame absent")
 	check(map.overlay.get_node_or_null("StoryCharacterLayer") is TextureRect,"threat beat displays existing ghoul artwork layer")
 	advance=button(map,"계속")
-	advance.pressed.emit()
+	press_with_reveal(map,"계속")
 	await process_frame
 	check(STORY.current_beat(session)==2,"second Continue reaches child dialogue beat")
 	var panel: Control=map.overlay
@@ -125,7 +134,7 @@ func _run() -> void:
 	check(STORY.current_beat(session)==2 and button(map,"계속")!=null,"restored parchment resumes same scene, not story beginning")
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),"reload alone never starts ghoul battle")
 	advance=button(map,"계속")
-	advance.pressed.emit()
+	press_with_reveal(map,"계속")
 	await process_frame
 	check(STORY.current_beat(session)==3,"third Continue persists explicit final choice scene")
 	panel=map.overlay
@@ -135,7 +144,7 @@ func _run() -> void:
 	check(session.get_story_event(STORY.EVENT_ID).status=="seen" and session.encounter.is_empty(),"looking at final choice does not auto-pick rescue or battle")
 	var before_choice: Dictionary=session.world.snapshot().duplicate(true)
 	var rewards: int=session.world.reward_receipts.size()
-	button(map,"지나친다").pressed.emit()
+	press_with_reveal(map,"지나친다")
 	for i in range(3): await process_frame
 	check(session.get_story_event(STORY.EVENT_ID).choice=="leave" and session.get_story_event(STORY.EVENT_ID).status=="complete","explicit abandon choice persists through original story contract")
 	check(session.world.reward_receipts.size()==rewards and session.encounter.is_empty(),"leaving scene grants no phantom reward or combat")
