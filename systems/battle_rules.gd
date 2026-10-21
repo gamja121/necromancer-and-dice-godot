@@ -133,12 +133,18 @@ func refresh() -> void:
 		u.attack = maxi(0,u.base_attack+u.grudge+u.summon_power+maxi(0,round_number-14)+(1 if has(u,"beast") else 0)+(1 if pack_count >= 3 else 0)-u.curse.get("counter",0))
 		u.speed = 0 if u.curse.get("lightspeed",0)>0 else u.base_speed+(2 if has(u,"demon") else 0)+2*u.bless.get("lightspeed",0)
 
+## Only the lap-60 enemy dragon may hold its second passive. All other
+## owned/enemy units still use the pre-existing single-passive field.
+static func has_passive(unit: Dictionary, kind: String) -> bool:
+	if str(unit.get("passive",""))==kind: return true
+	return str(unit.get("slug",""))=="dragon" and str(unit.get("team",""))=="enemy" and bool(unit.get("final_boss",false)) and str(unit.get("boss_extra_passive",""))==kind
+
 func damage(target: Dictionary, n: int, source: Dictionary = {}, kind: String = "attack") -> int:
 	if not target.alive or n <= 0:
 		return 0
 	if kind == "attack":
-		n = maxi(1,n-(1 if has(target,"insect") else 0)-(1 if target.passive == "bone" else 0))
-	elif kind == "counter" and target.passive == "bone":
+		n = maxi(1,n-(1 if has(target,"insect") else 0)-(1 if has_passive(target,"bone") else 0))
+	elif kind == "counter" and has_passive(target,"bone"):
 		n = maxi(1,n-1)
 	n += target.curse.get("guard",0)
 	if target.shields > 0:
@@ -146,7 +152,7 @@ func damage(target: Dictionary, n: int, source: Dictionary = {}, kind: String = 
 		return 0
 	var dealt = mini(target.hp,n)
 	target.hp -= dealt
-	if target.hp <= 0 and target.passive == "undying" and not target.undying_used:
+	if target.hp <= 0 and has_passive(target,"undying") and not target.undying_used:
 		target.undying_used = true
 		target.hp = 1
 	if target.hp <= 0:
