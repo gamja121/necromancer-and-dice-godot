@@ -613,14 +613,21 @@ func render() -> void:
 	# Move the one settings control to the actual upper-right corner.
 	# Painted gear art replaces the old polished icon; the sound settings
 	# workflow and child-index contract remain exactly the same.
-	options.position = Vector2(1192,14)
-	options.size = Vector2(58,58)
+	# Place the hand-brushed gear in the user-marked open parchment
+	# area inside the upper-right of the board (not on the outer border).
+	# An 80px invisible hit target makes finger taps reliable, while the
+	# painted 58px icon retains its unframed, hand-drawn appearance.
+	options.position = Vector2(1041,175)
+	options.size = Vector2(80,80)
+	options.mouse_filter = Control.MOUSE_FILTER_STOP
+	options.z_index = 41
 	options.tooltip_text = "설정 · 배경음악 / 효과음"
 	for state in ["normal","hover","pressed","disabled","focus"]: options.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	var painted_icon = TextureRect.new()
 	painted_icon.name = "PaintedSettingsGear"
 	painted_icon.texture = BrushSettingsArt.painted_texture("icon")
-	painted_icon.size = options.size
+	painted_icon.position = Vector2(11,11)
+	painted_icon.size = Vector2(58,58)
 	painted_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	painted_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	painted_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
