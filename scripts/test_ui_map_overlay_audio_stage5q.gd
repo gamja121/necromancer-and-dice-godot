@@ -57,7 +57,7 @@ func _run() -> void:
 			button_art = child
 			break
 	check(button_art != null and button_art.texture is ImageTexture, "painted settings gear remains visible")
-	check(audio.options_button.position == Vector2(1192,14) and audio.options_button.size == Vector2(58,58), "map upper-right retains a 58px painted settings target")
+	check(audio.options_button.position == Vector2(1041,175) and audio.options_button.size == Vector2(80,80), "map marked upper-right has an 80px finger tap target")
 	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture,"settings popover uses painted parchment panel")
 	var expected_rect = AUDIO.PANEL_RECT
 	check(audio.panel.position.distance_to(expected_rect.position) < 1.0 and absf(audio.panel.size.x-expected_rect.size.x)<1.0, "source OPTION popup coordinates remain unchanged")
