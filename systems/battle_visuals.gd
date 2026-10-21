@@ -145,17 +145,34 @@ func _process(delta: float) -> void:
 			var wrap: Vector2 = layouts[id].wrap
 			desired += Vector2(wrap.x*0.36*(1.0 if unit.team=="ally" else -1.0),wrap.y*0.05)
 		sprite.position = sprite.position.lerp(desired,minf(1.0,dt*18.0))
-		if not active.has(id) and unit.alive and not unit.frozen and not scene.presentation_layout.metrics.get(unit.slug,{}).get("rigid_idle",false):
-			var period = 1.36 if unit.slot%3==0 else (1.58 if unit.slot%2==0 else 1.45)
-			var t = fposmod(idle_clock/period+unit.slot*0.29,1.0)
-			var keys = [0.0,0.38,0.58,0.76,1.0]
-			var scales = [Vector2.ONE,Vector2(1.025,1.08),Vector2(0.975,0.94),Vector2(1.015,1.055),Vector2.ONE]
-			for k in range(4):
-				if t>=keys[k] and t<keys[k+1]:
-					var blend = (t-keys[k])/(keys[k+1]-keys[k])
-					sprite.scale = scales[k].lerp(scales[k+1],blend*blend*(3.0-2.0*blend))
-					break
-		else: sprite.scale = Vector2.ONE
+		# All 47 monsters breathe/sway while waiting, including the 43 rigid
+		# hand-drawn portraits. Rigid art ROTATES around the original foot
+		# pivot instead of being stretched (preserving its exact proportions).
+		# Only the visual TextureRect moves: no battle or save state changes.
+		var current: Dictionary = scene.rules.find_id(id)
+		var can_idle: bool = unit.alive and not unit.frozen and not active.has(id) and not hit_motions.has(id)
+		can_idle = can_idle and id!=focus_actor and id!=focus_target and not scene.entry_summon_active
+		can_idle = can_idle and not current.is_empty() and str(current.slug)==str(unit.slug)
+		can_idle = can_idle and sprite.texture == scene.texture(scene.frame_path(unit,"attack",1))
+		if can_idle:
+			var period: float = 1.80 + float(int(unit.slot)%3)*0.17
+			var phase: float = float(int(unit.slot))*0.73 + (0.44 if unit.team=="enemy" else 0.0)
+			sprite.rotation = sin(idle_clock*TAU/period+phase)*deg_to_rad(1.65)
+			if not scene.presentation_layout.metrics.get(unit.slug,{}).get("rigid_idle",false):
+				# Keep the established non-rigid four-species breathing motion.
+				var t: float = fposmod(idle_clock/(1.36 if unit.slot%3==0 else (1.58 if unit.slot%2==0 else 1.45))+float(unit.slot)*0.29,1.0)
+				var keys: Array = [0.0,0.38,0.58,0.76,1.0]
+				var scales: Array = [Vector2.ONE,Vector2(1.025,1.08),Vector2(0.975,0.94),Vector2(1.015,1.055),Vector2.ONE]
+				for k in range(4):
+					if t>=keys[k] and t<keys[k+1]:
+						var blend: float = (t-keys[k])/(keys[k+1]-keys[k])
+						sprite.scale = scales[k].lerp(scales[k+1],blend*blend*(3.0-2.0*blend))
+						break
+			else:
+				sprite.scale = Vector2.ONE
+		else:
+			sprite.rotation = 0.0
+			sprite.scale = Vector2.ONE
 		if hit_motions.has(id):
 			var motion: Dictionary = hit_motions[id]
 			var index = int((idle_clock-motion.started)/motion.interval)

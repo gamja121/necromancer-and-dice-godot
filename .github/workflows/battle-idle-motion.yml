@@ -1,0 +1,38 @@
+name: Battle Monsters Idle Motion
+on:
+  pull_request:
+    paths:
+      - "systems/battle_visuals.gd"
+      - "scripts/test_battle_idle_motion.gd"
+      - ".github/workflows/battle-idle-motion.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/battle_visuals.gd"
+      - "scripts/test_battle_idle_motion.gd"
+      - ".github/workflows/battle-idle-motion.yml"
+permissions:
+  contents: read
+jobs:
+  battle-idle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import original Godot art and scripts
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Verify all-species idle settings and live battle idle pause attack freeze
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_battle_idle_motion.gd 2>&1 | tee idle.log
+          grep -E '^BATTLE_IDLE_MOTION: [0-9]+ passed, 0 failed$' idle.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL battle-idle:' idle.log; then exit 1; fi
+      - name: Check whitespace
+        run: git diff --check
