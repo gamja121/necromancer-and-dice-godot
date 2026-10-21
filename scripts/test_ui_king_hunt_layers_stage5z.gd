@@ -86,7 +86,7 @@ func verify_route(session:Node,mode:String)->void:
 	# Test-only story gallery: newly gated locations do not all exist on
 	# the opening board. Seed only missing places onto ordinary roads, leaving
 	# production map generation, fixed anchors and story APIs untouched.
-	for place in ["graveyard","unknown","altar"]:
+	for place in ["graveyard","unknown","altar","forest"]:
 		if not session.world.tiles.has(place):
 			var ordinary: int = session.world.tiles.find("basic")
 			if ordinary >= 0: session.world.tiles[ordinary] = place
