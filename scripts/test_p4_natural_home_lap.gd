@@ -188,13 +188,13 @@ func perform_lap(session: Node) -> void:
 	check(home_reached and turns >= 5, "one original unshortened lap naturally returns home in %d die rolls" % turns)
 	check(places.has("basic") and places.has("monster"), "natural first lap visits the actual two available non-event tile types")
 	check(world.position == STATE.HOME and world.lap_ready and world.laps == 0, "home landing only arms one future lap; does not advance prematurely")
-	check(panel_button(map, "들어가기") != null and panel_button(map, "나가기") != null, "actual home entrance and exit displayed")
+	check(panel_button(map, "들어가기") != null and panel_button(map, "다음 바퀴 출발") != null, "actual home entrance and exit displayed")
 	if home_reached and panel_button(map, "들어가기") != null:
 		panel_button(map, "들어가기").pressed.emit()
 		var interior: bool = await until_ready(func(): return panel_button(map, "낙인 계승") != null and panel_button(map, "순찰경로") != null, 14000)
 		check(interior, "actual house interior opens inheritance and patrol UI")
 		check(world.roster.all(func(u): return int(u.current_hp) == int(u.max_hp)), "home entrance restores all surviving monster HP")
-		var exit: Button = panel_button(map, "나가기")
+		var exit: Button = panel_button(map, "다음 바퀴 출발")
 		check(exit != null, "home interior exposes original shuffle exit")
 		if exit != null:
 			var receipts_before_exit: Array = world.reward_receipts.duplicate(true)
