@@ -1,5 +1,5 @@
 extends SceneTree
-## UI stage4: original graveyard dialogue composition and two-column extraction.
+## UI stage4: preserve graveyard story dialogue while replacing extraction with random dice digging.
 const MapScene=preload("res://map.tscn")
 const ExtractionUI=preload("res://systems/exploration_actions.gd")
 const Beats=preload("res://systems/graveyard_story_beats.gd")
@@ -60,30 +60,25 @@ func _run() -> void:
 	check(has_button(map.overlay,"아이를 구한다") and has_button(map.overlay,"지나친다"),"all branch choices remain usable")
 	check(has_button(map.overlay,"공동묘지 기능"),"graveyard location remains accessible during story")
 	map.close_overlay()
-	var corpse: Dictionary=session.world.roster[0].duplicate(true)
-	corpse.brands=[{"type":"critical","bless":[2],"curse":[]}]
-	session.world.graveyard_corpses=[corpse]
+	session.world.graveyard_corpses=[]
 	var extraction=ExtractionUI.new()
 	map.add_child(extraction)
 	extraction.setup(map,grave)
 	await process_frame
-	check(extraction.graveyard_columns.size()==2,"separate corpse and extraction-brand columns")
-	check(extraction.graveyard_corpses_grid.columns==3 and extraction.graveyard_brands_grid.columns==3,"both lists use 3-column card grids")
-	check(extraction.corpse_options.size()==1,"deceased unit appears as selectable card")
-	var corpse_id: String=str(corpse.id)
-	extraction.corpse_options[corpse_id].pressed.emit()
+	check(extraction.content.get_node_or_null("GraveyardDigFrame")!=null,"cemetery digging panel replaces two-column brand extraction")
+	check(extraction.content.get_node_or_null("GraveyardDigConfirm")!=null,"digging has a visible explicit confirmation")
+	check(extraction.action_button!=null and not extraction.action_button.disabled,"digging is available with zero allied corpses")
+	var before_cards: int=session.world.dice_cards.size()
+	var before_brands: int=session.world.brand_cards.size()
+	extraction.action_button.pressed.emit()
 	await process_frame
-	check(extraction.corpse_id==corpse_id and extraction.brand_options.size()==1,"selecting corpse reveals recoverable brand")
-	check(session.world.graveyard_corpses.size()==1,"viewing/examining never consumes corpse")
-	var before_cards: int=session.world.brand_cards.size()
-	extraction.brand_options[0].pressed.emit()
-	await process_frame
-	check(session.world.graveyard_corpses.is_empty(),"extracting brand permanently consumes corpse")
-	check(session.world.brand_cards.size()==before_cards+1,"same action awards exactly one brand card")
-	check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"extraction receipt committed")
+	check(session.world.dice_cards.size()==before_cards+1 and session.world.brand_cards.size()==before_brands,"digging grants one dice card and no brand cards")
+	check(extraction.content.get_node_or_null("GraveyardFoundDiceCard")!=null,"found dice card appears in digging screen")
+	check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"digging receipt committed")
+	check(extraction.action_button.disabled,"spent digging action cannot run twice")
 	var committed: Dictionary=session.world.snapshot().duplicate(true)
 	session.reload_world()
-	check(session.world.snapshot()==committed,"graveyard extraction persists without duplicate rewards")
+	check(session.world.snapshot()==committed,"graveyard digging persists without duplicate rewards")
 	extraction.queue_free()
 	map.queue_free()
 	await process_frame
