@@ -25,12 +25,28 @@ func _run() -> void:
 		quit(1)
 		return
 	var defs: Dictionary = parsed.units
+	var source = JSON.parse_string(FileAccess.get_file_as_string("res://scripts/fixtures/web_v2_units_46.json"))
+	if not source is Dictionary or not source.has("units") or not source.units is Dictionary:
+		check(false, "original 46-species motion fixture parses")
+		quit(1)
+		return
+	var core_names: Array = source.units.keys()
+	core_names.append("dracula")
 	var layout = Layout.new()
-	check(layout.metrics.size()==defs.size() and defs.size()==47,
-		"all 46 original species and retained Dracula have motion profiles")
+	# The lap-60 boss dragon is catalogued separately, but is not one of the
+	# original 47 field-animation species. It has its own boss-presentation
+	# validation; do not silently shrink the original battle-motion coverage.
+	var core_complete: bool = true
+	for slug in core_names:
+		if not defs.has(slug) or not layout.metrics.has(slug):
+			core_complete = false
+	check(source.units.size()==46 and core_names.size()==47 and
+		defs.size()==48 and defs.has("dragon") and
+		layout.metrics.size()==47 and core_complete,
+		"all 46 original species and retained Dracula have motion profiles; separate dragon catalog entry preserved")
 	var missing: Array[String] = []
 	var decoded_count: int = 0
-	for slug in defs:
+	for slug in core_names:
 		var profile: Dictionary = layout.metrics.get(slug,{})
 		if profile.is_empty():
 			missing.append(str(slug)+":metadata")
