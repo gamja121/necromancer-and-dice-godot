@@ -408,6 +408,13 @@ func restore(saved: Dictionary) -> bool:
 	last_prophecy = saved.get("last_prophecy",{}).duplicate(true)
 	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
+	# A legacy merchant's independent-brand offers are invalidated on load,
+	# before any overlay can access them. The next merchant visit generates a
+	# fresh monster/dice selection; ordinary saved trades are unchanged.
+	for donor_id in shop_trade.get("offers",{}).keys():
+		var saved_offers: Array = shop_trade.offers[donor_id]
+		if saved_offers.any(func(offer): return str(offer.get("kind",""))=="brand"):
+			shop_trade.offers.erase(donor_id)
 	# Merchant monster cards are complete unit instances, kept inside the
 	# saved offer cache until chosen. Normalize their numeric stats and brand
 	# dice faces just like owned roster units so save/reload is lossless.
