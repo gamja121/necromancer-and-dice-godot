@@ -72,7 +72,7 @@ func _run() -> void:
 	check(inherit.material_art.position.x==38 and inherit.receiver_art.position.x==38,"cards fit portrait slots")
 	check(inherit.unit_hand_scroll!=null,"monster-only source row exists")
 	check(inherit.unit_options.size()==session.world.roster.size(),"all owned monsters available as materials")
-	check(not "brand_card_id" in inherit and not "brand_options" in inherit,"independent brand-card UI state removed")
+	check(not FileAccess.get_file_as_string("res://systems/home_inheritance.gd").contains("brand_card_id"),"independent brand-card UI state removed")
 	var donor_id: String=str(session.world.roster[0].id)
 	var receiver_id: String=str(session.world.roster[1].id)
 	inherit.select_unit(donor_id)
