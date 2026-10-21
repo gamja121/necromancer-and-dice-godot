@@ -301,7 +301,7 @@ func restore(saved: Dictionary) -> bool:
 		for id in shop.offers:
 			if not shop.offers[id] is Array: return false
 			for offer in shop.offers[id]:
-				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand"] or not offer.get("item") is Dictionary: return false
+				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand","unit"] or not offer.get("item") is Dictionary: return false
 	var reward: Dictionary = saved.get("pending_reward",{})
 	if reward.get("kind","")=="routine":
 		var index: int = int(reward.get("index",-1))
