@@ -83,3 +83,5 @@ godot --path . --script res://scripts/profile_battle_optimization.gd -- --captur
 
 자동 검사도 요약의 0 failed 외에 SCRIPT ERROR/Parse Error/ERROR/ObjectDB 누수 메시지를 실패로 취급한다.
 회귀 워크플로: `.github/workflows/battle_optimization.yml`.
+
+최신 main `cc9eacf`의 카드 원화·설정·사건 분리 UI를 보존해 합친 뒤 에디터 가져오기, 전체 마물 912개, 지도 복귀 160개 검사를 다시 통과했다. 이 과정에서 기존 inline SVG 표준 xmlns를 외부 데이터 주소로 오인하는 검사 문제는 PR #223의 동일 수정안을 가져와 교정했다. 자체 경계 검사 18개와 실제 런타임 파일 102개 스캔을 통과했고 실제 외부 URL 검출은 유지한다. 최적화 커밋 `4ebb7a7`은 연출 작업의 PR #223에도 포함돼 있으므로 통합 PR 하나에서 CI와 최종 PC 수신을 확인한다.
