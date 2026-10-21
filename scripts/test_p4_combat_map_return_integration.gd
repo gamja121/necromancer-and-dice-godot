@@ -267,7 +267,10 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				check(is_instance_valid(battle.capture_panel) and battle.capture_panel.busy,
 					label+": capture phase locks repeated die presses while it rolls")
 				var capture_finished: bool=await until_ready(func():
-					return not is_instance_valid(map.embedded_battle) or (is_instance_valid(battle.capture_panel) and not battle.capture_panel.busy),25000)
+					# The capture animation may free Battlefield before the next poll.
+					# Resolve it from the live map; do not capture that transient node.
+					var active_battle: Control = map.embedded_battle
+					return not is_instance_valid(active_battle) or (is_instance_valid(active_battle.capture_panel) and not active_battle.capture_panel.busy),25000)
 				check(capture_finished,label+": real capture button finishes its animation and result")
 				# A second saved capture attempt is valid only when the first
 				# attempt missed and the result explicitly allows a retry.

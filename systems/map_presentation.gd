@@ -1,6 +1,7 @@
 extends Node
 const ContaminationHud = preload("res://systems/contamination_hud.gd")
 const CloudFog = preload("res://systems/cloud_transition_fog.gd")
+const Accent = preload("res://systems/presentation_accent.gd")
 const HEAL = [[8,18,22,0,1080,-4],[18,30,26,70,1020,4],[29,22,21,140,1120,-3],[40,43,29,40,1060,4],[52,27,24,180,1160,-4],[64,38,28,100,1040,3],[75,20,21,230,1100,-3],[87,34,25,150,1060,4],[93,51,20,290,1080,-3],[12,57,24,330,1040,3],[25,69,22,220,1140,-4],[37,60,27,390,1020,4],[49,74,20,450,1100,-3],[61,64,25,300,1060,3],[73,78,22,500,1120,-4],[84,69,28,410,1040,4],[94,82,21,540,1080,-3],[56,50,20,580,1000,3]]
 # Fixed CSS source positions/speeds: v2-map-practice.css lines 705–748.
 # Bottom lanes are anchored from the screen bottom, not from a top percentage.
@@ -18,6 +19,8 @@ var map
 var gauge: Control
 var corruption: ColorRect
 var textures: Dictionary = {}
+var observed_tiles: Array = []
+var observed_contamination: int = -1
 func setup(scene) -> void:
 	map = scene
 	# The frozen web effect uses four different cloud silhouettes. Keep each imported
@@ -63,6 +66,73 @@ void fragment() {
 func refresh(instant: bool = false) -> void:
 	if is_instance_valid(gauge): gauge.set_value(map.world.contamination,instant)
 	if is_instance_valid(corruption): corruption.material.set_shader_parameter("level",float(map.world.contamination))
+	observe_saved_board()
+
+func new_tile_indices(kind: String) -> Array[int]:
+	var result: Array[int] = []
+	if observed_tiles.size()!=map.world.tiles.size(): return result
+	for i in range(map.world.tiles.size()):
+		if str(map.world.tiles[i])==kind and str(observed_tiles[i])!=kind: result.append(i)
+	return result
+
+func observe_saved_board() -> void:
+	# Establish the first frame as a baseline: opening/reloading a save must
+	# never announce its existing swamps or replay the boss reveal.
+	var before_level := observed_contamination
+	var before_tiles := observed_tiles.duplicate()
+	observed_tiles = map.world.tiles.duplicate()
+	observed_contamination = int(map.world.contamination)
+	if before_level<0 or before_tiles.size()!=observed_tiles.size(): return
+	if observed_contamination<=before_level: return
+	var swamps: Array[int] = []
+	var bosses: Array[int] = []
+	var added_swamp := observed_tiles.count("swamp")>before_tiles.count("swamp")
+	for i in range(observed_tiles.size()):
+		if observed_tiles[i]==before_tiles[i]: continue
+		if added_swamp and observed_tiles[i]=="swamp": swamps.append(i)
+		if observed_tiles[i]=="boss" and not "boss" in before_tiles: bosses.append(i)
+	if swamps.is_empty() and bosses.is_empty(): return
+	call_deferred("show_board_changes",weakref(map.stage),swamps,bosses)
+
+func show_board_changes(stage_reference: WeakRef, swamps: Array[int], bosses: Array[int]) -> void:
+	var stage = stage_reference.get_ref()
+	if not is_instance_valid(stage) or stage!=map.stage: return
+	# A prayer/result panel can cover the changed tile. Wait for that real
+	# panel to close instead of spending the whole cue behind its dark veil.
+	while is_instance_valid(map.overlay):
+		await map.overlay.tree_exited
+		if not is_inside_tree(): return
+		# remove_child emits tree_exited before close_overlay clears its field.
+		# Resume on the following frame, after that setter/render has finished.
+		await map.get_tree().process_frame
+		if not is_inside_tree(): return
+	stage = map.stage
+	if not is_instance_valid(stage) or is_instance_valid(map.embedded_battle): return
+	# A later map transition may have moved/replaced the originally changed tile.
+	swamps = swamps.filter(func(i): return str(map.world.tiles[i])=="swamp")
+	bosses = bosses.filter(func(i): return str(map.world.tiles[i])=="boss")
+	for i in swamps+bosses:
+		if i>=map.buttons.size(): continue
+		# Mid-lap prayers do not rebuild the map. Reflect the saved tile here
+		# before accenting it, without rerolling or changing the board.
+		var tile: TextureButton = map.buttons[i]
+		tile.texture_normal = map.texture(map.tile_path(i))
+		tile.tooltip_text = "%d번 · %s" % [i+1,map.MapState.NAMES[map.world.tiles[i]]]
+	var swamp_points: Array[Vector2] = []
+	for i in swamps: swamp_points.append(map.center(i))
+	if not swamp_points.is_empty():
+		Accent.create(stage,"swamp",swamp_points,Color("65734b"),1.0)
+	var boss_points: Array[Vector2] = []
+	for i in bosses: boss_points.append(map.center(i))
+	if not boss_points.is_empty():
+		Accent.create(stage,"boss",boss_points,Color("ab7166"),1.15)
+		map.sound("heavy")
+
+func show_discovery(indices: Array[int]) -> void:
+	var points: Array[Vector2] = []
+	for i in indices:
+		if i>=0 and i<map.buttons.size(): points.append(map.center(i))
+	if not points.is_empty(): Accent.create(map.stage,"discovery",points,Color("dfc58d"),0.85)
 
 func effect(block_input: bool = false) -> Control:
 	var layer = Control.new()

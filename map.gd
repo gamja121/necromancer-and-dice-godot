@@ -1061,8 +1061,10 @@ func show_discovery_card(kind: String) -> void:
 				card.dismiss())
 	card.closed.connect(func():
 		# The saved board now carries the new tile artwork, not a mockup.
+		var changed: Array[int] = presentation.new_tile_indices(kind)
 		close_overlay()
 		render()
+		presentation.show_discovery(changed)
 		status.text = "%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind])
 
 ## Resuming a saved unopened routine card must not reroll the incident,

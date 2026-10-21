@@ -3,10 +3,12 @@ extends Control
 ## Content is UI-only: tile discovery eligibility and persistence belong to RunSession.
 signal closed
 var dismissed: bool = false
+var reveal_tween: Tween
 
 func dismiss() -> void:
 	if dismissed: return
 	dismissed = true
+	if is_instance_valid(reveal_tween): reveal_tween.kill()
 	closed.emit()
 
 func _gui_input(event: InputEvent) -> void:
@@ -82,3 +84,13 @@ func setup(category: String, heading: String, description: String, reward: Strin
 	# There is deliberately NO confirmation button. The entire parchment
 	# is one tap/click-to-close surface, including touch on the artwork/text.
 	_label("화면을 누르면 닫힙니다", Vector2(109, 579), Vector2(242, 30), 14, true).name = "EventDiscoveryDismissHint"
+	# Settle onto the parchment plane, with no overshoot or input delay.
+	# A slight lift is enough; the original illustration is never warped.
+	pivot_offset = size*0.5
+	position.y += 12.0
+	scale = Vector2.ONE*0.985
+	modulate.a = 0.0
+	reveal_tween = create_tween().set_parallel(true)
+	reveal_tween.tween_property(self,"position:y",36.0,0.30).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	reveal_tween.tween_property(self,"scale",Vector2.ONE,0.30).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	reveal_tween.tween_property(self,"modulate:a",1.0,0.20).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
