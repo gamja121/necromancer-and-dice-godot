@@ -8,7 +8,6 @@ var closing_depth := false
 var depth_panels: Array[Control] = []
 var material_id = ""
 var receiver_id = ""
-var brand_card_id = ""
 var completed = false
 var busy = false
 var notice = ""
@@ -22,10 +21,7 @@ var details: VBoxContainer
 var confirm_button: Button
 var hand: Control
 var unit_options: Dictionary = {}
-var brand_options: Dictionary = {}
 var unit_hand_scroll: ScrollContainer
-var brand_fan_scroll: ScrollContainer
-var brand_fan: Control
 var inheritance_frame: TextureRect
 var interface_data: Dictionary
 
@@ -107,11 +103,6 @@ func panel_slot(pos: Vector2, material: bool) -> void:
 		receiver_art = preview
 		receiver_hint = hint
 
-func selected_card() -> Dictionary:
-	for item in session.world.brand_cards:
-		if str(item.id)==brand_card_id: return item
-	return {}
-
 func set_preview(node: TextureRect, kind: String, item: Dictionary) -> void:
 	node.texture = load(Catalog.image(kind,item)) if not item.is_empty() else null
 	BrandFrameOverlay.sync(node,item if kind=="unit" else {})
@@ -140,61 +131,46 @@ func append_brands(brands: Array, origin: String, show_curse: bool = true) -> vo
 func render_selection() -> void:
 	var material: Dictionary = session.owned_unit(material_id)
 	var receiver: Dictionary = session.owned_unit(receiver_id)
-	var source_card = selected_card()
-	set_preview(material_art,"brand" if not source_card.is_empty() else "unit",source_card if not source_card.is_empty() else material)
+	set_preview(material_art,"unit",material)
 	set_preview(receiver_art,"unit",receiver)
-	material_marks.text = "" if source_card.is_empty() else "축복 "+ " · ".join(source_card.brand.bless.map(func(n): return str(int(n))))
-	material_hint.text = "소모 완료" if completed else (str(material.get("name","아래에서 재료 선택")) if source_card.is_empty() else "선택한 낙인 카드")
+	material_marks.text = ""
+	material_hint.text = "소모 완료" if completed else str(material.get("name","아래에서 재료 선택"))
 	receiver_hint.text = str(receiver.get("name","받는 마물 선택"))
 	for child in details.get_children():
 		details.remove_child(child)
 		child.queue_free()
-	# Put material information above the receiving monster.
-	# Materials pass blessings only; the receiver still shows its own curses.
 	if not material.is_empty(): append_brands(BrandInheritance.normalize(material,session.world.definitions),"재료",false)
-	if not source_card.is_empty(): append_brands([source_card.brand],"카드",false)
 	if not receiver.is_empty():
 		detail("받는 마물 · %d / 3칸" % receiver.brands.size())
 		append_brands(BrandInheritance.normalize(receiver,session.world.definitions),"결과" if completed else "기존")
-	if receiver.is_empty() and material.is_empty() and source_card.is_empty(): detail("재료 마물 또는 낙인 카드를 선택하세요.")
-	# Show the next input, not an unexplained material/recipient rule.
+	if receiver.is_empty() and material.is_empty(): detail("계승할 재료 마물과 받는 마물을 선택하세요.")
 	if not notice.is_empty():
 		status.text=notice
 	elif completed:
 		status.text="계승 완료 · 받는 마물의 능력치와 체력은 유지됩니다"
-	elif material.is_empty() and source_card.is_empty():
-		status.text="① 재료 마물 또는 낙인 카드 선택 → ② 받을 마물 선택"
+	elif material.is_empty():
+		status.text="① 희생할 재료 마물 선택 → ② 받을 마물 선택"
 	elif receiver.is_empty():
-		status.text="② 축복을 받을 마물을 선택하세요 · 재료는 확정 시 소모됩니다"
-	elif not source_card.is_empty():
-		status.text="③ 낙인 카드 1장 소모 · 축복만 계승 · 아래 버튼으로 확정"
+		status.text="② 축복을 받을 마물을 선택하세요 · 재료는 확정 시 영구 소모됩니다"
 	else:
 		status.text="③ 재료 마물 영구 소모 · 무작위 낙인 1개의 축복 계승"
-	var eligible = not receiver.is_empty() and receiver.brands.size()<3 and (not source_card.is_empty() or (not material.is_empty() and not material.brands.is_empty()))
+	var eligible: bool = not receiver.is_empty() and receiver.brands.size()<3 and not material.is_empty() and not material.brands.is_empty() and material_id!=receiver_id
 	confirm_button.disabled = busy or completed or not eligible or not session.home_action_allowed().ok
-	confirm_button.text = "계승 완료" if completed else ("낙인 카드 적용 확정" if not source_card.is_empty() else "마물 소모 · 계승 확정")
+	confirm_button.text = "계승 완료" if completed else "마물 소모 · 계승 확정"
 	for id in unit_options:
 		var option: TextureButton = unit_options[id]
 		option.modulate = Color(1.14,1.08,0.87) if id in [material_id,receiver_id] else Color.WHITE
 		option.get_child(0).text = str(session.owned_unit(id).get("name",""))+("\n재료" if id==material_id else ("\n받는 마물" if id==receiver_id else ""))
 		option.disabled = busy or completed
-	for id in brand_options:
-		var brand_option: TextureButton=brand_options[id]
-		brand_option.modulate = Color(1.1,1.12,1.15) if id==brand_card_id else Color.WHITE
-		brand_option.position.y=float(brand_option.get_meta("fan_y",22))-16 if id==brand_card_id else float(brand_option.get_meta("fan_y",22))
-		brand_option.rotation_degrees=0 if id==brand_card_id else float(brand_option.get_meta("fan_rotation",0))
-		brand_option.z_index=20 if id==brand_card_id else 0
-		brand_option.disabled = busy or completed
 
 func render_hand() -> void:
 	if is_instance_valid(hand):
 		remove_child(hand)
 		hand.queue_free()
 	unit_options.clear()
-	brand_options.clear()
 	hand=Control.new()
 	add_child(hand)
-	# Display both resource sources at once, instead of a tab switch.
+	# Monster cards are the only material source.
 	var unit_label=label_at(hand,"보유 마물",Vector2(616,479),Vector2(200,25),14)
 	unit_label.add_theme_color_override("font_color",Color("e9cc94"))
 	unit_hand_scroll=ScrollContainer.new()
@@ -217,29 +193,6 @@ func render_hand() -> void:
 		CardDepthMotion.install(option)
 		option.get_child(0).add_theme_font_size_override("font_size",12)
 		unit_options[id]=option
-	var fan_label=label_at(hand,"낙인 카드",Vector2(76,478),Vector2(240,26),14)
-	fan_label.add_theme_color_override("font_color",Color("e3c58d"))
-	brand_fan_scroll=ScrollContainer.new()
-	brand_fan_scroll.position=Vector2(37,508)
-	brand_fan_scroll.size=Vector2(310,193)
-	brand_fan_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	hand.add_child(brand_fan_scroll)
-	brand_fan=Control.new()
-	brand_fan.custom_minimum_size=Vector2(maxi(310,125+session.world.brand_cards.size()*59),188)
-	brand_fan_scroll.add_child(brand_fan)
-	if session.world.brand_cards.is_empty():
-		label_at(hand,"보유 낙인 없음",Vector2(70,604),Vector2(247,33),15)
-	for i in range(session.world.brand_cards.size()):
-		var item: Dictionary=session.world.brand_cards[i]
-		var id: String=str(item.id)
-		var option=card(brand_fan,"brand",item,Vector2(9+i*59,22),Vector2(107,151),func(): select_brand_card(id))
-		option.rotation_degrees=clampf((i%5-2)*5.5,-14,14)
-		option.set_meta("fan_y",option.position.y)
-		option.set_meta("fan_rotation",option.rotation_degrees)
-		CardDepthMotion.install(option)
-		for child in option.get_children():
-			if child is Label: child.visible=false
-		brand_options[id]=option
 	render_selection()
 	# Rise-in motion matching the source card hand's entrance.
 	hand.position.y=48
@@ -253,11 +206,7 @@ func select_unit(id: String) -> void:
 	notice = ""
 	var unit = session.owned_unit(id)
 	if unit.is_empty(): return
-	if not brand_card_id.is_empty():
-		if id==receiver_id: receiver_id = ""
-		elif unit.brands.size()>=3: notice = "낙인 3칸이 찬 마물에는 적용할 수 없습니다."
-		else: receiver_id = id
-	elif id==material_id:
+	if id==material_id:
 		material_id = ""
 		receiver_id = ""
 	elif id==receiver_id: receiver_id = ""
@@ -266,19 +215,11 @@ func select_unit(id: String) -> void:
 	else: receiver_id = id
 	render_selection()
 
-func select_brand_card(id: String) -> void:
-	if completed or busy: return
-	notice = ""
-	brand_card_id = "" if brand_card_id==id else id
-	material_id = ""
-	receiver_id = ""
-	render_selection()
-
 func confirm() -> void:
 	if busy or completed or confirm_button.disabled: return
 	busy = true
 	render_selection()
-	var result = session.inherit_at_home(receiver_id,material_id,brand_card_id)
+	var result = session.inherit_at_home(receiver_id,material_id)
 	busy = false
 	if not result.ok:
 		notice = result.reason
@@ -287,7 +228,6 @@ func confirm() -> void:
 	completed = true
 	notice = ""
 	material_id = ""
-	brand_card_id = ""
 	render_hand()
 	var flash = create_tween()
 	receiver_art.modulate = Color(1.3,1.15,0.85)
