@@ -4,6 +4,8 @@ on:
     paths:
       - 'assets/map/ui/shared_dialogue_panel.svg'
       - 'systems/intro_scene.gd'
+      - 'systems/story_typewriter.gd'
+      - 'scripts/test_story_typewriter.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
       - 'scripts/test_ui_grave_dialogue_stage5p.gd'
@@ -13,6 +15,8 @@ on:
     paths:
       - 'assets/map/ui/shared_dialogue_panel.svg'
       - 'systems/intro_scene.gd'
+      - 'systems/story_typewriter.gd'
+      - 'scripts/test_story_typewriter.gd'
       - 'map.gd'
       - 'scripts/test_shared_dialogue_panel.gd'
       - 'scripts/test_ui_grave_dialogue_stage5p.gd'
@@ -44,3 +48,10 @@ jobs:
           timeout 180s godot --headless --path . --script res://scripts/test_ui_grave_dialogue_stage5p.gd 2>&1 | tee grave.log
           grep -E '^UI_GRAVE_DIALOGUE_FRAME_PARITY: [0-9]+ passed, 0 failed$' grave.log
           if grep -E 'FAIL ui-grave-dialogue:|SCRIPT ERROR|Parse Error|Invalid call' grave.log; then exit 1; fi
+
+      - name: Verify timed story and intro typing / tap-to-reveal
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_story_typewriter.gd 2>&1 | tee typewriter.log
+          grep -E '^STORY_TYPEWRITER: [0-9]+ passed, 0 failed$' typewriter.log
+          if grep -E 'FAIL story-typewriter:|SCRIPT ERROR|Parse Error|Invalid call' typewriter.log; then exit 1; fi

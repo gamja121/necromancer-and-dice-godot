@@ -52,6 +52,16 @@ func until_ready(condition: Callable, max_ms: int=17000) -> bool:
 		await process_frame
 	return bool(condition.call())
 
+## The first press reveals an unfinished paragraph; only the next press
+## invokes the original production transition.
+func press_story_action(action: Button) -> void:
+	if action == null: return
+	var panel = action.get_parent()
+	var typewriter = panel.get_node_or_null("StoryTypewriter")
+	if typewriter != null and typewriter.is_revealing():
+		action.pressed.emit()
+	action.pressed.emit()
+
 func ui_button(map: Control, caption: String) -> Button:
 	if not is_instance_valid(map.overlay): return null
 	for child in map.overlay.get_children():
@@ -149,7 +159,7 @@ func finish_plain_event(session: Node, map: Control, count: int, event_id: Strin
 			check(false,label+": missing original \""+caption+"\" at beat %d" % beat)
 			return false
 		check(session.get_story_event(event_id).status=="seen",label+": beat %d does not complete before final button" % beat)
-		next.pressed.emit()
+		press_story_action(next)
 		await process_frame
 	check(session.get_story_event(event_id).status=="complete" and session.event_flag_is_set("event:%s:complete" % event_id),label+": last original Finish saves one completed event")
 	return true
@@ -240,15 +250,15 @@ func graveyard_rescue(session: Node, label: String) -> bool:
 		if next==null:
 			check(false,label+":child missing beat %d" % i)
 			return false
-		next.pressed.emit()
+		press_story_action(next)
 		await process_frame
 	check(ui_button(map,"아이를 구한다")!=null and ui_button(map,"지나친다")!=null,label+":child original two branches displayed")
-	ui_button(map,"아이를 구한다").pressed.emit()
+	press_story_action(ui_button(map,"아이를 구한다"))
 	check(session.get_story_event(CHILD.EVENT_ID).choice=="protect_child" and session.get_story_event(CHILD.EVENT_ID).status=="active",label+":child commits rescue intent without false success")
 	if not await fight_real(session,map,CHILD.EVENT_ID,"ally",label+":child"): return false
 	check(session.story_battle_result_pending(CHILD.EVENT_ID) and not session.event_flag_is_set("event:graveyard_child_ambush_01:abandoned"),label+":child victory awaits user result acknowledgement")
 	for i in range(3): await process_frame
-	ui_button(map,"맵으로").pressed.emit()
+	press_story_action(ui_button(map,"맵으로"))
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),label+":child actual result acknowledgement records saved rescue")
 	check(not session.event_flag_is_set(COMMANDER.QUEST_ACTIVE_FLAG),label+":child victory alone cannot skip first village rumor")
 	await close_and_reload(session,map,label+":child")
@@ -263,10 +273,10 @@ func abandoned_branch(session: Node) -> void:
 	for i in range(3):
 		var btn: Button=ui_button(map,"계속")
 		if btn==null: return
-		btn.pressed.emit()
+		press_story_action(btn)
 		await process_frame
 	check(ui_button(map,"지나친다")!=null,label+":child original leave button")
-	ui_button(map,"지나친다").pressed.emit()
+	press_story_action(ui_button(map,"지나친다"))
 	var gone: bool=await until_ready(func(): return session.get_story_event(CHILD.EVENT_ID).status=="complete" and not is_instance_valid(map.overlay),14000)
 	check(gone and session.event_flag_is_set("event:graveyard_child_ambush_01:abandoned"),label+":leave completes child without battle/ghoul reward")
 	check(not session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),label+":leave never invents rescue receipt")
@@ -323,15 +333,15 @@ func rescue_and_king(session: Node, victor: String) -> void:
 		if next==null:
 			check(false,label+":altar missing Continue at beat %d" % i)
 			return
-		next.pressed.emit()
+		press_story_action(next)
 		await process_frame
 	check(ui_button(map,"지나간다")!=null and ui_button(map,"싸운다")!=null,label+":altar two source choices genuinely unlocked")
-	ui_button(map,"지나간다").pressed.emit()
+	press_story_action(ui_button(map,"지나간다"))
 	check(session.get_story_event(ALTAR.EVENT_ID).choice=="pass" and session.get_story_event(ALTAR.EVENT_ID).status=="active",label+":altar pass stored without premature tracking handoff")
 	var altar_finish: Button=ui_button(map,"마치기")
 	check(altar_finish!=null,label+":altar genuine aftermath requires explicit Finish")
 	if altar_finish==null: return
-	altar_finish.pressed.emit()
+	press_story_action(altar_finish)
 	check(ALTAR.completed(session) and session.event_flag_is_set(ALTAR.RITUAL_TRACKING_FLAG),label+":altar source Finish unlocks forest portal")
 	check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG),label+":altar completion cannot itself revive king")
 	await close_and_reload(session,map,label+":altar")
@@ -344,11 +354,11 @@ func rescue_and_king(session: Node, victor: String) -> void:
 		if next==null:
 			check(false,label+":portal missing Continue at beat %d" % i)
 			return
-		next.pressed.emit()
+		press_story_action(next)
 		await process_frame
 		check(PORTAL.current_beat(session)==i+1,label+":portal sequential scene %d saved by original Continue" % (i+1))
 	check(ui_button(map,"저지한다")!=null,label+":portal canonical fifth-beat Intervene offered")
-	ui_button(map,"저지한다").pressed.emit()
+	press_story_action(ui_button(map,"저지한다"))
 	check(session.get_story_event(PORTAL.EVENT_ID).choice=="intervene" and not session.event_flag_is_set(PORTAL.HUNT_FLAG),label+":portal decision saved with no premature resurrection")
 	var deck_ready: bool=await until_ready(func(): return is_deck(map),8000)
 	check(deck_ready,label+":portal real deck appears after summoning delay")
@@ -374,12 +384,12 @@ func rescue_and_king(session: Node, victor: String) -> void:
 	var pending_ready: bool=await until_ready(func(): return ui_button(map,"부활 확인")!=null,12000)
 	check(pending_ready,label+":portal result UI genuinely resumes from saved JSON")
 	if not pending_ready: return
-	ui_button(map,"부활 확인").pressed.emit()
+	press_story_action(ui_button(map,"부활 확인"))
 	var aftermath: bool=await until_ready(func(): return ui_button(map,"마치기")!=null,12000)
 	check(aftermath and PORTAL.aftermath_ready(session,session.world.position),label+":portal correct acknowledged ending visible before actual Finish")
 	check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG),label+":portal result acknowledgment does not prematurely commit revival")
 	if not aftermath: return
-	ui_button(map,"마치기").pressed.emit()
+	press_story_action(ui_button(map,"마치기"))
 	var won: bool=victor=="ally"
 	check(PORTAL.completed(session) and session.event_flag_is_set(PORTAL.WEAKENED_FLAG)==won and session.event_flag_is_set(PORTAL.FULL_REVIVAL_FLAG)!=won,label+":portal actual Finish commits weakened win / full defeat")
 	check(ALTAR.completed(session),label+":portal handoff does not erase historical completed altar receipt")
@@ -399,13 +409,13 @@ func rescue_and_king(session: Node, victor: String) -> void:
 			return
 		if beat==2:
 			check(HUNT_BEATS.beat(2,HUNT.revival_mode(session)).dialogue==HUNT_BEATS.beat(2,"weakened" if won else "full").dialogue,label+":hunter original revival-specific dialogue visible")
-		next.pressed.emit()
+		press_story_action(next)
 		await process_frame
 	check(HUNT.completed(session) and not session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG),label+":king-hunt reveals sealed ruins but final acknowledgment still open")
 	var last: Button=ui_button(map,"마치기")
 	check(last!=null,label+":fifth canonical source beat requires final Finish")
 	if last==null: return
-	last.pressed.emit()
+	press_story_action(last)
 	check(session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG) and HUNT.completed(session),label+":king-hunt final acknowledgement persists and cannot restart")
 	check(session.event_flag_is_set(HUNT.FINAL_BATTLE_FLAG) and session.event_flag_is_set(HUNT.SEALED_RUINS_FLAG),label+":final battle *quest* available; no invented actual king fight")
 	check(PORTAL.completed(session) and ALTAR.completed(session) and session.get_story_event(CHILD.EVENT_ID).status=="complete",label+":entire eight-event predecessor history survives end of chain")

@@ -42,7 +42,7 @@ func finish_story(session: Node, map: Control, story_id: String, beat_count: int
 			check(false, label + ": missing genuine %s button at beat %d" % [title, beat])
 			break
 		check(session.get_story_event(story_id).status == "seen", label + ": no premature story completion before beat %d" % beat)
-		advance.pressed.emit()
+		press_story_action(advance)
 		await process_frame
 		if beat == interrupt_after and not final_beat:
 			map = await restore_story_midbeat(session, map, story_id, beat + 1, label)

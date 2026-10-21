@@ -3,6 +3,7 @@ extends Control
 const DESIGN_SIZE = Vector2(1280,720)
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
+const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 @export_range(0.1,1.5,0.01) var ending_duration: float = 0.52
 var canvas: Control
 var impact: Control
@@ -11,6 +12,7 @@ var hero: TextureRect
 var commander: TextureRect
 var speaker_label: Label
 var text_label: Label
+var dialogue_typewriter: Node
 var advance_button: Button
 var skip_button: Button
 var continue_button: Button
@@ -133,6 +135,9 @@ func _build_dialogue() -> void:
 	speaker_label = _label(box,"",box.size*Vector2(0.1,0.17),Vector2(850,30),19,Color("3a2819"))
 	text_label = _label(box,"",box.size*Vector2(0.1,0.42),Vector2(860,95),24,Color("21150d"))
 	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dialogue_typewriter = StoryTypewriter.new()
+	dialogue_typewriter.name = "IntroTypewriter"
+	dialogue_stage.add_child(dialogue_typewriter)
 	var arrow = _label(box,"▼",Vector2(box.size.x*0.92-20,box.size.y*0.85-22),Vector2(22,24),18,Color("5e4329"))
 	var baseline = arrow.position.y
 	var bob = arrow.create_tween().set_loops().set_parallel(true)
@@ -160,6 +165,7 @@ func _utility_button(title: String, pos: Vector2, callback: Callable) -> Button:
 
 func advance() -> void:
 	if leaving: return
+	if is_instance_valid(dialogue_typewriter) and dialogue_typewriter.reveal_all(): return
 	if lines.is_empty(): finish(); return
 	if line_index>=lines.size()-1: finish(); return
 	line_index += 1
@@ -170,6 +176,8 @@ func advance() -> void:
 	var line: Dictionary = lines[line_index]
 	speaker_label.text = line.speaker
 	text_label.text = line.text
+	dialogue_typewriter.clear()
+	dialogue_typewriter.track(text_label)
 	hero.visible = line.speaker=="주인공"
 	commander.visible = line.speaker=="기사단장"
 

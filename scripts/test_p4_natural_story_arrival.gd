@@ -47,6 +47,15 @@ func button_at(map: Control, label: String) -> Button:
 		if node is Button and node.visible and node.text==label: return node
 	return null
 
+## A story press reveals text first; the next press advances its saved beat.
+func press_story_action(action: Button) -> void:
+	if action == null: return
+	var panel = action.get_parent()
+	var typewriter = panel.get_node_or_null("StoryTypewriter")
+	if typewriter != null and typewriter.is_revealing():
+		action.pressed.emit()
+	action.pressed.emit()
+
 func is_deck(map: Control) -> bool:
 	return is_instance_valid(map.overlay) and map.overlay.get_script()!=null and map.overlay.get_script().resource_path.ends_with("battle_deck.gd")
 
@@ -116,10 +125,10 @@ func actual_graveyard_rescue(session: Node) -> bool:
 		if next==null:
 			check(false,"graveyard scene %d missing real Continue" % i)
 			return false
-		next.pressed.emit()
+		press_story_action(next)
 		await process_frame
 	check(button_at(map,"아이를 구한다")!=null and button_at(map,"지나친다")!=null,"all four scenes allow canonical genuine rescue/leave choice")
-	button_at(map,"아이를 구한다").pressed.emit()
+	press_story_action(button_at(map,"아이를 구한다"))
 	check(session.get_story_event(CHILD.EVENT_ID).choice=="protect_child" and session.get_story_event(CHILD.EVENT_ID).status=="active","rescue choice recorded without victory forgery")
 	check(is_deck(map),"real deck UI follows original rescue choice")
 	if not is_deck(map): return false
@@ -173,7 +182,7 @@ func actual_graveyard_rescue(session: Node) -> bool:
 	check(returned,"battle-to-map result UI returns without moving any tiles")
 	if not returned: return false
 	for i in range(3): await process_frame
-	button_at(map,"맵으로").pressed.emit()
+	press_story_action(button_at(map,"맵으로"))
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),"original acknowledgement commits authentic rescued-child receipt")
 	check(world.tiles==first_tiles and world.map_serial==2 and world.position==destination,"genuine rescue victory never changes board or teleports hero")
 	for i in range(4): await process_frame
@@ -217,7 +226,7 @@ func incidental_overlay(session: Node, map: Control, label: String) -> bool:
 		var before_lap: int=world.laps
 		var before_map: int=world.map_serial
 		var lap_ready: bool=world.lap_ready
-		button_at(map,"나가기").pressed.emit()
+		press_story_action(button_at(map,"나가기"))
 		var finished: bool=await until_ready(func(): return not map.moving and not is_instance_valid(map.overlay) and session.world.map_serial==before_map+1,20000)
 		check(finished,"incident "+label+": natural house visit completes original stone reshuffle")
 		check(world.laps==before_lap+(1 if lap_ready else 0),"incident "+label+": exact one new lap after real house crossing")
@@ -225,7 +234,7 @@ func incidental_overlay(session: Node, map: Control, label: String) -> bool:
 	var exit: Button=button_at(map,"나가기")
 	if exit==null: exit=button_at(map,"돌아가기")
 	if exit!=null:
-		exit.pressed.emit()
+		press_story_action(exit)
 		var removed: bool=await until_ready(func(): return not is_instance_valid(map.overlay),10000)
 		check(removed,"incident "+label+": normal location allows actual player exit")
 		return removed
@@ -296,7 +305,7 @@ func natural_village_rumor(session: Node) -> void:
 			if next==null:
 				check(false,"natural village missing canonical %s at beat %d" % [caption,beat])
 				break
-			next.pressed.emit()
+			press_story_action(next)
 			await process_frame
 		check(session.get_story_event(VILLAGE.RESCUED_ID).status=="complete" and session.event_flag_is_set(VILLAGE.complete_flag(VILLAGE.RESCUED_ID)),"natural route completes correct rescued rumor via original user buttons")
 		check(session.get_story_event(VILLAGE.ABANDONED_ID).status=="unseen","natural rescued rumor never invents abandoned storyline")
