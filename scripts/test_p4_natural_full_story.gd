@@ -37,7 +37,7 @@ func finish_cultist_rumor(session: Node, map: Control) -> Control:
 			check(false, "cultist rumor has actual %s at beat %d" % [caption, beat])
 			return map
 		check(session.get_story_event(CULTIST.EVENT_ID).status == "seen" and not session.event_flag_is_set(CULTIST.TRACKING_FLAG), "cultist rumor can't pay quest before last click, beat %d" % beat)
-		btn.pressed.emit()
+		press_story_action(btn)
 		await process_frame
 		if beat == 2:
 			map = await restore_actual_panel(session, map, "계속", "cultist rumor beat 3")
@@ -56,7 +56,7 @@ func finish_altar_pass(session: Node, map: Control) -> Control:
 		if btn == null:
 			check(false, "altar missing original Continue at beat %d" % beat)
 			return map
-		btn.pressed.emit()
+		press_story_action(btn)
 		await process_frame
 		if beat == 0:
 			map = await restore_actual_panel(session, map, "계속", "altar ritual reveal")
@@ -65,7 +65,7 @@ func finish_altar_pass(session: Node, map: Control) -> Control:
 	var bypass: Button = button_at(map, "지나간다")
 	if bypass == null:
 		return map
-	bypass.pressed.emit()
+	press_story_action(bypass)
 	await process_frame
 	check(session.get_story_event(ALTAR.EVENT_ID).choice == "pass" and session.get_story_event(ALTAR.EVENT_ID).status == "active", "altar pass is durable intent without fake battle")
 	check(not session.event_flag_is_set(ALTAR.RITUAL_TRACKING_FLAG) and not session.event_flag_is_set(PORTAL.REVIVED_FLAG), "altar pass alone cannot complete portal, revive king or grant followup")
@@ -74,7 +74,7 @@ func finish_altar_pass(session: Node, map: Control) -> Control:
 	var finish: Button = button_at(map, "마치기")
 	if finish == null:
 		return map
-	finish.pressed.emit()
+	press_story_action(finish)
 	await process_frame
 	check(ALTAR.completed(session) and session.event_flag_is_set(ALTAR.RITUAL_TRACKING_FLAG), "altar actual Finish gives portal tracking once")
 	check(not session.event_flag_is_set(PORTAL.HUNT_FLAG), "altar finish never starts hunt before portal")
@@ -148,7 +148,7 @@ func settle_portal_battle(session: Node, map: Control) -> Control:
 	var acknowledge: Button = button_at(map, "부활 확인")
 	if acknowledge == null:
 		return map
-	acknowledge.pressed.emit()
+	press_story_action(acknowledge)
 	var afterward: bool = await until_ready(func(): return button_at(map, "마치기") != null, 12000)
 	check(afterward and PORTAL.aftermath_ready(session, session.world.position), "original weakened-revival ending appears only after explicit result acknowledgment")
 	check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG), "acknowledgment alone cannot finalize king revival")
@@ -158,7 +158,7 @@ func settle_portal_battle(session: Node, map: Control) -> Control:
 	var finish: Button = button_at(map, "마치기")
 	if finish == null:
 		return map
-	finish.pressed.emit()
+	press_story_action(finish)
 	await process_frame
 	check(PORTAL.completed(session) and session.event_flag_is_set(PORTAL.WEAKENED_FLAG) and not session.event_flag_is_set(PORTAL.FULL_REVIVAL_FLAG), "portal actual Finish commits exactly one weakened king revival")
 	check(session.event_flag_is_set(PORTAL.HUNT_FLAG) and not session.event_flag_is_set(PORTAL.TRACKING_FLAG), "portal Finish transfers tracking quest to hunt once")
@@ -175,7 +175,7 @@ func finish_portal(session: Node, map: Control) -> Control:
 		if btn == null:
 			check(false, "portal missing Continue on scene %d" % beat)
 			return map
-		btn.pressed.emit()
+		press_story_action(btn)
 		await process_frame
 		if beat == 1:
 			map = await restore_actual_panel(session, map, "계속", "portal summoned-cultists revelation")
@@ -185,7 +185,7 @@ func finish_portal(session: Node, map: Control) -> Control:
 	var intervene: Button = button_at(map, "저지한다")
 	if intervene == null:
 		return map
-	intervene.pressed.emit()
+	press_story_action(intervene)
 	check(session.get_story_event(PORTAL.EVENT_ID).choice == "intervene" and not session.event_flag_is_set(PORTAL.REVIVED_FLAG), "intervention choice saved before battle without fake result")
 	var deck_ready: bool = await until_ready(func(): return is_deck(map), 12000)
 	check(deck_ready, "original intervention summons deck selector after real omen delay")
@@ -203,7 +203,7 @@ func finish_king_hunt(session: Node, map: Control) -> Control:
 			check(false, "king-hunt missing Continue at original beat %d" % beat)
 			return map
 		check(not session.event_flag_is_set(HUNT.FINAL_BATTLE_FLAG), "king final battle quest not unlocked before proper beat %d" % beat)
-		continue_button.pressed.emit()
+		press_story_action(continue_button)
 		await process_frame
 		if beat == 1:
 			map = await restore_actual_panel(session, map, "계속", "king-hunt revival dialogue")
@@ -213,7 +213,7 @@ func finish_king_hunt(session: Node, map: Control) -> Control:
 	var finish: Button = button_at(map, "마치기")
 	if finish == null:
 		return map
-	finish.pressed.emit()
+	press_story_action(finish)
 	await process_frame
 	check(HUNT.completed(session) and session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG), "fifth original king-hunt scene explicitly acknowledged")
 	check(session.event_flag_is_set(HUNT.SEALED_RUINS_FLAG) and session.event_flag_is_set(HUNT.FINAL_BATTLE_FLAG), "sealed-ruins destination known, only final-battle QUEST available (no invented battle)")
