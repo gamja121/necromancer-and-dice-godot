@@ -304,6 +304,7 @@ func shared_story_frame(panel: Control) -> TextureRect:
 func _ensure_story_speech(panel: Control) -> void:
 	if panel.get_node_or_null("StorySplitSpeechFrame") != null: return
 	var narrative_frame := panel.get_node_or_null("SharedStoryDialogueFrame") as TextureRect
+	if narrative_frame == null: narrative_frame = panel.get_node_or_null("StoryDialogueFrame") as TextureRect
 	if narrative_frame != null: narrative_frame.size = StorySplit.NARRATION_WITH_SPEECH.size
 	var narrative := panel.get_node_or_null("StorySplitNarrationCopy") as Label
 	if narrative != null: narrative.size = StorySplit.NARRATION_SHORT.size
