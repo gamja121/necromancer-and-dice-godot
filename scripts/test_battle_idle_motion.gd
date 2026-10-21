@@ -50,7 +50,7 @@ func _run() -> void:
 	var first_angle: float = scene.sprites[rigid_id].rotation
 	var first_enemy: float = scene.sprites[enemy_id].rotation
 	var first_flexible: float = scene.sprites[flexible_id].rotation
-	await create_timer(0.31).timeout
+	await create_timer(0.49).timeout
 	var second_angle: float = scene.sprites[rigid_id].rotation
 	check(absf(first_angle-second_angle)>0.003 and absf(first_angle)>0.003,"rigid original artwork visibly sways during idle")
 	check(absf(first_enemy-scene.sprites[enemy_id].rotation)>0.003,"enemy also idles independently")
@@ -70,7 +70,7 @@ func _run() -> void:
 	check(absf(scene.sprites[rigid_id].rotation-paused_angle)>0.001,"unpause resumes idle")
 
 	scene.visuals.active[rigid_id] = true
-	await process_frame
+	await create_timer(0.06).timeout
 	check(absf(scene.sprites[rigid_id].rotation)<0.0001,"active attack suppresses idle")
 	scene.visuals.active.erase(rigid_id)
 	var unit: Dictionary=scene.visuals.states[rigid_id]
