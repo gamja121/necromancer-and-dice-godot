@@ -15,13 +15,14 @@ Issue: https://github.com/gamja121/necromancer-and-dice-godot/issues/222
 ## 검증
 
 - Godot 4.7.2 Standard / Windows Native ANGLE, GTX 1660 Ti에서 실제 화면을 렌더링하고 편성·지도·발견·거미여왕의 실제 공격 타격 프레임을 확인했다. 초기의 긴 거미줄은 화면을 가로지르지 않도록 타격 주변 잔상으로 조정했다.
-- `test_natural_presentation.gd`: headless 17 passed / Windows Native ANGLE 17 passed, 모두 0 failed. 입력 통과, 실제 편성 연결점, 기존 보드 재개, 창 뒤에서의 효과 소모 방지, 새 장소 타일 추적, 전투 정지, 효과 노드 해제, 실제 피해 계산과 표시의 분리 검사.
+- `test_natural_presentation.gd`: headless 18 passed / Windows Native ANGLE 18 passed, 모두 0 failed. 입력 통과, 실제 편성 연결점, 기존 보드 재개, 창 뒤에서의 효과 소모 방지, 새 장소 타일 추적, 전투 정지, 효과 노드 해제, 실제 피해 계산과 표시의 분리 검사. 실제 타격 검사는 랜덤 방어막에 따라 결과가 바뀌지 않는 통제된 전투 편성을 사용하고, 막힌 타격에 효과가 나오지 않는지도 별도로 확인한다.
 - `test_battle_entry_summon.gd`: 87 passed, 0 failed.
 - `test_event_discovery_card_ui.gd`: 14 assertions, 0 failures.
 - `test_p4_combat_map_return_integration.gd`: 160 passed, 0 failed.
 - 로컬의 기존 세 회귀검사는 개인 저장 경로를 쓰지 않도록 테스트 사본의 임시 저장 경로만 작업 폴더로 바꿔 실행했다. 원래 검사와 게임 저장 형식은 수정하지 않았다.
 - 기존 `test_battle_formation_order.gd`는 64 passed, 6 failed. 새 연출을 제거한 기준 main `e0e76c2a91dbe074f151b37474cd98fe1d89dc56`에서도 같은 여섯 항목이 실패했다: 1/2/4인 편성 각각의 적 편성 수와 대각 배치 기대값. 새 연출의 성공으로 숨기지 않으며 원래 검사도 유지한다.
 - 로컬 엔진은 인증서, portable user/shader-cache 경로 및 종료 ObjectDB 경고를 출력했다. 무경고 실행이나 전체 CI 성공으로 보고하지 않는다. 실제 스크립트/셰이더 오류와 위 기존 실패는 별도로 확인한다.
+- GitHub 검사에서 기존 설정 그림의 inline SVG `xmlns`를 외부 URL로 오인하는 문제도 확인했다. 검사기는 SVG 시작 태그의 표준 이름공간 선언만 식별자로 취급하도록 수정했다. 실제 `href`, CSS URL, 일반 코드의 같은 URI, 다른 외부 이름공간은 계속 검출한다. 기존 금지 사례와 추가 경계 사례를 합한 18개 자체 검사 및 실제 102개 런타임 파일 검사가 통과했다. [SVG 이름공간 표준](https://www.w3.org/TR/SVG2/struct.html#Namespace).
 
 ## 통합 경계
 

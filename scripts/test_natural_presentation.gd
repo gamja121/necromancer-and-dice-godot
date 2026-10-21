@@ -130,9 +130,15 @@ func run() -> void:
 	# Resolve a real round and present the queen's real action. The accent
 	# must come from play_strike's confirmed impact, not a second damage roll.
 	battle.visuals.child_entered_tree.connect(on_combat_accent)
-	var face := 1
-	while face in battle.rules.units[0].brands[0].curse: face += 1
-	battle.rules.begin_round(face)
+	# The lab normally generates random brands/passives. A shielding enemy
+	# can correctly block the hit and produce no silk: use a controlled
+	# positive-hit fixture instead of assuming every random attack connects.
+	battle.rules.rng.seed = 912
+	for unit in battle.rules.units:
+		unit.brands = []
+		unit.passive = ""
+	battle.rules.units[0].passive = "initiative"
+	battle.rules.begin_round(4)
 	while not battle.rules.queue.is_empty():
 		var action: Dictionary = battle.rules.next_action()
 		if action.is_empty(): break
@@ -143,6 +149,9 @@ func run() -> void:
 		check(JSON.stringify(battle.rules.snapshot())==before,"real strike presentation never resolves combat twice")
 		break
 	check(confirmed_silk_strikes>0,"real confirmed Queen strike invokes species accent at impact")
+	var connected_count := confirmed_silk_strikes
+	await battle.visuals.play_strike(actor,target,{"type":"damage","target":target,"amount":0,"hp":battle.visuals.states[target].hp,"blocked":true,"critical":false})
+	check(confirmed_silk_strikes==connected_count,"a blocked zero-damage strike produces no false silk impact")
 	battle.queue_free()
 	await process_frame
 	session.save_file_path = old_save

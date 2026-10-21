@@ -26,6 +26,10 @@ FORBIDDEN = (
     ("absolute Windows resource path", re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]+(?:Users|Workspace|Dev|Games|Projects)[\\/]+", re.I)),
 )
 LITERAL_RESOURCE = re.compile(r"""(?:"|')(?P<path>res://[^"'\r\n]+)(?:"|')""")
+SVG_START_TAG = re.compile(r"<(?:[A-Za-z_][\w.-]*:)?svg\b[^>]*>", re.S)
+SVG_NAMESPACE_ATTRIBUTE = re.compile(
+    r"""(?<![\w:-])xmlns(?::[A-Za-z_][\w.-]*)?\s*=\s*(["'])http://www\.w3\.org/2000/svg\1"""
+)
 ASSET_ENDINGS = {
     ".gd", ".tscn", ".tres", ".gdshader", ".png", ".jpg", ".jpeg",
     ".webp", ".svg", ".mp3", ".ogg", ".wav", ".ttf", ".otf", ".json",
@@ -45,6 +49,23 @@ def runtime_files(root: Path) -> list[Path]:
     return sorted(set(paths))
 
 
+def mask_svg_namespace(source: str) -> str:
+    """Only the standard xmlns attribute is an identifier, not downloaded data.
+
+    Keep href, CSS URLs and every other URI visible to the existing detector,
+    including the very same SVG URI when used outside a namespace declaration.
+    Preserve newlines so diagnostics still point to the original source line.
+    https://www.w3.org/TR/SVG2/struct.html#Namespace
+    """
+    def mask_tag(tag: re.Match[str]) -> str:
+        return SVG_NAMESPACE_ATTRIBUTE.sub(
+            lambda attr: attr.group(0).replace("http://www.w3.org/2000/svg", "urn:svg-namespace"),
+            tag.group(0),
+        )
+
+    return SVG_START_TAG.sub(mask_tag, source)
+
+
 def inspect(root: Path) -> tuple[list[str], int, int, int]:
     errors: list[str] = []
     static_count = 0
@@ -57,12 +78,13 @@ def inspect(root: Path) -> tuple[list[str], int, int, int]:
         except UnicodeError:
             errors.append(f"{relative}: not valid UTF-8")
             continue
-        for lineno, line in enumerate(source.splitlines(), start=1):
+        scan_lines = mask_svg_namespace(source).splitlines()
+        for lineno, (line, scan_line) in enumerate(zip(source.splitlines(), scan_lines), start=1):
             stripped = line.lstrip()
             if stripped.startswith(("#", "//", ";")):
                 continue
             for label, rule in FORBIDDEN:
-                if rule.search(line):
+                if rule.search(scan_line):
                     errors.append(f"{relative}:{lineno}: {label}: {line.strip()[:140]}")
             for match in LITERAL_RESOURCE.finditer(line):
                 res = match.group("path")
@@ -102,6 +124,17 @@ def self_test() -> bool:
         if errors or count != 2 or resolved != 1 or dynamic != 1:
             print("SELF_TEST_FAIL baseline", errors, count, resolved, dynamic)
             return False
+        svg_samples = [
+            '<svg xmlns="http://www.w3.org/2000/svg" width="58"><path d="M0 0"/></svg>',
+            "<svg\n xmlns='http://www.w3.org/2000/svg'\n width='58'></svg>",
+            '<svg:svg xmlns:svg="http://www.w3.org/2000/svg"></svg:svg>',
+        ]
+        for index, sample in enumerate(svg_samples):
+            file.write_text('const ART = """\n' + sample + '\n"""\n', encoding="utf-8")
+            findings, _, _, _ = inspect(root)
+            if findings:
+                print(f"SELF_TEST_FAIL local inline SVG {index} was rejected:", findings)
+                return False
         bad = [
             'const BAD = "https://example.com/api"\n',
             'const BAD = "res://web/old-game.js"\n',
@@ -111,6 +144,12 @@ def self_test() -> bool:
             'var client = HTTPRequest.new()\n',
             'const BAD = "res://assets/absent.png"\n',
             'const BAD = "C:\\\\Users\\\\Tester\\\\game.png"\n',
+            'const BAD = "http://www.w3.org/2000/svg"\n',
+            '<svg xmlns="https://example.com/namespace"></svg>\n',
+            '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png"/></svg>\n',
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="http://www.w3.org/2000/svg"/></svg>\n',
+            '<svg xmlns="http://www.w3.org/2000/svg" style="fill:url(https://example.com/pattern)"></svg>\n',
+            '<svg xmlns="http://www.w3.org/2000/svg" data-source="https://example.com/api"></svg>\n',
         ]
         for index, sample in enumerate(bad):
             file.write_text(sample, encoding="utf-8")
@@ -118,7 +157,7 @@ def self_test() -> bool:
             if not findings:
                 print(f"SELF_TEST_FAIL fixture {index} was not rejected: {sample.strip()}")
                 return False
-        print(f"WEB_INDEPENDENCE_SELF_TEST: {len(bad) + 1} fixtures passed, 0 failed")
+        print(f"WEB_INDEPENDENCE_SELF_TEST: {len(bad) + len(svg_samples) + 1} fixtures passed, 0 failed")
         return True
 
 
