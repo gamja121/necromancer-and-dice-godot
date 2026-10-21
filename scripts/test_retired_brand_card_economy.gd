@@ -20,7 +20,7 @@ func test_new_game(s: Node) -> void:
 	s.start_new_world()
 	var world = s.world
 	check(not world.snapshot().has("brand_cards"),"new saves have no active standalone brand-card field")
-	check(world.legacy_brand_cards.is_empty(),"new expedition has no archived brand cards")
+	check(not world.snapshot().has("legacy_brand_cards"),"new saves have no inactive brand-card archive either")
 	check(s.create_item("brand",{}).is_empty(),"retired standalone brand card cannot be crafted")
 	check(not FileAccess.file_exists("res://assets/cards/brand-card.png"),"obsolete brand-card art is absent from runtime resources")
 	check(Catalog.dice_cards().size()==18,"eighteen usable dice-control cards still exist")
@@ -43,16 +43,28 @@ func test_legacy_archive(s: Node) -> void:
 	s.start_new_world()
 	var legacy: Dictionary={"id":"brand-card-old-88","brand":{"type":"critical","bless":[4],"curse":[]}}
 	var saved: Dictionary=s.world.snapshot().duplicate(true)
-	saved.erase("legacy_brand_cards")
 	saved["brand_cards"]=[legacy]
-	var world = s.world
-	check(world.restore(saved),"pre-removal save with owned brand cards loads")
-	check(world.legacy_brand_cards.size()==1 and world.legacy_brand_cards[0].id==legacy.id,"old card data retained as inactive recovery archive")
-	check(not world.snapshot().has("brand_cards"),"subsequent save no longer emits active brand_cards field")
-	check(s.save_world(),"archived save persists")
+	var source_bytes: String=JSON.stringify(saved)
+	var path: String=s.save_file_path
+	var backup: String=path+".before_standalone_brand_cards.bak"
+	for stale in [backup]:
+		if FileAccess.file_exists(stale): DirAccess.remove_absolute(ProjectSettings.globalize_path(stale))
+	var file=FileAccess.open(path,FileAccess.WRITE)
+	check(file!=null,"legacy fixture save can be written")
+	if file==null: return
+	file.store_string(source_bytes)
+	file.close()
 	s.reload_world()
-	check(s.world.legacy_brand_cards.size()==1 and s.world.legacy_brand_cards[0].id==legacy.id,"archival card data survives second save/reload")
-	check(s.world.roster.size()==2,"migration never alters surviving monsters")
+	check(s.world.roster.size()==2,"old cards do not disrupt surviving monsters")
+	check(not s.world.snapshot().has("brand_cards") and not s.world.snapshot().has("legacy_brand_cards"),"restore purges both old card fields from live memory")
+	check(FileAccess.file_exists(backup),"original save backed up outside active gameplay")
+	if FileAccess.file_exists(backup):
+		check(FileAccess.get_file_as_string(backup)==source_bytes,"one-time backup preserves original card data byte-for-byte")
+	check(s.save_world(),"cleaned card-free save persists")
+	s.reload_world()
+	check(not s.world.snapshot().has("brand_cards") and not s.world.snapshot().has("legacy_brand_cards"),"reloaded save remains entirely free of brand-card collections")
+	check(FileAccess.file_exists(backup) and FileAccess.get_file_as_string(backup)==source_bytes,"cleanup never overwrites the recovery backup")
+	if FileAccess.file_exists(backup): DirAccess.remove_absolute(ProjectSettings.globalize_path(backup))
 
 func test_old_chest(s: Node, prepared: bool) -> void:
 	s.start_new_world()
