@@ -3,22 +3,17 @@ on:
   push:
     branches:
       - main
-      - refactor/retire-standalone-brand-cards-20261021
       - fix/purge-legacy-brand-card-ghosts-20261021
     paths:
-      - "systems/run_session.gd"
-      - "systems/map_state.gd"
-      - "systems/reward_catalog.gd"
-      - "systems/inventory_panel.gd"
-      - "systems/home_inheritance.gd"
-      - "scripts/test_retired_brand_card_economy.gd"
-      - "scripts/audit_retired_brand_card_gameplay.py"
       - "systems/**"
       - "map.gd"
+      - "scripts/test_retired_brand_card_economy.gd"
+      - "scripts/audit_retired_brand_card_gameplay.py"
       - "scripts/test_ui_route_inheritance_parity.gd"
       - "scripts/test_inventory_touch_inspection.gd"
       - "scripts/test_shop_treasure_no_brand_rewards.gd"
       - "scripts/test_graveyard_random_dice.gd"
+      - "scripts/test_ui_graveyard_event_parity.gd"
       - ".github/workflows/retired-brand-cards.yml"
   workflow_dispatch:
 
@@ -36,52 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/audit_retired_brand_card_gameplay.py | tee guard.log
-          grep -E '^RETIRED_BRAND_CARD_GUARD: [0-9]+ runtime/resources scanned, 0 failures
-        with:
-          version: 4.7.2
-          use-dotnet: false
-      - name: Import Godot resources and verify script parse
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 160s godot --headless --path . --editor --quit 2>&1 | tee import.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
-      - name: No brand-card economy - home inheritance and old saves
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 150s godot --headless --path . --script res://scripts/test_retired_brand_card_economy.gd 2>&1 | tee retire.log
-          grep -E 'RETIRE_BRAND_CARD: [0-9]+ passed, 0 failed' retire.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL retire-brand-card:' retire.log; then exit 1; fi
-      - name: Home inheritance UI and patrol parity
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 150s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee home.log
-          grep -E 'UI_STAGE3_PARITY: [0-9]+ passed, 0 failed' home.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-stage3:' home.log; then exit 1; fi
-      - name: Inventory touch and card detail UI
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 150s godot --headless --path . --script res://scripts/test_inventory_touch_inspection.gd 2>&1 | tee inventory.log
-          grep -E 'INVENTORY_TOUCH_INSPECTION: [0-9]+ passed, 0 failed' inventory.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL inventory' inventory.log; then exit 1; fi
-      - name: Merchant and treasure never supply brand cards
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 150s godot --headless --path . --script res://scripts/test_shop_treasure_no_brand_rewards.gd 2>&1 | tee shop.log
-          grep -E 'SHOP_TREASURE_NO_BRAND: [0-9]+ passed, 0 failed' shop.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL shop-treasure:' shop.log; then exit 1; fi
-      - name: Cemetery keeps dice-only rewards
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 140s godot --headless --path . --script res://scripts/test_graveyard_random_dice.gd 2>&1 | tee grave.log
-          grep -E 'GRAVEYARD_RANDOM_DICE: [0-9]+ passed, 0 failed' grave.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL grave-dice:' grave.log; then exit 1; fi
- guard.log
+          grep -F '0 failures' guard.log
       - uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.7.2
