@@ -64,6 +64,14 @@ func fixture(tag: String,tile: String="forest"):
 	check(Altar.advance(s,at,1),"altar choice saved")
 	check(Altar.choose(s,at,2,"pass"),"altar pass saved")
 	check(Altar.finish(s,at),"prior tracking quest confirmed")
+	# A new board cannot land on forest until the genuine event discovery.
+	if tile == "forest":
+		var discovery_at: int = s.world.tiles.find("event")
+		check(discovery_at >= 0,"real event tile available to discover forest")
+		if discovery_at >= 0:
+			s.world.position = discovery_at
+			var unlocked: Dictionary = s.discover_location_on_event(discovery_at,"forest")
+			check(bool(unlocked.get("ok",false)) and s.world.tiles.count("forest")==1,"real forest discovery persisted without forging location flags")
 	s.world.position=s.world.tiles.find(tile)
 	check(s.world.position>=0,"eligible forest or event tile exists")
 	check(s.save_world(),"portal landing saved")
