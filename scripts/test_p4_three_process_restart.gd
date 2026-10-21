@@ -167,10 +167,7 @@ func chest_choose(s) -> void:
 	check(offers.size() == 3, "three original offers survive reload")
 	if offers.size() != 3: return
 	var choice: int = 0
-	for i in range(offers.size()):
-		if str(offers[i].kind) == "brand":
-			choice = i
-			break
+	check(offers.all(func(offer): return offer.kind in ["unit","dice"]),"restored chest contains no standalone brand cards")
 	var original_offers: Array = offers.duplicate(true)
 	check(s.select_treasure(choice), "first click saves chosen treasure card but grants no item")
 	check(w.pending_reward.offers == original_offers and int(w.pending_reward.selected) == choice, "selection does not regenerate random offers")
@@ -201,12 +198,12 @@ func chest_claim(s) -> void:
 	var reward: Dictionary = pending.reward.duplicate(true)
 	var receipt: String = str(pending.id)
 	var kind: String = str(reward.kind)
-	var inventory: Array = w.roster if kind == "unit" else (w.dice_cards if kind == "dice" else w.brand_cards)
+	var inventory: Array = w.roster if kind == "unit" else w.dice_cards
 	var before_count: int = inventory.size()
 	var item_id: String = str(reward.item.id)
 	var result: Dictionary = s.claim_reward()
 	check(result.get("ok", false) and result.get("kept", false), "exactly one prepared reward claimed into inventory")
-	var after: Array = w.roster if kind == "unit" else (w.dice_cards if kind == "dice" else w.brand_cards)
+	var after: Array = w.roster if kind == "unit" else w.dice_cards
 	check(after.size() == before_count + 1 and after.any(func(x): return str(x.id) == item_id), "same item ID, without reroll, enters correct inventory")
 	check(w.pending_reward.is_empty() and w.reward_receipts.count(receipt) == 1, "pending transaction clears with unique receipt")
 	check(not s.claim_reward().get("ok", false), "duplicate claim immediately rejected")
