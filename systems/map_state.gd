@@ -403,6 +403,19 @@ func restore(saved: Dictionary) -> bool:
 	last_prophecy = saved.get("last_prophecy",{}).duplicate(true)
 	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
+	# Merchant monster cards are complete unit instances, kept inside the
+	# saved offer cache until chosen. Normalize their numeric stats and brand
+	# dice faces just like owned roster units so save/reload is lossless.
+	for choices in shop_trade.get("offers",{}).values():
+		for offer in choices:
+			if str(offer.get("kind",""))!="unit": continue
+			var candidate: Dictionary = offer.get("item",{})
+			for key in ["max_hp","attack","speed","current_hp","altar_enhancements"]:
+				if candidate.has(key): candidate[key] = int(candidate[key])
+			for brand in candidate.get("brands",[]):
+				if not brand is Dictionary: continue
+				if brand.get("bless",[]) is Array: brand.bless = brand.bless.map(func(n): return int(n))
+				if brand.get("curse",[]) is Array: brand.curse = brand.curse.map(func(n): return int(n))
 	patrol_plan = plan.duplicate(true)
 	# JSON loads quantity counters as floats (6.0 instead of 6).
 	# Normalize to durable integer tile counts, so equality and future
