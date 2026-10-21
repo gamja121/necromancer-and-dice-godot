@@ -3,7 +3,9 @@ extends Control
 ## Map settings: hand-brushed painted panel and controls, preserving audio behaviors.
 ## Always use the OS default output; Advanced retains only master volume.
 const SAVE = "user://audio_settings.cfg"
-const PANEL_RECT = Rect2(995.84, 82.8, 256.0, 194.0)
+# The popup sits BELOW the map's gear rather than covering the gear's
+# own touch rectangle; the same icon can therefore close it again.
+const PANEL_RECT = Rect2(952.0, 268.0, 256.0, 194.0)
 const BrushArt = preload("res://systems/brush_map_settings_art.gd")
 
 var save_file_path: String = SAVE
