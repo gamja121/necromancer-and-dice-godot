@@ -80,14 +80,14 @@ func test_legacy_shop(session: Node) -> void:
 	check(session.save_world(),"legacy brand-offer fixture saved")
 	session.reload_world()
 	world = session.world
-	check(world.shop_trade.offers[donor_id][1].kind=="brand","legacy brand offers remain loadable before migration")
+	check(not world.shop_trade.offers.has(donor_id),"old merchant brand offer is purged immediately upon save load")
 	var upgraded: Dictionary = session.shop_offers(8,donor_id)
-	check(upgraded.get("ok",false) and upgraded.offers.all(func(offer): return offer.kind in ["unit","dice"]),"opening an old shop replaces its pending brand offer")
+	check(upgraded.get("ok",false) and upgraded.offers.all(func(offer): return offer.kind in ["unit","dice"]),"reopened merchant regenerates only monster and dice offers")
 	if not upgraded.get("ok",false): return
-	check(upgraded.offers[0]==old_offers[0],"saved dice offers keep their exact item and ID")
+	check(upgraded.offers.any(func(offer): return offer.kind=="unit"),"obsolete brand slot is replaced with a real monster option")
 	var revised: Array = upgraded.offers.duplicate(true)
 	session.reload_world()
-	check(session.shop_offers(8,donor_id).offers==revised,"upgraded old offers persist without additional rerolls")
+	check(session.shop_offers(8,donor_id).offers==revised,"new merchant offers persist across subsequent reload")
 
 func test_treasure(session: Node) -> void:
 	var generated: int = 0

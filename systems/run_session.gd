@@ -41,6 +41,17 @@ func reload_world() -> void:
 	notice = ""
 	ensure_world()
 
+## One-time, read-only backup for old saves containing independent brand cards.
+## Backup is NOT a game item collection and is never parsed as live inventory.
+## Keep the original bytes and do not overwrite an existing recovery file.
+func backup_retired_brand_cards(parsed: Dictionary) -> bool:
+	if not parsed.has("brand_cards") and not parsed.has("legacy_brand_cards"): return true
+	var backup_path: String = save_file_path+".before_standalone_brand_cards.bak"
+	if FileAccess.file_exists(backup_path): return true
+	var from_path: String = ProjectSettings.globalize_path(save_file_path)
+	var to_path: String = ProjectSettings.globalize_path(backup_path)
+	return DirAccess.copy_absolute(from_path,to_path)==OK
+
 func ensure_world() -> void:
 	if world != null: return
 	var definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
@@ -50,6 +61,10 @@ func ensure_world() -> void:
 		if not parsed is Dictionary or not world.restore(parsed):
 			notice = "저장된 맵을 읽지 못해 새 원정을 시작했습니다."
 		else:
+			# The original save remains available for manual recovery of retired
+			# card records; the restored world does not retain them in gameplay.
+			if not backup_retired_brand_cards(parsed):
+				notice = "오래된 낙인 카드 저장 백업에 실패했습니다. 저장 경로를 확인하세요."
 			# Older saves between contamination 20 and 79 predate the new
 			# boss threshold. Upgrade the existing 24th tile in place without
 			# rerolling the board or changing other saved progress.
@@ -939,26 +954,7 @@ func shop_offers(index: int, unit_id: String) -> Dictionary:
 		return {"ok":false,"reason":"마지막 마물은 교환할 수 없습니다."}
 	var visit = place_visit_id("shop",index)
 	if world.shop_trade.get("visit","")==visit and world.shop_trade.offers.has(unit_id):
-		var cached: Array = world.shop_trade.offers[unit_id]
-		if not cached.any(func(offer): return str(offer.get("kind",""))=="brand"):
-			return {"ok":true,"offers":cached.duplicate(true)}
-		# A saved, not-yet-used shop offer from the former rules may include
-		# brand cards. Convert only those slots; keep dice offers and IDs intact.
-		var previous: Dictionary = world.snapshot().duplicate(true)
-		var revised: Array = cached.duplicate(true)
-		var used: Array = []
-		for offer in revised:
-			if str(offer.get("kind",""))=="unit": used.append(str(offer.item.slug))
-		for i in range(revised.size()):
-			if str(revised[i].get("kind",""))!="brand": continue
-			var replacement: Dictionary = shop_monster_offer(unit,used)
-			if replacement.is_empty():
-				world.restore(previous)
-				return {"ok":false,"reason":"교환할 마물 후보가 없습니다."}
-			revised[i] = replacement
-		world.shop_trade.offers[unit_id] = revised
-		if not persist_change(previous): return {"ok":false,"reason":notice}
-		return {"ok":true,"offers":revised.duplicate(true)}
+		return {"ok":true,"offers":world.shop_trade.offers[unit_id].duplicate(true)}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	if world.shop_trade.get("visit","")!=visit: world.shop_trade={"visit":visit,"offers":{}}
 	var grade = str(unit.grade)

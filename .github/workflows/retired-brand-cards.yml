@@ -3,18 +3,17 @@ on:
   push:
     branches:
       - main
-      - refactor/retire-standalone-brand-cards-20261021
+      - fix/purge-legacy-brand-card-ghosts-20261021
     paths:
-      - "systems/run_session.gd"
-      - "systems/map_state.gd"
-      - "systems/reward_catalog.gd"
-      - "systems/inventory_panel.gd"
-      - "systems/home_inheritance.gd"
+      - "systems/**"
+      - "map.gd"
       - "scripts/test_retired_brand_card_economy.gd"
+      - "scripts/audit_retired_brand_card_gameplay.py"
       - "scripts/test_ui_route_inheritance_parity.gd"
       - "scripts/test_inventory_touch_inspection.gd"
       - "scripts/test_shop_treasure_no_brand_rewards.gd"
       - "scripts/test_graveyard_random_dice.gd"
+      - "scripts/test_ui_graveyard_event_parity.gd"
       - ".github/workflows/retired-brand-cards.yml"
   workflow_dispatch:
 
@@ -27,6 +26,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Full tracked-runtime standalone card regression guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit_retired_brand_card_gameplay.py | tee guard.log
+          grep -F '0 failures' guard.log
       - uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.7.2
