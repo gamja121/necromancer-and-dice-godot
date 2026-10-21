@@ -73,7 +73,7 @@ func _run() -> void:
 	check(is_original(route.route_reset_button,inart),"reset uses authentic enter parchment in all button states")
 	check(is_original(route.action_button,inart),"confirm uses authentic enter parchment in all button states")
 	check(is_original(route.close_button,outart),"close uses authentic exit parchment in all button states")
-	check(route.close_button.text=="닫기" and route.action_button.text=="경로 확정" and route.route_reset_button.text=="기본값","source three action captions retained")
+	check(route.close_button.text=="← 돌아가기" and route.action_button.text=="경로 확정" and route.route_reset_button.text=="기본값","source three action captions retained")
 	# PanelEffectsModule offsets all three real buttons by 6px during the
 	# 0.20s entrance tween. Compare approved source coordinates only AFTER
 	# the entrance settles; do not remove the player's visible animation.
@@ -81,27 +81,44 @@ func _run() -> void:
 	check(route.close_button.position.distance_to(Vector2(430,561))<0.5 and route.close_button.size==Vector2(128,36),"source close button keeps game-canvas footprint")
 	check(route.action_button.position.distance_to(Vector2(614,561))<0.5 and route.action_button.size==Vector2(160,36),"confirm keeps existing board position")
 	check(route.route_reset_button.position.distance_to(Vector2(245,561))<0.5 and route.route_reset_button.size==Vector2(148,36),"reset keeps existing board position")
-	check(route.route_plus_buttons.size()==2 and route.route_minus_buttons.size()==2,"new patrol shows two accessible tile quantity pickers")
-	check(route.route_plus_buttons["monster"]!=null and route.route_plus_buttons["rest"].disabled,"monster available immediately, first unlockable rest locked")
-	check(route.route_count_labels["monster"].text=="0" and route.route_count_labels["rest"].text=="0","both optional selections start at zero")
+	check(route.route_slot_layout.size()==6 and route.content.get_node_or_null("SelectedPatrolSlot0") is Button,"new patrol shows all six selectable route slots")
+	check(route.content.get_node_or_null("PatrolChoice_monster") is Button and route.content.get_node_or_null("PatrolChoice_rest") is Button,
+		"monster and gated rest are displayed as actual route choices")
+	check((route.content.get_node_or_null("PatrolChoice_rest") as Button).disabled,"first rest location is locked without earned unlock")
+	check(route.route_count_labels.is_empty() and route.route_plus_buttons.is_empty(),"obsolete plus/minus controls do not cover the six-slot selector")
 	var before: Dictionary=world.patrol_plan.duplicate(true)
 	var receipts_before: int=world.reward_receipts.size()
 	var random_before: int=world.rng.state
-	route.route_plus_buttons["monster"].pressed.emit()
-	route.route_plus_buttons["monster"].pressed.emit()
-	check(int(route.plan.selection.monster)==2 and int(route.plan.selection.rest)==0,"one click adds exactly one optional monster; second click adds another")
-	check(RoutePlan.available(route.plan)==4 and route.route_count_labels["monster"].text=="2","available and selected counters update immediately")
-	check(world.patrol_plan==before and world.reward_receipts.size()==receipts_before,"preview quantity changes do not alter saved world")
-	route.route_minus_buttons["monster"].pressed.emit()
-	check(int(route.plan.selection.monster)==1,"minus removes one optional monster and restores a road")
+	for slot in range(2):
+		var slot_button: Button=route.content.get_node_or_null("SelectedPatrolSlot%d" % slot)
+		check(slot_button!=null and not slot_button.disabled,"slot %d is interactive" % slot)
+		if slot_button!=null: slot_button.pressed.emit()
+		var monster_choice: Button=route.content.get_node_or_null("PatrolChoice_monster")
+		check(monster_choice!=null and not monster_choice.disabled,"monster choice is enabled for slot %d" % slot)
+		if monster_choice!=null: monster_choice.pressed.emit()
+	check(int(route.plan.selection.monster)==2 and int(route.plan.selection.rest)==0 and route.route_slot_kind(0)=="monster" and route.route_slot_kind(1)=="monster",
+		"two real slot/button clicks create exactly two monster stones")
+	check(RoutePlan.available(route.plan)==4,"slot selection updates remaining six-road budget")
+	check(world.patrol_plan==before and world.reward_receipts.size()==receipts_before,"preview edits never consume a patrol visit")
+	var second_slot: Button=route.content.get_node_or_null("SelectedPatrolSlot1")
+	if second_slot!=null: second_slot.pressed.emit()
+	var basic_choice: Button=route.content.get_node_or_null("PatrolChoice_basic")
+	if basic_choice!=null: basic_choice.pressed.emit()
+	check(int(route.plan.selection.monster)==1 and route.route_slot_kind(1)=="basic","clicking empty road removes exactly one selected monster")
 	route.route_reset_button.pressed.emit()
-	check(route.plan==RoutePlan.default_plan() and world.patrol_plan==before,"reset returns selection to 0 without saving")
-	check(route.route_count_labels["monster"].text=="0" and RoutePlan.available(route.plan)==6,"reset returns six available slots")
+	check(route.plan==RoutePlan.default_plan() and world.patrol_plan==before,"reset clears preview without writing permanent save")
+	check(route.route_slot_layout.all(func(tile): return tile=="basic") and RoutePlan.available(route.plan)==6,"reset restores all six empty selectable roads")
 	check(is_original(route.route_reset_button,inart),"original parchment reset art survives re-render")
-	for i in range(6):
-		route.route_plus_buttons["monster"].pressed.emit()
-	check(int(route.plan.selection.monster)==6 and RoutePlan.available(route.plan)==0,"six optional slots fill with unlimited-choice monster")
-	check(route.route_plus_buttons["monster"].disabled and route.route_plus_buttons["rest"].disabled,"full capacity cannot be exceeded or bypass locked rest")
+	for slot in range(6):
+		var slot_button: Button=route.content.get_node_or_null("SelectedPatrolSlot%d" % slot)
+		check(slot_button!=null and not slot_button.disabled,"six-slot route choice %d remains touchable" % slot)
+		if slot_button!=null: slot_button.pressed.emit()
+		var monster_choice: Button=route.content.get_node_or_null("PatrolChoice_monster")
+		if monster_choice!=null: monster_choice.pressed.emit()
+	check(int(route.plan.selection.monster)==6 and RoutePlan.available(route.plan)==0,"six optional slots are filled with exactly six monsters")
+	check(route.route_slot_layout.size()==6 and route.route_slot_layout.all(func(tile): return tile=="monster"),"all six visual slots match planned monster quantities")
+	var inactive_rest: Button=route.content.get_node_or_null("PatrolChoice_rest")
+	check(inactive_rest!=null and inactive_rest.disabled,"locked rest cannot be chosen even at full capacity")
 	check(RoutePlan.valid(route.plan),"modified patrol plan preserves cap and locked-rest limits")
 	var actual_changed: Dictionary=route.plan.duplicate(true)
 	route.action_button.pressed.emit()
@@ -125,16 +142,8 @@ func _run() -> void:
 	check(is_original(route2.close_button,outart) and is_original(route2.action_button,inart),"reopened patrol parchment art stays original")
 	route2.queue_free()
 	await process_frame
-	var forest: int=session.world.tiles.find("forest")
-	check(forest>=0,"board contains unrelated forest location")
-	if forest>=0:
-		var other=RouteUI.new()
-		map.stage.add_child(other)
-		other.setup(map,forest)
-		check(other.action_button!=null and other.route_reset_button==null,"patrol reset only exists on the home screen")
-		check(not is_original(other.close_button,outart),"forest close button not incorrectly changed to patrol parchment")
-		other.queue_free()
-		await process_frame
+	check(not session.world.tiles.has("forest"),"new campaign forest remains gated until a real story discovery")
+	check(route2.content.get_node_or_null("PatrolChoice_forest")==null,"unearned forest does not appear as a choice on reopened patrol editor")
 	map.queue_free()
 	await process_frame
 	session.save_file_path=prev_save
