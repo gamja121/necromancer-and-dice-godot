@@ -165,6 +165,9 @@ func verify_route(session:Node,mode:String)->void:
 	check(scene_bounds.size.distance_to(frame.size*Vector2(0.74,0.80))<0.01,tag+"world-tree source corpse image 74%x92%")
 	check(portrait_bounds.size.distance_to(frame.size*Vector2(0.58,0.74))<0.01,tag+"hunter portrait CSS size 58%x78%")
 	check(approximately(MOTION.SCENE_ENTRY_SECONDS,0.52,0.001) and approximately(MOTION.PORTRAIT_ENTRY_SECONDS,0.48,0.001),tag+"source trace/revival durations are 520/480ms")
+	# Tests still verify original CSS fractions; render bounds follow the new left column.
+	scene_bounds=map.StorySplit.map_art_rect(scene_bounds)
+	portrait_bounds=map.StorySplit.map_art_rect(portrait_bounds)
 	var receipts:Array=session.world.reward_receipts.duplicate(true)
 	for i in range(BEATS.count()):
 		var beat:Dictionary=BEATS.beat(i,mode)
