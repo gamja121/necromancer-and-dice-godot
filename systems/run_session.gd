@@ -954,26 +954,7 @@ func shop_offers(index: int, unit_id: String) -> Dictionary:
 		return {"ok":false,"reason":"마지막 마물은 교환할 수 없습니다."}
 	var visit = place_visit_id("shop",index)
 	if world.shop_trade.get("visit","")==visit and world.shop_trade.offers.has(unit_id):
-		var cached: Array = world.shop_trade.offers[unit_id]
-		if not cached.any(func(offer): return str(offer.get("kind",""))=="brand"):
-			return {"ok":true,"offers":cached.duplicate(true)}
-		# A saved, not-yet-used shop offer from the former rules may include
-		# brand cards. Convert only those slots; keep dice offers and IDs intact.
-		var previous: Dictionary = world.snapshot().duplicate(true)
-		var revised: Array = cached.duplicate(true)
-		var used: Array = []
-		for offer in revised:
-			if str(offer.get("kind",""))=="unit": used.append(str(offer.item.slug))
-		for i in range(revised.size()):
-			if str(revised[i].get("kind",""))!="brand": continue
-			var replacement: Dictionary = shop_monster_offer(unit,used)
-			if replacement.is_empty():
-				world.restore(previous)
-				return {"ok":false,"reason":"교환할 마물 후보가 없습니다."}
-			revised[i] = replacement
-		world.shop_trade.offers[unit_id] = revised
-		if not persist_change(previous): return {"ok":false,"reason":notice}
-		return {"ok":true,"offers":revised.duplicate(true)}
+		return {"ok":true,"offers":world.shop_trade.offers[unit_id].duplicate(true)}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	if world.shop_trade.get("visit","")!=visit: world.shop_trade={"visit":visit,"offers":{}}
 	var grade = str(unit.grade)
