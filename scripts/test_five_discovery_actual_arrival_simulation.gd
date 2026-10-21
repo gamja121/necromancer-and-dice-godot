@@ -137,7 +137,7 @@ func _run() -> void:
 	w.generate()
 	check(w.map_serial==before_serial+1 and w.tiles.size()==24,"next HOME board remains 24 tiles")
 	for kind in order:
-		var expected: int=2 if kind in ["forest","graveyard"] else 1
+		var expected: int=2 if kind=="graveyard" else 1
 		check(w.tiles.count(kind)==expected,kind+": map reshuffle retains expected permanent discovered terrain count")
 	check(w.tiles.count("basic")>=2,"at least two protected swamp roads survive five unlocks")
 	session.save_file_path=old_path
