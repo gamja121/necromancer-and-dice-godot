@@ -44,12 +44,20 @@ jobs:
           timeout 180s godot --headless --path . --script res://scripts/test_final_dragon_presentation.gd 2>&1 | tee dragon.log
           grep -E '^FINAL_DRAGON_TESTS: [0-9]+ passed, 0 failed$' dragon.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL final-dragon:|ObjectDB.*leaked' dragon.log; then exit 1; fi
-      - name: Existing last story entry stays unchanged
+      - name: Existing last story UI and saved branches
         shell: bash
         run: |
           set -euo pipefail
           timeout 180s godot --headless --path . --script res://scripts/test_ui_king_hunt_layers_stage5z.gd 2>&1 | tee hunt.log
           grep -E '^UI_KING_HUNT_STAGE5Z: [0-9]+ passed, 0 failed$' hunt.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL' hunt.log; then exit 1; fi
+      - name: Story entry guards and storage rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_monster_king_hunt_entry.gd 2>&1 | tee entry.log
+          grep -E '^MONSTER_KING_HUNT_ENTRY_REGRESSION: [0-9]+ passed, 0 failed        run: git diff --check
+ entry.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL' entry.log; then exit 1; fi
       - name: Whitespace check
         run: git diff --check

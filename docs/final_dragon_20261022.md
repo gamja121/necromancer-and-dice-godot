@@ -34,6 +34,11 @@
 최종 전투 조건·패배 후 복귀·보상·다시보기 및 재접속 정책을 먼저 결정한다. 등장 신호로 자동 승리나 피해를 확정하지 않는다.
 종료 시 `stop()` 또는 노드 해제로 프레임 참조와 처리를 해제한다.
 
+## 최신 공유 소스와의 구분
+
+최신 main의 별도 작업 `2a4ad34`에는 `dragon` 유닛의 스탯·두 패시브와 `world.laps >= 60` 전투 편성 코드가 있다. 이 작업은 해당 변경을 보존하며 조건을 수정하지 않았다. 그 코드의 존재가 이 대화에서 최종 보스 조건을 확정했다는 뜻은 아니다. 사용자가 재확인한 오염도 20/40/60 단계 및 최종 조건과의 정리는 별도 작업이다.
+독립 연출의 `final-dragon` 프레임 경로를 실제 `dragon` 유닛의 전투 그림에 연결하지도 않았다. 최종 사건에 넣을 시점과 일반 전투 배치는 조건 검토 후 연결한다.
+
 ## 원본과 제작 경로
 
 원본 JPG는 로컬 `D:/Workspace/Games/necromancer-and-dice/raw_assets/final_dragon/original_1000012379.jpg`에 변경 없이 보관했다.
@@ -54,6 +59,6 @@
 - `scripts/test_final_dragon_presentation.gd`: 프레임 존재·크기·잘림·동작, 실제 크기 비교 유닛의 배치, 일시정지·배속·중복 신호, 퇴장 완료, 네 가지 화면 비율, 캐시 반복 재생 및 해제, 개인 저장 바이트 보존.
 - `scripts/profile_final_dragon_native.gd`: 실제 Windows Compatibility 렌더러에서 실제 시계로 등장 완료와 프레임 시간을 확인.
 - `scripts/test_ui_king_hunt_layers_stage5z.gd`: 현재 맵 조건을 갖춘 두 부활 분기, 마지막 사건 5장면·저장 복원·명시적 확인을 포함해 300개 회귀 항목 통과.
-- 추가로 실행한 기존 `scripts/test_monster_king_hunt_entry.gd`는 97 통과/75 실패와 후속 Dictionary 오류가 있었다. 최초 실패는 시험 맵에 forest가 없어 포털 위치를 저장하지 못한 부분이다. 해당 검사와 모든 기존 런타임 GDScript는 기준 커밋 `49196ca`에서 변경되지 않았다. 이 실패를 통과로 보고하지 않으며 이번 독립 연출 범위 밖의 기존 fixture 문제로 기록한다.
+- 추가로 실행한 기존 `scripts/test_monster_king_hunt_entry.gd`는 97 통과/75 실패와 후속 Dictionary 오류가 있었다. 최초 실패는 시험 맵에 forest가 없어 포털 위치를 저장하지 못한 부분이다. 해당 검사와 모든 기존 런타임 GDScript는 기준 커밋 `49196ca`에서 변경되지 않았다. 초기 실패 기록은 보존한다. 이후 원격 `48caf5b`가 실제 숲 발견 절차로 이 fixture를 수정했고, 최신 main을 통합한 재검사에서는 **195 통과/0 실패**로 확인했다. 이 검사 수정은 다른 작업의 변경을 그대로 받은 것이다.
 - 편집기 import 및 실제 Windows PNG 캡처로 셰이더와 화면 구도를 확인. 헤드리스 검사만으로 시각 검증을 대신하지 않는다.
 - `scripts/render_final_dragon_preview.gd -- --capture=<폴더>`는 정지 화면, `--record`를 더하면 12fps 연속 PNG를 출력한다. 기록·개인 저장·엔진 캐시는 공개 저장소에서 제외한다.
