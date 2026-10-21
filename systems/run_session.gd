@@ -455,6 +455,10 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 			slugs = story_spec.enemies.duplicate()
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
+	elif type=="boss" and world.laps>=60:
+		# The existing boss tile still hosts ordinary encounters before lap 60.
+		# On lap 60 onward it hosts exactly one final dragon. No extra phases.
+		slugs = ["dragon"]
 	else:
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
@@ -464,7 +468,15 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		world.restore(before)
 		return false
 	var enemies: Array = []
-	for i in range(slugs.size()): enemies.append(rules.individual(slugs[i],"enemy-"+str(i)))
+	for i in range(slugs.size()):
+		var enemy: Dictionary = rules.individual(slugs[i],"enemy-"+str(i))
+		if type=="boss" and world.laps>=60 and str(enemy.slug)=="dragon":
+			# Only this enemy has two simultaneous existing passives.
+			# Other monsters, including any later captured dragon, have one.
+			enemy.passive = "bone"
+			enemy["final_boss"] = true
+			enemy["boss_extra_passive"] = "undying"
+		enemies.append(enemy)
 	rules.start(allies,enemies)
 	for unit in rules.units:
 		if unit.team=="ally": unit.hp = mini(unit.max_hp,unit.get("current_hp",unit.max_hp)+(unit.max_hp-unit.base_hp))
@@ -610,6 +622,14 @@ func create_item(kind: String, source: Dictionary) -> Dictionary:
 				if not key in ["id","slug","name","grade","legions","max_hp","attack","speed","passive","brands","is_summon","altar_enhancements"]:
 					item.erase(key)
 			item.id=world.next_id("unit")
+			if str(item.slug)=="dragon":
+				# Final-boss stats never enter the owned roster after soul harvest.
+				# Player dragon uses the previously designed 20/4/3 profile and
+				# just its one ordinary passive; final_boss fields are discarded.
+				item.max_hp=20
+				item.attack=4
+				item.speed=3
+				item.passive="bone"
 			item.current_hp=int(item.max_hp)
 			for brand in item.brands:
 				brand.bless=brand.bless.map(func(face): return int(face))
@@ -619,6 +639,11 @@ func create_item(kind: String, source: Dictionary) -> Dictionary:
 		# normal rewards may still explicitly request a newly generated unit.
 		var rules = Rules.new(world.definitions,world.rng.randi())
 		var item: Dictionary = rules.individual(source.slug,world.next_id("unit"))
+		if str(item.slug)=="dragon":
+			item.max_hp=20
+			item.attack=4
+			item.speed=3
+			item.passive="bone"
 		item.current_hp = item.max_hp
 		return item
 	if kind=="dice":
