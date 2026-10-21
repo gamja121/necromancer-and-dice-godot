@@ -65,11 +65,11 @@ func ensure_world() -> void:
 			# card records; the restored world does not retain them in gameplay.
 			if not backup_retired_brand_cards(parsed):
 				notice = "오래된 낙인 카드 저장 백업에 실패했습니다. 저장 경로를 확인하세요."
-			# Older saves between contamination 20 and 79 predate the new
-			# boss threshold. Upgrade the existing 24th tile in place without
-			# rerolling the board or changing other saved progress.
+			# Normalize saves written by the temporary incorrect 20-contamination
+			# rule. Keep all other stones in place and preserve the RNG.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
+			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
 			# The 2026-10-14 version saved only card_shown, not a hill.
 			# Retrofit one real road for those existing players instead of
@@ -81,7 +81,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_upgraded or swamp_upgraded > 0 or hill_upgraded) and not save_world():
+			if (boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
@@ -423,6 +423,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story:
 		if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,story_spec): return false
 	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
+	if not story and not mimic and world.tiles[index]=="boss" and world.contamination<MapState.BOSS_CONTAMINATION: return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var allies: Array = []
@@ -455,9 +456,9 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 			slugs = story_spec.enemies.duplicate()
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
-	elif type=="boss" and world.laps>=60:
-		# The existing boss tile still hosts ordinary encounters before lap 60.
-		# On lap 60 onward it hosts exactly one final dragon. No extra phases.
+	elif type=="boss" and world.contamination>=MapState.BOSS_CONTAMINATION:
+		# Restored 2026-10-07 rule: no lap-based boss thresholds.
+		# At contamination 80+ the boss stone hosts exactly one dragon.
 		slugs = ["dragon"]
 	else:
 		var intel: Dictionary = {}
@@ -470,7 +471,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	var enemies: Array = []
 	for i in range(slugs.size()):
 		var enemy: Dictionary = rules.individual(slugs[i],"enemy-"+str(i))
-		if type=="boss" and world.laps>=60 and str(enemy.slug)=="dragon":
+		if type=="boss" and world.contamination>=MapState.BOSS_CONTAMINATION and str(enemy.slug)=="dragon":
 			# Only this enemy has two simultaneous existing passives.
 			# Other monsters, including any later captured dragon, have one.
 			enemy.passive = "bone"
@@ -587,11 +588,13 @@ func persist_change(before: Dictionary) -> bool:
 	world.max_contamination_reached = maxi(int(world.max_contamination_reached),int(world.contamination))
 	if world.roster.any(func(unit): return int(unit.current_hp)<int(unit.max_hp)):
 		world.event_flags["discovery:ever_injured"] = true
-	# Any system that raises contamination across 20 (not only leaving
-	# home) must persist the first boss tile in the SAME save transaction.
-	# A failed write rolls the boss/swamp reveal back with everything else.
-	if int(before.get("contamination",0)) < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
+	# The agreed 80-contamination gate is bidirectional, including prayer,
+	# battle purification and old-save migration. Any change is one save
+	# transaction and rolls back if disk persistence fails.
+	if world.contamination >= MapState.BOSS_CONTAMINATION:
 		world.reveal_boss_at_threshold()
+	else:
+		world.conceal_boss_below_threshold()
 	# At 15/30, automatically change ordinary road tiles into swamps even
 	# before the next home shuffle. No RNG/encounter/story state is modified.
 	if world.contamination > int(before.get("contamination",0)) and world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
