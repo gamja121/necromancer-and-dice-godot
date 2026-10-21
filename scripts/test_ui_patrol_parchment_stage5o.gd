@@ -140,10 +140,10 @@ func _run() -> void:
 	route2.setup(map,home)
 	check(route2.plan==actual_changed and route2.action_button.disabled,"reopened saved patrol editor restores edited route and lock")
 	check(is_original(route2.close_button,outart) and is_original(route2.action_button,inart),"reopened patrol parchment art stays original")
-	route2.queue_free()
-	await process_frame
 	check(not session.world.tiles.has("forest"),"new campaign forest remains gated until a real story discovery")
 	check(route2.content.get_node_or_null("PatrolChoice_forest")==null,"unearned forest does not appear as a choice on reopened patrol editor")
+	route2.queue_free()
+	await process_frame
 	map.queue_free()
 	await process_frame
 	session.save_file_path=prev_save
