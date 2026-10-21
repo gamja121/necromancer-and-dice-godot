@@ -93,8 +93,8 @@ func _run() -> void:
 	check(shade != null and shade.color.a<0.01,"book hand does not darken the board")
 	check(inventory.get_node_or_null("InventoryOutsideClose") is Button,"book hand catches outside click to close")
 	check(not inventory.close_button.visible,"book hand hides redundant close button")
-	check(inventory.tab_buttons.size()==3 and not inventory.tab_buttons[0].visible and not inventory.tab_buttons[1].visible and not inventory.tab_buttons[2].visible,
-		"book hand hides all three toolbar tabs without deleting the other inventory modes")
+	check(inventory.tab_buttons.size()==2 and not inventory.tab_buttons[0].visible and not inventory.tab_buttons[1].visible,
+		"book hand hides both remaining monster/dice tabs; standalone brand cards stay retired")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")
 	if inventory.fan.entries.size()==8:
 		var hand_first: TextureButton = inventory.fan.entries[0].card
