@@ -64,6 +64,13 @@ func button_in(map: Control,caption: String)->Button:
 		if child is Button and child.visible and child.text==caption: return child
 	return null
 
+func press_story_action(action: Button) -> void:
+	if action == null: return
+	var typewriter = action.get_parent().get_node_or_null("StoryTypewriter")
+	if typewriter != null and typewriter.is_revealing():
+		action.pressed.emit()
+	action.pressed.emit()
+
 func is_deck(map: Control)->bool:
 	return is_instance_valid(map.overlay) and map.overlay.get_script()!=null and map.overlay.get_script().resource_path.ends_with("battle_deck.gd")
 
@@ -109,7 +116,7 @@ func graveyard(session: Node) -> void:
 		check(button!=null,"child: original Continue available at beat %d" % beat)
 		if button==null: return
 		check(scene_text_visible(map,str(CHILD_BEATS.beat(beat).effect)),"child: exact source narration at beat %d before click" % beat)
-		button.pressed.emit()
+		press_story_action(button)
 		await process_frame
 		check(CHILD.current_beat(session)==beat+1 and session.event_flag_is_set(CHILD.progress_flag(beat+1)),"child: user Continue persists source beat %d exactly once" % (beat+1))
 		check(not session.event_flag_is_set(CHILD.COMPLETE_FLAG),"child: reading scenes cannot complete or grant rescue")
@@ -118,7 +125,7 @@ func graveyard(session: Node) -> void:
 		check(button_in(map,expected)!=null and CHILD.current_beat(session)==beat+1,"child: original UI resumes scene %d, not scene zero" % (beat+1))
 		check(scene_text_visible(map,str(CHILD_BEATS.beat(beat+1).effect)),"child: scene-specific source narrative restored from JSON at beat %d" % (beat+1))
 	check(button_in(map,"지나친다")!=null and button_in(map,"아이를 구한다")!=null,"child: final scene retains both original choices")
-	button_in(map,"아이를 구한다").pressed.emit()
+	press_story_action(button_in(map,"아이를 구한다"))
 	check(is_deck(map) and session.get_story_event(CHILD.EVENT_ID).choice=="protect_child","child: real choice opens normal deck without starting fight")
 	check(session.encounter.is_empty() and not session.event_flag_is_set(CHILD.COMPLETE_FLAG),"child: closing before deck confirmation records no victory or completion")
 	map=await map_restart(session,map,"child-rescue-choice")
@@ -162,7 +169,7 @@ func portal(session: Node) -> void:
 		check(button!=null,"portal: Continue visible on source scene %d" % beat)
 		if button==null: return
 		check(scene_text_visible(map,str(PORTAL_BEATS.beat(beat).effect)),"portal: source narration correct before beat %d" % beat)
-		button.pressed.emit()
+		press_story_action(button)
 		await process_frame
 		check(PORTAL.current_beat(session)==beat+1 and session.event_flag_is_set(PORTAL.progress_flag(beat+1)),"portal: original UI Continue commits story beat %d" % (beat+1))
 		check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG),"portal: scrolling events cannot revive king")
@@ -171,7 +178,7 @@ func portal(session: Node) -> void:
 		check(button_in(map,expected)!=null,"portal: forest reload restores scene %d with original action" % (beat+1))
 		check(scene_text_visible(map,str(PORTAL_BEATS.beat(beat+1).effect)),"portal: original source narrative resumes beat %d" % (beat+1))
 	check(button_in(map,"저지한다")!=null,"portal: final scene offers deliberate intervention")
-	button_in(map,"저지한다").pressed.emit()
+	press_story_action(button_in(map,"저지한다"))
 	check(session.get_story_event(PORTAL.EVENT_ID).choice=="intervene","portal: original intervention choice saved without battle")
 	# Simulate an exit before the 0.76s presentation timer can automatically
 	# reveal a deck; the persisted choice must still reopen safely.
