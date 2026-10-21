@@ -41,7 +41,7 @@ func _run() -> void:
 	await process_frame
 	check(audio.get_child(0)==audio.options_button and audio.options_button.name=="MapOptionsButton","existing map integration keeps original image button as first child")
 	check(audio.panel.name=="MapAudioOptionsPanel" and not audio.panel.visible,"source OPTION panel starts hidden")
-	check(audio.panel.position.distance_to(Vector2(995.84,82.8))<1.0,"source right 2.2%, top 11.5% placement")
+	check(audio.panel.position.distance_to(Vector2(952.0,268.0))<1.0,"popup is placed below the map gear")
 	check(absf(audio.panel.size.x-256.0)<1.0,"source 20%-wide compact options panel")
 	check(audio.panel.z_index==40 and audio.z_index==90,"source z-index 130 placed above the map only when open")
 	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture and (audio.panel.get_theme_stylebox("panel") as StyleBoxTexture).texture is ImageTexture,"popup uses uneven brush-stroke parchment instead of rectangular style box")
@@ -114,9 +114,43 @@ func _run() -> void:
 	check(icon!=null and icon.texture!=null,"real map displays decoded embedded original audio icon")
 	if icon!=null and icon.texture!=null:
 		check(icon.texture is ImageTexture,"real map uses painted brush gear asset")
-	check(actual.options_button.position==Vector2(1192,14) and actual.options_button.size==Vector2(58,58),"painted gear sits in the map upper-right without enlarging the touch target")
+	check(actual.options_button.position==Vector2(1041,175) and actual.options_button.size==Vector2(80,80),"painted gear is in the marked upper-right space with an enlarged finger target")
+	check(actual.options_button.mouse_filter==Control.MOUSE_FILTER_STOP and actual.options_button.z_index>actual.panel.z_index,
+		"gear receives GUI input above the painted popup")
+	check(not actual.options_button.get_global_rect().intersects(actual.panel.get_global_rect()),
+		"open popup leaves the gear accessible to a second touch")
+	var painted = actual.options_button.get_node_or_null("PaintedSettingsGear")
+	check(painted!=null and painted.mouse_filter==Control.MOUSE_FILTER_IGNORE and painted.size==Vector2(58,58),
+		"decorative paint never steals the touch event")
+	var pointer: Vector2 = actual.options_button.get_global_rect().get_center()
+	var mouse_move = InputEventMouseMotion.new()
+	mouse_move.position = pointer
+	mouse_move.global_position = pointer
+	root.push_input(mouse_move,true)
+	await process_frame
+	check(root.gui_get_hovered_control()==actual.options_button,
+		"real viewport pointer targets the settings gear rather than the map")
+	var press_event = InputEventMouseButton.new()
+	press_event.position = pointer
+	press_event.global_position = pointer
+	press_event.button_index = MOUSE_BUTTON_LEFT
+	press_event.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press_event.pressed = true
+	var release_event = InputEventMouseButton.new()
+	release_event.position = pointer
+	release_event.global_position = pointer
+	release_event.button_index = MOUSE_BUTTON_LEFT
+	release_event.pressed = false
+	root.push_input(press_event,true)
+	root.push_input(release_event,true)
+	await process_frame
+	check(actual.panel.visible,"real GUI click opens settings, not just a manual pressed signal")
+	root.push_input(press_event,true)
+	root.push_input(release_event,true)
+	await process_frame
+	check(not actual.panel.visible,"second real GUI click closes settings without interference")
 	actual.options_button.pressed.emit()
-	check(actual.panel.visible and actual.panel.position.distance_to(Vector2(995.84,82.8))<1.0,"real map opens source-relative 256px option panel")
+	check(actual.panel.visible and actual.panel.position.distance_to(Vector2(952.0,268.0))<1.0,"real map opens relocated 256px option panel")
 	actual.close_button.pressed.emit()
 	check(not actual.panel.visible,"real map close returns to board")
 	map.queue_free()
