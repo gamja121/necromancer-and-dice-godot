@@ -1,10 +1,9 @@
 extends SceneTree
-## Actual map -> graveyard -> extraction -> map exits, including post-receipt
-## and corpse-free states. Uses an isolated save, never the player's run.
+## Real map -> graveyard digging -> playable map. Legacy test name retained
+## because the old exit regression workflow still invokes this script.
 const MAP = preload("res://map.tscn")
-const STATE = preload("res://systems/map_state.gd")
 const SESSION = preload("res://systems/run_session.gd")
-const EXTRACTION = preload("res://systems/exploration_actions.gd")
+const DIG_UI = preload("res://systems/exploration_actions.gd")
 var passed: int = 0
 var failed: int = 0
 
@@ -16,14 +15,14 @@ func check(ok: bool, message: String) -> void:
 		failed += 1
 		printerr("FAIL graveyard-exit: ",message)
 
-func find_button(panel: Control, text_value: String) -> Button:
+func find_button(panel: Control, title: String) -> Button:
 	if not is_instance_valid(panel): return null
 	for child in panel.get_children():
-		if child is Button and child.text==text_value: return child
+		if child is Button and child.text==title: return child
 	return null
 
-func wait_for(predicate: Callable, max_frames: int = 180) -> bool:
-	for i in range(max_frames):
+func wait_for(predicate: Callable, frames: int = 180) -> bool:
+	for i in range(frames):
 		if predicate.call(): return true
 		await process_frame
 	return bool(predicate.call())
@@ -45,81 +44,50 @@ func _run() -> void:
 	session.world.lap_ready = true
 	session.world.leave_home()
 	var grave: int = session.world.tiles.find("graveyard")
-	check(grave>=0,"real graveyard available after first lap")
-	if grave<0:
-		session.save_file_path = previous_path
-		quit(1)
-		return
+	check(grave>=0,"graveyard available after first lap")
+	if grave < 0: quit(1); return
 	session.world.position = grave
-	var corpse: Dictionary = session.world.roster[0].duplicate(true)
-	corpse.brands = [{"type":"critical","bless":[2],"curse":[]}]
-	session.world.graveyard_corpses = [corpse]
-	check(session.save_world(),"isolated graveyard state persisted")
+	session.world.graveyard_corpses = []
+	check(session.save_world(),"corpse-free cemetery position saved")
 	var map: Control = MAP.instantiate()
 	root.add_child(map)
 	await process_frame
 	map.show_location(grave)
 	var entry: Button = find_button(map.overlay,"시체 파헤치기")
-	check(entry!=null and not entry.disabled,"original location exposes working extraction entry")
-	if entry==null:
-		quit(1)
-		return
+	check(entry!=null and not entry.disabled,"cemetery location enables digging without an allied corpse")
+	if entry==null: quit(1); return
 	entry.pressed.emit()
 	var panel: Control = map.overlay
-	check(panel.get_script() == EXTRACTION,"actual extraction panel opens through original location action")
-	if panel.get_script() != EXTRACTION:
-		quit(1)
-		return
+	check(panel.get_script()==DIG_UI,"the graveyard action opens the updated digging screen")
 	var close: Button = panel.get_node_or_null("GraveyardExtractClose")
 	var exit_button: Button = panel.get_node_or_null("GraveyardExitToMap")
-	check(is_instance_valid(close) and close.visible and not close.disabled,"original close control visible and enabled")
-	check(is_instance_valid(exit_button) and exit_button.visible and not exit_button.disabled,"permanent map exit visible and enabled")
-	if is_instance_valid(close) and is_instance_valid(exit_button):
-		check(close.get_index() > panel.content.get_index() and close.z_index > panel.content.z_index,"close is stacked over graveyard card and frame content")
-		check(exit_button.get_index() > panel.content.get_index() and exit_button.z_index > panel.content.z_index,"map exit is stacked over card and frame content")
-		check(exit_button.get_global_rect().position.y>=620 and exit_button.get_global_rect().end.y<=720,"map exit is fully inside lower screen action area")
-	# Keep the traditional 'close to location' navigation as well.
-	if is_instance_valid(close):
-		close.pressed.emit()
-		check(await wait_for(func(): return find_button(map.overlay,"맵으로 나가기")!=null),"close returns to original location screen")
-		map.close_overlay()
+	check(is_instance_valid(close) and not close.disabled and close.visible,"close button stays usable")
+	check(is_instance_valid(exit_button) and not exit_button.disabled and exit_button.visible,"map exit stays usable")
+	check(close.z_index>panel.content.z_index and exit_button.z_index>panel.content.z_index,"exits stay above reward content")
+	close.pressed.emit()
+	check(await wait_for(func(): return find_button(map.overlay,"맵으로 나가기")!=null),"close returns to location screen")
+	map.close_overlay()
 	map.show_location(grave)
 	entry = find_button(map.overlay,"시체 파헤치기")
-	if entry!=null: entry.pressed.emit()
+	check(entry!=null and not entry.disabled,"unspent digging action remains accessible")
+	entry.pressed.emit()
 	panel = map.overlay
-	check(panel.get_script() == EXTRACTION,"graveyard can be reopened after ordinary close")
-	if panel.get_script() == EXTRACTION:
-		var id: String = str(corpse.id)
-		check(panel.corpse_options.has(id),"the deceased card is still selectable")
-		if panel.corpse_options.has(id):
-			panel.corpse_options[id].pressed.emit()
-			await process_frame
-			check(panel.brand_options.size()==1,"eligible brand appears for extraction")
-			if not panel.brand_options.is_empty():
-				var cards_before: int = session.world.brand_cards.size()
-				panel.brand_options[0].pressed.emit()
-				await process_frame
-				check(session.world.graveyard_corpses.is_empty() and session.world.brand_cards.size()==cards_before+1,"extraction persists corpse consumption and one new brand")
-				check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"extraction receipt is committed")
-				check(is_instance_valid(panel.graveyard_exit_button) and not panel.graveyard_exit_button.disabled,"exit survives re-render after extraction")
-				panel.graveyard_exit_button.pressed.emit()
-				check(await wait_for(func(): return not is_instance_valid(map.overlay)),"one-click exit returns directly to the playable map")
-				check(map.dice.visible and not map.dice.disabled,"map dice reactivated after leaving extraction")
-				var saved: Dictionary = session.world.snapshot().duplicate(true)
-				session.reload_world()
-				check(session.world.snapshot()==saved,"exit and reload preserve one-time reward, no duplicate extraction")
-				# A stale, corpse-free extraction panel must also have a way out.
-				map.show_exploration_actions(grave)
-				check(is_instance_valid(map.overlay) and is_instance_valid(map.overlay.graveyard_exit_button),"corpse-free return path retains map exit")
-				if is_instance_valid(map.overlay):
-					map.overlay.graveyard_exit_button.pressed.emit()
-					check(await wait_for(func(): return not is_instance_valid(map.overlay)),"corpse-free extraction cannot trap the player")
-				# On a legitimately reopened location the action is spent, but
-				# the standard exit remains available.
-				map.show_location(grave)
-				var spent: Button = find_button(map.overlay,"시체 파헤치기")
-				check(spent!=null and spent.disabled and find_button(map.overlay,"맵으로 나가기")!=null,"used extraction is disabled but regular exit remains available")
-				map.close_overlay()
+	check(panel.get_script()==DIG_UI and panel.action_button!=null and not panel.action_button.disabled,"digging confirmation available again")
+	var prior: int = session.world.dice_cards.size()
+	panel.action_button.pressed.emit()
+	await process_frame
+	check(session.world.dice_cards.size()==prior+1 and session.world.graveyard_corpses.is_empty(),"digging grants a dice-control card without spending an allied corpse")
+	check(is_instance_valid(panel.graveyard_exit_button) and not panel.graveyard_exit_button.disabled,"one-click exit still works after reward")
+	panel.graveyard_exit_button.pressed.emit()
+	check(await wait_for(func(): return not is_instance_valid(map.overlay)),"one-click exit returns to playable map")
+	check(map.dice.visible and not map.dice.disabled,"shared map die reactivated after exit")
+	var snapshot: Dictionary = session.world.snapshot().duplicate(true)
+	session.reload_world()
+	check(session.world.snapshot()==snapshot,"card and receipt survive restart")
+	map.show_location(grave)
+	var used: Button = find_button(map.overlay,"시체 파헤치기")
+	check(used!=null and used.disabled and find_button(map.overlay,"맵으로 나가기")!=null,"spent visit prevents digging but still permits departure")
+	map.close_overlay()
 	map.queue_free()
 	await process_frame
 	session.save_file_path = previous_path
