@@ -34,7 +34,7 @@ func _run() -> void:
 		var board: Array=world.tiles
 		verify_fixed(board,"start seed %d" % seed)
 		check(board.count("monster")==5 and board.count("event")==2,"start %d automatically includes exactly 5 monsters and 2 events" % seed)
-		check(board.count("rest")==0 and board.count("swamp")==0 and board.count("basic")==10,"start %d has no rests/swamps and 10 empty roads" % seed)
+		check(board.count("rest")==0 and board.count("swamp")==0 and board.count("basic")==11,"start %d has no rests/swamps and 11 empty roads" % seed)
 		check(board.count("graveyard")==0 and board.count("unknown")==0 and board.count("altar")==0 and board.count("rare-monster")==0,"start %d advanced tiles absent" % seed)
 	check(Plan.available(plan)==6,"start six slots available and none counted for automatic monsters")
 	var rejected: Dictionary=plan.duplicate(true)
@@ -72,7 +72,7 @@ func _run() -> void:
 	invalid.selection["monster"]=2
 	check(not Plan.valid(invalid) and Plan.adjust(unlocked,"rest",1)==unlocked,"fourth rest rejected after unlock, even with free slots")
 	var state2=State.new(defs,31415,unlocked)
-	check(state2.tiles.count("rest")==3 and state2.tiles.count("monster")==8 and state2.tiles.count("basic")==4,"future unlocked choices replace exactly 6 roads, preserve five auto monsters")
+	check(state2.tiles.count("rest")==3 and state2.tiles.count("monster")==8 and state2.tiles.count("basic")==5,"future unlocked choices replace exactly 6 roads, preserve five auto monsters")
 	state2.laps=12
 	state2.contamination=30
 	state2.generate()
@@ -130,7 +130,7 @@ func _run() -> void:
 	var old_style: Dictionary={"current":Plan.CURRENT.duplicate(),"reserve":Plan.RESERVE.duplicate()}
 	check(Plan.valid(old_style),"legacy 6+5 route inventory remains accepted in old saves")
 	var state3=State.new(defs,2000,old_style)
-	check(state3.tiles.count("basic")==6 and state3.tiles.count("rest")==2 and state3.tiles.count("event")==2 and state3.tiles.count("swamp")==2,"legacy load retains its previous baseline tile quantities")
+	check(state3.tiles.count("basic")==7 and state3.tiles.count("rest")==2 and state3.tiles.count("event")==2 and state3.tiles.count("swamp")==2,"legacy load retains its previous baseline tile quantities")
 	var saved: Dictionary=state3.snapshot().duplicate(true)
 	var restored=State.new(defs,10)
 	check(restored.restore(saved) and restored.patrol_plan==old_style,"legacy patrol saved snapshot can be restored without changing save version")
