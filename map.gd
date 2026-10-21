@@ -626,9 +626,12 @@ func render() -> void:
 	var painted_icon = TextureRect.new()
 	painted_icon.name = "PaintedSettingsGear"
 	painted_icon.texture = BrushSettingsArt.painted_texture("icon")
+	# The SVG is rasterized at 2x. Set IGNORE_SIZE BEFORE setting 58px
+	# dimensions or Control retains its intrinsic 116px size and the visible
+	# gear extends well outside the button's touch rectangle.
+	painted_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	painted_icon.position = Vector2(11,11)
 	painted_icon.size = Vector2(58,58)
-	painted_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	painted_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	painted_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	options.add_child(painted_icon)
