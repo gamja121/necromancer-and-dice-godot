@@ -8,10 +8,10 @@ const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
-const BOSS_CONTAMINATION = 20
+const BOSS_CONTAMINATION = 80
 const LAP_CONTAMINATION_GAIN = 7
 # Swamp growth: 15 -> 1 tile, 30 -> 2 tiles (maximum).
-# Boss stages and the separate 40/80 extra-monster conversions are unchanged.
+# Boss spawn follows the agreed contamination-80 rule; extra monsters at 40/80 remain unchanged.
 const FIRST_SWAMP_CONTAMINATION = 15
 const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
@@ -143,7 +143,7 @@ func generate() -> void:
 	lap_ready = false
 
 
-## If contamination reaches 20 during an existing lap (e.g. a failed
+## If contamination reaches 80 during an existing lap (e.g. a failed
 ## world-tree prayer), reveal the boss without waiting for another lap.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
@@ -172,6 +172,18 @@ func reveal_boss_at_threshold() -> bool:
 		scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
 	return true
 
+
+## When purification lowers contamination below 80, immediately retire
+## the boss at the fixed slot. Restore the monster stone that the boss
+## displaced. Keep cleared status to avoid a duplicate same-lap reward;
+## drop only stale scout intelligence for the changed tile.
+func conceal_boss_below_threshold() -> bool:
+	if contamination>=BOSS_CONTAMINATION or tiles.size()!=24: return false
+	if tiles[BOSS_TILE_INDEX]!="boss": return false
+	tiles[BOSS_TILE_INDEX]="monster"
+	if scout.get("intel",[]) is Array:
+		scout["intel"]=scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
+	return true
 
 ## Reveal newly corrupted roads immediately when pollution rises mid-lap
 ## (e.g. a failed world-tree prayer), without rerolling or changing RNG.
