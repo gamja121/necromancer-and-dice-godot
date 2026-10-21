@@ -42,12 +42,12 @@ func setup(run_session, initial: String = "unit", book_origin: Vector2 = Vector2
 		if not changing and not closing: closed.emit())
 	add_child(outside)
 	title_label = label_at(self,"보유 카드",Vector2(300,95),Vector2(680,42),25)
-	for entry in [["unit","마물"],["dice","주사위 카드"],["brand","낙인 카드"]]:
+	for entry in [["unit","마물"],["dice","주사위 카드"]]:
 		var key: String = entry[0]
-		var index: int = ["unit","dice","brand"].find(key)
+		var index: int = ["unit","dice"].find(key)
 		tab_buttons.append(button(self,entry[1],Vector2(355+index*195,155),Vector2(180,38),func(): show_kind(key)))
 	close_button = button(self,"닫기",Vector2(550,590),Vector2(180,42),func(): closed.emit())
-	show_kind(initial)
+	show_kind(initial if initial in ["unit","dice"] else "unit")
 
 func layout_shell(kind: String) -> void:
 	var hand = kind=="unit"
@@ -60,7 +60,7 @@ func layout_shell(kind: String) -> void:
 		tab.visible = not hand
 		tab.position = Vector2(780+index*108,480) if hand else Vector2(355+index*195,155)
 		tab.size = Vector2(102,34) if hand else Vector2(180,38)
-		tab.text = ["마물","주사위","낙인"][index] if hand else ["마물","주사위 카드","낙인 카드"][index]
+		tab.text = ["마물","주사위"][index] if hand else ["마물","주사위 카드"][index]
 	close_button.visible = not hand
 	close_button.position = Vector2(1112,480) if hand else Vector2(550,590)
 	close_button.size = Vector2(86,34) if hand else Vector2(180,42)
@@ -82,6 +82,7 @@ func focus_hand_card(option: TextureButton, home: Vector2, focused: bool) -> voi
 	CardDepthMotion.set_shadow_lift(option, focused)
 
 func show_kind(kind: String) -> void:
+	if not kind in ["unit","dice"]: return
 	if changing or closing or is_instance_valid(info): return
 	changing = true
 	for tab in tab_buttons: tab.disabled = true
@@ -94,7 +95,7 @@ func show_kind(kind: String) -> void:
 	fan = FanMotion.new()
 	content.add_child(fan)
 	# The inventory never consumes cards: taps inspect only, unlike the battle hand.
-	var items: Array = session.world.roster if kind=="unit" else (session.world.dice_cards if kind=="dice" else session.world.brand_cards)
+	var items: Array = session.world.roster if kind=="unit" else session.world.dice_cards
 	if kind!="unit":
 		var guidance = label_at(content,"카드를 눌러 상세 효과 확인 · 여기서는 사용되지 않습니다",Vector2(290,206),Vector2(700,31),15)
 		guidance.name="InventoryInspectHint"
@@ -185,7 +186,7 @@ func show_item(kind: String, item: Dictionary) -> void:
 	info.closed.connect(func(): info = null)
 
 func show_card_detail(kind: String, item: Dictionary) -> void:
-	if not kind in ["dice","brand"] or is_instance_valid(info): return
+	if kind!="dice" or is_instance_valid(info): return
 	info=Control.new()
 	info.name="InventoryCardDetail"
 	info.size=size
@@ -228,21 +229,10 @@ func show_card_detail(kind: String, item: Dictionary) -> void:
 	var picture=art(panel,Catalog.image(kind,item),Vector2(36,81),Vector2(172,256))
 	picture.name="InventoryDetailArtwork"
 	var details: Array[String]=[]
-	if kind=="dice":
-		details.append("주사위 제어 카드")
-		details.append(DiceControl.description(str(item.get("card_id",""))))
-		if str(item.get("card_id","")) in ["repeat","echo"]:
-			details.append("이전 굴림이나 카드 사용 이력에 따라 사용 조건이 달라집니다.")
-	else:
-		var definitions: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json")).brands
-		var mark: Dictionary=item.get("brand",{})
-		var rule: Dictionary=definitions.get(str(mark.get("type","")),{})
-		details.append("낙인 카드 · 축복 효과")
-		details.append("축복 눈금: "+(", ".join(mark.get("bless",[]).map(func(n): return str(int(n)))) if not mark.get("bless",[]).is_empty() else "없음"))
-		details.append(str(rule.get("blessing","효과 정보 없음")))
-		if not mark.get("curse",[]).is_empty():
-			details.append("저주 눈금: "+", ".join(mark.curse.map(func(n): return str(int(n)))))
-			details.append(str(rule.get("penalty","")))
+	details.append("주사위 제어 카드")
+	details.append(DiceControl.description(str(item.get("card_id",""))))
+	if str(item.get("card_id","")) in ["repeat","echo"]:
+		details.append("이전 굴림이나 카드 사용 이력에 따라 사용 조건이 달라집니다.")
 	details.append("보관함에서는 확인만 가능합니다. 카드를 사용하거나 소모하지 않습니다.")
 	var explanation=label_at(panel,"\n\n".join(details),Vector2(239,85),Vector2(509,256),18)
 	explanation.name="InventoryDetailEffects"
