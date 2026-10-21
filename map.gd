@@ -12,6 +12,7 @@ const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const StorySplit = preload("res://systems/story_split_layout.gd")
+const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
 const GraveyardStoryEntryMotion = preload("res://systems/graveyard_story_entry_motion.gd")
@@ -298,6 +299,9 @@ func shared_story_frame(panel: Control) -> TextureRect:
 	frame.stretch_mode = TextureRect.STRETCH_SCALE
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if split:
+		var typewriter = StoryTypewriter.new()
+		typewriter.name = "StoryTypewriter"
+		panel.add_child(typewriter)
 		StorySplit.section_title(panel,"사건 이야기",Vector2(785,178)).name = "StorySplitNarrationHeading"
 	return frame
 
@@ -393,6 +397,13 @@ func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2,
 	node.add_theme_color_override("font_shadow_color",Color.TRANSPARENT if on_split_paper else Color.BLACK)
 	node.add_theme_constant_override("shadow_offset_y",0 if on_split_paper else 2)
 	parent.add_child(node)
+	if split:
+		# Labels do not intercept taps; the story panel handles click-to-reveal.
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var role: String = str(node.get_meta("ui_story_copy_role",""))
+		if role in ["narration","speech"] and value != "▼" and dimensions.x >= 180.0 and not value.strip_edges().is_empty():
+			var typewriter = parent.get_node_or_null("StoryTypewriter")
+			if typewriter != null: typewriter.track(node)
 	return node
 
 func button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable) -> Button:
@@ -905,7 +916,22 @@ func story_modal() -> Control:
 	var panel := modal()
 	panel.set_meta("story_split_layout",true)
 	StorySplit.install_shell(panel)
+	# Only the story overlay bubbles background taps to its reveal handler.
+	for child in panel.get_children():
+		if child is ColorRect and child.get_meta("ui_backdrop",false):
+			child.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.gui_input.connect(func(event: InputEvent): _on_story_panel_input(event,panel))
 	return panel
+
+func _reveal_story_text(panel: Control) -> bool:
+	if not is_instance_valid(panel): return false
+	var typewriter = panel.get_node_or_null("StoryTypewriter")
+	return typewriter != null and typewriter.reveal_all()
+
+func _on_story_panel_input(event: InputEvent, panel: Control) -> void:
+	var tap: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventScreenTouch and event.pressed)
+	if tap and _reveal_story_text(panel):
+		panel.accept_event()
 
 func modal(dim_board: bool = true) -> Control:
 	var node = Control.new()
@@ -1656,7 +1682,13 @@ func move_from_hill(index: int, steps: int) -> void:
 	await resume_map_move()
 
 func location_button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, variant: int = 1) -> Button:
-	var node = button(parent,title,pos,dimensions,callback)
+	var action: Callable = callback
+	if bool(parent.get_meta("story_split_layout",false)):
+		# First press finishes the visible line, never commits a choice/beat.
+		action = func() -> void:
+			if _reveal_story_text(parent): return
+			callback.call()
+	var node = button(parent,title,pos,dimensions,action)
 	# Location actions must draw over both the source painting and its frame.
 	node.z_index = 11
 	var style = StyleBoxTexture.new()
