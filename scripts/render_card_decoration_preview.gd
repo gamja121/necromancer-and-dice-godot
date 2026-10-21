@@ -7,6 +7,7 @@ const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const Battlefield = preload("res://battlefield.gd")
 const AltarBadge = preload("res://systems/altar_upgrade_badge.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 
 class PreviewSession:
 	extends RefCounted
@@ -153,6 +154,8 @@ func _run() -> void:
 	selected.altar_enhancements = 3
 	var card: TextureButton = battlefield.cards[selected.id]
 	AltarBadge.sync(card,selected)
+	# Reflect the changed brand selection in the bottom icon row of this preview.
+	LayeredUnitCard.sync_brands(card,selected.brands)
 	await create_timer(0.35).timeout
 	if not await _capture("battle"): quit(1); return
 	print("CARD_PREVIEW_ALL_SCREENS: 5 rendered")
