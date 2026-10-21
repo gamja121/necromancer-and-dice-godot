@@ -66,6 +66,30 @@ func test_legacy_archive(s: Node) -> void:
 	check(FileAccess.file_exists(backup) and FileAccess.get_file_as_string(backup)==source_bytes,"cleanup never overwrites the recovery backup")
 	if FileAccess.file_exists(backup): DirAccess.remove_absolute(ProjectSettings.globalize_path(backup))
 
+func test_prior_retirement_archive(s: Node) -> void:
+	var original_path: String=s.save_file_path
+	var prior_path: String=original_path+".prior_cleanup"
+	s.save_file_path=prior_path
+	s.start_new_world()
+	var snapshot: Dictionary=s.world.snapshot().duplicate(true)
+	snapshot["legacy_brand_cards"]=[{"id":"legacy-stored-mark","brand":{"type":"vampire","bless":[3],"curse":[]}}]
+	var bytes: String=JSON.stringify(snapshot)
+	var file=FileAccess.open(prior_path,FileAccess.WRITE)
+	check(file!=null,"intermediate-release archive fixture can be written")
+	if file!=null:
+		file.store_string(bytes)
+		file.close()
+		s.reload_world()
+		var backup: String=prior_path+".before_standalone_brand_cards.bak"
+		check(FileAccess.file_exists(backup) and FileAccess.get_file_as_string(backup)==bytes,"intermediate-release archive is backed up without mutation")
+		check(not s.world.snapshot().has("legacy_brand_cards") and not s.world.snapshot().has("brand_cards"),"intermediate-release archive never enters current world")
+		check(s.save_world(),"intermediate-release world can save without retired fields")
+		s.reload_world()
+		check(not s.world.snapshot().has("legacy_brand_cards"),"intermediate-release cleanup persists after reboot")
+	for suffix in ["",".tmp",".before_standalone_brand_cards.bak"]:
+		if FileAccess.file_exists(prior_path+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(prior_path+suffix))
+	s.save_file_path=original_path
+
 func test_old_chest(s: Node, prepared: bool) -> void:
 	s.start_new_world()
 	var snapshot: Dictionary=s.world.snapshot().duplicate(true)
@@ -109,6 +133,7 @@ func _run() -> void:
 	session.save_file_path=tmp
 	test_new_game(session)
 	test_legacy_archive(session)
+	test_prior_retirement_archive(session)
 	test_old_chest(session,false)
 	test_old_chest(session,true)
 	session.save_file_path=former
