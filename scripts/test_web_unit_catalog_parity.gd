@@ -60,7 +60,8 @@ func _run() -> void:
 	var original: Dictionary=file.units
 	var definitions: Dictionary=current.units
 	check(original.size()==46,"46 authoritative original web species")
-	check(definitions.size()==47 and definitions.has("dracula"),"Godot optional Dracula metadata retained for existing runs")
+	check(definitions.size()==48 and definitions.has("dracula") and definitions.has("dragon"),"46 original monsters, old Dracula, and isolated final boss are registered")
+	check(not original.has("dragon") and not EncounterGenerator.eligible_roster(definitions).has("dragon"),"boss-only dragon cannot enter original web random battle/reward catalog")
 	check(not original.has("dracula"),"Dracula is absent from fixed original web V2")
 	for slug in original:
 		check(definitions.has(slug),"original unit exists: "+slug)

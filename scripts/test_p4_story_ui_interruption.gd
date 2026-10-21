@@ -41,13 +41,14 @@ func fresh(session: Node, tag: String) -> void:
 	# cemetery. This is a test-only completed-lap fixture, not a player skip.
 	# Generate the *first completed-lap board* with the target contamination
 	# already applied. Revealing the boss AFTER generation would overwrite a
-	# random slot 23, possibly deleting the ONLY event or forest story tile.
+	# random slot 23. Forest is an event-unlocked optional location,
+	# while ritual story entry can also use one of the two real event tiles.
 	# Enter with 73 so the authentic +7 home-exit transition reaches 80.
 	session.world.contamination = 73
 	session.world.lap_ready=true
 	session.world.leave_home()
-	check(session.world.contamination==80 and session.world.tiles[23]=="boss" and session.world.tiles.has("event") and session.world.tiles.has("forest"),
-		"portal/child fixture: contaminated lap generated boss while preserving event and forest story tiles")
+	check(session.world.contamination==80 and session.world.tiles[23]=="boss" and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
+		"portal/child fixture: high contamination preserves both events without inventing forest discovery")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		tag+": isolated post-first-lap fixture has one unlocked graveyard")
 
@@ -154,16 +155,17 @@ func portal(session: Node) -> void:
 	check(ALTAR.advance(session,altar_index,0) and ALTAR.advance(session,altar_index,1),"portal: altar continues all original scenes")
 	check(ALTAR.choose(session,altar_index,2,"pass") and ALTAR.finish(session,altar_index) and ALTAR.completed(session),"portal: original altar Finish unlocks source quest, not a forged portal state")
 	var forest_index: int=world.tiles.find("forest")
+	if forest_index<0: forest_index=world.tiles.find("event")
 	world.position=forest_index
-	check(forest_index>=0 and session.save_world(),"portal: original forest tile saved with genuinely unseen portal")
+	check(forest_index>=0 and session.save_world(),"portal: actual eligible forest/event tile saved with genuinely unseen portal")
 	var map: Control=await map_load(session)
-	check(not is_instance_valid(map.overlay) and session.get_story_event(PORTAL.EVENT_ID).status=="unseen","portal: reload at unseen forest never invents portal discovery")
+	check(not is_instance_valid(map.overlay) and session.get_story_event(PORTAL.EVENT_ID).status=="unseen","portal: reload at unseen source tile never invents portal discovery")
 	for i in range(3): await process_frame
 	map.queue_free()
 	await process_frame
-	check(PORTAL.begin(session,forest_index),"portal: production portal discovery saved at real forest")
+	check(PORTAL.begin(session,forest_index),"portal: production portal discovery saved at real forest/event")
 	map=await map_load(session)
-	check(button_in(map,"계속")!=null and PORTAL.current_beat(session)==0,"portal: reopened first known forest scene restores original UI")
+	check(button_in(map,"계속")!=null and PORTAL.current_beat(session)==0,"portal: reopened first known portal scene restores original UI")
 	for beat in range(4):
 		var button: Button=button_in(map,"계속")
 		check(button!=null,"portal: Continue visible on source scene %d" % beat)

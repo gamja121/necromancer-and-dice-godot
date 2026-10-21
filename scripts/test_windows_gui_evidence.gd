@@ -149,7 +149,7 @@ func _run() -> void:
 	# world-tree and rest until later unlocks. A screenshot fixture may place
 	# their existing scenes on ordinary road tiles in THIS disposable save only.
 	# Never change MapState generation, user saves or the actual unlock rules.
-	for missing_place in ["graveyard","altar","unknown","rest"]:
+	for missing_place in ["graveyard","altar","unknown","forest","rest"]:
 		if not session.world.tiles.has(missing_place):
 			var ordinary: int = session.world.tiles.find("basic")
 			check(ordinary >= 0, "visual-only board has a spare road for " + missing_place)

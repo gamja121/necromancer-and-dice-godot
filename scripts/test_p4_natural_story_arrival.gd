@@ -214,8 +214,12 @@ func incidental_overlay(session: Node, map: Control, label: String) -> bool:
 			if str(world.pending_reward.offers[j].kind)!="unit":
 				index=j
 				break
+		# Current treasure UI uses explicit choose -> claim confirmation.
+		# A second card tap is idempotent and must not spend the reward.
 		map.overlay.options[index].pressed.emit()
-		map.overlay.options[index].pressed.emit()
+		check(int(world.pending_reward.get("selected",-1))==index and not map.overlay.confirm_button.disabled,
+			"incident "+label+": selected offer enables the genuine claim confirmation")
+		map.overlay.confirm_button.pressed.emit()
 		var claimed: bool=await until_ready(func(): return world.pending_reward.is_empty() and not is_instance_valid(map.overlay),20000)
 		check(claimed,"incident "+label+": natural chest claimed once through actual reward UI")
 		return claimed

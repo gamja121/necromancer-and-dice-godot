@@ -89,7 +89,12 @@ func _run() -> void:
 		advance.pressed.emit()
 		if intro.get("line_index") != i or speaker.text != str(script_lines[i].speaker) or dialogue.text != str(script_lines[i].text):
 			text_correct = false
-	check(text_correct,"all 12 dialogue beats advance in original order without skipping")
+		# The current real typewriter uses the next press to reveal a line;
+		# only a subsequent click advances to the following beat.
+		advance.pressed.emit()
+		if intro.get("line_index") != i or dialogue.visible_characters != -1:
+			text_correct = false
+	check(text_correct,"all 12 dialogue beats reveal fully in original order without skipping")
 	check(not intro.get("leaving"),"intro does not switch scenes before last dialogue is dismissed")
 	intro.set("ending_duration",0.10)
 	advance.pressed.emit()

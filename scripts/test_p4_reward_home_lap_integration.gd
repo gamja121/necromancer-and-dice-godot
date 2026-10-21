@@ -141,7 +141,7 @@ func test_home_and_next_lap(session: Node) -> void:
 	check(world.position==MapState.HOME and world.lap_ready,"real movement stops at house and marks lap ready")
 	check(world.laps==initial_laps and world.contamination==initial_contamination,"arrival alone does not advance lap")
 	var entrance: Button = panel_button(map,"들어가기")
-	check(entrance!=null and panel_button(map,"나가기")!=null,"home exterior exposes real enter and exit controls")
+	check(entrance!=null and panel_button(map,"다음 바퀴 출발")!=null,"home exterior exposes real enter and exit controls")
 	if entrance==null:
 		map.queue_free()
 		await process_frame
@@ -150,7 +150,7 @@ func test_home_and_next_lap(session: Node) -> void:
 	var interior: bool = await until_ready(func(): return panel_button(map,"낙인 계승")!=null and panel_button(map,"순찰경로")!=null,12000)
 	check(interior,"home entry opens real inheritance and patrol interior")
 	check(world.roster.all(func(u): return int(u.current_hp)==int(u.max_hp)),"home fully restores surviving monsters")
-	var exit_button: Button = panel_button(map,"나가기")
+	var exit_button: Button = panel_button(map,"다음 바퀴 출발")
 	check(exit_button!=null,"home interior supplies exit/shuffle control")
 	if exit_button==null:
 		map.queue_free()

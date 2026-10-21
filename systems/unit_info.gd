@@ -137,8 +137,12 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		if row[0]=="군단": value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var passive = interface_data.passives.get(u.passive,["패시브 없음",""])
+	var boss_second: String = str(u.get("boss_extra_passive","")) if str(u.get("slug",""))=="dragon" and str(u.get("team",""))=="enemy" and bool(u.get("final_boss",false)) else ""
+	var second_passive: Array = interface_data.passives.get(boss_second,[])
 	label_at(left,"◇",Vector2(48,310),Vector2(34,42),21)
-	label_at(left,passive[0],Vector2(90,310),Vector2(335,42),15)
+	var passive_title: String = str(passive[0])
+	if not second_passive.is_empty(): passive_title += " · "+str(second_passive[0])
+	label_at(left,passive_title,Vector2(90,310),Vector2(335,42),15)
 	for index in range(mini(3,u.brands.size())):
 		var brand = u.brands[index]
 		var icon = TextureRect.new()
@@ -212,6 +216,8 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 		effect_line("위 능력치에 포함 · 전투 진입 시 적용 후 소모")
 	section("패시브 효과")
 	effect_line(passive[0]+(" · "+passive[1] if not passive[1].is_empty() else ""))
+	if not second_passive.is_empty():
+		effect_line(str(second_passive[0])+" · "+str(second_passive[1]))
 	section("낙인 눈금과 효과")
 	for brand in u.brands:
 		var definition = interface_data.brands[brand.type]

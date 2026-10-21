@@ -68,6 +68,14 @@ func fixture(tag: String, side: String, tile: String):
 	check(Altar.advance(s,at,1),"altar choice viewed")
 	check(Altar.choose(s,at,2,"pass"),"altar passage saved")
 	check(Altar.finish(s,at),"ritual tracking quest activated")
+	# The first board has no forest; discover it through a legitimate event
+	# before entering the ritual portal or continuing the king hunt.
+	var discovery_at: int = s.world.tiles.find("event")
+	check(discovery_at >= 0,"real event tile available to unlock portal forest")
+	if discovery_at >= 0:
+		s.world.position = discovery_at
+		var unlocked: Dictionary = s.discover_location_on_event(discovery_at,"forest")
+		check(bool(unlocked.get("ok",false)) and s.world.tiles.count("forest")==1,"actual forest unlock persists for portal story")
 	s.world.position=s.world.tiles.find("forest")
 	check(s.world.position>=0 and s.save_world(),"portal location saved")
 	at=s.world.position
