@@ -42,7 +42,7 @@ func install_deterministic_landing(session: Node, tile_type: String) -> Dictiona
 			if i not in [0,8,MapState.HOME,landing] and world.tiles[i] == tile_type:
 				source = i
 				break
-		if source < 0 and tile_type in ["altar","unknown","rest","swamp"]:
+		if source < 0 and tile_type in ["forest","altar","unknown","rest","swamp"]:
 			# This disposable UI-only fixture still exercises the artwork and
 			# buttons of locations removed from the real opening board.
 			# A spare road becomes one test-only advanced tile; production
@@ -114,7 +114,7 @@ func check_scenario(session: Node, label: String, location_type: String, is_swam
 	if location_type in ["rest","forest","altar","unknown"]:
 		check(is_instance_valid(map.overlay),label+": location panel automatically opens on landing")
 		check(location_art_visible(map,location_type),label+": correct original location background rendered")
-		check(has_panel_button(map,"나가기"),label+": location has exit control")
+		check(has_panel_button(map,"맵으로 나가기"),label+": location has exit control")
 		var names: Dictionary = {"rest":"전체 회복","forest":"이동 위치 선택","altar":"의식","unknown":"기도"}
 		check(has_panel_button(map,str(names[location_type])),label+": correct location action is present")
 	elif location_type=="monster":

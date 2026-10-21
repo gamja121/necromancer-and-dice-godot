@@ -42,6 +42,16 @@ func until_ready(predicate: Callable, limit_ms: int=18000) -> bool:
 		await process_frame
 	return bool(predicate.call())
 
+## One real tap reveals the remaining narration; the next commits the action.
+## Old story builds have no typewriter, so they receive exactly one tap.
+func press_story_action(map: Control, control: Button) -> void:
+	if control==null: return
+	var panel: Control=map.overlay
+	var typewriter = panel.get_node_or_null("StoryTypewriter") if is_instance_valid(panel) else null
+	if typewriter != null and typewriter.is_revealing():
+		control.pressed.emit()
+	if is_instance_valid(control): control.pressed.emit()
+
 func button_in(map: Control, caption: String) -> Button:
 	if not is_instance_valid(map.overlay): return null
 	for child in map.overlay.get_children():
@@ -92,13 +102,14 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	session.start_new_world()
 	# Generate an actual post-home-exit board with the final contamination.
 	# Revealing the boss AFTER generation could erase the only story/event
-	# or forest tile at slot 23 and make this route seed-dependent.
+	# tile at slot 23 and make this route seed-dependent. The original
+	# forest is a separate discovered location, not a starter tile.
 	session.world.contamination = 93
 	session.world.lap_ready = true
 	session.world.leave_home()
 	check(session.world.contamination==100 and session.world.tiles[MAP_STATE.BOSS_TILE_INDEX]=="boss"
-		and session.world.tiles.has("event") and session.world.tiles.has("forest"),
-		tag+": boss generation preserves required event and forest tiles")
+		and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
+		tag+": boss generation preserves real event tiles without inventing forest unlock")
 	var world=session.world
 	# The preceding rumor is completed in this fixture, then the REAL altar
 	# entry/three beats/pass/Finish commits the ritual-tracking prerequisite.
@@ -106,8 +117,8 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	world.event_flags[RUMOR.SEEN_FLAG]=true
 	world.event_flags[RUMOR.COMPLETE_FLAG]=true
 	world.event_flags[RUMOR.TRACKING_FLAG]=true
-	# The altar no longer exists on the first map. The production ritual
-	# may be discovered at a normal event tile after the cultist rumor.
+	# The altar is not on this board. Its production story can start on
+	# a normal event tile after the completed cultist rumor.
 	world.position=world.tiles.find("altar")
 	if world.position<0: world.position=world.tiles.find("event")
 	check(world.position>=0 and session.save_world(),tag+": prerequisite cultist rumor saved")
@@ -116,8 +127,18 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	check(ALTAR.advance(session,altar_at,0) and ALTAR.advance(session,altar_at,1),tag+": previous altar reveals real choice")
 	check(ALTAR.choose(session,altar_at,2,"pass") and ALTAR.finish(session,altar_at),tag+": previous altar passes and commits legitimate portal unlock")
 	check(ALTAR.completed(session) and session.event_flag_is_set(PORTAL.TRACKING_FLAG),tag+": source quest prerequisite verified")
+	# A fresh high-contamination fixture still has an unseen child quest.
+	# On an EVENT tile that earlier quest rightly takes priority over portal.
+	# Use the legitimate forest discovery transaction to create the correct
+	# source place, without forging its unlock flag or altering generation.
+	var discovery_at: int=world.tiles.find("event")
+	world.position=discovery_at
+	var forest_unlock: Dictionary=session.discover_location_on_event(discovery_at,"forest")
+	check(bool(forest_unlock.get("ok",false)) and world.tiles.count("forest")==1,
+		tag+": actual event discovery transaction unlocked one forest tile")
+	if not bool(forest_unlock.get("ok",false)): return {}
 	var target: int=seed_next_tile(world,"forest")
-	check(target>=0,tag+": test-only forest landing prepared outside fixed tile anchors")
+	check(target>=0,tag+": real discovered forest landing prepared outside fixed tile anchors")
 	if target<0: return {}
 	check(session.save_world(),tag+": future portal landing persisted in isolated save")
 	var map: Control=MAP_SCENE.instantiate()
@@ -125,7 +146,7 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	await process_frame
 	var before_move: int=world.move_serial
 	await map.roll_move()
-	check(world.position==target and world.move_serial==before_move+1 and world.pending_move.is_empty(),tag+": real map die arrives at forest once")
+	check(world.position==target and world.move_serial==before_move+1 and world.pending_move.is_empty(),tag+": real map die arrives at discovered forest once")
 	check(session.get_story_event(PORTAL.EVENT_ID).status=="seen" and session.event_flag_is_set(PORTAL.SEEN_FLAG),tag+": first portal arrival discovers exact source event")
 	check(button_in(map,"계속")!=null,tag+": genuine first ruined portal scene and Continue displayed")
 	return {"map":map,"tile":target}
@@ -136,7 +157,7 @@ func advance_five_scenes(session: Node, map: Control, label: String) -> bool:
 		if next==null:
 			check(false,label+": missing Continue at canonical portal beat %d" % beat)
 			return false
-		next.pressed.emit()
+		press_story_action(map,next)
 		await process_frame
 		check(PORTAL.current_beat(session)==beat+1 and session.event_flag_is_set(PORTAL.progress_flag(beat+1)),label+": source story beat %d committed by actual scene button" % (beat+1))
 	var ready: bool=button_in(map,"저지한다")!=null
@@ -231,7 +252,7 @@ func enter_epilogue(session: Node, map: Control, result: String, label: String) 
 	var restored: bool=await until_ready(func(): return button_in(map,"부활 확인")!=null,12000)
 	check(restored,label+": original result view reopens on Map after process-style restart")
 	if not restored: return {}
-	button_in(map,"부활 확인").pressed.emit()
+	press_story_action(map,button_in(map,"부활 확인"))
 	check(not session.story_battle_result_pending(PORTAL.EVENT_ID),label+": original result button consumes confirmation exactly once")
 	var ready: bool=await until_ready(func(): return button_in(map,"마치기")!=null,12000)
 	check(ready and PORTAL.aftermath_ready(session,session.world.position),label+": correct canonical weak/full revival epilogue appears")
@@ -246,7 +267,7 @@ func complete_revive(session: Node, map: Control, won: bool, label: String) -> b
 	var finish: Button=button_in(map,"마치기")
 	check(finish!=null,label+": final resurrection acknowledgement has original Finish button")
 	if finish==null: return false
-	finish.pressed.emit()
+	press_story_action(map,finish)
 	var event: Dictionary=session.get_story_event(PORTAL.EVENT_ID)
 	check(PORTAL.completed(session) and event.status=="complete" and event.battle_result==("won" if won else "lost"),label+": revival completes only at deliberate Finish")
 	check(session.event_flag_is_set(PORTAL.REVIVED_FLAG) and session.event_flag_is_set(PORTAL.HUNT_FLAG),label+": king revival and hunt quest activated atomically")
@@ -283,7 +304,7 @@ func follow_king_hunt(session: Node, tag: String, weak: bool) -> void:
 	for i in range(2):
 		var next: Button=button_in(map,"계속")
 		if next==null: break
-		next.pressed.emit()
+		press_story_action(map,next)
 		await process_frame
 	check(HUNT.current_beat(session)==2 and HUNT_BEATS.beat(2,HUNT.revival_mode(session)).dialogue==HUNT_BEATS.beat(2,"weakened" if weak else "full").dialogue,tag+": original hunter weak/full branch dialogue saved at third beat")
 	for i in range(3): await process_frame
@@ -299,7 +320,7 @@ func scenario(session: Node, victor: String) -> void:
 	if entry.is_empty(): return
 	var map: Control=entry.map
 	if not await advance_five_scenes(session,map,tag): return
-	button_in(map,"저지한다").pressed.emit()
+	press_story_action(map,button_in(map,"저지한다"))
 	check(session.get_story_event(PORTAL.EVENT_ID).choice=="intervene" and session.get_story_event(PORTAL.EVENT_ID).status=="active",tag+": explicit Intervene button saves decision without starting battle")
 	check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG),tag+": selecting Intervene is not king revival")
 	var deck: bool=await until_ready(func(): return has_deck(map),8000)
