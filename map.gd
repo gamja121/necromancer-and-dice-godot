@@ -266,6 +266,7 @@ func _ready() -> void:
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
+	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
@@ -1634,6 +1635,13 @@ func show_place_actions(index: int) -> void:
 		presentation.refresh()
 		show_location(index)))
 
+## Resume an interrupted full-hand graveyard find without rerolling it.
+func resume_graveyard_dig() -> void:
+	if str(world.pending_reward.get("kind",""))!="grave-dig": return
+	if world.tiles[world.position]!="graveyard": return
+	if is_instance_valid(overlay): return
+	show_exploration_actions(world.position)
+
 func show_exploration_actions(index: int) -> void:
 	var panel = ExplorationActions.new()
 	stage.add_child(panel)
@@ -2537,7 +2545,7 @@ func show_location(index: int) -> void:
 		if Discovery.exists(type) and session.event_flag_is_set("ui:unlock:%s:action_pending" % type):
 			UnlockNoticeBadge.attach(action,"NEW")
 		# Reopen a spent world tree to inspect the saved prayer result; only its die is disabled.
-		if type=="graveyard": action.disabled = world.graveyard_corpses.is_empty() or session.place_visit_id("grave-extract",index) in world.reward_receipts
+		if type=="graveyard": action.disabled = session.place_visit_id("grave-extract",index) in world.reward_receipts or str(world.pending_reward.get("kind",""))=="grave-dig"
 
 func use_warp(index: int) -> void:
 	if moving: return
