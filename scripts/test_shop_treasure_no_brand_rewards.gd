@@ -75,7 +75,7 @@ func test_legacy_shop(session: Node) -> void:
 	check(current.get("ok",false),"new merchant offer available before legacy fixture")
 	if not current.get("ok",false): return
 	var old_offers: Array = current.offers.duplicate(true)
-	old_offers[1] = {"kind":"brand","item":session.create_item("brand",{})}
+	old_offers[1] = {"kind":"brand","item":{"id":"legacy-brand-test","brand":{"type":"critical","bless":[2],"curse":[]}}}
 	world.shop_trade.offers[donor_id] = old_offers
 	check(session.save_world(),"legacy brand-offer fixture saved")
 	session.reload_world()

@@ -69,10 +69,10 @@ func _run() -> void:
 	check(extraction.content.get_node_or_null("GraveyardDigConfirm")!=null,"digging has a visible explicit confirmation")
 	check(extraction.action_button!=null and not extraction.action_button.disabled,"digging is available with zero allied corpses")
 	var before_cards: int=session.world.dice_cards.size()
-	var before_brands: int=session.world.brand_cards.size()
+	var before_brands: int=session.world.legacy_brand_cards.size()
 	extraction.action_button.pressed.emit()
 	await process_frame
-	check(session.world.dice_cards.size()==before_cards+1 and session.world.brand_cards.size()==before_brands,"digging grants one dice card and no brand cards")
+	check(session.world.dice_cards.size()==before_cards+1 and session.world.legacy_brand_cards.size()==before_brands,"digging grants one dice card and no brand cards")
 	check(extraction.content.get_node_or_null("GraveyardFoundDiceCard")!=null,"found dice card appears in digging screen")
 	check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"digging receipt committed")
 	check(extraction.action_button.disabled,"spent digging action cannot run twice")

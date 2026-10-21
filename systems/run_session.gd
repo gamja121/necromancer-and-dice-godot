@@ -610,11 +610,9 @@ func create_item(kind: String, source: Dictionary) -> Dictionary:
 		var item = source.duplicate(true)
 		item.id = world.next_id("dice-card")
 		return item
-	var rules = Rules.new(world.definitions,world.rng.randi())
-	var keys: Array = rules.COUNTS.keys()
-	var brand: Dictionary = rules.make_brand(keys[world.rng.randi_range(0,keys.size()-1)])
-	brand.curse = []
-	return {"id":world.next_id("brand-card"),"brand":brand}
+	# Independent brand cards were retired. Only monster and dice cards may
+	# be created; in particular, never silently fabricate an unused brand.
+	return {}
 
 func open_treasure(index: int = -1) -> bool:
 	if not encounter.is_empty() or not world.pending_move.is_empty(): return false
@@ -663,7 +661,8 @@ func prepare_treasure_reward(index: int) -> bool:
 	if int(world.pending_reward.selected)!=index: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var offer: Dictionary = world.pending_reward.offers[index]
-	world.pending_reward.reward = {"kind":offer.kind,"item":offer.source.duplicate(true) if offer.kind=="brand" else create_item(offer.kind,offer.source)}
+	if not offer.kind in ["unit","dice"]: return false
+	world.pending_reward.reward = {"kind":offer.kind,"item":create_item(offer.kind,offer.source)}
 	return persist_change(before)
 
 func select_capture(index: int) -> bool:
@@ -695,8 +694,9 @@ func claim_reward(discard_id: String = "") -> Dictionary:
 	if pending.is_empty() or not pending.has("reward"): return {"ok":false}
 	if pending.id in world.reward_receipts: return {"ok":false}
 	var reward: Dictionary = pending.reward
-	var items: Array = world.roster if reward.kind=="unit" else (world.dice_cards if reward.kind=="dice" else world.brand_cards)
-	var capacity = Catalog.UNIT_CAPACITY if reward.kind=="unit" else (Catalog.DICE_CAPACITY if reward.kind=="dice" else 0)
+	if not reward.kind in ["unit","dice"]: return {"ok":false}
+	var items: Array = world.roster if reward.kind=="unit" else world.dice_cards
+	var capacity = Catalog.UNIT_CAPACITY if reward.kind=="unit" else Catalog.DICE_CAPACITY
 	if capacity>0 and items.size()>=capacity:
 		if discard_id.is_empty(): return {"ok":false,"overflow":true}
 		if discard_id!="__new__" and not items.any(func(item): return item.id==discard_id): return {"ok":false}
@@ -860,44 +860,33 @@ func rename_owned_unit(instance_id: String, proposed_name: String) -> Dictionary
 	encounter = world.active_encounter.duplicate(true)
 	return {"ok":true,"name":chosen}
 
-func inherit_at_home(receiver_id: String, donor_id: String = "", brand_card_id: String = "") -> Dictionary:
+func inherit_at_home(receiver_id: String, donor_id: String = "") -> Dictionary:
 	var allowed = home_action_allowed()
 	if not allowed.ok: return allowed
-	var receiver = owned_unit(receiver_id)
+	var receiver: Dictionary = owned_unit(receiver_id)
 	if receiver.is_empty(): return {"ok":false,"reason":"낙인을 받을 마물을 선택하세요."}
 	if receiver.brands.size()>=3: return {"ok":false,"reason":"낙인 3칸이 찬 마물에는 계승할 수 없습니다."}
-	if donor_id.is_empty()==brand_card_id.is_empty(): return {"ok":false,"reason":"재료 마물 또는 낙인 카드 하나를 선택하세요."}
+	if donor_id.is_empty() or donor_id==receiver_id: return {"ok":false,"reason":"서로 다른 재료 마물과 받는 마물을 선택하세요."}
+	var donor: Dictionary = owned_unit(donor_id)
+	if donor.is_empty(): return {"ok":false,"reason":"재료 마물을 보유하고 있지 않습니다."}
+	var brands: Array = BrandInheritance.normalize(donor,world.definitions)
+	if brands.is_empty(): return {"ok":false,"reason":"낙인이 없는 마물은 재료로 사용할 수 없습니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
-	var source: Dictionary = {}
-	var donor: Dictionary = {}
-	var card_index = -1
-	if not brand_card_id.is_empty():
-		for i in range(world.brand_cards.size()):
-			if str(world.brand_cards[i].id)==brand_card_id: card_index = i; break
-		if card_index<0: return {"ok":false,"reason":"이 낙인 카드를 보유하고 있지 않습니다."}
-		source = world.brand_cards[card_index].brand
-		if not BrandInheritance.validate(source) or source.bless.is_empty(): return {"ok":false,"reason":"적용할 수 없는 낙인 카드입니다."}
-	else:
-		if donor_id==receiver_id: return {"ok":false,"reason":"재료와 받는 마물은 달라야 합니다."}
-		donor = owned_unit(donor_id)
-		if donor.is_empty(): return {"ok":false,"reason":"재료 마물을 보유하고 있지 않습니다."}
-		var brands = BrandInheritance.normalize(donor,world.definitions)
-		if brands.is_empty(): return {"ok":false,"reason":"낙인이 없는 마물은 재료로 사용할 수 없습니다."}
-		source = brands[world.rng.randi_range(0,brands.size()-1)]
-	var applied = BrandInheritance.blessing(receiver,source,world.definitions)
+	var source: Dictionary = brands[world.rng.randi_range(0,brands.size()-1)]
+	var applied: Dictionary = BrandInheritance.blessing(receiver,source,world.definitions)
 	if applied.is_empty():
-		# A failed random selection must not consume a material, but remains a new attempt.
+		# Failed random selection preserves the donor and persists consumed RNG.
 		if not persist_change(before): return {"ok":false,"reason":notice}
 		return {"ok":false,"reason":"기본 저주와 겹쳐 계승 가능한 축복 눈금이 없습니다."}
 	receiver.brands = BrandInheritance.normalize(receiver,world.definitions)
 	receiver.brands.append(applied)
-	if card_index>=0: world.brand_cards.remove_at(card_index)
-	else:
-		for i in range(world.roster.size()-1,-1,-1):
-			if str(world.roster[i].id)==donor_id: world.roster.remove_at(i); break
+	for i in range(world.roster.size()-1,-1,-1):
+		if str(world.roster[i].id)==donor_id:
+			world.roster.remove_at(i)
+			break
 	world.reward_receipts.append(home_visit_id())
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"receiver":receiver.duplicate(true),"brand":applied.duplicate(true),"donor_id":donor_id,"card_id":brand_card_id}
+	return {"ok":true,"receiver":receiver.duplicate(true),"brand":applied.duplicate(true),"donor_id":donor_id}
 
 func place_visit_id(kind: String, index: int) -> String:
 	var legacy = "%s-visit:%d:%d:%d" % [kind,world.laps,world.move_serial,index]

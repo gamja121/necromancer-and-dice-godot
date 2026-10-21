@@ -603,7 +603,7 @@ func render() -> void:
 	deck_button.position = Vector2(1134,563)
 	deck_button.size = Vector2(128,120)
 	deck_button.z_index = 50
-	deck_button.tooltip_text = "주사위·낙인 카드 보관함"
+	deck_button.tooltip_text = "주사위 제어 카드 보관함"
 	deck_button.pressed.connect(func():
 		if is_instance_valid(embedded_battle):
 			embedded_battle.show_dice_hand()

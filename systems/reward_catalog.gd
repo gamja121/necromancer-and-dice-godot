@@ -15,11 +15,9 @@ static func dice_cards() -> Array:
 
 static func image(kind: String, item: Dictionary) -> String:
 	if kind=="unit": return "res://assets/cards/unit-card-%s.png" % item.slug
-	if kind=="brand": return "res://assets/cards/brand-card.png"
 	return "res://assets/cards/dice-control-ko-%s.png" % item.image
 
 static func label(kind: String, item: Dictionary) -> String:
 	if kind=="unit": return item.name
 	if kind=="dice": return item.label
-	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json")).brands
-	return "%s · 축복 %s" % [data[item.brand.type].name.replace("의 낙인",""),", ".join(item.brand.bless.map(func(n): return str(int(n))))]
+	return ""

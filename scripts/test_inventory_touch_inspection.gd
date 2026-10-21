@@ -58,8 +58,6 @@ func _run() -> void:
 	session.start_new_world()
 	var die: Dictionary=session.create_item("dice",Catalog.dice_cards()[2])
 	session.world.dice_cards.append(die)
-	var brand: Dictionary=session.create_item("brand",{})
-	session.world.brand_cards.append(brand)
 	check(session.save_world(),"disposable inventory fixture saves")
 	var before: String=JSON.stringify(session.world.snapshot())
 	var prior_rng: int=session.world.rng.state
@@ -87,21 +85,9 @@ func _run() -> void:
 			close_button.pressed.emit()
 			check(not is_instance_valid(view.info) and was_closed.is_empty(),"close detail returns to inventory without closing the book")
 	check(await wait_idle(view),"inventory available after die detail")
+	check(view.tab_buttons.size()==2,"only monster and dice tabs are available")
 	view.show_kind("brand")
-	check(await wait_idle(view),"brand tab shows its cards")
-	var brand_button=view.content.get_node_or_null("InventoryInspect_brand_0") as TextureButton
-	check(brand_button!=null and brand_button.texture_normal!=null,"brand owns a tappable card art")
-	if brand_button!=null:
-		await check_shadow_feedback(brand_button,"brand")
-		brand_button.pressed.emit()
-		var details=view.info.get_node_or_null("InventoryDetailPanel/InventoryDetailEffects") as Label
-		var definitions: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json")).brands
-		var blessing: String=str(definitions[brand.brand.type].blessing)
-		check(details!=null and details.text.contains(blessing),"brand detail shows the real blessing, not generic tooltip")
-		check(details!=null and details.text.contains("축복 눈금"),"brand detail exposes blessing faces")
-		var outside=view.info.get_node_or_null("InventoryDetailOutsideClose") as Button
-		outside.pressed.emit()
-		check(not is_instance_valid(view.info),"tapping outside closes only the brand detail")
+	check(view.content.get_node_or_null("InventoryInspect_brand_0")==null,"retired brand tab cannot be entered")
 	view.show_kind("unit")
 	check(await wait_idle(view),"original monster hand still opens")
 	var roster_button=view.content.get_node_or_null("InventoryInspect_unit_0") as TextureButton

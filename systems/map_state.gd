@@ -2,6 +2,7 @@ extends RefCounted
 
 const RoutePlan = preload("res://systems/route_plan.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
+const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
@@ -41,7 +42,8 @@ var dice_visual_face: int = 1
 var dice_visual_rotation: int = 0
 var region = "default"
 var dice_cards: Array = []
-var brand_cards: Array = []
+## Inert archive for old saves only. Not an inventory, reward, or item system.
+var legacy_brand_cards: Array = []
 var graveyard_corpses: Array = []
 var reward_receipts: Array = []
 # Run records survive reload. Existing version:1 saves default to a live run.
@@ -240,7 +242,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"brand_cards":brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"legacy_brand_cards":legacy_brand_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -255,7 +257,7 @@ func restore(saved: Dictionary) -> bool:
 	for key in ["contamination","laps","lap_ready","last_face","rng_seed","rng_state"]:
 		if not saved.has(key): return false
 	if saved.contamination<0 or saved.contamination>100: return false
-	for field in ["dice_cards","brand_cards","graveyard_corpses","reward_receipts"]:
+	for field in ["dice_cards","brand_cards","legacy_brand_cards","graveyard_corpses","reward_receipts"]:
 		if saved.has(field) and not saved[field] is Array: return false
 	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result","event_flags","story_events","run_result"]:
 		if saved.has(field) and not saved[field] is Dictionary: return false
@@ -335,7 +337,7 @@ func restore(saved: Dictionary) -> bool:
 		var checker = Rules.new(definitions)
 		if not checker.restore(active.checkpoint): return false
 	dice_cards = saved.get("dice_cards",[]).duplicate(true)
-	brand_cards = saved.get("brand_cards",[]).duplicate(true)
+	legacy_brand_cards = saved.get("legacy_brand_cards",saved.get("brand_cards",[])).duplicate(true)
 	graveyard_corpses = saved.get("graveyard_corpses",[]).duplicate(true)
 	reward_receipts = saved.get("reward_receipts",[]).duplicate()
 	enemies_defeated = maxi(0,int(saved.get("enemies_defeated",0)))
@@ -352,28 +354,26 @@ func restore(saved: Dictionary) -> bool:
 	if pending_reward.get("kind","")=="mimic":
 		pending_reward["index"] = int(pending_reward.get("index",-1))
 		pending_reward["count"] = int(pending_reward.get("count",0))
-	# JSON parses numeric card faces as floats. A chest's selected index,
-	# as well as blessing/curse faces inside its *offered brand cards*, must
-	# round-trip as integers. Normalizing only the selected index left a
-	# random save/resume mismatch whenever a chest happened to offer a brand.
+	# Retire old, not-yet-claimed standalone brand rewards without deleting
+	# the player's transaction. Each old offer becomes a stable dice choice;
+	# no new RNG draw or material creation occurs during save restoration.
 	if pending_reward.get("kind","")=="treasure":
 		if pending_reward.has("selected"):
 			pending_reward.selected = int(pending_reward.selected)
-		for offer in pending_reward.get("offers",[]):
-			if not offer is Dictionary or offer.get("kind","")!="brand": continue
-			var source: Dictionary = offer.get("source",{})
-			if not source.get("brand",{}) is Dictionary: continue
-			for faces in ["bless","curse"]:
-				if source.brand.get(faces,[]) is Array:
-					source.brand[faces] = source.brand[faces].map(func(n): return int(n))
-		# The prepared but not yet claimed brand is also a durable reward.
+		var dice_pool: Array = Catalog.dice_cards()
+		for offer_index in range(pending_reward.get("offers",[]).size()):
+			var offer: Dictionary = pending_reward.offers[offer_index]
+			if str(offer.get("kind",""))!="brand": continue
+			var dice_index: int = (offer_index + int(saved.get("move_serial",0))) % dice_pool.size()
+			offer.kind = "dice"
+			offer.source = dice_pool[dice_index].duplicate(true)
 		var prepared: Dictionary = pending_reward.get("reward",{})
 		if prepared.get("kind","")=="brand":
-			var item: Dictionary = prepared.get("item",{})
-			if item.get("brand",{}) is Dictionary:
-				for faces in ["bless","curse"]:
-					if item.brand.get(faces,[]) is Array:
-						item.brand[faces] = item.brand[faces].map(func(n): return int(n))
+			var old_item: Dictionary = prepared.get("item",{})
+			var selected_index: int = maxi(0,int(pending_reward.get("selected",0)))
+			var definition: Dictionary = dice_pool[(selected_index+int(saved.get("move_serial",0)))%dice_pool.size()].duplicate(true)
+			definition.id = str(old_item.get("id","legacy-treasure-dice-%s" % str(pending_reward.get("id","old"))))
+			pending_reward.reward = {"kind":"dice","item":definition}
 	# Captured enemy brands must survive JSON round-trips unchanged.
 	# JSON converts dice face integers to floats; a visually identical face
 	# may otherwise fail the type-sensitive match during future combat.
@@ -441,8 +441,9 @@ func restore(saved: Dictionary) -> bool:
 	prayer_result = saved.get("prayer_result",{}).duplicate(true)
 	event_flags = stored_flags.duplicate(true)
 	story_events = stored_story_events.duplicate(true)
-	for card in brand_cards:
-		card.brand.bless = card.brand.bless.map(func(n): return int(n))
+	for card in legacy_brand_cards:
+		if not card is Dictionary or not card.get("brand",{}) is Dictionary: continue
+		card.brand.bless = card.brand.get("bless",[]).map(func(n): return int(n))
 		card.brand.curse = []
 	tiles = saved.tiles.duplicate()
 	roster = saved.roster.duplicate(true)

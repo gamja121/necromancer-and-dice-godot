@@ -54,6 +54,14 @@ RUNTIME_CLOUD_BLOBS = {
     "assets/map/ui/map_cloud_transition_4.png": "f6b504c7078c994ee529d4bdc3ed689c36de7890",
 }
 HISTORICAL_CLOUD_FALLBACK_SHA = "d10dcadffda9a4758314b54fc830011c1b9348d3"
+# Explicit 2026-10-21 owner's removal of the *standalone brand card*, not
+# monster brand mechanics or original art from Git history. The historical
+# 791-row web mapping remains intact; the runtime file must be absent.
+# This is NOT authorization to delete the web reference repository.
+OWNER_RETIRED_RUNTIME_ASSETS = {
+    ("art/v2-style/ui/brand-card.png", "assets/cards/brand-card.png"):
+        ("3ca86a8da6ca8ec12735a3ef5f3279c22a516938", 195677),
+}
 REVIEW_ORIGINS = {
     "art/v2-style/event-portraits/knight-commander-upperbody-hd.webp":
         "assets/map/events/knight-commander-upperbody-hd.webp",
@@ -193,6 +201,19 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
                 problems.append(f"discard status unexpectedly has Godot path: {original}")
             continue
         if status in HISTORIC_MAPPED:
+            retirement = OWNER_RETIRED_RUNTIME_ASSETS.get((original, godot_path))
+            if retirement is not None:
+                # Keep the historical inventory and exact provenance checked,
+                # but do not require retired game items to remain importable.
+                pinned_sha, pinned_size = retirement
+                if (status != "EXACT" or row["godot_sha"] != pinned_sha
+                        or expected_sha != pinned_sha or int(row["godot_size"]) != pinned_size):
+                    problems.append(f"retired historical asset provenance drift: {original}")
+                if godot_path in tracked:
+                    problems.append(f"retired card art unexpectedly returned to runtime: {godot_path}")
+                if "docs/retired_standalone_brand_cards_20261021.md" not in tracked:
+                    problems.append("retired asset lacks owner decision record")
+                continue
             if not godot_path or godot_path not in tracked:
                 missing.append((original, godot_path))
                 problems.append(f"missing mapped asset: {original} -> {godot_path}")
