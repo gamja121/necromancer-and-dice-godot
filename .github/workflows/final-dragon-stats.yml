@@ -11,6 +11,7 @@ on:
       - "systems/unit_info.gd"
       - "systems/encounter_generator.gd"
       - "scripts/test_final_dragon_boss_stats.gd"
+      - "scripts/test_web_unit_catalog_parity.gd"
       - ".github/workflows/final-dragon-stats.yml"
   workflow_dispatch:
 
@@ -47,6 +48,13 @@ jobs:
           timeout 140s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee threshold.log
           grep -E 'MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed' threshold.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL boss-threshold:' threshold.log; then exit 1; fi
+      - name: Existing 46-monster source and reward catalog stays unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_web_unit_catalog_parity.gd 2>&1 | tee catalog.log
+          grep -E 'WEB_UNIT_CATALOG_PARITY_REGRESSION: [0-9]+ passed, 0 failed' catalog.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL web-catalog:' catalog.log; then exit 1; fi
       - name: Ordinary enemy capture stays unchanged
         shell: bash
         run: |
