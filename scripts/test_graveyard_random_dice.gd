@@ -35,13 +35,12 @@ func basic_rewards(session: Node) -> void:
 		var world = session.world
 		world.graveyard_corpses = []
 		world.rng.seed = seed
-		var old_brands: int = world.legacy_brand_cards.size()
 		var result: Dictionary = session.dig_graveyard(index)
 		check(result.get("ok",false) and not result.get("overflow",true),"seed %d digs without any fallen ally" % seed)
 		if not result.get("ok",false): continue
 		different[str(result.item.card_id)] = true
 		check(str(result.item.card_id) in valid and world.dice_cards.size()==1,"seed %d adds exactly one real dice-control card" % seed)
-		check(world.legacy_brand_cards.size()==old_brands and world.graveyard_corpses.is_empty(),"seed %d never creates a brand or consumes a corpse" % seed)
+		check(not world.snapshot().has("brand_cards") and not world.snapshot().has("legacy_brand_cards") and world.graveyard_corpses.is_empty(),"seed %d never creates a brand or consumes a corpse" % seed)
 		check(session.place_visit_id("grave-extract",index) in world.reward_receipts,"seed %d commits a one-visit receipt" % seed)
 		check(not session.dig_graveyard(index).get("ok",false),"seed %d cannot dig twice" % seed)
 		if seed==1:
