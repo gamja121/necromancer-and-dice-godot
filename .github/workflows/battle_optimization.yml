@@ -1,0 +1,79 @@
+name: Battle rendering and resource lifecycle
+on:
+  pull_request:
+    paths:
+      - "battlefield.gd"
+      - "systems/battle_resources.gd"
+      - "systems/battle_visuals.gd"
+      - "systems/original_effects.gd"
+      - "systems/combat_cues.gd"
+      - "scripts/test_battle_*.gd"
+      - "scripts/profile_battle_optimization.gd"
+      - ".github/workflows/battle_optimization.yml"
+  push:
+    branches: [main]
+    paths:
+      - "battlefield.gd"
+      - "systems/battle_resources.gd"
+      - "systems/battle_visuals.gd"
+      - "systems/original_effects.gd"
+      - "systems/combat_cues.gd"
+      - "scripts/test_battle_*.gd"
+      - "scripts/profile_battle_optimization.gd"
+      - ".github/workflows/battle_optimization.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  battle-optimization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import scripts and production resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee optimization-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked' optimization-import.log; then exit 1; fi
+      - name: Verify lifecycle, budgets, reuse, redraw transitions and existing battle behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          checks=(
+            "test_battle_resource_lifecycle.gd:BATTLE_RESOURCE_LIFECYCLE"
+            "test_battle_prewarm.gd:BATTLE_PREWARM"
+            "test_battle_effect_pool.gd:BATTLE_EFFECT_POOL"
+            "test_battle_visual_updates.gd:BATTLE_VISUAL_UPDATES"
+            "profile_battle_optimization.gd:BATTLE_OPTIMIZATION"
+            "test_battle_animation_release.gd:BATTLE_ANIMATION_RELEASE"
+            "test_battle_fate_impact.gd:BATTLE_FATE_IMPACT"
+            "test_battle_formation_order.gd:BATTLE_FORMATION_ORDER"
+            "test_battle_entry_summon.gd:BATTLE_ENTRY_SUMMON"
+            "test_p4_combat_map_return_integration.gd:P4_COMBAT_MAP_RETURN_INTEGRATION"
+          )
+          for entry in "${checks[@]}"; do
+            script="${entry%%:*}"
+            summary="${entry#*:}"
+            echo "::group::$script"
+            timeout 300s godot --headless --path . --script "res://scripts/$script" 2>&1 | tee "optimization-$script.log"
+            grep -E "^$summary: [0-9]+ passed, 0 failed" "optimization-$script.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked' "optimization-$script.log"; then exit 1; fi
+            echo "::endgroup::"
+          done
+      - name: Whitespace check
+        run: git diff --check
+      - name: Preserve verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: battle-optimization-logs
+          path: optimization-*.log
+          retention-days: 7

@@ -14,6 +14,7 @@ var expiry = 0.0
 var dice_base_scale = Vector2.ONE
 var chain_count: int = 0
 var chain_pulse: Dictionary = {}
+var _had_drawn_content: bool = false
 const MAX_BRAND_INDICATORS := 3
 const MAX_BRAND_PRESENTATION_SECONDS := 2.8
 const FAST_BRAND_UNIT_THRESHOLD := 5
@@ -81,7 +82,9 @@ func _process(delta: float) -> void:
 		rail_box.size = rail_box.get_combined_minimum_size()
 		rail_box.position = Vector2((size.x-rail_box.size.x)/2.0,size.y*0.145)
 		rail_box.visible = clock<expiry
-	queue_redraw()
+	var drawn_content: bool = not marks.is_empty() or not impact.is_empty() or not chain_pulse.is_empty()
+	if drawn_content or _had_drawn_content: queue_redraw()
+	_had_drawn_content = drawn_content
 
 func _exit_tree() -> void:
 	if scene!=null and is_instance_valid(scene.dice): scene.dice.scale = dice_base_scale

@@ -13,6 +13,9 @@ var art_items: Array = []
 var scene
 var world_layer: Control
 var ground: Control
+var _ground_removed: Dictionary = {}
+var _ground_had_circles: bool = false
+var _had_overlay_content: bool = false
 var states: Dictionary = {}
 var homes: Dictionary = {}
 var layouts: Dictionary = {}
@@ -80,6 +83,7 @@ func sync(values: Array) -> void:
 			var material = ShaderMaterial.new()
 			material.shader = shader
 			sprite.material = material
+	ground.queue_redraw()
 
 # Store only visual states: the already-confirmed roster's own slot order.
 func prepare_entry_summon() -> Array:
@@ -138,9 +142,11 @@ func _process(delta: float) -> void:
 	clock += dt
 	if not scene.paused and not presentation_hold: idle_clock += delta
 	scene.audio.volume_db = lerpf(scene.audio.volume_db,-19.0 if clock<duck_until else -15.0,minf(1,dt*12))
+	var status_content: bool = false
 	for id in states:
 		var sprite: TextureRect = scene.sprites[id]
 		var unit: Dictionary = states[id]
+		if unit.alive and (unit.frozen or not unit.poison.is_empty() or unit.get("shields",0)>0): status_content = true
 		var desired: Vector2 = homes[id]
 		if id==focus_actor:
 			var wrap: Vector2 = layouts[id].wrap
@@ -176,7 +182,7 @@ func _process(delta: float) -> void:
 		item.node.visible = age>=0
 		if age<0: continue
 		if age>=item.life:
-			item.node.queue_free()
+			original.release_art(item.node)
 			art_items.remove_at(i)
 			continue
 		if item.get("pop",false):
@@ -202,8 +208,17 @@ func _process(delta: float) -> void:
 		shake_left = maxf(0,shake_left-dt)
 		world_layer.position = Vector2(sin(clock*113),cos(clock*97))*shake_strength*minf(1,shake_left/0.12)
 	else: world_layer.position = Vector2.ZERO
-	ground.queue_redraw()
-	queue_redraw()
+	# Static shadows reuse cached commands. Keep the existing circle/shadow
+	# draw order, and clear the last circle frame when the intro ends.
+	var circles_active: bool = not entry_circles.is_empty()
+	var removed_changed: bool = removed != _ground_removed
+	if circles_active or _ground_had_circles or removed_changed:
+		ground.queue_redraw()
+	_ground_had_circles = circles_active
+	if removed_changed: _ground_removed = removed.duplicate()
+	var overlay_content: bool = status_content or not particles.is_empty() or not numbers.is_empty() or not missiles.is_empty()
+	if overlay_content or _had_overlay_content: queue_redraw()
+	_had_overlay_content = overlay_content
 
 func center_of(id: String) -> Vector2:
 	var sprite: TextureRect = scene.sprites[id]
@@ -468,7 +483,7 @@ func heal_crosses(id: String, amount: int) -> void:
 	for i in range(count):
 		var entry: Array = pattern[i]
 		var size = float(entry[2])
-		var node = original.sprite(self,load(OriginalEffects.ROOT+"heal-cross.png"),"cross",Vector2(size,size))
+		var node = original.sprite(self,original.sheet_texture("heal-cross.png"),"cross",Vector2(size,size))
 		add_art(node,center_of(id)+Vector2(entry[0],entry[1])-node.size/2,float(entry[4])/1000,Vector2(entry[5],-48),[],0.065,float(entry[3])/1000)
 
 
@@ -495,6 +510,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 			sprite.scale = Vector2.ONE
 			sprite.modulate.a = 1.0
 	if blooming.is_empty(): return
+	ground.queue_redraw()
 	var profile: Dictionary = scene.presentation_layout.metrics["guardian-seed"]
 	var frames: Array = scene.presentation_layout.frames("guardian-seed","attack")
 	var delays: Array = profile.get("attack_delays",[])
@@ -516,6 +532,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 		layouts[current.id] = geometry
 		homes[current.id] = geometry.position
 		active.erase(current.id)
+		ground.queue_redraw()
 
 func play_round(before: Array, after: Array, reports: Array) -> void:
 	await play_seed_blooms(before,after)
