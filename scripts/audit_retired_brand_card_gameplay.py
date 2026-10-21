@@ -58,7 +58,16 @@ def main() -> int:
                 re.search(r'(?:kind|offer\.kind|reward\.kind|offer\.get\(["\']kind)', line)
                 or '["dice","brand","unit"]' in line
             ):
-                if path != "systems/map_state.gd":
+                permitted_restore_read = (
+                    path == "systems/map_state.gd"
+                    and any(token in line for token in (
+                        '["dice","brand","unit"]',
+                        'saved_offers.any(func(offer): return str(offer.get("kind",""))=="brand")',
+                        'if str(offer.get("kind",""))!="brand": continue',
+                        'if prepared.get("kind","")=="brand":',
+                    ))
+                )
+                if not permitted_restore_read:
                     errors.append(f"{context} retired item kind in game logic: {line.strip()}")
 
     snapshot = (ROOT / "systems/map_state.gd").read_text(encoding="utf-8")
