@@ -115,7 +115,7 @@ func scenario(session: Node, count: int) -> void:
 			if rect.intersects(previous): no_card_overlap=false
 		card_rectangles.append(rect)
 		if u.team=="enemy":
-			var enemy_columns: Array=[2,3,4,5,1]
+			var enemy_columns: Array=[5,4,3,2,1]
 			var original_x: float=665.6+(float(enemy_columns[mini(int(u.slot),4)])-0.5)*122.88
 			enemies_unaltered=enemies_unaltered and absf(battle.unit_x(u)-original_x)<0.2
 	check(same_unit_ids,"%d cards: battle slot ID order exactly matches clicked deck order" % count)
@@ -151,13 +151,13 @@ func scenario(session: Node, count: int) -> void:
 				front_back_ok = front_back_ok and float(near.foot.y)>float(far.foot.y)
 				front_back_ok = front_back_ok and int(near.z)>int(far.z)
 			else:
-				front_back_ok = front_back_ok and float(near.scale)<float(far.scale)
-				front_back_ok = front_back_ok and float(near.foot.y)<float(far.foot.y)
-				front_back_ok = front_back_ok and int(near.z)<int(far.z)
+				front_back_ok = front_back_ok and float(near.scale)>float(far.scale)
+				front_back_ok = front_back_ok and float(near.foot.y)>float(far.foot.y)
+				front_back_ok = front_back_ok and int(near.z)>int(far.z)
 		var leftmost: Dictionary=geometries[0]
 		var rightmost: Dictionary=geometries[3]
-		front_back_ok=front_back_ok and float(leftmost.foot.x)<float(rightmost.foot.x)
-		front_back_ok=front_back_ok and absf(float(geometries[0].scale)/float(geometries[3].scale)-(1.06/0.94 if team=="ally" else 0.94/1.06))<0.01
+		front_back_ok=front_back_ok and (float(leftmost.foot.x)<float(rightmost.foot.x) if team=="ally" else float(leftmost.foot.x)>float(rightmost.foot.x))
+		front_back_ok=front_back_ok and absf(float(geometries[0].scale)/float(geometries[3].scale)-(1.06/0.94))<0.01
 	check(front_back_ok,"%d cards: each team has mirrored diagonal foot positions, subtle scaling and strict front-to-back draw order" % count)
 	# Real battlefield renderer must agree with geometry and never let a
 	# focused rear actor jump visually in front of a closer standing unit.
@@ -178,6 +178,11 @@ func scenario(session: Node, count: int) -> void:
 	var fifth: Dictionary={"slot":4,"team":"ally"}
 	check(absf(layout.horizontal_center(fifth,battle.surface_size)-(4.5*battle.surface_size.x*0.48/5.0))<0.2,
 		"%d cards: independent fifth/summoned ally uses original V2 column 5" % count)
+	# Finish real introduction coroutines before destroying the fixture.
+	var intro_finished: bool=await until_ready(func(): return not battle.entry_summon_active,16000)
+	check(intro_finished,"%d cards: real entry presentation finishes before fixture cleanup" % count)
+	battle.close_brand_reference()
+	await process_frame
 	map.queue_free()
 	await process_frame
 

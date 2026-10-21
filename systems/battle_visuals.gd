@@ -14,6 +14,7 @@ var world_layer: Control
 var ground: Control
 var _ground_removed: Dictionary = {}
 var _ground_had_circles: bool = false
+var _had_overlay_content: bool = false
 var states: Dictionary = {}
 var homes: Dictionary = {}
 var layouts: Dictionary = {}
@@ -140,9 +141,11 @@ func _process(delta: float) -> void:
 	clock += dt
 	if not scene.paused and not presentation_hold: idle_clock += delta
 	scene.audio.volume_db = lerpf(scene.audio.volume_db,-19.0 if clock<duck_until else -15.0,minf(1,dt*12))
+	var status_content: bool = false
 	for id in states:
 		var sprite: TextureRect = scene.sprites[id]
 		var unit: Dictionary = states[id]
+		if unit.alive and (unit.frozen or not unit.poison.is_empty() or unit.get("shields",0)>0): status_content = true
 		var desired: Vector2 = homes[id]
 		if id==focus_actor:
 			var wrap: Vector2 = layouts[id].wrap
@@ -212,7 +215,9 @@ func _process(delta: float) -> void:
 		ground.queue_redraw()
 	_ground_had_circles = circles_active
 	if removed_changed: _ground_removed = removed.duplicate()
-	queue_redraw()
+	var overlay_content: bool = status_content or not particles.is_empty() or not numbers.is_empty() or not missiles.is_empty()
+	if overlay_content or _had_overlay_content: queue_redraw()
+	_had_overlay_content = overlay_content
 
 func center_of(id: String) -> Vector2:
 	var sprite: TextureRect = scene.sprites[id]
