@@ -1,0 +1,49 @@
+name: Brand-Free Shop and Treasure Rewards (Godot)
+on:
+  push:
+    branches:
+      - main
+      - fix/remove-brand-offers-shop-treasure-20261021
+    paths:
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "systems/place_actions.gd"
+      - "systems/treasure_reward.gd"
+      - "scripts/test_shop_treasure_no_brand_rewards.gd"
+      - "scripts/test_shop_ui_parity.gd"
+      - ".github/workflows/brand-free-shop-treasure.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  economy-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project and parse scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: New merchant and treasure economy with saves
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_shop_treasure_no_brand_rewards.gd 2>&1 | tee economy.log
+          grep -E 'SHOP_TREASURE_NO_BRAND: [0-9]+ passed, 0 failed' economy.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL shop-treasure:' economy.log; then exit 1; fi
+      - name: Real merchant UI confirmation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_shop_ui_parity.gd 2>&1 | tee merchant.log
+          grep -E 'SHOP_UI_PARITY: [0-9]+ passed, 0 failed' merchant.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL shop-ui-parity:' merchant.log; then exit 1; fi

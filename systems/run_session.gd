@@ -630,18 +630,24 @@ func open_treasure(index: int = -1) -> bool:
 		world.pending_reward = {"id":visit_id,"kind":"mimic","index":index,"count":EncounterGenerator.mimic_count(world.contamination,world.laps+1)}
 		return persist_change(before)
 	var pool: Array = []
-	# Fixed web V2 roster only. Extra Godot species remain loadable from
-	# existing saves, but cannot appear as newly generated treasure rewards.
+	var unit_pool: Array = []
+	# New treasure rewards are strictly monster or dice cards; older pending
+	# transactions remain stored unchanged until claimed or discarded.
 	for slug in EncounterGenerator.eligible_roster(world.definitions):
-		pool.append({"kind":"unit","source":{"slug":slug,"name":world.definitions[slug].name}})
+		var candidate: Dictionary = {"kind":"unit","source":{"slug":slug,"name":world.definitions[slug].name}}
+		unit_pool.append(candidate)
+		pool.append(candidate)
 	for card in Catalog.dice_cards(): pool.append({"kind":"dice","source":card})
-	for i in range(3): pool.append({"kind":"brand","source":create_item("brand",{})})
 	for i in range(pool.size()-1,0,-1):
 		var j = world.rng.randi_range(0,i)
 		var swap = pool[i]
 		pool[i] = pool[j]
 		pool[j] = swap
-	world.pending_reward = {"id":visit_id,"kind":"treasure","offers":pool.slice(0,3),"selected":-1}
+	var offers: Array = pool.slice(0,3)
+	# Monster cards are the new growth material: every chest must offer one.
+	if not unit_pool.is_empty() and not offers.any(func(offer): return offer.kind=="unit"):
+		offers[world.rng.randi_range(0,offers.size()-1)] = unit_pool[world.rng.randi_range(0,unit_pool.size()-1)]
+	world.pending_reward = {"id":visit_id,"kind":"treasure","offers":offers,"selected":-1}
 	return persist_change(before)
 
 func select_treasure(index: int) -> bool:
@@ -925,6 +931,17 @@ func altar_ritual(index: int, donor_id: String, receiver_id: String) -> Dictiona
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"%s 강화 완료 · 공격력 +1 · 최대 체력 +2 · 강화 %d/3" % [receiver.name,receiver.altar_enhancements]}
 
+## Offer a different species of the donor's grade. Offering a monster is a
+## one-for-one trade, not a free new card or a change to its inherited brands.
+func shop_monster_offer(donor: Dictionary, used_slugs: Array) -> Dictionary:
+	var candidates: Array = EncounterGenerator.eligible_roster(world.definitions).filter(
+		func(slug): return str(slug)!=str(donor.slug) and str(world.definitions[slug].grade)==str(donor.grade) and not slug in used_slugs
+	)
+	if candidates.is_empty(): return {}
+	var choice: String = str(candidates[world.rng.randi_range(0,candidates.size()-1)])
+	used_slugs.append(choice)
+	return {"kind":"unit","item":create_item("unit",{"slug":choice})}
+
 func shop_offers(index: int, unit_id: String) -> Dictionary:
 	var allowed = place_allowed(index,"village")
 	if not allowed.ok: return allowed
@@ -933,17 +950,41 @@ func shop_offers(index: int, unit_id: String) -> Dictionary:
 		return {"ok":false,"reason":"마지막 마물은 교환할 수 없습니다."}
 	var visit = place_visit_id("shop",index)
 	if world.shop_trade.get("visit","")==visit and world.shop_trade.offers.has(unit_id):
-		return {"ok":true,"offers":world.shop_trade.offers[unit_id].duplicate(true)}
+		var cached: Array = world.shop_trade.offers[unit_id]
+		if not cached.any(func(offer): return str(offer.get("kind",""))=="brand"):
+			return {"ok":true,"offers":cached.duplicate(true)}
+		# A saved, not-yet-used shop offer from the former rules may include
+		# brand cards. Convert only those slots; keep dice offers and IDs intact.
+		var previous: Dictionary = world.snapshot().duplicate(true)
+		var revised: Array = cached.duplicate(true)
+		var used: Array = []
+		for offer in revised:
+			if str(offer.get("kind",""))=="unit": used.append(str(offer.item.slug))
+		for i in range(revised.size()):
+			if str(revised[i].get("kind",""))!="brand": continue
+			var replacement: Dictionary = shop_monster_offer(unit,used)
+			if replacement.is_empty():
+				world.restore(previous)
+				return {"ok":false,"reason":"교환할 마물 후보가 없습니다."}
+			revised[i] = replacement
+		world.shop_trade.offers[unit_id] = revised
+		if not persist_change(previous): return {"ok":false,"reason":notice}
+		return {"ok":true,"offers":revised.duplicate(true)}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	if world.shop_trade.get("visit","")!=visit: world.shop_trade={"visit":visit,"offers":{}}
 	var grade = str(unit.grade)
 	var count = 5 if grade=="hero" else (4 if grade=="advanced" else 3)
 	var pool = Catalog.dice_cards().filter(func(c): return grade=="hero" or (c.card_id!="echo" and (grade=="advanced" or c.card_id!="repeat")))
 	var offers: Array = []
+	var offered_slugs: Array = []
 	for i in range(count):
-		var brand = i%2==(0 if grade=="hero" else 1)
-		if brand:
-			offers.append({"kind":"brand","item":create_item("brand",{})})
+		var monster_slot: bool = i%2==(0 if grade=="hero" else 1)
+		if monster_slot:
+			var option: Dictionary = shop_monster_offer(unit,offered_slugs)
+			if option.is_empty():
+				world.restore(before)
+				return {"ok":false,"reason":"교환할 마물 후보가 없습니다."}
+			offers.append(option)
 		else:
 			var choice = world.rng.randi_range(0,pool.size()-1)
 			offers.append({"kind":"dice","item":create_item("dice",pool[choice])})
@@ -961,13 +1002,14 @@ func shop_trade(index: int, unit_id: String, offer_index: int) -> Dictionary:
 	if world.roster.size()<=1 or owned_unit(unit_id).is_empty() or offer_index<0 or offer_index>=offers.size():
 		return {"ok":false,"reason":"거래할 수 없는 편성입니다."}
 	var offer: Dictionary = offers[offer_index]
+	if not offer.kind in ["dice","unit"]: return {"ok":false,"reason":"현재 교환할 수 없는 카드입니다. 상품을 다시 선택하세요."}
 	if offer.kind=="dice" and world.dice_cards.size()>=Catalog.DICE_CAPACITY:
 		return {"ok":false,"reason":"주사위 카드 보관함이 가득 찼습니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var unit_name = owned_unit(unit_id).name
 	world.roster = world.roster.filter(func(u): return str(u.id)!=unit_id)
 	if offer.kind=="dice": world.dice_cards.append(offer.item.duplicate(true))
-	else: world.brand_cards.append(offer.item.duplicate(true))
+	else: world.roster.append(offer.item.duplicate(true))
 	world.shop_trade.offers.erase(unit_id)
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"%s ↔ %s 거래 완료" % [unit_name,Catalog.label(offer.kind,offer.item)]}

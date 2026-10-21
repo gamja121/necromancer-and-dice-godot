@@ -301,7 +301,7 @@ func restore(saved: Dictionary) -> bool:
 		for id in shop.offers:
 			if not shop.offers[id] is Array: return false
 			for offer in shop.offers[id]:
-				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand"] or not offer.get("item") is Dictionary: return false
+				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand","unit"] or not offer.get("item") is Dictionary: return false
 	var reward: Dictionary = saved.get("pending_reward",{})
 	if reward.get("kind","")=="routine":
 		var index: int = int(reward.get("index",-1))
@@ -403,6 +403,19 @@ func restore(saved: Dictionary) -> bool:
 	last_prophecy = saved.get("last_prophecy",{}).duplicate(true)
 	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
+	# Merchant monster cards are complete unit instances, kept inside the
+	# saved offer cache until chosen. Normalize their numeric stats and brand
+	# dice faces just like owned roster units so save/reload is lossless.
+	for choices in shop_trade.get("offers",{}).values():
+		for offer in choices:
+			if str(offer.get("kind",""))!="unit": continue
+			var candidate: Dictionary = offer.get("item",{})
+			for key in ["max_hp","attack","speed","current_hp","altar_enhancements"]:
+				if candidate.has(key): candidate[key] = int(candidate[key])
+			for brand in candidate.get("brands",[]):
+				if not brand is Dictionary: continue
+				if brand.get("bless",[]) is Array: brand.bless = brand.bless.map(func(n): return int(n))
+				if brand.get("curse",[]) is Array: brand.curse = brand.curse.map(func(n): return int(n))
 	patrol_plan = plan.duplicate(true)
 	# JSON loads quantity counters as floats (6.0 instead of 6).
 	# Normalize to durable integer tile counts, so equality and future
