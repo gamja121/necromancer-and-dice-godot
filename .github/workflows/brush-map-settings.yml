@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - ui/brush-map-settings-20261021
+      - fix/map-settings-target-touch-20261021
   workflow_dispatch:
 permissions:
   contents: read
