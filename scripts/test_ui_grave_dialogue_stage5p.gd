@@ -77,6 +77,7 @@ func _run() -> void:
 	check(button(map,"계속")!=null,"saved discovery opens first scene with explicit Continue")
 	check(map.overlay.get_node_or_null("StoryDialogueFrame")==null,"story discovery has no false child dialogue")
 	check(map.overlay.get_node_or_null("StoryCharacterLayer")==null,"ghoul never appears before canonical threat beat")
+	check(map.overlay.get_node_or_null("StorySplitSpeechFrame")==null,"first silent story beat displays narration without a dialogue box")
 	var snapshot: Dictionary=session.world.snapshot().duplicate(true)
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),"art initialization does not automatically begin battle")
 	var advance=button(map,"계속")
@@ -98,7 +99,8 @@ func _run() -> void:
 		# PanelEffectsModule moves all non-backdrop children by 6 px during
 		# the 200 ms entrance; compare settled coordinates, not mid-tween.
 		await create_timer(0.29).timeout
-		check(frame.position.distance_to(Vector2(205.0,516.0))<0.5 and frame.size.distance_to(Vector2(870.0,132.0))<0.5,"8%-margins/2%-bottom/30%-height settled updated safe footprint")
+		check(frame.position.distance_to(Vector2(758.0,164.0))<0.5 and frame.size.distance_to(Vector2(456.0,233.0))<0.5,"spoken graveyard story uses the split right-hand narration parchment")
+		check(panel.get_node_or_null("StorySplitSpeechFrame") is TextureRect,"child speech is visually separate below the narration")
 		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE,"visual-only dialogue frame cannot consume touch or mouse input")
 	var name=panel.get_node_or_null("StoryDialogueName") as Label
 	var words=panel.get_node_or_null("StoryDialogueText") as Label
