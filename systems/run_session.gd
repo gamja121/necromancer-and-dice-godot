@@ -1057,16 +1057,30 @@ func pray_world_tree(index: int) -> Dictionary:
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"face":face,"boss_appeared":boss_appeared,"reason":"%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ( "축복" if face>=4 else "실패"),delta,world.contamination]}
 
-func graveyard_choices(corpse_id: String) -> Array:
-	var choices: Array = []
-	for corpse in world.graveyard_corpses:
-		if str(corpse.id)!=corpse_id: continue
-		for i in range(corpse.brands.size()):
-			var brand: Dictionary = corpse.brands[i]
-			if BrandInheritance.validate(brand) and not brand.bless.is_empty():
-				choices.append({"index":i,"item":{"brand":{"type":brand.type,"bless":brand.bless.map(func(n): return int(n)),"curse":[]}}})
-	return choices
-
+## Grave digging rewards one random dice-control card, independently of
+## whether an allied monster has ever died. Keep the legacy receipt key so
+## a saved visit that already extracted a brand cannot be used twice.
+func dig_graveyard(index: int) -> Dictionary:
+	var allowed: Dictionary = place_allowed(index,"graveyard")
+	if not allowed.ok: return allowed
+	var visit: String = place_visit_id("grave-extract",index)
+	if visit in world.reward_receipts:
+		return {"ok":false,"reason":"이번 방문의 발굴은 완료했습니다."}
+	var pool: Array = Catalog.dice_cards()
+	if pool.is_empty(): return {"ok":false,"reason":"발굴 가능한 주사위 제어 카드가 없습니다."}
+	var before: Dictionary = world.snapshot().duplicate(true)
+	var definition: Dictionary = pool[world.rng.randi_range(0,pool.size()-1)]
+	var item: Dictionary = create_item("dice",definition)
+	if world.dice_cards.size() >= Catalog.DICE_CAPACITY:
+		# Commit the rolled card before showing the replace/refuse modal.
+		# Reload must resume the SAME find; it must never reroll or double pay.
+		world.pending_reward = {"kind":"grave-dig","id":visit,"index":index,"reward":{"kind":"dice","item":item}}
+		if not persist_change(before): return {"ok":false,"reason":notice}
+		return {"ok":true,"overflow":true,"item":item.duplicate(true),"reason":"%s 발굴 · 카드더미가 가득 찼습니다. 교체하거나 새 카드를 포기하세요." % str(item.label)}
+	world.dice_cards.append(item)
+	world.reward_receipts.append(visit)
+	if not persist_change(before): return {"ok":false,"reason":notice}
+	return {"ok":true,"overflow":false,"item":item.duplicate(true),"reason":"%s 발굴 성공 · 주사위 제어 카드 %d/%d" % [str(item.label),world.dice_cards.size(),Catalog.DICE_CAPACITY]}
 func extract_graveyard(index: int, corpse_id: String, brand_index: int) -> Dictionary:
 	var allowed = place_allowed(index,"graveyard")
 	if not allowed.ok: return allowed
