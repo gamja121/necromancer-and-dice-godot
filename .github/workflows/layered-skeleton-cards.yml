@@ -35,6 +35,31 @@ jobs:
           timeout 90s godot --headless --path . --script res://scripts/test_layered_unit_cards.gd 2>&1 | tee layers.log
           grep -E '^LAYERED_CARD_REGRESSION: 0 failures$' layers.log
           if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|FAIL layered-card:' layers.log; then exit 1; fi
+      - name: Verify actual decoration sizes at all screen card slots
+        run: |
+          set -euo pipefail
+          timeout 90s godot --headless --path . --script res://scripts/test_card_decoration_layout.gd 2>&1 | tee decorations.log
+          grep -E '^CARD_DECORATION_REGRESSION: [0-9]+ passed, 0 failed        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_battle_entry_summon.gd 2>&1 | tee handoff.log
+          grep -E '^BATTLE_ENTRY_SUMMON: [0-9]+ passed, 0 failed$' handoff.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL entry-summon:' handoff.log; then exit 1; fi
+      - name: Verify all monster cards retain their production art reference
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_p4_all_monster_presentation.gd 2>&1 | tee monsters.log
+          grep -F 'P4_ALL_MONSTER_PRESENTATION:' monsters.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|FAIL p4-all-monsters:' monsters.log; then exit 1; fi
+      - name: Verify real victory and card return into book
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --script res://scripts/test_p4_combat_map_return_integration.gd 2>&1 | tee combat-return.log
+          grep -F 'P4_COMBAT_MAP_RETURN_INTEGRATION:' combat-return.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|FAIL p4-combat:' combat-return.log; then exit 1; fi
+      - name: Verify intended diff
+        run: git diff --check
+ decorations.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|FAIL card-decoration:' decorations.log; then exit 1; fi
       - name: Check original selection and deck-to-battle transition
         run: |
           set -euo pipefail

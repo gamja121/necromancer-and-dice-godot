@@ -120,6 +120,14 @@ const WIDE_PORTRAITS := [
 	"minotaur", "spiderling",
 	"abyss-claw-hunter", "plague-frog", "siren",
 ]
+# All visible parchment cards keep one portrait ratio, even when UI slots differ.
+# The 136 x 218 approved book card is the reference; no hit target is resized.
+const CARD_ASPECT := 136.0 / 218.0
+const PORTRAIT_HEIGHT := 0.76
+const PORTRAIT_BASELINE := 0.65
+const PORTRAIT_WIDTH_NORMAL := 1.12
+const PORTRAIT_WIDTH_WIDE := 1.30
+static var _used_rect_cache: Dictionary = {}
 const BASE_NAME := "LayeredCardBase"
 const ACTOR_NAME := "LayeredCardCharacter"
 const BANNER_NAME := "LayeredCardRibbon"
@@ -164,7 +172,8 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	card.set_meta("layered_hover", false)
 	_art(card, BASE_NAME, load(background_path))
 	var actor := _art(card, ACTOR_NAME, load(PORTRAITS[slug]))
-	actor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# Exact source proportions are preserved by setting actor.size from texture size.
+	actor.stretch_mode = TextureRect.STRETCH_SCALE
 	_art(card, BANNER_NAME, load(NAMEPLATE))
 	var caption := Label.new()
 	caption.name = TEXT_NAME
@@ -186,6 +195,28 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	_apply_scale(card, false)
 	return true
 
+## Visible pixels, not source canvas margins, determine the silhouette scale.
+## Image.get_used_rect is executed once per approved texture; layout itself is cheap.
+static func _portrait_used_rect(texture: Texture2D) -> Rect2:
+	var key := texture.resource_path
+	if _used_rect_cache.has(key):
+		return _used_rect_cache[key]
+	var used := Rect2(Vector2.ZERO, texture.get_size())
+	var image := texture.get_image()
+	if image != null and not image.is_empty():
+		var alpha_rect := image.get_used_rect()
+		if alpha_rect.size.x > 0 and alpha_rect.size.y > 0:
+			used = Rect2(Vector2(alpha_rect.position), Vector2(alpha_rect.size))
+	_used_rect_cache[key] = used
+	return used
+
+static func visible_card_rect(slot_size: Vector2) -> Rect2:
+	if slot_size.x <= 0.0 or slot_size.y <= 0.0:
+		return Rect2(Vector2.ZERO, Vector2.ZERO)
+	var height := minf(slot_size.y, slot_size.x / CARD_ASPECT)
+	var extent := Vector2(height * CARD_ASPECT, height)
+	return Rect2((slot_size - extent) * 0.5, extent)
+
 static func relayout(card: TextureButton) -> void:
 	if not is_instance_valid(card):
 		return
@@ -195,20 +226,27 @@ static func relayout(card: TextureButton) -> void:
 	var caption := card.get_node_or_null(TEXT_NAME) as Label
 	if base == null or actor == null or ribbon == null or caption == null:
 		return
-	var source := base.texture.get_size()
-	var factor := minf(card.size.x / source.x, card.size.y / source.y)
-	var extent := source * factor
-	var rect := Rect2((card.size - extent) * 0.5, extent)
+	var rect := visible_card_rect(card.size)
+	var extent := rect.size
+	if extent.x <= 0.0 or extent.y <= 0.0:
+		return
+	# The base is paper artwork, not a gameplay sprite. Fit the same visible
+	# parchment rectangle at all slots without changing button hit boxes.
+	base.stretch_mode = TextureRect.STRETCH_SCALE
 	base.position = rect.position
 	base.size = extent
-	# Widen only the independent character: its top, spear and arrow can
-	# overlap the frame without stretching the background or bottom label.
 	var slug := str(card.get_meta("layered_slug", ""))
-	var wide := slug in WIDE_PORTRAITS
-	var portrait_width := 1.20 if wide else 1.13
-	var portrait_height := 0.76 if wide else 0.78
-	actor.position = rect.position + Vector2(-extent.x * (0.10 if wide else 0.07), -extent.y * 0.07)
-	actor.size = Vector2(extent.x * portrait_width, extent.y * portrait_height)
+	var used := _portrait_used_rect(actor.texture)
+	var source := actor.texture.get_size()
+	# Fit the *nontransparent* body to a shared height and ground line while
+	# retaining wide beasts' silhouettes. Never crop or stretch the portrait.
+	var allowed_width := extent.x * (PORTRAIT_WIDTH_WIDE if slug in WIDE_PORTRAITS else PORTRAIT_WIDTH_NORMAL)
+	var art_scale := minf(extent.y * PORTRAIT_HEIGHT / maxf(used.size.y, 1.0), allowed_width / maxf(used.size.x, 1.0))
+	var visible_size := used.size * art_scale
+	var visible_left := rect.position.x + (extent.x - visible_size.x) * 0.5
+	var visible_top := rect.position.y + extent.y * PORTRAIT_BASELINE - visible_size.y
+	actor.size = source * art_scale
+	actor.position = Vector2(visible_left, visible_top) - used.position * art_scale
 	actor.pivot_offset = actor.size * 0.5
 	ribbon.position = rect.position + Vector2(-extent.x * 0.055, extent.y * 0.592)
 	ribbon.size = Vector2(extent.x * 1.11, extent.y * 0.175)

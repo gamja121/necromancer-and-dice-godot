@@ -126,7 +126,20 @@ func _run() -> void:
 				var second := brands.get_child(1) as TextureRect
 				var third := brands.get_child(2) as TextureRect
 				check(first.texture is AtlasTexture and second.texture is AtlasTexture and third.texture is AtlasTexture, "brand icons use existing atlases")
-				check(_brand_positions_ok(brands, base, 3), "%s three brands centered with equal gaps and no overflow at %s" % [slug, dims])
+			# Compare actual displayed geometry, not just resized TextureRects.
+		var rect := Layered.visible_card_rect(dims)
+		check(absf(base.size.x / base.size.y - Layered.CARD_ASPECT) < 0.0001, "%s parchment ratio is canonical at %s" % [slug, dims])
+		check(base.position.distance_to(rect.position) < 0.03 and base.size.distance_to(rect.size) < 0.03, "%s parchment centered in slot at %s" % [slug, dims])
+		var alpha := actor.texture.get_image().get_used_rect()
+		if alpha.size.x > 0 and alpha.size.y > 0:
+			var px_scale := actor.size.x / actor.texture.get_size().x
+			var painted := Rect2(actor.position + Vector2(alpha.position) * px_scale, Vector2(alpha.size) * px_scale)
+			check(absf(painted.position.x + painted.size.x * 0.5 - (rect.position.x + rect.size.x * 0.5)) < 0.55, "%s real opaque body is horizontally centered at %s" % [slug, dims])
+			check(absf(painted.end.y - (rect.position.y + rect.size.y * Layered.PORTRAIT_BASELINE)) < 0.55, "%s body shares the same foot line at %s" % [slug, dims])
+			check(painted.size.y <= rect.size.y * Layered.PORTRAIT_HEIGHT + 0.55, "%s visible portrait fits card height at %s" % [slug, dims])
+			check(painted.size.x <= rect.size.x * Layered.PORTRAIT_WIDTH_WIDE + 0.55, "%s wide details keep their width budget at %s" % [slug, dims])
+		check(ribbon.position.y > base.position.y and ribbon.position.y < base.position.y + base.size.y, "%s title ribbon stays within parchment at %s" % [slug, dims])
+			check(_brand_positions_ok(brands, base, 3), "%s three brands centered with equal gaps and no overflow at %s" % [slug, dims])
 				var bg_extent := base.size
 				var previous_side := minf(bg_extent.x * 0.19, bg_extent.y * 0.098)
 				check(first.size.x >= previous_side * 1.10 and first.size.y >= previous_side * 1.10, "three centered brand icons remain readable on small cards")
@@ -164,7 +177,7 @@ func _run() -> void:
 			if base != null and actor != null and ribbon != null and title != null:
 				check(title.text == "검사 이름", "title is runtime text")
 				check(actor.mouse_filter == Control.MOUSE_FILTER_IGNORE and not card.clip_contents, "character protrusion and click passthrough")
-				check(actor.position.y < base.position.y, "actor extends above upper frame")
+				check(not card.clip_contents, "portrait can extend beyond upper frame without clipping")
 				check(ribbon.position.y > base.position.y and ribbon.position.y < base.position.y+base.size.y, "ribbon bridges image and info")
 				var old_width := actor.size.x
 				card.size = dims * 0.83
