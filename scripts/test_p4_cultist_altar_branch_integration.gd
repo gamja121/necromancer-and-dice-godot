@@ -38,6 +38,16 @@ func until_ready(predicate: Callable, limit_ms: int = 18000) -> bool:
 		await process_frame
 	return bool(predicate.call())
 
+## One real tap reveals the remaining narration; the next commits the action.
+## Old story builds have no typewriter, so they receive exactly one tap.
+func press_story_action(map: Control, control: Button) -> void:
+	if control==null: return
+	var panel: Control=map.overlay
+	var typewriter = panel.get_node_or_null("StoryTypewriter") if is_instance_valid(panel) else null
+	if typewriter != null and typewriter.is_revealing():
+		control.pressed.emit()
+	if is_instance_valid(control): control.pressed.emit()
+
 func panel_button(map: Control, caption: String) -> Button:
 	if not is_instance_valid(map.overlay): return null
 	for child in map.overlay.get_children():
@@ -60,12 +70,9 @@ func eligible_tile(world) -> int:
 			target = next_tile
 			break
 	if target<0: return -1
+	# The prerequisite uses the real discovery API to unlock this optional
+	# location; never manufacture a tile or pretend it exists at lap one.
 	var old_altar: int = world.tiles.find("altar")
-	if old_altar<0:
-		# Isolated storyline regression still tests original altar artwork and
-		# pass/fight buttons: synthesize ONE altar in this disposable test only.
-		old_altar=world.tiles.find("basic")
-		if old_altar>=0: world.tiles[old_altar]="altar"
 	if old_altar<0: return -1
 	if old_altar!=target:
 		var previous: String = str(world.tiles[target])
@@ -80,13 +87,13 @@ func fresh_altar(session: Node, tag: String) -> Dictionary:
 	session.save_file_path=path
 	session.start_new_world()
 	# Actual +7 home-exit generation at the requested contamination; never
-	# overwrite the only event/forest tile at the boss slot after generation.
+	# overwrite the available event tiles at the boss slot after generation.
 	session.world.contamination = 93
 	session.world.lap_ready = true
 	session.world.leave_home()
 	check(session.world.contamination==100 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss"
-		and session.world.tiles.has("event") and session.world.tiles.has("forest"),
-		tag+": test board preserves both narrative tile types")
+		and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
+		tag+": test board preserves both event tiles; forest awaits discovery")
 	var world=session.world
 	# Only canonical *already completed* prerequisite rumor; no free quest
 	# progress from this test and no modifications to live source logic.
@@ -94,8 +101,17 @@ func fresh_altar(session: Node, tag: String) -> Dictionary:
 	world.event_flags[RUMOR.SEEN_FLAG]=true
 	world.event_flags[RUMOR.COMPLETE_FLAG]=true
 	world.event_flags[RUMOR.TRACKING_FLAG]=true
+	var discovered_at: int=world.tiles.find("event")
+	world.position=discovered_at
+	var altar_discovery: Dictionary=session.discover_location_on_event(discovered_at,"altar")
+	check(bool(altar_discovery.get("ok",false)) and world.tiles.count("altar")==1,
+		tag+": normal event unlock transaction creates one original altar")
+	if not bool(altar_discovery.get("ok",false)): return {}
+	# A source-story integration fixture starts the next natural die from
+	# HOME. The discovery transaction itself correctly leaves us at EVENT.
+	world.position=STATE.HOME
 	var target: int=eligible_tile(world)
-	check(target>=0,tag+": original map has a repositionable altar tile")
+	check(target>=0,tag+": unlocked source map has a repositionable altar tile")
 	if target<0: return {}
 	check(session.save_world(),tag+": staged rumor prerequisite and altar approach saved")
 	var map: Control=MAP_SCENE.instantiate()
@@ -114,7 +130,7 @@ func enter_choice(map: Control, label: String) -> bool:
 		if advance==null:
 			check(false,label+": missing Continue at beat %d" % beat)
 			return false
-		advance.pressed.emit()
+		press_story_action(map,advance)
 		await process_frame
 	var buttons: bool=panel_button(map,"싸운다")!=null and panel_button(map,"지나간다")!=null
 	check(buttons,label+": 3 original illustrated beats reach both fight/pass buttons")
@@ -195,7 +211,7 @@ func verify_final(session: Node, map: Control, label: String, choice: String, re
 	var finish: Button=panel_button(map,"마치기")
 	check(finish!=null,label+": final narration has explicit Finish button")
 	if finish==null: return
-	finish.pressed.emit()
+	press_story_action(map,finish)
 	var state: Dictionary=session.get_story_event(ALTAR.EVENT_ID)
 	check(ALTAR.completed(session) and state.status=="complete" and state.choice==choice and state.battle_result==result,label+": finish atomically completes correct route")
 	check(session.event_flag_is_set(ALTAR.RITUAL_CONFIRMED_FLAG) and session.event_flag_is_set(ALTAR.RITUAL_TRACKING_FLAG) and not session.event_flag_is_set(ALTAR.TRACKING_FLAG),label+": ritual clues and new quest commit only on Finish")
@@ -205,7 +221,7 @@ func verify_final(session: Node, map: Control, label: String, choice: String, re
 	var source_state: Dictionary=session.world.snapshot().duplicate(true)
 	check(ALTAR.finish(session,session.world.position) and session.world.snapshot()==source_state,label+": second Finish idempotent")
 	# The altar's ordinary location actions remain usable after closing plot.
-	check(panel_button(map,"나가기")!=null,label+": original altar location panel remains after plot")
+	check(panel_button(map,"맵으로 나가기")!=null,label+": original altar location panel remains after plot")
 	for i in range(4): await process_frame
 	map.queue_free()
 	await process_frame
@@ -220,13 +236,13 @@ func scenario_pass(session: Node) -> void:
 	if not await enter_choice(map,"pass"): return
 	var original_units: Array=session.world.roster.duplicate(true)
 	var receipts: Array=session.world.reward_receipts.duplicate(true)
-	panel_button(map,"지나간다").pressed.emit()
+	press_story_action(map,panel_button(map,"지나간다"))
 	check(session.get_story_event(ALTAR.EVENT_ID).choice=="pass" and ALTAR.followup_ready(session,session.world.position),"pass: actual button saves pass and opens follow-up")
 	check(panel_button(map,"마치기")!=null and panel_button(map,"선택 변경")!=null,"pass: Finish and deliberate Change buttons available")
 	check(session.encounter.is_empty() and not session.event_flag_is_set(ALTAR.COMPLETE_FLAG),"pass: no battle and no instant completion")
-	panel_button(map,"선택 변경").pressed.emit()
+	press_story_action(map,panel_button(map,"선택 변경"))
 	check(panel_button(map,"싸운다")!=null and panel_button(map,"지나간다")!=null and session.get_story_event(ALTAR.EVENT_ID).choice=="","pass: reversible choice returns to same original beat")
-	panel_button(map,"지나간다").pressed.emit()
+	press_story_action(map,panel_button(map,"지나간다"))
 	check(ALTAR.followup_ready(session,session.world.position),"pass: second deliberate pass recreates one follow-up")
 	# Close/reopen with the choice committed but quest still unfinished.
 	for i in range(3): await process_frame
@@ -247,7 +263,7 @@ func begin_fight(session: Node, tag: String) -> Dictionary:
 	if entry.is_empty(): return {}
 	var map: Control=entry.map
 	if not await enter_choice(map,tag): return {}
-	panel_button(map,"싸운다").pressed.emit()
+	press_story_action(map,panel_button(map,"싸운다"))
 	check(session.get_story_event(ALTAR.EVENT_ID).status=="active" and session.get_story_event(ALTAR.EVENT_ID).choice=="fight",tag+": fight choice saved but battle not yet resolved")
 	check(not session.event_flag_is_set(ALTAR.RITUAL_TRACKING_FLAG),tag+": intent alone cannot advance next quest")
 	var started: bool=await until_ready(func(): return is_deck(map),8000)
@@ -264,7 +280,7 @@ func acknowledge_to_followup(session: Node, map: Control, label: String, expecte
 	var confirm: Button=panel_button(map,"흔적 확인")
 	check(confirm!=null,label+": actual story result confirmation button present")
 	if confirm==null: return false
-	confirm.pressed.emit()
+	press_story_action(map,confirm)
 	check(not session.story_battle_result_pending(ALTAR.EVENT_ID),label+": player button acknowledges battle result once")
 	var ready: bool=await until_ready(func(): return panel_button(map,"마치기")!=null,10000)
 	check(ready,label+": original aftermath narration appears after acknowledgement")

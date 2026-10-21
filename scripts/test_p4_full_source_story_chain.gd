@@ -84,13 +84,14 @@ func fresh_world(session: Node, tag: String) -> void:
 	# story branch fixture from the genuine home-shuffled second board.
 	# Generate the *first completed-lap board* with the target contamination
 	# already applied. Revealing the boss AFTER generation would overwrite a
-	# random slot 23, possibly deleting the ONLY event or forest story tile.
+	# random slot 23. Forest is discovered later by its actual event, and
+	# the source ritual story can be reached through a canonical event tile.
 	# Enter with 73 so the authentic +7 home-exit transition reaches 80.
 	session.world.contamination = 73
 	session.world.lap_ready=true
 	session.world.leave_home()
-	check(session.world.contamination==80 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss" and session.world.tiles.has("event") and session.world.tiles.has("forest"),
-		tag+": contaminated lap generated boss while preserving event and forest story tiles")
+	check(session.world.contamination==80 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss" and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
+		tag+": contaminated lap has boss and both authentic events, forest remains story-locked")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		tag+": first home exit unlocks cemetery without pre-filling story flags")
 	var ids: Array=[CHILD.EVENT_ID,VILLAGE.RESCUED_ID,VILLAGE.ABANDONED_ID,COMMANDER.EVENT_ID,HUNTER.EVENT_ID,CULTIST.EVENT_ID,ALTAR.EVENT_ID,PORTAL.EVENT_ID,HUNT.EVENT_ID]
@@ -115,9 +116,9 @@ func prepare_dice_target(session: Node, kind: String, label: String) -> int:
 			break
 	if candidate<0: return -1
 	var source_index: int=world.tiles.find(kind)
-	# World tree and altar are intentionally absent from this progression
-	# stage; their story branches are still reachable through event tiles.
-	if source_index<0 and kind in ["unknown","altar"]:
+	# Optional forest, world tree and altar stones are still locked on this
+	# synthetic one-lap board. Production permits their story at event tiles.
+	if source_index<0 and kind in ["forest","unknown","altar"]:
 		source_index=world.tiles.find("event")
 	if source_index<0: return -1
 	if source_index!=candidate:

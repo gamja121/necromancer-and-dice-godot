@@ -67,7 +67,12 @@ func start_from_title(session: Node) -> Control:
 	var advance: Button = intro.get("advance_button")
 	check(lines.size()==12 and advance!=null,"all 12 original dialogue beats and click target exist")
 	if advance==null: return null
-	for i in range(lines.size()): advance.pressed.emit()
+	for i in range(lines.size()):
+		advance.pressed.emit()
+		check(intro.get("line_index")==i,"intro beat %d entered in order" % i)
+		advance.pressed.emit()
+		check(intro.get("line_index")==i and intro.text_label.visible_characters == -1,
+			"intro beat %d fully reveals before advancing" % i)
 	check(intro.get("line_index")==11,"intro advanced through all 12 dialogue beats")
 	intro.set("ending_duration",0.1)
 	advance.pressed.emit()

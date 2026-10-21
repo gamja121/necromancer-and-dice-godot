@@ -59,8 +59,33 @@ func fixture(tag: String, tile: String="forest"):
 	check(Altar.choose(s,altar_index,2,"pass"),"altar pass chosen")
 	check(Altar.finish(s,altar_index),"previous altar completed by actual final confirmation")
 	check(Altar.completed(s),"source altar completed predicate true")
-	s.world.position=s.world.tiles.find(tile)
-	check(s.world.position>=0,"eligible forest/event tile exists")
+	# First-lap boards intentionally have no forest; the hill is an optional
+	# event discovery. Unlock it using the production transaction, never by
+	# rewriting the board or pretending that an unlock flag is present.
+	if tile=="forest":
+		var event_index: int=s.world.tiles.find("event")
+		check(event_index>=0,"genuine event tile exists before forest discovery")
+		if event_index>=0:
+			s.world.position=event_index
+			var forest_discovery: Dictionary=s.discover_location_on_event(event_index,"forest")
+			check(bool(forest_discovery.get("ok",false)) and s.world.tiles.count("forest")==1,
+				"actual event discovery unlocks one forest tile with a saved receipt")
+	var destination: int=s.world.tiles.find(tile)
+	if tile=="forest" and destination<0:
+		# Forest is optional on current boards. Unlock it with the normal
+		# event discovery transaction instead of fabricating a story tile.
+		var discovery_event: int=s.world.tiles.find("event")
+		check(discovery_event>=0,"real event tile available for forest discovery")
+		if discovery_event>=0:
+			s.world.position=discovery_event
+			var unlocked: Dictionary=s.discover_location_on_event(discovery_event,"forest")
+			check(bool(unlocked.get("ok",false)) and s.world.tiles.count("forest")==1,
+				"real discovery transaction unlocks first forest")
+			if bool(unlocked.get("ok",false)):
+				destination=s.world.tiles.find("forest")
+	if destination>=0:
+		s.world.position=destination
+	check(destination>=0,"eligible forest/event tile exists")
 	check(s.save_world(),"new location arrival saved")
 	return s
 

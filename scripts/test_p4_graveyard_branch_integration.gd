@@ -36,6 +36,16 @@ func until_ready(predicate: Callable, limit_ms: int = 18000) -> bool:
 		await process_frame
 	return bool(predicate.call())
 
+## One real tap reveals the remaining narration; the next commits the action.
+## Old story builds have no typewriter, so they receive exactly one tap.
+func press_story_action(map: Control, control: Button) -> void:
+	if control==null: return
+	var panel: Control=map.overlay
+	var typewriter = panel.get_node_or_null("StoryTypewriter") if is_instance_valid(panel) else null
+	if typewriter != null and typewriter.is_revealing():
+		control.pressed.emit()
+	if is_instance_valid(control): control.pressed.emit()
+
 func panel_button(map: Control, button_text: String) -> Button:
 	if not is_instance_valid(map.overlay): return null
 	for child in map.overlay.get_children():
@@ -79,8 +89,8 @@ func prepare_run(session: Node, label: String) -> Dictionary:
 	session.world.lap_ready=true
 	session.world.leave_home()
 	check(session.world.contamination==100 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss"
-		and session.world.tiles.has("event") and session.world.tiles.has("forest"),
-		label+": boss generation preserves event and forest narrative tiles")
+		and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
+		label+": boss generation preserves two event stones; optional forest remains locked")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		label+": post-first-lap fixture contains exactly one graveyard")
 	var target: int = prepare_graveyard_landing(session)
@@ -103,7 +113,7 @@ func reach_choice(map: Control, label: String) -> bool:
 		if advance==null:
 			check(false,label+": missing Continue before beat %d" % beat)
 			return false
-		advance.pressed.emit()
+		press_story_action(map,advance)
 		await process_frame
 	var choice: bool = panel_button(map,"아이를 구한다")!=null and panel_button(map,"지나친다")!=null
 	check(choice,label+": four-beat scene exposes both actual choice buttons")
@@ -185,7 +195,7 @@ func scenario_leave(session: Node) -> void:
 		return
 	var roster: Array = session.world.roster.duplicate(true)
 	var receipts: Array = session.world.reward_receipts.duplicate(true)
-	panel_button(map,"지나친다").pressed.emit()
+	press_story_action(map,panel_button(map,"지나친다"))
 	var done: bool = await until_ready(func(): return session.get_story_event(STORY.EVENT_ID).status=="complete" and not is_instance_valid(map.overlay),12000)
 	check(done,"leave: button finishes child scene without battle")
 	var state: Dictionary = session.get_story_event(STORY.EVENT_ID)
@@ -210,7 +220,7 @@ func start_rescue(session: Node, label: String) -> Dictionary:
 	if entry.is_empty(): return {}
 	var map: Control = entry.map
 	if not await reach_choice(map,label): return {}
-	panel_button(map,"아이를 구한다").pressed.emit()
+	press_story_action(map,panel_button(map,"아이를 구한다"))
 	check(session.get_story_event(STORY.EVENT_ID).status=="active" and session.get_story_event(STORY.EVENT_ID).choice=="protect_child",label+": rescue selection persisted without premature success")
 	check(is_battle_deck(map),label+": rescue choice opens real deck immediately")
 	return entry
@@ -236,7 +246,7 @@ func scenario_win(session: Node) -> void:
 	var restored: bool = await until_ready(func(): return panel_button(map,"맵으로")!=null)
 	check(restored,"win: unacknowledged result UI reappears after process-style reload")
 	if restored:
-		panel_button(map,"맵으로").pressed.emit()
+		press_story_action(map,panel_button(map,"맵으로"))
 		check(not session.story_battle_result_pending(STORY.EVENT_ID),"win: actual result button acknowledges exactly once")
 		check(not session.acknowledge_graveyard_battle_result(),"win: repeated acknowledgement rejected")
 	# Confirmation re-renders the board, which creates an AudioSettings node
