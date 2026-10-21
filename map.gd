@@ -1162,8 +1162,8 @@ func animate_reward_to_inventory(kind: String, source: TextureButton) -> void:
 		flyer.position = stage.get_global_transform_with_canvas().affine_inverse() * (source.get_global_transform_with_canvas() * Vector2.ZERO)
 	else:
 		flyer = image(stage,source.texture_normal.resource_path,source.global_position,source.size)
-		# Ordinary unlayered reward cards keep their old decoration path.
-		for overlay_name in ["BrandFrameOverlay","AltarUpgradeBadge"]:
+		# Ordinary unlayered reward cards keep their altar enhancement badge.
+		for overlay_name in ["AltarUpgradeBadge"]:
 			var overlay = source.get_node_or_null(overlay_name)
 			if overlay is TextureRect:
 				var copy: TextureRect = overlay.duplicate()
