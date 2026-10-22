@@ -13,7 +13,7 @@ const HOME = 15
 const BOSS_CONTAMINATION = 80
 const LAP_CONTAMINATION_GAIN = 7
 # Swamp growth: 15 -> 1 tile, 30 -> 2 tiles (maximum).
-# Boss spawn follows the agreed contamination-80 rule; extra monsters at 40/80 remain unchanged.
+# Tier bosses spawn once at 20/40/60, then the acknowledged-story dragon at 80; extra monsters at 40/80 unchanged.
 const FIRST_SWAMP_CONTAMINATION = 15
 const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
