@@ -10,6 +10,8 @@ on:
       - "systems/encounter_generator.gd"
       - "map.gd"
       - "scripts/test_staged_boss_choices.gd"
+      - "scripts/test_staged_boss_choice_ui.gd"
+      - "scripts/test_p4_full_source_story_chain.gd"
       - "scripts/test_map_shuffle_boss_threshold.gd"
       - "scripts/test_final_dragon_boss_stats.gd"
       - "scripts/test_web_unit_catalog_parity.gd"
@@ -20,7 +22,7 @@ permissions:
 jobs:
   stage-bosses:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: chickensoft-games/setup-godot@v2
@@ -40,6 +42,20 @@ jobs:
           timeout 170s godot --headless --path . --script res://scripts/test_staged_boss_choices.gd 2>&1 | tee stage.log
           grep -E 'STAGED_BOSS_CHOICES: [0-9]+ passed, 0 failed' stage.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL staged-boss:' stage.log; then exit 1; fi
+      - name: Real map three-option boss choice UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_staged_boss_choice_ui.gd 2>&1 | tee boss-ui.log
+          grep -E 'STAGED_BOSS_UI: [0-9]+ passed, 0 failed' boss-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL boss-ui:' boss-ui.log; then exit 1; fi
+      - name: Real full final-story chain stays playable
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 450s godot --headless --path . --script res://scripts/test_p4_full_source_story_chain.gd 2>&1 | tee story.log
+          grep -E 'P4_FULL_SOURCE_STORY_CHAIN: [0-9]+ passed, 0 failed' story.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-' story.log; then exit 1; fi
       - name: Final dragon existing stats and passives
         shell: bash
         run: |
