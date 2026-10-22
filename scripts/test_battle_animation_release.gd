@@ -33,8 +33,8 @@ func _run() -> void:
 	var fixed := 0
 	for slug in layout.metrics:
 		var p: Dictionary=layout.metrics[slug]
-		if p.get("rigid_idle",false): fixed+=1
-	check(fixed==43,"all43 remastered units preserve their drawn proportions")
+		if slug!="dragon" and p.get("rigid_idle",false): fixed+=1
+	check(fixed==43 and bool(layout.metrics.get("dragon",{}).get("rigid_idle",false)),"original43 remastered units plus separate dragon preserve their drawn proportions")
 	var cases := 0
 	for surface in [Vector2(1280,530),Vector2(1280,720),Vector2(1920,1080)]:
 		for team in ["ally","enemy"]:
