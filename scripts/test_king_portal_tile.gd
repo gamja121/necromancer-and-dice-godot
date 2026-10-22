@@ -190,6 +190,52 @@ func final_boss_warp(side: String) -> void:
 	check(s.world.event_flags.get(Encounter.ENDING_ACK,false)==true and not Encounter.ending_pending(s.world),"final victory receipt survives reload")
 	s.free()
 
+func final_boss_defeat() -> void:
+	var s=fixture("dragon_lost")
+	var at: int=s.world.position
+	check(Portal.decline_intervention(s,at,4),"loss fixture ritual is deliberately allowed")
+	check(Hunt.begin(s,at),"loss fixture final hunt begins")
+	for i in range(3): check(Hunt.advance(s,at,i),"loss fixture hunt stage")
+	check(Hunt.finish(s,at),"loss fixture hunt ends")
+	check(Hunt.acknowledge_completion(s,at),"loss fixture final acknowledgment")
+	var target: int=KingTile.target(s.world)
+	s.world.position=target
+	check(s.save_world(),"loss fixture reaches painted warp")
+	check(Encounter.begin(s,target),"loss fixture king face-to-face")
+	check(Encounter.advance(s,target,0),"loss fixture second beat")
+	check(Encounter.advance(s,target,1),"loss fixture third beat")
+	check(Encounter.acknowledge(s,target),"loss fixture combat enabled")
+	check(s.start_encounter(target,[s.world.roster[0].id]),"loss fixture real dragon combat")
+	check(s.finish_encounter(BattleResult.new("enemy")),"actual final boss combat lost")
+	check(not s.world.run_result.is_empty(),"dragon loss still permanently ends expedition")
+	check(not Encounter.ending_pending(s.world) and s.world.event_flags.get(Encounter.WON,false)!=true,"defeat does not forge victory/ending")
+	s.reload_world()
+	check(not s.world.run_result.is_empty(),"dragon defeat persists after restart")
+	s.free()
+
+func legacy_fixed_boss_upgrade() -> void:
+	var s=fixture("legacy_slot")
+	var at: int=s.world.position
+	check(Portal.decline_intervention(s,at,4),"old slot fixture has a complete ritual")
+	check(Hunt.begin(s,at),"old slot fixture enters hunt")
+	for i in range(3): check(Hunt.advance(s,at,i),"old slot fixture hunt beat")
+	check(Hunt.finish(s,at),"old slot fixture completes hunt")
+	check(Hunt.acknowledge_completion(s,at),"old slot fixture has complete final quest")
+	for key in s.world.event_flags.keys():
+		if str(key)=="visual:ritual_portal:king_warp_active" or str(key).begins_with("visual:ritual_portal:king_warp_index:"):
+			s.world.event_flags.erase(key)
+	# Simulate a genuine v1 pre-migration board: last boss in stone 23.
+	s.world.generate()
+	check(s.world.tiles[23]=="boss" and s.world.tiles.count("warp")==2,"historical saved board has a fixed boss plus two valid warps")
+	var old_position: int=s.world.position
+	var old_state: int=s.world.rng.state
+	check(s.save_world(),"old v1 boss board persisted")
+	s.reload_world()
+	check(KingTile.target(s.world)>=0 and s.world.tiles[23]!="boss","old unlocked boss relocates to a different warp")
+	check(s.world.position==old_position and s.world.rng.state==old_state,"old save upgrade preserves hero/RNG")
+	check(s.world.tiles.count("warp")==2 and s.world.tiles.size()==24,"old save retains 24 slots and both warps")
+	s.free()
+
 func battle_outcome(side: String) -> void:
 	var s=fixture(side)
 	var at: int=s.world.position
@@ -216,6 +262,8 @@ func _run() -> void:
 	subsequent_hunt_after_refusal()
 	final_boss_warp("ally")
 	final_boss_warp("allow")
+	final_boss_defeat()
+	legacy_fixed_boss_upgrade()
 	battle_outcome("ally")
 	battle_outcome("enemy")
 	for p in paths: cleanup(p)
