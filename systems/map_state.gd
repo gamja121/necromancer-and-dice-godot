@@ -4,6 +4,7 @@ const RoutePlan = preload("res://systems/route_plan.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
@@ -96,7 +97,7 @@ static func required_swamp_count(level: int) -> int:
 ## Two independent prerequisites: current corruption 80 and a genuinely
 ## completed, acknowledged final king-hunt scene. This never depends on lap.
 func boss_available() -> bool:
-	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self)
+	return not FinalDragonProgress.cleared(self) and contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self)
 
 func generate() -> void:
 	map_serial += 1
@@ -280,7 +281,8 @@ func restore(saved: Dictionary) -> bool:
 	if int(saved.get("enemies_defeated",0))<0: return false
 	var terminal: Dictionary = saved.get("run_result",{})
 	if not terminal.is_empty():
-		if terminal.get("reason","")!="battle_defeat" or terminal.get("ended",false)!=true: return false
+		if terminal.get("reason","") not in ["battle_defeat",FinalDragonProgress.REASON] or terminal.get("ended",false)!=true: return false
+		if not FinalDragonProgress.valid_record(saved): return false
 		for value in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			if not terminal.has(value) or int(terminal[value])<0: return false
 	var stored_flags: Dictionary = saved.get("event_flags",{})
