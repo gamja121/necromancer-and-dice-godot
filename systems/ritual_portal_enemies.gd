@@ -1,7 +1,8 @@
 extends RefCounted
 ## Original ritualPortalEnemySlugs: four distinct normal/advanced/hero
 ## enemies; first is hero if available, otherwise advanced.
-const FALLBACK = ["death-knight","doom-executor","plague-doctor","hydra"]
+const BossStages = preload("res://systems/boss_stage_catalog.gd")
+const FALLBACK = ["soul-reaper","doom-executor","plague-doctor","grave-worm"]
 
 static func select(definitions: Dictionary, rng: RandomNumberGenerator) -> Array:
 	if rng==null: return []
@@ -10,7 +11,7 @@ static func select(definitions: Dictionary, rng: RandomNumberGenerator) -> Array
 	var advanced: Array=[]
 	for slug in definitions:
 		var grade: String=str(definitions[slug].get("grade",""))
-		if grade not in ["normal","advanced","hero"]: continue
+		if grade not in ["normal","advanced","hero"] or slug in BossStages.reserved_slugs(): continue
 		eligible.append(str(slug))
 		if grade=="hero": heroes.append(str(slug))
 		elif grade=="advanced": advanced.append(str(slug))
