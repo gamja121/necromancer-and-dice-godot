@@ -57,6 +57,29 @@ func verify_once_and_select(session: Node, stage: int, last_slug: String = "") -
 	check(session.world.boss_stage()!=stage,"stage %d immediately becomes unavailable" % stage)
 	return name
 
+func verify_legacy_dragon_save(session: Node) -> void:
+	session.start_new_world()
+	var world=session.world
+	world.contamination=80
+	FinalStory.seed_completed_final_hunt(world)
+	world.boss_progress.defeated=[20,40]
+	world.generate()
+	world.position=23
+	check(session.start_encounter(23,world.roster.map(func(unit): return str(unit.id))),"legacy fixture creates final dragon fight")
+	world.active_encounter.erase("boss_stage")
+	check(session.save_world(),"save an old final encounter without a boss stage")
+	session.reload_world()
+	check(session.encounter.get("type","")=="boss" and int(session.encounter.get("boss_stage",0))==80,"old in-progress dragon fight resumes at stage80")
+	check(session.world.boss_progress.defeated==[20,40] and session.world.boss_stage()==80,"older final encounter never regresses to stage20")
+	session.world.active_encounter={}
+	session.encounter={}
+	session.world.pending_reward={"kind":"capture","corpses":[{"slug":"dragon","id":"old-dead-dragon"}]}
+	check(session.save_world(),"simulate historical already-defeated dragon capture save")
+	session.world.boss_progress.defeated=[]
+	check(session.save_world(),"store historical capture without stage records")
+	session.reload_world()
+	check(session.world.boss_progress.defeated==[20,40,80] and session.world.boss_stage()==0,"legacy dead dragon capture never respawns any boss")
+
 func _run() -> void:
 	var sess=root.get_node_or_null("RunSession")
 	var created: bool=sess==null
@@ -120,6 +143,7 @@ func _run() -> void:
 	w=sess.world
 	check(w.boss_progress.defeated.size()==3 and w.tiles[23]!="boss","all boss clear flags survive process save/load")
 	check(w.boss_selected(20)==first and w.boss_selected(40)==second,"two chosen boss identities saved after reload")
+	verify_legacy_dragon_save(sess)
 	sess.save_file_path=previous
 	if created: sess.queue_free()
 	for suffix in ["",".tmp"]:
