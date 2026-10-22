@@ -10,6 +10,7 @@ on:
       - "systems/battle_deck.gd"
       - "systems/unit_info.gd"
       - "scripts/test_monster_nickname.gd"
+      - "scripts/test_ui_dice_fan_unit_info_parity.gd"
       - ".github/workflows/monster-nickname.yml"
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - "systems/battle_deck.gd"
       - "systems/unit_info.gd"
       - "scripts/test_monster_nickname.gd"
+      - "scripts/test_ui_dice_fan_unit_info_parity.gd"
       - ".github/workflows/monster-nickname.yml"
   workflow_dispatch:
 

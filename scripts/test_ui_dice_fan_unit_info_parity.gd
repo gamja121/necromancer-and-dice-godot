@@ -88,7 +88,11 @@ func _run() -> void:
 	var closed: Array[bool]=[]
 	panel.closed.connect(func(): closed.append(true))
 	panel.close()
-	await process_frame
+	# Production UnitInfo.close() finishes its depth exit after 0.14s.
+	# Wait for the real signal, not just a single render frame.
+	var closing_deadline := Time.get_ticks_msec()+1300
+	while closed.is_empty() and Time.get_ticks_msec()<closing_deadline:
+		await process_frame
 	check(closed.size()==1,"unit info close signal delivered")
 	print("UI_DICE_FAN_UNIT_INFO_PARITY: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
