@@ -1,5 +1,6 @@
 extends RefCounted
 const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 ## P1-05K-5: fifth source scene and atomic king-hunt completion.
 ## The actual king boss encounter remains a separate implementation.
 const Portal = preload("res://systems/ritual_portal_entry.gd")
@@ -139,4 +140,10 @@ static func acknowledge_completion(session, index: int) -> bool:
 	if w.event_flags.get(FINAL_SCENE_ACK_FLAG,false)==true: return true
 	var before: Dictionary=w.snapshot().duplicate(true)
 	w.event_flags[FINAL_SCENE_ACK_FLAG]=true
+	# Both weakened and complete revival lead to the SAME final location.
+	# If blocking succeeded, this is when the dormant warp wakes; if the
+	# ritual was allowed, reuse its already-painted warp unchanged.
+	if not KingPortalTile.activate(w):
+		w.restore(before)
+		return false
 	return session.persist_change(before)
