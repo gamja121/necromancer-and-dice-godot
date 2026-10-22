@@ -71,6 +71,9 @@ const InventoryPanel = preload("res://systems/inventory_panel.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
 const BrushSettingsArt = preload("res://systems/brush_map_settings_art.gd")
 const Battlefield = preload("res://battlefield.tscn")
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
+const FinalDragonDieLayout = preload("res://systems/final_dragon_die_layout.gd")
+const FinalChapterScreen = preload("res://systems/final_chapter_screen.gd")
 const GameOverScreen = preload("res://systems/game_over_screen.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
@@ -95,7 +98,11 @@ const DIE_FOREGROUND_Z = 96
 const DIE_BEHIND_LOCATION_Z = 20
 var shared_die_busy: bool = false
 var game_over_screen: Control
+var final_chapter_screen: Control
 var status: Label
+
+func final_dragon_die_exclusion() -> Rect2:
+	return FinalDragonDieLayout.exclusion(embedded_battle,stage)
 
 func shared_dice_position() -> Vector2:
 	var stored := Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
@@ -114,6 +121,7 @@ func remember_shared_die() -> void:
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		wall = presentation.gauge.dice_wall_rect()
 	var safe: Vector2 = dice_animation.safe_rest_position(dice.position,dice.size,SHARED_DIE_AREA,wall)
+	safe = FinalDragonDieLayout.rest_position(safe,dice.size,SHARED_DIE_AREA,final_dragon_die_exclusion())
 	var stopped := Vector2(roundf(safe.x),roundf(safe.y))
 	dice.position = stopped
 	var final_angle: int = roundi(dice.rotation_degrees)
@@ -133,6 +141,8 @@ func roll_shared_die(face: int, battle_area: bool = false) -> void:
 	var wall: Rect2 = Rect2()
 	if not battle_area and not is_instance_valid(overlay) and is_instance_valid(presentation.gauge):
 		wall = presentation.gauge.dice_wall_rect()
+	var dragon_wall: Rect2 = final_dragon_die_exclusion()
+	if dragon_wall.has_area(): wall = dragon_wall
 	await dice_animation.roll_map(dice,face,SHARED_DIE_AREA,texture,sound,wall)
 	world.dice_visual_face = clampi(face,1,6)
 	remember_shared_die()
@@ -149,7 +159,7 @@ func refresh_shared_die_input() -> void:
 		dice.disabled = embedded_battle.busy or (not is_instance_valid(embedded_battle.capture_panel) and not embedded_battle.rules.winner().is_empty())
 		return
 	if not is_instance_valid(overlay):
-		dice.disabled = false
+		dice.disabled = not world.run_result.is_empty()
 		return
 	if overlay is ExplorationActions and overlay.type=="unknown":
 		var prayer_used: bool = session.place_visit_id("purify",overlay.index) in session.world.reward_receipts
@@ -261,15 +271,17 @@ func _ready() -> void:
 		session.notice = ""
 	if world.roster.is_empty(): status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
 	session.save_world()
-	if not world.run_result.is_empty():
+	if world.run_result.get("reason","")=="battle_defeat":
 		call_deferred("show_game_over",true)
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
+	elif FinalDragonProgress.cleared(world): call_deferred("show_final_ending",true)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
+	elif world.tiles[world.position]=="boss" and not world.position in world.cleared: call_deferred("show_tile",world.position)
 	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
@@ -974,6 +986,7 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 		if after.is_valid(): after.call())
 
 func show_tile(index: int, actual_landing: bool = false) -> void:
+	if not world.run_result.is_empty(): return
 	var type: String = world.tiles[index]
 	# Dispatch the earliest available story before generic location actions.
 	# can_enter blocks previewing other tiles and saves on an actual landing.
@@ -1057,6 +1070,9 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 	if type=="basic": return
 	if type=="home":
 		show_home()
+		return
+	if type=="boss" and not index in world.cleared and index!=world.position:
+		status.text = "최후의 드래곤 · 보스 타일에 도착하면 마지막 장이 열립니다."
 		return
 	if type in ["monster","rare-monster","boss"] and not index in world.cleared:
 		show_battle_deck(index)
@@ -1240,6 +1256,10 @@ func confirm_new_run() -> void:
 
 
 func show_battle_deck(index: int, story_event_id: String = "") -> void:
+	if not world.run_result.is_empty(): return
+	if story_event_id.is_empty() and world.tiles[index]=="boss" and not world.event_flags.get(FinalDragonProgress.INTRO_SEEN,false):
+		show_final_dragon_intro(index)
+		return
 	if world.roster.is_empty():
 		status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
 		return
@@ -1314,6 +1334,9 @@ func open_embedded_battle(animate_lock: bool = true, transfer_cards: Dictionary 
 	embedded_battle = battle
 	battle.finished.connect(finish_embedded_battle)
 	viewport.add_child(battle)
+	# The same die was hidden by the deck. Place it outside the giant sprite
+	# before the first battlefield draw; preserve pip, rotation and RNG.
+	dice.position = FinalDragonDieLayout.rest_position(dice.position,dice.size,SHARED_DIE_AREA,final_dragon_die_exclusion())
 	if not transfer_cards.is_empty():
 		# Hide real combat cards BEFORE first draw, avoiding a one-frame
 		# duplicate underneath the incoming cards.
@@ -1386,10 +1409,40 @@ func _fly_selected_cards_to_battle(battle: Control, selected: Dictionary) -> voi
 		battle.entry_card_transfer_pending=false
 		battle.entry_cards_landed.emit()
 
-# The defeated expedition is committed in the same save as the battle loss.
-# An archived defeat must never resume normal map interactions.
+# Present the preserved book before committing a real final encounter.
+func show_final_dragon_intro(index: int) -> void:
+	if index!=world.position or not world.boss_available(): return
+	if is_instance_valid(overlay): close_overlay()
+	var book := FinalChapterScreen.new()
+	stage.add_child(book)
+	overlay = book
+	map_music.stream_paused = true
+	book.show_intro()
+	book.battle_requested.connect(func():
+		if overlay!=book: return
+		if not session.acknowledge_final_dragon_intro(index):
+			book.show_storage_error("저장에 실패했습니다. 전투 편성을 다시 눌러 주세요.")
+			return
+		close_overlay()
+		show_battle_deck(index))
+
+func show_final_ending(instant: bool = false) -> void:
+	if not FinalDragonProgress.cleared(world) or not world.pending_reward.is_empty(): return
+	if is_instance_valid(final_chapter_screen): return
+	close_overlay()
+	final_chapter_screen = FinalChapterScreen.new()
+	stage.add_child(final_chapter_screen)
+	overlay = final_chapter_screen
+	dice.disabled = true
+	dice.hide()
+	map_music.stream_paused = true
+	final_chapter_screen.show_ending(world.run_result,instant)
+	final_chapter_screen.title_requested.connect(func():
+		get_tree().change_scene_to_file("res://title.tscn"))
+
+# Defeat is a separate terminal path; victory must never shatter the die.
 func show_game_over(instant: bool = false) -> void:
-	if is_instance_valid(game_over_screen) or world.run_result.is_empty(): return
+	if is_instance_valid(game_over_screen) or world.run_result.get("reason","")!="battle_defeat": return
 	var footprints: Array=[]
 	if is_instance_valid(embedded_battle):
 		for unit in embedded_battle.rules.units:
@@ -1466,10 +1519,10 @@ func _return_battle_cards_to_book() -> void:
 	await get_tree().create_timer(longest+0.03).timeout
 
 func finish_embedded_battle() -> void:
-	if not world.run_result.is_empty():
+	if world.run_result.get("reason","")=="battle_defeat":
 		show_game_over()
 		return
-	if battle_returning: return
+	if battle_returning or not world.pending_reward.is_empty(): return
 	battle_returning = true
 	var completed_story_event_id: String = returning_story_event_id
 	returning_story_event_id = ""
@@ -1487,7 +1540,9 @@ func finish_embedded_battle() -> void:
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
-	if not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
+	if FinalDragonProgress.cleared(world):
+		show_final_ending()
+	elif not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
 		show_story_battle_result(completed_story_event_id)
 
 

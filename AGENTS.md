@@ -26,6 +26,14 @@
 - `LAP_CONTAMINATION_GAIN = 7` increases contamination when leaving home after a completed lap; laps are **not** boss appearance thresholds. Preserve unrelated lap mechanics, other collaborators' changes and saved runs.
 - Read `docs/map_port.md` before work on boss trigger, encounter, progress flags, save/migration or UI. Gameplay implementation needs Trigger/Information/Interaction/Visual/State review and regression tests. Do not implement an invented final threshold.
 
+## Final dragon completion — user approval (2026-10-23)
+
+- After the end-to-end audit #271, the user approved stepwise completion in the existing style. #272 connects the preserved book intro to actual boss arrival and deck confirmation, then actual final victory → existing soul harvest → book ending → title/Continue.
+- Final victory, completed final quest, durable defeat flag and pending harvest are one atomic save. Resume pending harvest before the ending; never route a clear to the defeat shatter screen. Preserve historical portal/hunt completion after closing the final quest.
+- This supersedes the earlier standalone-only presentation scope, **not** the unresolved contamination-20/40/60 stage design or final numerical threshold. Preserve the existing 80+acknowledged-hunt runtime gate without presenting 80 as newly user-confirmed.
+- The event presentation assets and separate combat attack/hit/rot-death frames remain unchanged. Keep one shared die and gameplay RNG/face; avoid the colossal dragon in render space.
+- Read docs/final_chapter_completion_20261022.md for the flow and tests. The original-difficulty full-run balance and unimplemented intermediate bosses are separate work.
+
 ## Guaranteed two event tiles — user correction (2026-10-15)
 
 - **Current rule:** Every **newly generated** 24-slot board has **exactly two** ordinary `event` tiles **starting from the very first expedition**, not one. Change one former `basic` road to the second event; keep five automatic monster tiles, both reserved swamp roads (contamination 15/30), HOME/village/fortune anchors and boss slot behavior.
