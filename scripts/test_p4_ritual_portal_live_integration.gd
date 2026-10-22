@@ -107,9 +107,9 @@ func prereq(session: Node, tag: String) -> Dictionary:
 	session.world.contamination = 93
 	session.world.lap_ready = true
 	session.world.leave_home()
-	check(session.world.contamination==100 and session.world.tiles[MAP_STATE.BOSS_TILE_INDEX]=="boss"
+	check(session.world.contamination==100 and not session.world.tiles.has("boss")
 		and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
-		tag+": boss generation preserves real event tiles without inventing forest unlock")
+		tag+": unfinished story hides boss and preserves event tiles without inventing forest unlock")
 	var world=session.world
 	# The preceding rumor is completed in this fixture, then the REAL altar
 	# entry/three beats/pass/Finish commits the ritual-tracking prerequisite.

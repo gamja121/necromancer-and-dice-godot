@@ -91,9 +91,9 @@ func fresh_altar(session: Node, tag: String) -> Dictionary:
 	session.world.contamination = 93
 	session.world.lap_ready = true
 	session.world.leave_home()
-	check(session.world.contamination==100 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss"
+	check(session.world.contamination==100 and not session.world.tiles.has("boss")
 		and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
-		tag+": test board preserves both event tiles; forest awaits discovery")
+		tag+": unfinished story hides boss and preserves both events; forest awaits discovery")
 	var world=session.world
 	# Only canonical *already completed* prerequisite rumor; no free quest
 	# progress from this test and no modifications to live source logic.

@@ -1,0 +1,62 @@
+name: Colossal final dragon presentation
+on:
+  pull_request:
+    paths:
+      - "systems/final_dragon*.gd"
+      - "scripts/*final_dragon*.gd"
+      - "assets/battle/final_dragon/**"
+      - "assets/battle/frames/final-dragon/**"
+      - ".github/workflows/final_dragon.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/final_dragon*.gd"
+      - "scripts/*final_dragon*.gd"
+      - "assets/battle/final_dragon/**"
+      - "assets/battle/frames/final-dragon/**"
+      - ".github/workflows/final_dragon.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: final-dragon-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  presentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR' import.log; then exit 1; fi
+      - name: Animation, clock, cache and unchanged save
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_final_dragon_presentation.gd 2>&1 | tee dragon.log
+          grep -E '^FINAL_DRAGON_TESTS: [0-9]+ passed, 0 failed$' dragon.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL final-dragon:|ObjectDB.*leaked' dragon.log; then exit 1; fi
+      - name: Existing last story UI and saved branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_king_hunt_layers_stage5z.gd 2>&1 | tee hunt.log
+          grep -E '^UI_KING_HUNT_STAGE5Z: [0-9]+ passed, 0 failed$' hunt.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL' hunt.log; then exit 1; fi
+      - name: Story entry guards and storage rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_monster_king_hunt_entry.gd 2>&1 | tee entry.log
+          grep -E '^MONSTER_KING_HUNT_ENTRY_REGRESSION: [0-9]+ passed, 0 failed$' entry.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL' entry.log; then exit 1; fi
+      - name: Whitespace check
+        run: git diff --check

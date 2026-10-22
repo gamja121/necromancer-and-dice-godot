@@ -47,8 +47,8 @@ func fresh(session: Node, tag: String) -> void:
 	session.world.contamination = 73
 	session.world.lap_ready=true
 	session.world.leave_home()
-	check(session.world.contamination==80 and session.world.tiles[23]=="boss" and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
-		"portal/child fixture: high contamination preserves both events without inventing forest discovery")
+	check(session.world.contamination==80 and not session.world.tiles.has("boss") and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
+		"portal/child fixture: unfinished story keeps boss hidden, with both events and no invented forest discovery")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		tag+": isolated post-first-lap fixture has one unlocked graveyard")
 

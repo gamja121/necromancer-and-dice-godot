@@ -88,9 +88,9 @@ func prepare_run(session: Node, label: String) -> Dictionary:
 	session.world.contamination = 93
 	session.world.lap_ready=true
 	session.world.leave_home()
-	check(session.world.contamination==100 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss"
+	check(session.world.contamination==100 and not session.world.tiles.has("boss")
 		and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
-		label+": boss generation preserves two event stones; optional forest remains locked")
+		label+": unfinished story hides boss and preserves two events; optional forest remains locked")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		label+": post-first-lap fixture contains exactly one graveyard")
 	var target: int = prepare_graveyard_landing(session)
