@@ -90,8 +90,8 @@ func fresh_world(session: Node, tag: String) -> void:
 	session.world.contamination = 73
 	session.world.lap_ready=true
 	session.world.leave_home()
-	check(session.world.contamination==80 and session.world.tiles[STATE.BOSS_TILE_INDEX]!="boss" and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
-		tag+": high contamination alone cannot spawn boss before final story; two events remain available")
+	check(session.world.contamination==80 and session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss" and session.world.boss_stage()==20 and session.world.tiles.count("event")==2 and not session.world.tiles.has("forest"),
+		tag+": stage20 boss is available, but final dragon remains story-locked; two events remain available")
 	check(session.world.laps==1 and session.world.tiles.count("graveyard")==1,
 		tag+": first home exit unlocks cemetery without pre-filling story flags")
 	var ids: Array=[CHILD.EVENT_ID,VILLAGE.RESCUED_ID,VILLAGE.ABANDONED_ID,COMMANDER.EVENT_ID,HUNTER.EVENT_ID,CULTIST.EVENT_ID,ALTAR.EVENT_ID,PORTAL.EVENT_ID,HUNT.EVENT_ID]
@@ -418,14 +418,14 @@ func rescue_and_king(session: Node, victor: String) -> void:
 		press_story_action(next)
 		await process_frame
 	check(HUNT.completed(session) and not session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG),label+":king-hunt reveals sealed ruins but final acknowledgment still open")
-	check(not session.world.boss_available() and session.world.tiles[STATE.BOSS_TILE_INDEX]!="boss",label+":unacknowledged final story cannot trigger boss even at high contamination")
+	check(not session.world.boss_progress.defeated.has(20) and session.world.boss_stage()==20,label+":unacknowledged final story cannot trigger dragon; stage20 boss remains pending")
 	var last: Button=ui_button(map,"마치기")
 	check(last!=null,label+":fifth canonical source beat requires final Finish")
 	if last==null: return
 	press_story_action(last)
 	check(session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG) and HUNT.completed(session),label+":king-hunt final acknowledgement persists and cannot restart")
-	check(session.world.boss_available()==(session.world.contamination>=STATE.BOSS_CONTAMINATION),label+":real final acknowledgment activates remaining contamination condition")
-	check((session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss")==session.world.boss_available(),label+":boss tile follows both final story and contamination without an extra lap")
+	check(session.world.event_flags.get(HUNT.FINAL_SCENE_ACK_FLAG,false)==true and session.world.boss_stage()==20,label+":final acknowledgment persists while uncleared tier20 has priority")
+	check((session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss")==session.world.boss_available(),label+":stage boss remains a single map tile without an extra lap")
 	check(session.event_flag_is_set(HUNT.FINAL_BATTLE_FLAG) and session.event_flag_is_set(HUNT.SEALED_RUINS_FLAG),label+":final battle quest ready; dragon boss is gated by story + contamination")
 	check(PORTAL.completed(session) and ALTAR.completed(session) and session.get_story_event(CHILD.EVENT_ID).status=="complete",label+":entire eight-event predecessor history survives end of chain")
 	check(session.world.pending_reward.is_empty() and session.encounter.is_empty(),label+":full chain leaves no pending battle/reward/duplicate treasure")

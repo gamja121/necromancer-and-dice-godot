@@ -65,9 +65,19 @@ func ensure_world() -> void:
 			# card records; the restored world does not retain them in gameplay.
 			if not backup_retired_brand_cards(parsed):
 				notice = "오래된 낙인 카드 저장 백업에 실패했습니다. 저장 경로를 확인하세요."
-			# Normalize saves written by the temporary incorrect 20-contamination
-			# rule. Keep all other stones in place and preserve the RNG.
+			# Normalize saves written before persistent stage clear records.
+			# An ongoing old dragon fight is unmistakably the old final stage;
+			# a prior-victory pending dragon corpse is already cleared. Preserve
+			# both without re-rolling the encounter or reopening early bosses.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
+			var legacy_boss_upgraded: bool = false
+			if world.active_encounter.get("type","")=="boss" and not world.active_encounter.has("boss_stage") and world.active_encounter.get("enemies",[]).any(func(u): return str(u.get("slug",""))=="dragon"):
+				world.boss_progress.defeated=[20,40]
+				world.active_encounter["boss_stage"]=80
+				legacy_boss_upgraded=true
+			elif world.pending_reward.get("kind","")=="capture" and world.pending_reward.get("corpses",[]).any(func(corpse): return str(corpse.get("slug",""))=="dragon"):
+				world.boss_progress.defeated=[20,40,80]
+				legacy_boss_upgraded=true
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
@@ -81,7 +91,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
+			if (legacy_boss_upgraded or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
@@ -409,6 +419,31 @@ func start_story_encounter(event_id: String, index: int, selected_ids: Array) ->
 	if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,spec): return false
 	return _start_encounter(index,selected_ids,event_id)
 
+## Three exclusive hero-boss candidates per 20/40 stage, rolled once and
+## committed to the run before UI shows the choices.
+func prepare_boss_offers(index: int) -> Dictionary:
+	if world==null or not world.run_result.is_empty() or index!=world.position or world.tiles[index]!="boss": return {"ok":false,"reason":"보스 타일에서만 선택할 수 있습니다."}
+	var stage: int=world.boss_stage()
+	if stage not in [20,40]: return {"ok":false,"reason":"보스 선택 단계가 아닙니다."}
+	if not world.boss_selected(stage).is_empty(): return {"ok":true,"stage":stage,"offers":world.boss_offers(stage),"selected":world.boss_selected(stage)}
+	if not world.boss_offers(stage).is_empty(): return {"ok":true,"stage":stage,"offers":world.boss_offers(stage)}
+	var before: Dictionary=world.snapshot().duplicate(true)
+	var offers: Array=world.roll_boss_offers()
+	if offers.is_empty(): return {"ok":false,"reason":"보스 후보를 찾을 수 없습니다."}
+	if not persist_change(before): return {"ok":false,"reason":notice}
+	return {"ok":true,"stage":stage,"offers":offers}
+
+func select_stage_boss(index: int, slug: String) -> bool:
+	if world==null or index!=world.position or world.tiles[index]!="boss": return false
+	if not world.pending_reward.is_empty() or not encounter.is_empty() or not world.active_encounter.is_empty(): return false
+	var stage: int=world.boss_stage()
+	if stage not in [20,40] or not world.boss_offers(stage).has(slug): return false
+	var existing: String=world.boss_selected(stage)
+	if not existing.is_empty(): return existing==slug
+	var before: Dictionary=world.snapshot().duplicate(true)
+	world.boss_progress.selected[str(stage)]=slug
+	return persist_change(before)
+
 func start_encounter(index: int, selected_ids: Array) -> bool:
 	return _start_encounter(index,selected_ids)
 
@@ -423,7 +458,9 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story:
 		if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,story_spec): return false
 	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
-	if not story and not mimic and world.tiles[index]=="boss" and not world.boss_available(): return false
+	if not story and not mimic and world.tiles[index]=="boss":
+		if not world.boss_available(): return false
+		if world.boss_stage() in [20,40] and world.boss_selected(world.boss_stage()).is_empty(): return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var allies: Array = []
@@ -457,9 +494,10 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
 	elif type=="boss" and world.boss_available():
-		# Restored 2026-10-07 rule: no lap-based boss thresholds.
-		# At contamination 80+ the boss stone hosts exactly one dragon.
-		slugs = ["dragon"]
+		# Each 20/40 selection is locked to one reserved, player-chosen
+		# boss. The final stage is still the story-gated dragon.
+		var stage: int=world.boss_stage()
+		slugs = ["dragon"] if stage==80 else [world.boss_selected(stage)]
 	else:
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
@@ -471,7 +509,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	var enemies: Array = []
 	for i in range(slugs.size()):
 		var enemy: Dictionary = rules.individual(slugs[i],"enemy-"+str(i))
-		if type=="boss" and world.boss_available() and str(enemy.slug)=="dragon":
+		if type=="boss" and world.boss_stage()==80 and str(enemy.slug)=="dragon":
 			# Only this enemy has two simultaneous existing passives.
 			# Other monsters, including any later captured dragon, have one.
 			enemy.passive = "bone"
@@ -497,7 +535,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	# A retry is a new combat attempt; the prior loss is still journaled.
 	if story and get_story_event(event_id).battle_result == "lost":
 		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
-	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
+	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"boss_stage":world.boss_stage() if type=="boss" else 0,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
 	if story: encounter["event_id"] = event_id
 	if mimic:
 		world.reward_receipts.append(world.pending_reward.id)
@@ -546,7 +584,15 @@ func finish_encounter(battle) -> bool:
 			return false
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
+		if encounter.type=="boss":
+			var cleared_stage: int=int(encounter.get("boss_stage",0))
+			if cleared_stage in [20,40,80] and not world.boss_progress.defeated.has(cleared_stage):
+				world.boss_progress.defeated.append(cleared_stage)
 		world.contamination = maxi(0,world.contamination-1)
+		if encounter.type=="boss" and world.boss_stage()!=0:
+			# Another stage just unlocked at the same contamination. This is a
+			# new encounter, not a repeat of the defeated stage.
+			world.cleared.erase(int(encounter.index))
 		var corpses: Array = []
 		for unit in battle.units:
 			if unit.team=="enemy" and not unit.alive and not unit.is_summon:

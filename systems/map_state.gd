@@ -5,14 +5,17 @@ const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
+const EncounterGenerator = preload("res://systems/encounter_generator.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
 const HOME = 15
 const BOSS_CONTAMINATION = 80
+const FIRST_BOSS_CONTAMINATION = 20
+const SECOND_BOSS_CONTAMINATION = 40
 const LAP_CONTAMINATION_GAIN = 7
 # Swamp growth: 15 -> 1 tile, 30 -> 2 tiles (maximum).
-# Boss spawn follows the agreed contamination-80 rule; extra monsters at 40/80 remain unchanged.
+# Stage 20 and 40 bosses are single-clear encounters; final dragon at 80 is story-gated.
 const FIRST_SWAMP_CONTAMINATION = 15
 const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
@@ -65,6 +68,8 @@ var prayer_result: Dictionary = {}
 var event_flags: Dictionary = {}
 # Event stages/choices are separate from canonical web-compatible boolean flags.
 var story_events: Dictionary = {}
+## Durable stage clears and player choices across every home map regeneration.
+var boss_progress: Dictionary = {"defeated":[],"offers":{},"selected":{}}
 
 func next_id(prefix: String) -> String:
 	var value = "%s-%d" % [prefix,next_serial]
@@ -93,10 +98,39 @@ static func centers() -> Array:
 static func required_swamp_count(level: int) -> int:
 	return 2 if level >= SECOND_SWAMP_CONTAMINATION else (1 if level >= FIRST_SWAMP_CONTAMINATION else 0)
 
-## Two independent prerequisites: current corruption 80 and a genuinely
-## completed, acknowledged final king-hunt scene. This never depends on lap.
+## Progression stages use CURRENT contamination, never lap count.
+## Once defeated, earlier boss stages cannot return even if pollution changes.
+func boss_stage() -> int:
+	var defeated: Array = boss_progress.get("defeated",[])
+	if contamination>=FIRST_BOSS_CONTAMINATION and not defeated.has(20): return 20
+	if contamination>=SECOND_BOSS_CONTAMINATION and defeated.has(20) and not defeated.has(40): return 40
+	if contamination>=BOSS_CONTAMINATION and defeated.has(20) and defeated.has(40) and not defeated.has(80) and FinalBossStoryGate.ready(self): return 80
+	return 0
+
 func boss_available() -> bool:
-	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self)
+	return boss_stage()!=0
+
+func boss_offers(stage: int) -> Array:
+	return boss_progress.get("offers",{}).get(str(stage),[]).duplicate()
+
+func boss_selected(stage: int) -> String:
+	return str(boss_progress.get("selected",{}).get(str(stage),""))
+
+## Rolled once per stage and persisted by RunSession. Use no generic species
+## that can appear outside reserved boss-only encounters.
+func roll_boss_offers() -> Array:
+	var stage: int=boss_stage()
+	if stage not in [20,40]: return []
+	if not boss_offers(stage).is_empty(): return boss_offers(stage)
+	var pool: Array = EncounterGenerator.BOSS_CANDIDATES.filter(func(slug): return definitions.has(slug) and not boss_progress.get("selected",{}).values().has(slug))
+	for i in range(pool.size()-1,0,-1):
+		var j: int=rng.randi_range(0,i)
+		var prior=pool[i]
+		pool[i]=pool[j]
+		pool[j]=prior
+	var result: Array=pool.slice(0,mini(3,pool.size()))
+	boss_progress.offers[str(stage)]=result.duplicate()
+	return result
 
 func generate() -> void:
 	map_serial += 1
@@ -149,8 +183,8 @@ func generate() -> void:
 	lap_ready = false
 
 
-## Reveal the boss once BOTH contamination 80 and the acknowledged final
-## king-hunt scene are complete, including in the middle of a lap.
+## Reveal a pending stage boss when its contamination threshold is reached.
+## The dragon still requires the acknowledged final king-hunt scene.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
 	if not boss_available() or tiles.size() != 24:
@@ -179,9 +213,9 @@ func reveal_boss_at_threshold() -> bool:
 	return true
 
 
-## When contamination drops below 80 OR the final story receipt is missing,
-## immediately retire the boss at the fixed slot. Restore the monster stone that the boss
-## displaced. Keep cleared status to avoid a duplicate same-lap reward;
+## When the current stage has been defeated, or a contamination threshold
+## is no longer met, retire this boss tile. Keep cleared status to avoid
+## duplicate ordinary rewards on the same map;
 ## drop only stale scout intelligence for the changed tile.
 func conceal_boss_below_threshold() -> bool:
 	if boss_available() or tiles.size()!=24: return false
@@ -258,7 +292,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true),"boss_progress":boss_progress.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -275,7 +309,7 @@ func restore(saved: Dictionary) -> bool:
 	if saved.contamination<0 or saved.contamination>100: return false
 	for field in ["dice_cards","graveyard_corpses","reward_receipts"]:
 		if saved.has(field) and not saved[field] is Array: return false
-	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result","event_flags","story_events","run_result"]:
+	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result","event_flags","story_events","run_result","boss_progress"]:
 		if saved.has(field) and not saved[field] is Dictionary: return false
 	if int(saved.get("enemies_defeated",0))<0: return false
 	var terminal: Dictionary = saved.get("run_result",{})
@@ -283,6 +317,19 @@ func restore(saved: Dictionary) -> bool:
 		if terminal.get("reason","")!="battle_defeat" or terminal.get("ended",false)!=true: return false
 		for value in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			if not terminal.has(value) or int(terminal[value])<0: return false
+	var progress: Dictionary = saved.get("boss_progress",{"defeated":[],"offers":{},"selected":{}})
+	if not progress.get("defeated",[]) is Array or not progress.get("offers",{}) is Dictionary or not progress.get("selected",{}) is Dictionary: return false
+	for stage in progress.get("defeated",[]):
+		if int(stage) not in [20,40,80]: return false
+	for stage_key in progress.get("offers",{}):
+		if str(stage_key) not in ["20","40"]: return false
+		if not progress.offers[stage_key] is Array: return false
+		if progress.offers[stage_key].size()>3: return false
+		for slug in progress.offers[stage_key]:
+			if not EncounterGenerator.BOSS_CANDIDATES.has(slug): return false
+	for stage_key in progress.get("selected",{}):
+		if str(stage_key) not in ["20","40"]: return false
+		if not EncounterGenerator.BOSS_CANDIDATES.has(progress.selected[stage_key]): return false
 	var stored_flags: Dictionary = saved.get("event_flags",{})
 	for flag in stored_flags:
 		if not flag is String or str(flag).is_empty() or not stored_flags[flag] is bool: return false
@@ -355,6 +402,8 @@ func restore(saved: Dictionary) -> bool:
 	dice_cards = saved.get("dice_cards",[]).duplicate(true)
 	graveyard_corpses = saved.get("graveyard_corpses",[]).duplicate(true)
 	reward_receipts = saved.get("reward_receipts",[]).duplicate()
+	boss_progress = saved.get("boss_progress",{"defeated":[],"offers":{},"selected":{}}).duplicate(true)
+	boss_progress.defeated = boss_progress.get("defeated",[]).map(func(n): return int(n))
 	enemies_defeated = maxi(0,int(saved.get("enemies_defeated",0)))
 	run_result = saved.get("run_result",{}).duplicate(true)
 	if not run_result.is_empty():

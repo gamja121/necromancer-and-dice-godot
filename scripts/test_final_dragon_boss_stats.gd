@@ -24,6 +24,7 @@ func battle_at(session: Node, pollution: int, lap: int) -> bool:
 	w.laps=lap
 	w.contamination=pollution
 	StoryFixture.seed_completed_final_hunt(w)
+	w.boss_progress.defeated=[20,40]
 	w.generate()
 	check((w.tiles[23]=="boss")==(pollution>=80),"post-story boss tile only at contamination %d, lap %d" % [pollution,lap])
 	var ids: Array=[w.roster[0].id,w.roster[1].id]
@@ -46,8 +47,9 @@ func test_stats_and_spawn(session: Node) -> void:
 	session.start_new_world()
 	var world=session.world
 	world.contamination=100
+	world.boss_progress.defeated=[20,40]
 	world.generate()
-	check(world.tiles[23]!="boss" and not world.boss_available(),"contamination 100 without final story never unlocks boss")
+	check(world.tiles[23]!="boss" and not world.boss_available(),"completed early bosses do not unlock dragon without final story")
 	StoryFixture.seed_completed_final_hunt(world,false)
 	world.generate()
 	check(Hunt.completed(session) and world.tiles[23]!="boss","completed fifth scene without explicit Finish is still locked")
@@ -59,7 +61,7 @@ func test_stats_and_spawn(session: Node) -> void:
 	check(battle_at(session,79,60),"lap 60 does not grant boss when contamination is 79")
 	check(session.encounter.is_empty() or (session.encounter.type!="boss" and session.encounter.enemies.all(func(u): return u.slug!="dragon")),"low contamination permits regular monsters but never the dragon boss")
 	check(battle_at(session,80,0),"even lap 0 can trigger boss when contamination reaches 80")
-	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","contamination alone selects lone dragon without lap gate")
+	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","completed early tiers + story + contamination select lone dragon without lap gate")
 	check(battle_at(session,80,59),"lap 59 receives final boss at contamination 80")
 	check(session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","no obsolete lap 60 requirement")
 	check(battle_at(session,80,60),"lap 60 also receives same boss at contamination 80")

@@ -4,6 +4,9 @@ const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","skeleton-cava
 # Only the original fixed HTML V2 combat catalog may enter normal
 # encounters or random rewards. Extra Godot catalog entries stay readable
 # for existing saves, but do not silently change web-equivalent runs.
+## Dedicated early-boss candidates. Never roll them as ordinary enemies,
+## scout targets, merchants or treasure rewards.
+const BOSS_CANDIDATES = ["death-knight","hydra","spider-knight","goblin-chief","kraken","soul-reaper"]
 const GRADES = ["normal","advanced","hero"]
 const STAGES = [
 	{"min":0,"counts":[1,2],"weights":[0.65,0.35],"grades":[0.90,0.10,0.0]},
@@ -14,7 +17,7 @@ const STAGES = [
 ]
 
 static func eligible_roster(definitions: Dictionary) -> Array:
-	return ROSTER.filter(func(slug): return definitions.has(slug) and definitions[slug].grade in GRADES)
+	return ROSTER.filter(func(slug): return definitions.has(slug) and definitions[slug].grade in GRADES and not BOSS_CANDIDATES.has(slug))
 
 static func stage(contamination: int) -> Dictionary:
 	for index in range(STAGES.size()-1,-1,-1):
