@@ -4,9 +4,12 @@ on:
     branches:
       - main
       - feat/dragon-final-boss-dual-passive-20261022
+      - fix/boss-contamination-80-no-lap-20261022
     paths:
       - "data/units.json"
       - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_map_shuffle_boss_threshold.gd"
       - "systems/battle_rules.gd"
       - "systems/unit_info.gd"
       - "systems/encounter_generator.gd"
@@ -34,14 +37,14 @@ jobs:
           set -euo pipefail
           timeout 170s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
-      - name: Dragon lap, exact stats, dual passive, save, capture
+      - name: Dragon contamination-80 gate, exact stats, two passives and capture
         shell: bash
         run: |
           set -euo pipefail
           timeout 140s godot --headless --path . --script res://scripts/test_final_dragon_boss_stats.gd 2>&1 | tee dragon.log
           grep -E 'FINAL_DRAGON_BOSS: [0-9]+ passed, 0 failed' dragon.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL final-dragon:' dragon.log; then exit 1; fi
-      - name: Existing boss tile threshold unchanged
+      - name: Boss threshold 79/80, purification and old-save restoration
         shell: bash
         run: |
           set -euo pipefail

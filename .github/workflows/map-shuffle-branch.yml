@@ -159,7 +159,7 @@ jobs:
           timeout 100s godot --headless --path . --script res://scripts/test_map_shuffle_stone_integrated.gd 2>&1 | tee stone-integrated.log
           grep -E 'MAP_SHUFFLE_STONE_INTEGRATED: [0-9]+ passed, 0 failed' stone-integrated.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' stone-integrated.log; then exit 1; fi
-      - name: Boss tile contamination 20 persistence and map UI regression
+      - name: Boss tile contamination 80 persistence and map UI regression
         shell: bash
         run: |
           set -euo pipefail

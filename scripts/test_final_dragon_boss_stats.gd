@@ -1,5 +1,5 @@
 extends SceneTree
-## 60-lap final dragon uses only existing bone + undying mechanics.
+## Contamination-80 dragon uses only existing bone + undying mechanics; no lap gates.
 const SessionScript = preload("res://systems/run_session.gd")
 const Battle = preload("res://systems/battlefield_rules.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
@@ -16,14 +16,16 @@ func check(ok: bool, message: String) -> void:
 		failed += 1
 		printerr("FAIL final-dragon: ",message)
 
-func battle_at(session: Node, lap: int) -> bool:
+func battle_at(session: Node, pollution: int, lap: int) -> bool:
 	session.start_new_world()
 	var w=session.world
 	w.laps=lap
-	w.contamination=100
+	w.contamination=pollution
 	w.generate()
-	check(w.tiles[23]=="boss","lap %d uses the original single boss tile" % lap)
+	check((w.tiles[23]=="boss")==(pollution>=80),"boss tile availability at contamination %d, lap %d" % [pollution,lap])
 	var ids: Array=[w.roster[0].id,w.roster[1].id]
+	if pollution<80:
+		return not session.start_encounter(23,ids)
 	return session.start_encounter(23,ids)
 
 func test_stats_and_spawn(session: Node) -> void:
@@ -34,10 +36,13 @@ func test_stats_and_spawn(session: Node) -> void:
 	check(int(boss.hp)==70 and int(boss.attack)==5 and int(boss.speed)==4,"dragon base stats are exactly HP70 attack5 speed4")
 	check(boss.passives==["bone"] and boss.brands.is_empty(),"dragon template has no custom gimmick, added brands or ordinary dual passive")
 	check(not "dragon" in EncounterGenerator.eligible_roster(data),"dragon cannot spawn in standard encounters or random card rewards")
-	check(battle_at(session,59),"lap 59 boss battle uses original entry route")
-	check(session.encounter.type=="boss" and not session.encounter.enemies.is_empty() and session.encounter.enemies.all(func(u): return u.slug!="dragon"),"lap 59 keeps existing boss selection")
-	check(session.world.active_encounter.get("type","")=="boss","old boss encounter is saved")
-	check(battle_at(session,60),"lap 60 boss battle starts")
+	check(battle_at(session,79,60),"lap 60 does not grant boss when contamination is 79")
+	check(session.encounter.is_empty(),"no encounter starts below contamination 80")
+	check(battle_at(session,80,0),"even lap 0 can trigger boss when contamination reaches 80")
+	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","contamination alone selects lone dragon without lap gate")
+	check(battle_at(session,80,59),"lap 59 receives final boss at contamination 80")
+	check(session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","no obsolete lap 60 requirement")
+	check(battle_at(session,80,60),"lap 60 also receives same boss at contamination 80")
 	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1,"final encounter contains exactly one enemy")
 	if session.encounter.enemies.size()!=1: return
 	var dragon: Dictionary=session.encounter.enemies[0]
@@ -75,7 +80,7 @@ func test_damage_and_checkpoint(session: Node) -> void:
 	session.world.restore(snapshot)
 	session.encounter=session.world.active_encounter.duplicate(true)
 	session.reload_world()
-	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","saved game resumes same lap-60 dragon, never rerolls")
+	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","saved game resumes same contamination-80 dragon, never rerolls")
 	var persisted=Battle.new(session.world.definitions,177)
 	check(persisted.restore(session.encounter.checkpoint) and persisted.find_id("enemy-0").get("boss_extra_passive","")=="undying","battle-state persisted with second passive")
 

@@ -133,7 +133,7 @@ func _run() -> void:
 	var definitions: Dictionary = data.units
 	var names: Array = original.keys()
 	names.sort()
-	check(original.size() == 46 and definitions.size() == 47 and definitions.has("dracula"), "exact 46 web-native species and retained legacy Dracula")
+	check(original.size() == 46 and definitions.size() == 48 and definitions.has("dracula") and definitions.has("dragon"), "46 original species, retained Dracula and separate lap-60 dragon boss")
 	for slug in names:
 		check(definitions.has(slug), "fixed-source species remains in catalog: " + str(slug))
 	names.append("dracula")
