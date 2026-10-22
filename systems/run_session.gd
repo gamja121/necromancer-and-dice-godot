@@ -596,9 +596,11 @@ func persist_change(before: Dictionary) -> bool:
 		world.reveal_boss_at_threshold()
 	else:
 		world.conceal_boss_below_threshold()
-	# At 15/30, automatically change ordinary road tiles into swamps even
-	# before the next home shuffle. No RNG/encounter/story state is modified.
-	if world.contamination > int(before.get("contamination",0)) and world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
+	# Keep the same fixed 15/30 swamp count when saving AND reloading.
+	# A story overlay may consume an ordinary stone during a high-pollution
+	# expedition; restoring only on reload changes the saved map unexpectedly.
+	# Safe repair touches eligible basic roads only, never RNG or story tiles.
+	if world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
 		world.reveal_swamps_for_contamination()
 	if save_world(): return true
 	world.restore(before)
