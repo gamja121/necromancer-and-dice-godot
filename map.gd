@@ -28,6 +28,7 @@ const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
 const CultistAltarEntry = preload("res://systems/cultist_altar_entry.gd")
 const RitualPortalEntry = preload("res://systems/ritual_portal_entry.gd")
 const RitualPortalBeats = preload("res://systems/ritual_portal_beats.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const MonsterKingHuntEntry = preload("res://systems/monster_king_hunt_entry.gd")
 const MonsterKingHuntBeats = preload("res://systems/monster_king_hunt_beats.gd")
 const CultistAltarBeats = preload("res://systems/cultist_altar_beats.gd")
@@ -429,6 +430,8 @@ func center(index: int) -> Vector2:
 	return MapState.centers()[index]*Vector2(12.8,7.2)
 
 func tile_path(index: int) -> String:
+	var king_art: String=KingPortalTile.texture_path(world,index)
+	if not king_art.is_empty(): return king_art
 	var id: String = world.tiles[index]
 	# The frozen web map retains a separate rare-monster-cleared tile silhouette.
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
@@ -1467,6 +1470,11 @@ func _return_battle_cards_to_book() -> void:
 
 func finish_embedded_battle() -> void:
 	if not world.run_result.is_empty():
+		# Losing the real ritual battle still ends this expedition.
+		# Play the remote warp transformation *before* the existing game over.
+		if KingPortalTile.active(world) and session.get_story_event(RitualPortalEntry.EVENT_ID).battle_result=="lost":
+			if is_instance_valid(overlay): overlay.hide()
+			await animate_king_warp_tile()
 		show_game_over()
 		return
 	if battle_returning: return
@@ -2112,15 +2120,48 @@ func show_ritual_portal_beat(index: int) -> void:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="forest" else Vector2(651,653),Vector2(171,48),func(): advance_ritual_portal(index,beat_index),1)
 	elif scene_state.status=="seen" and beat.get("battleReady",false)==true:
 		location_button(panel,"저지한다",Vector2(455,653),Vector2(183,48),func(): choose_ritual_portal_intervention(index,beat_index),1)
+		location_button(panel,"저지하지 않는다",Vector2(646,653),Vector2(193,48),func(): decline_ritual_portal_intervention(index,beat_index),4)
 	elif intervening and scene_state.battle_result=="":
 		if not world.roster.is_empty():
 			location_button(panel,"출전 마물 선택",Vector2(455,653),Vector2(183,48),func(): show_story_battle_deck(RitualPortalEntry.EVENT_ID,index),1)
 	elif intervening:
 		var saved=label_at(panel,"전투 승패 기록 저장됨 · 부활 결과는 다음 장면에서 확정됩니다.",Vector2(285,619),Vector2(710,32),16)
 		saved.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	if world.tiles[index]=="forest":
+	if world.tiles[index]=="forest" and not (beat_index==4 and scene_state.status=="seen"):
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func decline_ritual_portal_intervention(index: int, shown_beat: int) -> void:
+	if not RitualPortalEntry.decline_intervention(session,index,shown_beat):
+		status.text="부활 의식 결과 저장 실패 · 다시 시도하세요."
+		return
+	close_overlay()
+	render()
+	await animate_king_warp_tile()
+	status.text="전이문 저지 포기 · 다른 워프에서 마물의 왕이 모습을 드러냅니다."
+
+## Five user-approved tile paintings; draw on an unchanged warp index, not
+## on the hero's current cell. Visual time is transient, final art is saved.
+func animate_king_warp_tile() -> void:
+	var chosen: int=KingPortalTile.target(world)
+	if chosen<0 or chosen>=buttons.size(): return
+	var node: TextureButton=buttons[chosen]
+	if not is_instance_valid(node): return
+	var prior_moving: bool=moving
+	moving=true
+	if is_instance_valid(dice): dice.disabled=true
+	for art_path in KingPortalTile.PATHS:
+		if not is_instance_valid(node) or not is_instance_valid(stage): break
+		node.texture_normal=texture(str(art_path))
+		node.modulate=Color(0.68,0.76,1.0,0.76)
+		var glow: Tween=node.create_tween()
+		glow.tween_property(node,"modulate",Color.WHITE,0.22).set_trans(Tween.TRANS_SINE)
+		await get_tree().create_timer(0.27).timeout
+	if is_instance_valid(node):
+		node.texture_normal=texture(KingPortalTile.PATHS[4])
+		node.modulate=Color.WHITE
+	moving=prior_moving
+	if is_instance_valid(dice): dice.disabled=false
 
 func advance_ritual_portal(index: int, shown_beat: int) -> void:
 	if not RitualPortalEntry.advance(session,index,shown_beat):
