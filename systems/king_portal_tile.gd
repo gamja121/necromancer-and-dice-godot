@@ -17,7 +17,7 @@ static func active(world) -> bool:
 static func target(world) -> int:
 	if not active(world) or world.tiles.size()!=24: return -1
 	var index: int=int(world.event_flags.get(TARGET_FLAG,-1))
-	if index<0 or index>=24 or index==world.position or world.tiles[index]!="warp": return -1
+	if index<0 or index>=24 or world.tiles[index]!="warp": return -1
 	return index
 
 ## Choose another warp without advancing world RNG. Never replace a hero tile.
