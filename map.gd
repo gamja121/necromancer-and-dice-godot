@@ -29,6 +29,7 @@ const CultistAltarEntry = preload("res://systems/cultist_altar_entry.gd")
 const RitualPortalEntry = preload("res://systems/ritual_portal_entry.gd")
 const RitualPortalBeats = preload("res://systems/ritual_portal_beats.gd")
 const KingPortalTile = preload("res://systems/king_portal_tile.gd")
+const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
 const MonsterKingHuntEntry = preload("res://systems/monster_king_hunt_entry.gd")
 const MonsterKingHuntBeats = preload("res://systems/monster_king_hunt_beats.gd")
 const CultistAltarBeats = preload("res://systems/cultist_altar_beats.gd")
@@ -264,6 +265,8 @@ func _ready() -> void:
 	session.save_world()
 	if not world.run_result.is_empty():
 		call_deferred("show_game_over",true)
+	elif KingPortalEncounter.ending_pending(world):
+		call_deferred("show_king_victory_ending")
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
@@ -271,6 +274,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
+	elif KingPortalEncounter.can_enter(session,world.position): call_deferred("show_king_warp_encounter",world.position)
 	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
@@ -909,7 +913,8 @@ func resume_map_move() -> void:
 	moving = false
 	dice.disabled = false
 	var type: String = world.tiles[world.position]
-	if type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
+	if KingPortalEncounter.can_enter(session,world.position): show_tile(world.position,true)
+	elif type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
 	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
 
 func select_tile(index: int) -> void:
@@ -980,6 +985,11 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 
 func show_tile(index: int, actual_landing: bool = false) -> void:
 	var type: String = world.tiles[index]
+	# The warped final location replaces the old slot-23 boss encounter.
+	# Previewing any OTHER map stone never opens or advances the story.
+	if KingPortalEncounter.can_enter(session,index):
+		show_king_warp_encounter(index)
+		return
 	# Dispatch the earliest available story before generic location actions.
 	# can_enter blocks previewing other tiles and saves on an actual landing.
 	if type in ["graveyard","event"] and StoryEventEntry.can_enter(session,index):
@@ -1497,7 +1507,9 @@ func finish_embedded_battle() -> void:
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
-	if not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
+	if KingPortalEncounter.ending_pending(world):
+		show_king_victory_ending()
+	elif not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
 		show_story_battle_result(completed_story_event_id)
 
 
@@ -2075,6 +2087,72 @@ func acknowledge_monster_king_hunt(index: int) -> void:
 	if world.tiles[index]=="unknown": show_location(index)
 	else: render()
 
+
+## Final encounter at the same mutated warp tile. The existing 16:9 portal
+## illustration and dragon omen frame are reused: no synthetic extra story art.
+func show_king_warp_encounter(index: int) -> void:
+	if not KingPortalEncounter.can_enter(session,index): return
+	if not KingPortalEncounter.begin(session,index):
+		status.text="마물의 왕 조우 저장 실패 · 다시 시도하세요."
+		return
+	if world.event_flags.get(KingPortalEncounter.ACK,false)==true:
+		if is_instance_valid(overlay): close_overlay()
+		show_battle_deck(index)
+		return
+	var beat_index: int=KingPortalEncounter.beat(world)
+	if beat_index<0 or beat_index>=KingPortalEncounter.BEATS.size(): return
+	var beat: Dictionary=KingPortalEncounter.BEATS[beat_index]
+	if is_instance_valid(overlay): close_overlay()
+	var panel=story_modal()
+	var artwork=image(panel,RitualPortalBeats.BASE_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	if beat_index==0: InkSceneReveal.play(artwork)
+	var omen=image(panel,RitualPortalBeats.OMEN_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	omen.name="KingWarpArrivalOmen"
+	if beat_index>0: RitualPortalLayerMotion.play(omen,beat_index==1)
+	shared_story_frame(panel)
+	var heading=label_at(panel,"최종 사건 · "+str(beat.title),Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,66),18)
+	effect.add_theme_color_override("font_color",Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	location_button(panel,"계속" if beat_index<2 else "결전 준비",Vector2(651,653),Vector2(171,48),func():
+		var ok: bool=KingPortalEncounter.advance(session,index,beat_index) if beat_index<2 else KingPortalEncounter.acknowledge(session,index)
+		if not ok:
+			status.text="조우 사건 저장 실패 · 다시 시도하세요."
+			return
+		show_king_warp_encounter(index),1)
+	location_button(panel,"지도로",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+## A durable one-time ending instead of game-over. Loading during a pending
+## ending shows this same scene again, without replaying a boss/reward.
+func show_king_victory_ending() -> void:
+	if not KingPortalEncounter.ending_pending(world) or is_instance_valid(overlay): return
+	var panel=story_modal()
+	var artwork=image(panel,RitualPortalBeats.BASE_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	InkSceneReveal.play(artwork)
+	var omen=image(panel,RitualPortalBeats.OMEN_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	omen.name="KingVictoryClosingRift"
+	shared_story_frame(panel)
+	var heading=label_at(panel,"종언의 고룡 · 왕의 몰락",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,"마물의 왕이 쓰러진다. 균열은 서서히 잦아들고, 폐허에 드리운 그림자가 걷힌다. 망자의 행군은 끝나지 않는다. 당신의 원정은 계속된다.",Vector2(285,542),Vector2(710,85),18)
+	effect.add_theme_color_override("font_color",Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	location_button(panel,"원정 계속",Vector2(651,653),Vector2(193,48),acknowledge_king_ending,1)
+
+func acknowledge_king_ending() -> void:
+	if not KingPortalEncounter.acknowledge_ending(session):
+		status.text="승리 엔딩 저장 실패 · 다시 시도하세요."
+		return
+	close_overlay()
+	render()
+	status.text="종언의 고룡 처치 완료 · 원정을 이어갑니다."
+	if world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
+
 func show_ritual_portal_intro(index: int) -> void:
 	if RitualPortalEntry.aftermath_ready(session,index):
 		show_ritual_portal_aftermath(index)
@@ -2601,6 +2679,8 @@ func use_warp(index: int) -> void:
 	await presentation.warp(hero,hero_position(int(result.destination)))
 	highlight(world.position)
 	status.text = "%d번 워프로 이동 완료" % (world.position+1)
+	if KingPortalEncounter.can_enter(session,world.position):
+		show_king_warp_encounter(world.position)
 	dice.disabled = false
 	moving = false
 
