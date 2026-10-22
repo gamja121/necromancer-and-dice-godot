@@ -26,7 +26,7 @@ static func boss_slug(stage: int) -> String:
 	return str(ASSIGNMENTS.get(stage,"dragon" if stage==FINAL else ""))
 
 static func reserved_slugs() -> Array:
-	return ASSIGNMENTS.values().duplicate()
+	return ASSIGNMENTS.values().duplicate()+["dragon"]
 
 static func valid(definitions: Dictionary) -> bool:
 	var seen: Array = []
