@@ -63,10 +63,11 @@ func _run() -> void:
 	state.generate()
 	state.cleared.append(23)
 	state.scout = {"scouted":true,"intel":[{"index":23,"type":state.tiles[23],"count":1,"grade":"normal","legion":"skeleton"}]}
+	var before_conversion: Array = state.tiles.duplicate(true)
 	var unchanged: Array = state.tiles.slice(0,23).duplicate()
 	state.contamination = 80
 	check(state.reveal_boss_at_threshold(), "crossing threshold reveals boss in current lap")
-	check(state.tiles[23]=="boss" and state.tiles.count("event")==pre_hide.count("event") and state.tiles[0]=="fortune-teller-camp" and state.tiles[8]=="village" and state.tiles[15]=="home","midlap conversion preserves existing event count and fixed tiles even when relocating an event from the new boss slot")
+	check(state.tiles[23]=="boss" and state.tiles.count("event")==before_conversion.count("event") and state.tiles[0]=="fortune-teller-camp" and state.tiles[8]=="village" and state.tiles[15]=="home","midlap conversion preserves existing event count and fixed tiles even when relocating an event from the new boss slot")
 	check(not 23 in state.cleared and state.scout.intel.is_empty(), "stale cleared/scout data removed at converted slot")
 	check(not state.reveal_boss_at_threshold() and boss_count(state.tiles) == 1, "second threshold check is idempotent")
 	var pre_hide: Array = state.tiles.duplicate(true)
