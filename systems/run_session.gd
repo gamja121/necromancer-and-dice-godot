@@ -602,9 +602,9 @@ func persist_change(before: Dictionary) -> bool:
 	world.max_contamination_reached = maxi(int(world.max_contamination_reached),int(world.contamination))
 	if world.roster.any(func(unit): return int(unit.current_hp)<int(unit.max_hp)):
 		world.event_flags["discovery:ever_injured"] = true
-	# The two-stage gate requires contamination 80 and the explicitly
+	# Tier bosses at 20/40/60, then the final-story dragon at contamination 80.
 	# acknowledged fifth king-hunt story scene. This also reacts when the
-	# story finishes at 80 without any further contamination increase.
+	# Stage defeat flags prevent respawn, even after pollution rises again.
 	# Persist tile reveal or concealment with the SAME story transaction.
 	if world.boss_available():
 		world.reveal_boss_at_threshold()
