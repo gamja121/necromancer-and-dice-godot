@@ -2570,7 +2570,6 @@ func exit_home() -> void:
 	# A failed save never animates or reveals another map.
 	var input_lock: Control = presentation.effect(true)
 	dice.disabled = true
-	var contamination_before_exit: int = world.contamination
 	# Keep the pre-save identities for the visible gather/one-notch/swaps.
 	var previous_tiles: Array = world.tiles.duplicate()
 	var ok: bool = session.leave_home()
@@ -2597,5 +2596,5 @@ func exit_home() -> void:
 		show_home()
 	else:
 		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
-		if contamination_before_exit < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION:
+		if previous_tiles[MapState.BOSS_TILE_INDEX]!="boss" and world.tiles[MapState.BOSS_TILE_INDEX]=="boss":
 			status.text += " · 보스 타일 출현"

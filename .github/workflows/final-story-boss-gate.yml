@@ -1,0 +1,59 @@
+name: Final Story and Contamination Boss Gate
+on:
+  push:
+    branches:
+      - main
+      - fix/final-story-required-for-boss-20261022
+    paths:
+      - "systems/final_boss_story_gate.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "systems/monster_king_hunt_entry.gd"
+      - "map.gd"
+      - "scripts/boss_story_test_fixture.gd"
+      - "scripts/test_final_dragon_boss_stats.gd"
+      - "scripts/test_map_shuffle_boss_threshold.gd"
+      - "scripts/test_p4_full_source_story_chain.gd"
+      - ".github/workflows/final-story-boss-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  story-and-corruption:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot project import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Final king hunt story and contamination 80 boss rule
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 130s godot --headless --path . --script res://scripts/test_final_dragon_boss_stats.gd 2>&1 | tee boss.log
+          grep -E 'FINAL_DRAGON_BOSS: [0-9]+ passed, 0 failed' boss.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL final-dragon:' boss.log; then exit 1; fi
+      - name: Map corruption threshold, final story, reload and old saves
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee map.log
+          grep -E 'MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed' map.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL boss-threshold:' map.log; then exit 1; fi
+      - name: Real nine-event story chain via saved UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 450s godot --headless --path . --script res://scripts/test_p4_full_source_story_chain.gd 2>&1 | tee story.log
+          grep -E 'P4_FULL_SOURCE_STORY_CHAIN: [0-9]+ passed, 0 failed' story.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL p4-' story.log; then exit 1; fi
