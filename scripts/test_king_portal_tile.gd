@@ -116,7 +116,7 @@ func battle_outcome(side: String) -> void:
 	check(s.finish_encounter(BattleResult.new(side)),"real recorded battle outcome")
 	var failed_battle: bool=side=="enemy"
 	check(KingTile.active(s.world)==failed_battle,"only actual defeat activates remote tile")
-	check(not s.world.run_result.is_empty()==failed_battle,"real defeat preserves immediate game-over rule")
+	check((not s.world.run_result.is_empty())==failed_battle,"real defeat preserves immediate game-over rule")
 	if failed_battle:
 		var target: int=KingTile.target(s.world)
 		check(target>=0 and target!=at and s.world.tiles[target]=="warp","defeat targets another warp")
