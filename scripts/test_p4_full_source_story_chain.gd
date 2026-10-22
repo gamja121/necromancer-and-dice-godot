@@ -149,7 +149,12 @@ func close_and_reload(session: Node, map: Control, label: String) -> void:
 	await process_frame
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	session.reload_world()
-	check(session.world.snapshot()==before,label+": full-world JSON restart retains all actual story receipts/roster/rewards")
+	var after: Dictionary=session.world.snapshot()
+	if after!=before:
+		for key in before.keys():
+			if after.get(key)!=before[key]:
+				print("STORY_BOSS_RELOAD_DIFF ",label," KEY=",key," BEFORE=",JSON.stringify(before[key]).substr(0,250)," AFTER=",JSON.stringify(after.get(key)).substr(0,250))
+	check(after==before,label+": full-world JSON restart retains all actual story receipts/roster/rewards")
 
 func finish_plain_event(session: Node, map: Control, count: int, event_id: String, label: String) -> bool:
 	check(session.get_story_event(event_id).status=="seen",label+": first scene recorded as seen rather than complete")
