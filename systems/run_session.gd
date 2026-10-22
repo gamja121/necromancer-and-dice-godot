@@ -18,6 +18,7 @@ const SAVE = "user://map_run_v1.json"
 # Tests use a separate user:// path; production keeps the canonical path by default.
 var save_file_path: String = SAVE
 const RITUAL_EVENT_ID = "ritual_portal_trace_01"
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const HUNT_EVENT_ID = "monster_king_hunt_trace_01"
 const GRAVEYARD_EVENT_ID = "graveyard_child_ambush_01"
 const GRAVEYARD_RESULT_PENDING_FLAG = "story:graveyard_child_ambush_01:result_pending"
@@ -567,6 +568,10 @@ func finish_encounter(battle) -> bool:
 	# remain. The battle record, permanent losses, and game-over are saved
 	# atomically so reload cannot revive the run or duplicate rewards.
 	if battle.winner()=="enemy":
+		# The real ritual defeat ends the run as before, but still marks the
+		# *other* warp tile in the same transaction as the combat result.
+		if event_id==RITUAL_EVENT_ID:
+			KingPortalTile.activate(world)
 		world.run_result = {
 			"ended":true,
 			"reason":"battle_defeat",
