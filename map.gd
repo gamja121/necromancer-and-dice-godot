@@ -1239,7 +1239,45 @@ func confirm_new_run() -> void:
 		if get_tree().change_scene_to_file("res://intro.tscn")!=OK: render())
 
 
+## Player chooses one of three reserved boss monsters; this selection
+## is a durable boss-stage commitment, not an ordinary battle reward.
+func show_stage_boss_choices(index: int) -> void:
+	var result: Dictionary=session.prepare_boss_offers(index)
+	if not result.get("ok",false):
+		status.text=str(result.get("reason","보스 후보를 준비할 수 없습니다."))
+		return
+	if not str(result.get("selected","")).is_empty():
+		show_battle_deck(index)
+		return
+	var stage_no: int=int(result.stage)
+	var options: Array=result.offers
+	var panel=modal()
+	panel.name="StageBossChoice"
+	label_at(panel,"보스 선택 · 오염도 %d" % stage_no,Vector2(285,100),Vector2(720,58),27)
+	label_at(panel,"후보 중 한 마물을 선택하세요. 선택한 보스는 이 단계에서 한 번만 등장합니다.",Vector2(285,171),Vector2(770,42),18)
+	for i in range(options.size()):
+		var slug: String=str(options[i])
+		var unit: Dictionary=world.definitions.get(slug,{})
+		var label_text: String="%s   HP %d  공격 %d  속도 %d" % [str(unit.get("name",slug)),int(unit.get("hp",0)),int(unit.get("attack",0)),int(unit.get("speed",0))]
+		var pick=Button.new()
+		pick.name="BossCandidate_%d" % i
+		pick.text=label_text
+		pick.position=Vector2(285,242+i*92)
+		pick.size=Vector2(710,70)
+		panel.add_child(pick)
+		add_button_effect(pick)
+		pick.pressed.connect(func():
+			if not session.select_stage_boss(index,slug):
+				status.text="보스 선택 저장 실패 · 다시 선택하세요."
+				return
+			close_overlay()
+			show_battle_deck(index))
+	button(panel,"맵으로 돌아가기",Vector2(525,568),Vector2(230,48),dismiss_overlay)
+
 func show_battle_deck(index: int, story_event_id: String = "") -> void:
+	if story_event_id.is_empty() and world.tiles[index]=="boss" and world.boss_stage() in [20,40] and world.boss_selected(world.boss_stage()).is_empty():
+		show_stage_boss_choices(index)
+		return
 	if world.roster.is_empty():
 		status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
 		return
