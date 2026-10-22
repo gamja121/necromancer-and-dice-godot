@@ -5,6 +5,7 @@ const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
+const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -93,10 +94,21 @@ static func centers() -> Array:
 static func required_swamp_count(level: int) -> int:
 	return 2 if level >= SECOND_SWAMP_CONTAMINATION else (1 if level >= FIRST_SWAMP_CONTAMINATION else 0)
 
-## Two independent prerequisites: current corruption 80 and a genuinely
-## completed, acknowledged final king-hunt scene. This never depends on lap.
+## 20/40/60 corruption stage bosses can be won only once per stage.
+## The dragon at 80 still requires the acknowledged final king-hunt event.
+## All flags persist in the existing event_flags save dictionary.
+func current_boss_stage() -> int:
+	return BossStages.current_stage(contamination)
+
 func boss_available() -> bool:
-	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self)
+	var stage: int = current_boss_stage()
+	if stage==0 or BossStages.defeated(event_flags,stage): return false
+	if stage==BOSS_CONTAMINATION: return FinalBossStoryGate.ready(self)
+	return BossStages.valid(definitions)
+
+func mark_boss_defeated(stage: int) -> void:
+	if stage in [20,40,60,80]:
+		event_flags[BossStages.stage_flag(stage)]=true
 
 func generate() -> void:
 	map_serial += 1
@@ -149,8 +161,8 @@ func generate() -> void:
 	lap_ready = false
 
 
-## Reveal the boss once BOTH contamination 80 and the acknowledged final
-## king-hunt scene are complete, including in the middle of a lap.
+## Show the active stage (20/40/60 or 80+story), only if undefeated.
+## A defeated stage cannot be re-created on later map reshuffles.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
 	if not boss_available() or tiles.size() != 24:
@@ -179,9 +191,9 @@ func reveal_boss_at_threshold() -> bool:
 	return true
 
 
-## When contamination drops below 80 OR the final story receipt is missing,
-## immediately retire the boss at the fixed slot. Restore the monster stone that the boss
-## displaced. Keep cleared status to avoid a duplicate same-lap reward;
+## Once a stage is won or contamination changes out of the eligible band,
+## remove the boss tile immediately. Restore its ordinary monster stone;
+## the next stage can reveal a DIFFERENT assigned boss later. Keep cleared status;
 ## drop only stale scout intelligence for the changed tile.
 func conceal_boss_below_threshold() -> bool:
 	if boss_available() or tiles.size()!=24: return false
