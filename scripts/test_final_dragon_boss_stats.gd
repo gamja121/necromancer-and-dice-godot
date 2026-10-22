@@ -3,6 +3,8 @@ extends SceneTree
 const SessionScript = preload("res://systems/run_session.gd")
 const Battle = preload("res://systems/battlefield_rules.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
+const StoryFixture = preload("res://scripts/boss_story_test_fixture.gd")
+const Hunt = preload("res://systems/monster_king_hunt_entry.gd")
 var passed: int = 0
 var failed: int = 0
 
@@ -21,8 +23,9 @@ func battle_at(session: Node, pollution: int, lap: int) -> bool:
 	var w=session.world
 	w.laps=lap
 	w.contamination=pollution
+	StoryFixture.seed_completed_final_hunt(w)
 	w.generate()
-	check((w.tiles[23]=="boss")==(pollution>=80),"boss tile availability at contamination %d, lap %d" % [pollution,lap])
+	check((w.tiles[23]=="boss")==(pollution>=80),"post-story boss tile only at contamination %d, lap %d" % [pollution,lap])
 	var ids: Array=[w.roster[0].id,w.roster[1].id]
 	if pollution<80:
 		return not session.start_encounter(23,ids)
@@ -36,6 +39,20 @@ func test_stats_and_spawn(session: Node) -> void:
 	check(int(boss.hp)==70 and int(boss.attack)==5 and int(boss.speed)==4,"dragon base stats are exactly HP70 attack5 speed4")
 	check(boss.passives==["bone"] and boss.brands.is_empty(),"dragon template has no custom gimmick, added brands or ordinary dual passive")
 	check(not "dragon" in EncounterGenerator.eligible_roster(data),"dragon cannot spawn in standard encounters or random card rewards")
+	# Even max contamination is insufficient before the genuine last story beat.
+	session.start_new_world()
+	var world=session.world
+	world.contamination=100
+	world.generate()
+	check(world.tiles[23]!="boss" and not world.boss_available(),"contamination 100 without final story never unlocks boss")
+	StoryFixture.seed_completed_final_hunt(world,false)
+	world.generate()
+	check(Hunt.completed(session) and world.tiles[23]!="boss","completed fifth scene without explicit Finish is still locked")
+	world.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=true
+	world.generate()
+	check(world.tiles[23]=="boss" and world.boss_available(),"fifth-scene Finish unlocks boss at already-high contamination")
+	world.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=false
+	check(not world.boss_available(),"removing explicit final acknowledgment relocks boss")
 	check(battle_at(session,79,60),"lap 60 does not grant boss when contamination is 79")
 	check(session.encounter.is_empty(),"no encounter starts below contamination 80")
 	check(battle_at(session,80,0),"even lap 0 can trigger boss when contamination reaches 80")
