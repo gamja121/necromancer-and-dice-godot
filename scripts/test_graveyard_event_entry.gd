@@ -40,8 +40,8 @@ func _new_session(suffix: String):
 	_check(session.world.laps==1 and session.world.contamination==100
 		and session.world.tiles.count("graveyard")==1
 		and session.world.tiles.count("event")>=1
-		and session.world.tiles[23]=="boss",
-		"story fixture has eligible graveyard/event without overwriting tiles")
+		and not session.world.tiles.has("boss"),
+		"unfinished story keeps boss hidden and preserves eligible graveyard/event")
 	_check(session.save_world() and session.has_save(),"test save created separately")
 	return session
 
