@@ -5,6 +5,7 @@ const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -146,6 +147,7 @@ func generate() -> void:
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
+	KingPortalTile.refresh_after_shuffle(self)
 	lap_ready = false
 
 
