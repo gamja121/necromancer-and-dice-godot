@@ -129,7 +129,7 @@ func generate() -> void:
 		if event_flags.get(Discovery.unlock_flag(kind),false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
 			counts.basic -= 1
 			counts[kind] += 1
-	if boss_available(): counts.monster -= 1
+	if boss_available() and not KingPortalTile.active(self): counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
 		for i in range(counts[key]): pool.append(key)
