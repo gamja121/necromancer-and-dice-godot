@@ -19,6 +19,7 @@ const SAVE = "user://map_run_v1.json"
 var save_file_path: String = SAVE
 const RITUAL_EVENT_ID = "ritual_portal_trace_01"
 const KingPortalTile = preload("res://systems/king_portal_tile.gd")
+const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
 const HUNT_EVENT_ID = "monster_king_hunt_trace_01"
 const GRAVEYARD_EVENT_ID = "graveyard_child_ambush_01"
 const GRAVEYARD_RESULT_PENDING_FLAG = "story:graveyard_child_ambush_01:result_pending"
@@ -419,11 +420,13 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	var story: bool = not story_spec.is_empty()
 	if not event_id.is_empty() and not story: return false
 	var mimic: bool = not story and world.pending_reward.get("kind","")=="mimic" and int(world.pending_reward.get("index",-1))==index
+	var king_boss: bool = not story and KingPortalEncounter.battle_ready(world,index)
 	if (not world.pending_reward.is_empty() and not mimic) or not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
 	if index<0 or index>=world.tiles.size() or (not mimic and not story and index in world.cleared): return false
 	if story:
 		if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,story_spec): return false
-	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
+	elif not king_boss and not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
+	if king_boss and not world.run_result.is_empty(): return false
 	if not story and not mimic and world.tiles[index]=="boss" and not world.boss_available(): return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
@@ -438,7 +441,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		used.append(id)
 		allies.append(unit.duplicate(true))
 	var rules = load("res://systems/battlefield_rules.gd").new(world.definitions,world.rng.randi())
-	var type: String = str(story_spec.encounter_type) if story else ("mimic" if mimic else world.tiles[index])
+	var type: String = str(story_spec.encounter_type) if story else ("mimic" if mimic else ("boss" if king_boss else world.tiles[index]))
 	var slugs: Array = []
 	if story:
 		# The altar fight rolls its 4 unique enemies only when an actual
@@ -547,6 +550,11 @@ func finish_encounter(battle) -> bool:
 			return false
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
+		# Dragon victory is an achievement, never a terminal defeat.
+		# The ending is shown once, with acknowledgment saved separately.
+		if encounter.type=="boss" and KingPortalEncounter.battle_ready(world,int(encounter.index)):
+			world.event_flags[KingPortalEncounter.WON]=true
+			notice="마물의 왕 격퇴 · 엔딩 확인 후 원정을 계속할 수 있습니다."
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
 		for unit in battle.units:
@@ -800,7 +808,8 @@ func prepare_map_roll(instance_id: String = "") -> Dictionary:
 	# First full circuit unlocks the cemetery; announce it at HOME once.
 	if landed == MapState.HOME and world.lap_ready and world.laps == 0:
 		world.event_flags["ui:unlock:graveyard:home_pending"] = true
-	if world.tiles[landed]=="warp": world.position = world.warp_destination()
+	if world.tiles[landed]=="warp" and not KingPortalEncounter.location_ready(world,landed):
+		world.position = world.warp_destination()
 	elif world.tiles[landed]=="swamp":
 		for unit in world.roster: unit.current_hp = maxi(1,unit.current_hp-1)
 	world.pending_move = {"face":int(result.face),"label":str(result.label),"origin":origin,"path":path,"landed":landed}
@@ -1120,7 +1129,7 @@ func prepare_hill_move(index: int, steps: int) -> Dictionary:
 	# A chosen stride is not a rolled face or a dice-control-card use.
 	world.last_face = int(before.last_face)
 	var landed: int = world.position
-	if world.tiles[landed] == "warp":
+	if world.tiles[landed] == "warp" and not KingPortalEncounter.location_ready(world,landed):
 		world.position = world.warp_destination()
 	elif world.tiles[landed] == "swamp":
 		for unit in world.roster:
@@ -1233,6 +1242,11 @@ func warp_from(index: int) -> Dictionary:
 	if not allowed.ok: return allowed
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.position = index
+	# A warp reached through the old transport action can also reveal the
+	# encounter. It is never allowed to teleport the hero away from the king.
+	if KingPortalEncounter.location_ready(world,index):
+		world.restore(before)
+		return {"ok":false,"reason":"마물의 왕이 이 웜홀에 있습니다. 먼저 조우하세요."}
 	var destination = world.warp_destination()
 	if destination==index:
 		world.restore(before)
