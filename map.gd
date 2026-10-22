@@ -2080,12 +2080,17 @@ func advance_monster_king_hunt(index: int, shown_beat: int) -> void:
 	show_monster_king_hunt_beat(index)
 
 func acknowledge_monster_king_hunt(index: int) -> void:
+	var was_painted: bool=KingPortalTile.active(world)
 	if not MonsterKingHuntEntry.acknowledge_completion(session,index):
 		status.text="봉인 폐허 확인 저장 실패 · 다시 시도하세요."
 		return
 	close_overlay()
+	render()
+	# On the successful-intervention branch the portal first materializes
+	# HERE, after the real five-scene hunt, not at ritual victory.
+	if not was_painted and KingPortalTile.active(world):
+		await animate_king_warp_tile()
 	if world.tiles[index]=="unknown": show_location(index)
-	else: render()
 
 
 ## Final encounter at the same mutated warp tile. The existing 16:9 portal
