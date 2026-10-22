@@ -137,7 +137,7 @@ const BRAND_ICON_SHEET = preload("res://assets/battle/ui/brand-icons-sheet.jpg")
 const BRAND_ICON_EXTRA = preload("res://assets/battle/ui/brand-icons-extra-sheet.jpg")
 
 static func supports(slug: String) -> bool:
-	return PORTRAITS.has(slug)
+	return PORTRAITS.has(slug) or slug=="dragon"
 
 static func _art(parent: Control, name: String, texture: Texture2D) -> TextureRect:
 	var item := TextureRect.new()
@@ -157,7 +157,9 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	if not supports(slug) or card.has_node(BASE_NAME):
 		return false
 	var background_path: String = str(BACKGROUNDS.get(slug, BACKGROUND))
-	if not (ResourceLoader.exists(background_path) and ResourceLoader.exists(NAMEPLATE) and ResourceLoader.exists(PORTRAITS[slug])):
+	# Boss has no legacy flattened card: reuse its new neutral combat art.
+	var portrait_path: String = "res://assets/battle/frames/dragon/attack-01.png" if slug=="dragon" else str(PORTRAITS.get(slug,""))
+	if not (ResourceLoader.exists(background_path) and ResourceLoader.exists(NAMEPLATE) and ResourceLoader.exists(portrait_path)):
 		return false
 	var original_texture := card.texture_normal
 	# Keep the original TextureButton texture identity for existing card
@@ -171,7 +173,7 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	card.set_meta("layered_selected", selected)
 	card.set_meta("layered_hover", false)
 	_art(card, BASE_NAME, load(background_path))
-	var actor := _art(card, ACTOR_NAME, load(PORTRAITS[slug]))
+	var actor := _art(card, ACTOR_NAME, load(portrait_path))
 	# Exact source proportions are preserved by setting actor.size from texture size.
 	actor.stretch_mode = TextureRect.STRETCH_SCALE
 	_art(card, BANNER_NAME, load(NAMEPLATE))

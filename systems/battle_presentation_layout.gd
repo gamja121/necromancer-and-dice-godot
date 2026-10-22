@@ -23,10 +23,14 @@ func frames(slug: String, motion: String) -> Array:
 func horizontal_center(unit: Dictionary, surface: Vector2) -> float:
 	var slot: int = clampi(int(unit.get("slot",0)),0,4)
 	var ally: bool = str(unit.get("team","ally"))=="ally"
+	if str(unit.get("slug",""))=="dragon" and not ally:
+		return surface.x*0.78
 	var column: int = ALLY_COLUMNS[slot] if ally else ENEMY_COLUMNS[slot]
 	return (0.0 if ally else surface.x*0.52)+(float(column)-0.5)*(surface.x*0.48/5.0)
 
 func geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
+	if str(unit.get("slug",""))=="dragon" and str(unit.get("team",""))=="enemy":
+		return _dragon_geometry(unit,surface)
 	var m: Dictionary = metrics.get(unit.slug,{"width":320,"height":320,"top":0,"bottom":319})
 	var slot: int = clampi(int(unit.get("slot",0)),0,4)
 	var ally: bool = str(unit.get("team","ally"))=="ally"
@@ -45,6 +49,17 @@ func geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
 	var dimensions = Vector2(m.width,m.height)*factor
 	var pivot = Vector2(dimensions.x/2.0,(float(m.bottom)+1.0)*factor)
 	return {"size":dimensions,"pivot":pivot,"position":Vector2(x,foot)-pivot,"scale":factor,"foot":Vector2(x,foot),"wrap":wrap,"z":layer_z,"effect":Vector2(x,surface.y*(0.22+0.69*0.13)+wrap.y/2.0-wrap.y*0.05*depth+wrap.y*offset)}
+
+# Colossal boss occupies the enemy half; head lunge stays inside the stage.
+# Cards/HP retain one logical enemy slot. No targeting or rule changes.
+func _dragon_geometry(unit: Dictionary,surface: Vector2) -> Dictionary:
+	var m: Dictionary=metrics.dragon
+	var foot_y: float=surface.y*0.82
+	var factor: float=minf(surface.x*0.72/float(m.width),(foot_y-surface.y*0.225)/float(m.bottom-m.top+1))
+	var dimensions: Vector2=Vector2(m.width,m.height)*factor
+	var x: float=horizontal_center(unit,surface)
+	var position: Vector2=Vector2(surface.x-18.0-966.0*factor,foot_y-575.0*factor)
+	return {"size":dimensions,"pivot":Vector2(x-position.x,575.0*factor),"position":position,"scale":factor,"foot":Vector2(x,foot_y),"wrap":Vector2(surface.x*0.32,surface.y*0.6),"z":14,"effect":Vector2(x,surface.y*0.55)}
 
 # Follow the ground-plane diagonal without moving the HUD/card row.
 # The health indicator is HUD chrome (above sprites), not a depth layer.

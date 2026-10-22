@@ -126,7 +126,8 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	close_button.pressed.connect(close)
 	left.add_child(close_button)
 	close_button.grab_focus()
-	portrait = artwork(left,"res://assets/battle/ui/info-portraits/%s.png" % u.slug,Vector2(23.73,54.47),Vector2(134.56,199.71))
+	var portrait_path: String = "res://assets/battle/frames/dragon/attack-01.png" if str(u.slug)=="dragon" else "res://assets/battle/ui/info-portraits/%s.png" % u.slug
+	portrait = artwork(left,portrait_path,Vector2(23.73,54.47),Vector2(134.56,199.71))
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var legion_names: Array = []
 	for key in u.legions: legion_names.append(interface_data.legions[key].name)

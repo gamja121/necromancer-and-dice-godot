@@ -97,7 +97,11 @@ func play(battle_scene, fallen: Array) -> void:
 	z_index = 80
 	var permanent = fallen.filter(func(u): return u.team=="ally" and not u.is_summon)
 	var ordinary = fallen.filter(func(u): return u.team!="ally" or u.is_summon)
-	for u in ordinary: scene.sound("death")
+	for u in ordinary:
+		scene.sound("death")
+		# The dragon frames already darken, rot and collapse progressively.
+		# Do not pre-dim them to the generic 35% corpse opacity.
+		if str(u.slug)=="dragon": scene.sprites[u.id].modulate=Color.WHITE
 	if not permanent.is_empty():
 		scene.visuals.presentation_hold = true
 		await scene.wait_time(0.10)
