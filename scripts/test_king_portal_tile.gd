@@ -5,6 +5,7 @@ const SessionScript=preload("res://systems/run_session.gd")
 const Rumor=preload("res://systems/cultist_rumor_entry.gd")
 const Altar=preload("res://systems/cultist_altar_entry.gd")
 const Portal=preload("res://systems/ritual_portal_entry.gd")
+const Hunt=preload("res://systems/monster_king_hunt_entry.gd")
 const KingTile=preload("res://systems/king_portal_tile.gd")
 
 class BattleResult:
@@ -106,6 +107,25 @@ func refusal() -> void:
 	check(s.world.tiles.count("warp")==2,"shuffle retains both ordinary warp mechanics")
 	s.free()
 
+func subsequent_hunt_after_refusal() -> void:
+	var s=fixture("surrender_to_hunt")
+	var at: int=s.world.position
+	check(Portal.decline_intervention(s,at,4),"refusal prepares full-revival story")
+	check(not s.world.boss_available(),"a surrendered ritual alone never reveals the final boss")
+	check(Hunt.can_enter(s,at),"hunt can start after non-intervention without forged battle")
+	check(Hunt.begin(s,at),"real hunt story begins")
+	for i in range(3): check(Hunt.advance(s,at,i),"hunt beat %d saved" % i)
+	check(Hunt.finish(s,at),"real fifth hunt scene persisted")
+	check(not s.world.boss_available(),"final king-hunt screen still needs explicit Finish acknowledgment")
+	check(Hunt.acknowledge_completion(s,at),"hunt final screen deliberately acknowledged")
+	check(s.world.boss_available(),"full revival + 80 contamination + actual hunt opens boss")
+	check(s.world.tiles[23]=="boss","fixed final boss slot revealed")
+	var target: int=KingTile.target(s.world)
+	check(target>=0 and target!=at and s.world.tiles[target]=="warp" and target!=23,"king visual remains a different warp, never the boss stone")
+	s.reload_world()
+	check(s.world.boss_available() and KingTile.target(s.world)==target,"boss and separate painted warp survive save reload")
+	s.free()
+
 func battle_outcome(side: String) -> void:
 	var s=fixture(side)
 	var at: int=s.world.position
@@ -129,6 +149,7 @@ func battle_outcome(side: String) -> void:
 func _run() -> void:
 	art_contract()
 	refusal()
+	subsequent_hunt_after_refusal()
 	battle_outcome("ally")
 	battle_outcome("enemy")
 	for p in paths: cleanup(p)
