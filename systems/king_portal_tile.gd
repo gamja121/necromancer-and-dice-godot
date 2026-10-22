@@ -29,7 +29,7 @@ static func choose_target(world) -> int:
 	var result: int=-1
 	var longest: int=-1
 	for index in range(world.tiles.size()):
-		if index==world.position or world.tiles[index]!="warp": continue
+		if index==world.position or index==23 or world.tiles[index]!="warp": continue
 		var clockwise: int=(index-world.position+24)%24
 		var distance: int=mini(clockwise,24-clockwise)
 		if distance>longest:
