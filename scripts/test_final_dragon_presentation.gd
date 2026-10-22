@@ -44,6 +44,11 @@ func run() -> void:
 				continue
 			var bounds := image.get_used_rect()
 			check(bounds.position.x > 6 and bounds.position.y > 6 and bounds.end.x < image.get_width() - 6 and bounds.end.y < image.get_height() - 6, "%s frame %d keeps complete silhouette inside canvas" % [motion, index + 1])
+			var scale_to_page: Vector2 = PRESENTATION.DRAGON_RECT.size / Vector2(PRESENTATION.FRAME_SIZE)
+			var mirrored_origin := Vector2(PRESENTATION.FRAME_SIZE.x - bounds.end.x, bounds.position.y)
+			var visible_rect := Rect2(PRESENTATION.DRAGON_RECT.position + mirrored_origin * scale_to_page, Vector2(bounds.size) * scale_to_page)
+			var safe_page := Rect2(Vector2(5, 5), PRESENTATION.ART_RECT.size - Vector2(10, 10))
+			check(safe_page.encloses(visible_rect), "%s frame %d fits inside the actual book page with shake margin" % [motion, index + 1])
 			var hash: String = FileAccess.get_sha256(path)
 			if index > 0:
 				check(hash != previous_hash, "%s frame %d contains motion" % [motion, index + 1])

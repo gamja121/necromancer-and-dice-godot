@@ -6,7 +6,7 @@ signal attack_impact
 
 const BASE_SIZE := Vector2(1280, 720)
 const ART_RECT := Rect2(56, 78, 1168, 504)
-const DRAGON_RECT := Rect2(272, -28, 944, 590)
+const DRAGON_RECT := Rect2(272, -48, 944, 590)
 const FRAME_SIZE := Vector2i(1024, 640)
 const INTRO_SECONDS := 5.2
 const CACHE_LIMIT := 10
