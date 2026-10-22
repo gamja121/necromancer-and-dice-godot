@@ -1,0 +1,58 @@
+name: Dragon battlefield animation
+on:
+  pull_request:
+    paths:
+      - "systems/final_dragon_battle*.gd"
+      - "scripts/*final_dragon_battle*.gd"
+      - "assets/battle/frames/dragon/**"
+      - "data/battle_visual_metrics.json"
+      - "systems/battle_presentation_layout.gd"
+      - "systems/permanent_death.gd"
+      - "systems/layered_unit_card.gd"
+      - "systems/unit_info.gd"
+      - ".github/workflows/dragon_battle.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/final_dragon_battle*.gd"
+      - "scripts/*final_dragon_battle*.gd"
+      - "assets/battle/frames/dragon/**"
+      - "data/battle_visual_metrics.json"
+      - "systems/battle_presentation_layout.gd"
+      - "systems/permanent_death.gd"
+      - "systems/layered_unit_card.gd"
+      - "systems/unit_info.gd"
+      - ".github/workflows/dragon_battle.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dragon-combat-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  combat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual dragon battle and unchanged book animation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_final_dragon_battle_motion test_final_dragon_presentation test_battle_idle_motion test_battle_motion_parity test_battle_formation_order; do
+            timeout 180s godot --headless --path . --script res://scripts/$test.gd 2>&1 | tee "$test.log"
+            grep -E '^[A-Z_]+: [0-9]+ passed, 0 failed$' "$test.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
+          done
+      - name: Whitespace
+        run: git diff --check

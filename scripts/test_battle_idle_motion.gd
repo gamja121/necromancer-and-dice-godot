@@ -21,7 +21,7 @@ func _run() -> void:
 	var rigid_count := 0
 	for slug in layout.metrics:
 		if bool(layout.metrics[slug].get("rigid_idle",false)): rigid_count += 1
-	check(layout.metrics.size()==47 and rigid_count==43,"47 species registered, original 43 rigid illustrations preserved")
+	check(layout.metrics.size()==48 and layout.metrics.has("dragon") and rigid_count==44,"48 species registered, original 43 rigid illustrations plus dragon preserved")
 
 	# Instantiate actual production battlefield; do not generate synthetic sprites.
 	var scene = BATTLE.instantiate()

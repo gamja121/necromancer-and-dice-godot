@@ -138,7 +138,7 @@ func _run() -> void:
 		check(definitions.has(slug), "fixed-source species remains in catalog: " + str(slug))
 	names.append("dracula")
 	var layout = Layout.new()
-	check(layout.metrics.size() == 47, "47 live presentation profiles loaded")
+	check(layout.metrics.size() == 48 and layout.metrics.has("dragon"), "48 live profiles including dragon; original 47-species coverage preserved")
 	if not verify_art_catalog(names, layout):
 		print("P4_ALL_MONSTER_PRESENTATION: %d passed, %d failed" % [passed, failed])
 		quit(1)

@@ -88,7 +88,11 @@ func _run() -> void:
 	var closed: Array[bool]=[]
 	panel.closed.connect(func(): closed.append(true))
 	panel.close()
+	panel.close() # Closing twice during the existing animation emits only once.
+	var close_deadline: int=Time.get_ticks_msec()+1300
+	while closed.is_empty() and Time.get_ticks_msec()<close_deadline:
+		await process_frame
+	check(closed.size()==1,"unit info close signal delivered once after the real depth exit")
 	await process_frame
-	check(closed.size()==1,"unit info close signal delivered")
 	print("UI_DICE_FAN_UNIT_INFO_PARITY: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
