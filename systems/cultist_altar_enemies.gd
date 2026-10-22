@@ -1,7 +1,8 @@
 extends RefCounted
 ## Original HTML-final cultistAltarEnemySlugs: four distinct grade-normal/advanced/hero units.
 ## First unit is always advanced or hero; fallback matches the original source.
-const FALLBACK = ["death-knight","plague-doctor","ghoul","skeleton-spear"]
+const BossStages = preload("res://systems/boss_stage_catalog.gd")
+const FALLBACK = ["cerberus","plague-doctor","ghoul","skeleton-spear"]
 
 static func select(definitions: Dictionary, rng: RandomNumberGenerator) -> Array:
 	if rng == null: return []
@@ -9,7 +10,7 @@ static func select(definitions: Dictionary, rng: RandomNumberGenerator) -> Array
 	var elite: Array = []
 	for slug in definitions:
 		var grade: String=str(definitions[slug].get("grade",""))
-		if grade not in ["normal","advanced","hero"]: continue
+		if grade not in ["normal","advanced","hero"] or slug in BossStages.reserved_slugs(): continue
 		eligible.append(str(slug))
 		if grade in ["advanced","hero"]: elite.append(str(slug))
 	if elite.is_empty() or eligible.size()<4:
