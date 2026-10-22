@@ -56,8 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           timeout 180s godot --headless --path . --script res://scripts/test_monster_king_hunt_entry.gd 2>&1 | tee entry.log
-          grep -E '^MONSTER_KING_HUNT_ENTRY_REGRESSION: [0-9]+ passed, 0 failed        run: git diff --check
- entry.log
+          grep -E '^MONSTER_KING_HUNT_ENTRY_REGRESSION: [0-9]+ passed, 0 failed$' entry.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL' entry.log; then exit 1; fi
       - name: Whitespace check
         run: git diff --check
