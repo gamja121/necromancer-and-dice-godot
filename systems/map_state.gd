@@ -161,6 +161,7 @@ func reveal_boss_at_threshold() -> bool:
 		if tiles[BOSS_TILE_INDEX]=="boss":
 			tiles[BOSS_TILE_INDEX]="monster"
 			cleared.erase(BOSS_TILE_INDEX)
+			return true
 		return false
 	if not boss_available() or tiles.size() != 24:
 		return false
