@@ -425,7 +425,11 @@ func rescue_and_king(session: Node, victor: String) -> void:
 	press_story_action(last)
 	check(session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG) and HUNT.completed(session),label+":king-hunt final acknowledgement persists and cannot restart")
 	check(session.world.boss_available()==(session.world.contamination>=STATE.BOSS_CONTAMINATION),label+":real final acknowledgment activates remaining contamination condition")
-	check((session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss")==session.world.boss_available(),label+":boss tile follows both final story and contamination without an extra lap")
+	var king_warp: int=-1
+	for index in range(session.world.tiles.size()):
+		if session.world.event_flags.get("visual:ritual_portal:king_warp_index:"+str(index),false)==true and session.world.tiles[index]=="warp":
+			king_warp=index
+	check(king_warp>=0 and king_warp!=session.world.position and session.world.tiles[STATE.BOSS_TILE_INDEX]!="boss",label+":acknowledged hunt opens the different painted warp and never a duplicate boss stone")
 	check(session.event_flag_is_set(HUNT.FINAL_BATTLE_FLAG) and session.event_flag_is_set(HUNT.SEALED_RUINS_FLAG),label+":final battle quest ready; dragon boss is gated by story + contamination")
 	check(PORTAL.completed(session) and ALTAR.completed(session) and session.get_story_event(CHILD.EVENT_ID).status=="complete",label+":entire eight-event predecessor history survives end of chain")
 	check(session.world.pending_reward.is_empty() and session.encounter.is_empty(),label+":full chain leaves no pending battle/reward/duplicate treasure")

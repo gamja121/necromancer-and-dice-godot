@@ -1,0 +1,60 @@
+name: King Portal Five-Stage Warp Transformation
+on:
+  pull_request:
+    paths:
+      - "assets/map/tiles/king_portal_*.webp"
+      - "systems/king_portal_tile.gd"
+      - "systems/ritual_portal_entry.gd"
+      - "systems/final_boss_story_gate.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "map.gd"
+      - "scripts/test_king_portal_tile.gd"
+      - ".github/workflows/king-portal-tile.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/map/tiles/king_portal_*.webp"
+      - "systems/king_portal_tile.gd"
+      - "systems/ritual_portal_entry.gd"
+      - "systems/final_boss_story_gate.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "map.gd"
+      - "scripts/test_king_portal_tile.gd"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  story-portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot artwork and scripts
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|ERROR: Failed' import.log; then exit 1; fi
+      - name: Verify five-frame tile and full story choices
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_king_portal_tile.gd 2>&1 | tee king.log
+          grep -E 'KING_PORTAL_TILE: [0-9]+ passed, 0 failed' king.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL king-warp:' king.log; then exit 1; fi
+      - name: Regression ritual quest and actual battle outcome
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ritual_portal_revival.gd 2>&1 | tee ritual.log
+          grep -E 'RITUAL_PORTAL_REVIVAL_REGRESSION: [0-9]+ passed, 0 failed' ritual.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ritual-portal-revival:' ritual.log; then exit 1; fi
+      - name: Final story, save and boss gate
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss.log
+          grep -E 'MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed' boss.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL boss-threshold:' boss.log; then exit 1; fi

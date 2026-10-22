@@ -5,6 +5,7 @@ const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -96,7 +97,7 @@ static func required_swamp_count(level: int) -> int:
 ## Two independent prerequisites: current corruption 80 and a genuinely
 ## completed, acknowledged final king-hunt scene. This never depends on lap.
 func boss_available() -> bool:
-	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self)
+	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self) and event_flags.get("story:monster_king:boss_won",false)!=true
 
 func generate() -> void:
 	map_serial += 1
@@ -128,7 +129,7 @@ func generate() -> void:
 		if event_flags.get(Discovery.unlock_flag(kind),false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
 			counts.basic -= 1
 			counts[kind] += 1
-	if boss_available(): counts.monster -= 1
+	if boss_available() and not KingPortalTile.active(self): counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
 		for i in range(counts[key]): pool.append(key)
@@ -142,10 +143,11 @@ func generate() -> void:
 		if i==0: tiles.append("fortune-teller-camp")
 		elif i==8: tiles.append("village")
 		elif i==HOME: tiles.append("home")
-		elif i==BOSS_TILE_INDEX and boss_available(): tiles.append("boss")
+		elif i==BOSS_TILE_INDEX and boss_available() and not KingPortalTile.active(self): tiles.append("boss")
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
+	KingPortalTile.refresh_after_shuffle(self)
 	lap_ready = false
 
 
@@ -153,6 +155,14 @@ func generate() -> void:
 ## king-hunt scene are complete, including in the middle of a lap.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
+	# The final boss now waits inside a painted warp. Do not add an
+	# independent fixed-slot boss when that portal is already available.
+	if KingPortalTile.active(self) and tiles.size()==24:
+		if tiles[BOSS_TILE_INDEX]=="boss":
+			tiles[BOSS_TILE_INDEX]="monster"
+			cleared.erase(BOSS_TILE_INDEX)
+			return true
+		return false
 	if not boss_available() or tiles.size() != 24:
 		return false
 	if tiles[BOSS_TILE_INDEX] == "boss":
@@ -171,6 +181,9 @@ func reveal_boss_at_threshold() -> bool:
 				scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != candidate)
 			break
 	tiles[BOSS_TILE_INDEX] = "boss"
+	# If this rare slot was a warp, move only the cosmetic king painting
+	# onto the remaining warp. Keep the fixed boss encounter untouched.
+	KingPortalTile.refresh_after_shuffle(self)
 	# A previously cleared or scouted ordinary tile cannot carry those
 	# semantics into a fresh boss encounter at the same board slot.
 	cleared.erase(BOSS_TILE_INDEX)

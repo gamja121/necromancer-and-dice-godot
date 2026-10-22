@@ -4,6 +4,7 @@ const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 ## The revival form, ended ritual quest and new hunt are atomic receipts.
 const CultistAltar = preload("res://systems/cultist_altar_entry.gd")
 const PortalBeats = preload("res://systems/ritual_portal_beats.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 
 const EVENT_ID = "ritual_portal_trace_01"
 const SEEN_FLAG = "event:ritual_portal_trace_01:seen"
@@ -124,6 +125,33 @@ static func choose_intervention(session, index: int, shown_index: int) -> bool:
 	session.world.event_flags[INTERVENE_CHOICE_FLAG]=true
 	return session.persist_change(before)
 
+## On the fifth scene the player may deliberately allow the ritual.
+## Full revival and the remote warp omen are one atomic save.
+static func decline_intervention(session, index: int, shown_index: int) -> bool:
+	if session==null or session.world==null: return false
+	if not can_enter(session,index) or shown_index!=4 or current_beat(session)!=4: return false
+	if session.get_story_event(EVENT_ID).status!="seen": return false
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	if not KingPortalTile.activate(session.world): return false
+	session.world.story_events[EVENT_ID]={"status":"complete","choice":"allow","battle_result":""}
+	var flags: Dictionary=session.world.event_flags
+	flags[SEEN_FLAG]=true
+	flags[COMPLETE_FLAG]=true
+	flags[PORTAL_FOUND_FLAG]=true
+	flags[SITE_LOCATION_FLAG]=true
+	flags[TRACKING_FLAG]=false
+	flags[TRACKING_COMPLETE_FLAG]=true
+	flags[INTERVENTION_FLAG]=false
+	flags[INTERVENE_CHOICE_FLAG]=false
+	flags[BATTLE_WON_FLAG]=false
+	flags[BATTLE_LOST_FLAG]=false
+	flags[RESULT_PENDING_FLAG]=false
+	flags[REVIVED_FLAG]=true
+	flags[WEAKENED_FLAG]=false
+	flags[FULL_REVIVAL_FLAG]=true
+	flags[HUNT_FLAG]=true
+	return session.persist_change(before)
+
 ## Only an acknowledged final battle result permits the final scene.
 ## Reading a result, or saving the intervention choice, never advances quests.
 static func aftermath_ready(session, index: int) -> bool:
@@ -168,12 +196,14 @@ static func finish(session, index: int) -> bool:
 static func completed(session) -> bool:
 	if session == null or session.world == null: return false
 	var state: Dictionary=session.get_story_event(EVENT_ID)
-	if state.status!="complete" or state.choice!="intervene": return false
-	if state.battle_result not in ["won","lost"]: return false
+	if state.status!="complete" or state.choice not in ["intervene","allow"]: return false
+	var abandoned: bool=state.choice=="allow"
+	if (not abandoned and state.battle_result not in ["won","lost"]) or (abandoned and state.battle_result!=""): return false
 	var won: bool=state.battle_result=="won"
 	var flags: Dictionary=session.world.event_flags
-	for key in [SEEN_FLAG,INTERVENE_CHOICE_FLAG,COMPLETE_FLAG,PORTAL_FOUND_FLAG,SITE_LOCATION_FLAG,TRACKING_COMPLETE_FLAG,REVIVED_FLAG]:
+	for key in [SEEN_FLAG,COMPLETE_FLAG,PORTAL_FOUND_FLAG,SITE_LOCATION_FLAG,TRACKING_COMPLETE_FLAG,REVIVED_FLAG]:
 		if flags.get(key,false)!=true: return false
+	if flags.get(INTERVENE_CHOICE_FLAG,false)==abandoned: return false
 	# The portal stays historically complete when the *later* hunt
 	# hands off its active quest to a fully saved location/final quest.
 	var hunt_active: bool=flags.get(HUNT_FLAG,false)==true
@@ -184,7 +214,9 @@ static func completed(session) -> bool:
 	if hunt_active==hunt_done: return false
 	for key in [TRACKING_FLAG,INTERVENTION_FLAG,RESULT_PENDING_FLAG]:
 		if flags.get(key,false)==true: return false
-	if flags.get(BATTLE_WON_FLAG,false)!=won or flags.get(BATTLE_LOST_FLAG,false)==won: return false
+	if flags.get(BATTLE_WON_FLAG,false)!=won: return false
+	if flags.get(BATTLE_LOST_FLAG,false)!=(not abandoned and not won): return false
+	if abandoned and not KingPortalTile.active(session.world): return false
 	if flags.get(WEAKENED_FLAG,false)!=won or flags.get(FULL_REVIVAL_FLAG,false)==won: return false
 	if flags.get(progress_flag(4),false)!=true or flags.get(progress_flag(3),false)!=true: return false
 	if flags.get(progress_flag(2),false)!=true or flags.get(progress_flag(1),false)!=true: return false
