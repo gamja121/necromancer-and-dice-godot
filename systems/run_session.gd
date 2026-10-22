@@ -3,6 +3,7 @@ const MapGearShift = preload("res://systems/map_gear_shift.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
+const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 const DiceControl = preload("res://systems/dice_control.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
@@ -457,9 +458,9 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
 	elif type=="boss" and world.boss_available():
-		# Restored 2026-10-07 rule: no lap-based boss thresholds.
-		# At contamination 80+ the boss stone hosts exactly one dragon.
-		slugs = ["dragon"]
+		# One fixed monster per stage. The final dragon is still unlocked
+		# ONLY after the last story's explicit completion.
+		slugs = [BossStages.boss_slug(world.current_boss_stage())]
 	else:
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
@@ -498,6 +499,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story and get_story_event(event_id).battle_result == "lost":
 		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
+	if type=="boss": encounter["boss_stage"]=world.current_boss_stage()
 	if story: encounter["event_id"] = event_id
 	if mimic:
 		world.reward_receipts.append(world.pending_reward.id)
@@ -546,6 +548,10 @@ func finish_encounter(battle) -> bool:
 			return false
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
+		if encounter.type=="boss":
+			# A stage boss is one-time per run, including across save/reload and
+			# later pollution increases. The next stage has its own monster.
+			world.mark_boss_defeated(int(encounter.get("boss_stage",world.current_boss_stage())))
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
 		for unit in battle.units:
