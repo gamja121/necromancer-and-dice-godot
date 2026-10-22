@@ -173,6 +173,9 @@ func reveal_boss_at_threshold() -> bool:
 				scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != candidate)
 			break
 	tiles[BOSS_TILE_INDEX] = "boss"
+	# If this rare slot was a warp, move only the cosmetic king painting
+	# onto the remaining warp. Keep the fixed boss encounter untouched.
+	KingPortalTile.refresh_after_shuffle(self)
 	# A previously cleared or scouted ordinary tile cannot carry those
 	# semantics into a fresh boss encounter at the same board slot.
 	cleared.erase(BOSS_TILE_INDEX)
