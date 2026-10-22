@@ -97,7 +97,7 @@ static func required_swamp_count(level: int) -> int:
 ## Two independent prerequisites: current corruption 80 and a genuinely
 ## completed, acknowledged final king-hunt scene. This never depends on lap.
 func boss_available() -> bool:
-	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self)
+	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self) and event_flags.get("story:monster_king:boss_won",false)!=true
 
 func generate() -> void:
 	map_serial += 1
@@ -143,7 +143,7 @@ func generate() -> void:
 		if i==0: tiles.append("fortune-teller-camp")
 		elif i==8: tiles.append("village")
 		elif i==HOME: tiles.append("home")
-		elif i==BOSS_TILE_INDEX and boss_available(): tiles.append("boss")
+		elif i==BOSS_TILE_INDEX and boss_available() and not KingPortalTile.active(self): tiles.append("boss")
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
@@ -155,6 +155,13 @@ func generate() -> void:
 ## king-hunt scene are complete, including in the middle of a lap.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
+	# The final boss now waits inside a painted warp. Do not add an
+	# independent fixed-slot boss when that portal is already available.
+	if KingPortalTile.active(self) and tiles.size()==24:
+		if tiles[BOSS_TILE_INDEX]=="boss":
+			tiles[BOSS_TILE_INDEX]="monster"
+			cleared.erase(BOSS_TILE_INDEX)
+		return false
 	if not boss_available() or tiles.size() != 24:
 		return false
 	if tiles[BOSS_TILE_INDEX] == "boss":
