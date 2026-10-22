@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - fix/staged-boss-once-20-40-60-20261023
+      - feat/random-six-corruption-bosses-20261023
     paths:
       - "systems/boss_stage_catalog.gd"
       - "systems/map_state.gd"
@@ -15,6 +16,15 @@ on:
       - "scripts/test_staged_boss_one_time.gd"
       - "scripts/test_final_dragon_boss_stats.gd"
       - "scripts/test_map_shuffle_boss_threshold.gd"
+      - "scripts/test_web_unit_catalog_parity.gd"
+      - ".github/workflows/boss-stages-one-time.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "systems/boss_stage_catalog.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "scripts/test_staged_boss_one_time.gd"
       - "scripts/test_web_unit_catalog_parity.gd"
       - ".github/workflows/boss-stages-one-time.yml"
   workflow_dispatch:

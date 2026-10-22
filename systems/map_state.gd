@@ -64,6 +64,8 @@ var patrol_plan: Dictionary = RoutePlan.default_plan()
 var scout: Dictionary = {"scouted":false,"intel":[]}
 var prayer_result: Dictionary = {}
 var event_flags: Dictionary = {}
+# Chosen once per expedition; string keys survive JSON save/restore.
+var boss_assignments: Dictionary = {}
 # Event stages/choices are separate from canonical web-compatible boolean flags.
 var story_events: Dictionary = {}
 
@@ -76,6 +78,7 @@ func _init(data: Dictionary = {}, seed_value: int = 1, initial_plan: Dictionary 
 	definitions = data
 	if RoutePlan.valid(initial_plan): patrol_plan=initial_plan.duplicate(true)
 	rng.seed = seed_value
+	boss_assignments = BossStages.roll_assignments(seed_value)
 	var rules = Rules.new(data,rng.randi())
 	for slug in ["skeleton-spear","skeleton-archer"]:
 		var u = rules.individual(slug,"owned-"+str(roster.size()))
@@ -100,11 +103,14 @@ static func required_swamp_count(level: int) -> int:
 func current_boss_stage() -> int:
 	return BossStages.current_stage(contamination)
 
+func current_boss_slug() -> String:
+	return BossStages.boss_slug(current_boss_stage(),boss_assignments)
+
 func boss_available() -> bool:
 	var stage: int = current_boss_stage()
 	if stage==0 or BossStages.defeated(event_flags,stage): return false
 	if stage==BOSS_CONTAMINATION: return FinalBossStoryGate.ready(self)
-	return BossStages.valid(definitions)
+	return BossStages.valid(definitions,boss_assignments)
 
 func mark_boss_defeated(stage: int) -> void:
 	if stage in [20,40,60,80]:
@@ -270,7 +276,7 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"story_events":story_events.duplicate(true)}
+	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"boss_assignments":boss_assignments.duplicate(true),"story_events":story_events.duplicate(true)}
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -295,6 +301,9 @@ func restore(saved: Dictionary) -> bool:
 		if terminal.get("reason","")!="battle_defeat" or terminal.get("ended",false)!=true: return false
 		for value in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			if not terminal.has(value) or int(terminal[value])<0: return false
+	# Old saves had fixed 20/40/60 species; do not reroll an ongoing run.
+	var stored_assignments = saved.get("boss_assignments",BossStages.legacy_assignments())
+	if not stored_assignments is Dictionary or not BossStages.valid(definitions,stored_assignments): return false
 	var stored_flags: Dictionary = saved.get("event_flags",{})
 	for flag in stored_flags:
 		if not flag is String or str(flag).is_empty() or not stored_flags[flag] is bool: return false
@@ -474,6 +483,7 @@ func restore(saved: Dictionary) -> bool:
 	scout = intel_state.duplicate(true)
 	prayer_result = saved.get("prayer_result",{}).duplicate(true)
 	event_flags = stored_flags.duplicate(true)
+	boss_assignments = stored_assignments.duplicate(true)
 	story_events = stored_story_events.duplicate(true)
 	tiles = saved.tiles.duplicate()
 	roster = saved.roster.duplicate(true)

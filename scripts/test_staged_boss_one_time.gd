@@ -26,7 +26,7 @@ func _fight_and_win(session: Node, stage: int) -> void:
 	check(w.tiles[23]=="boss" and w.boss_available(),"%d: eligible boss tile appears" % stage)
 	check(session.start_encounter(23,selected),"%d: existing battle entry accepts staged boss" % stage)
 	if session.encounter.is_empty(): return
-	check(session.encounter.enemies.size()==1 and str(session.encounter.enemies[0].slug)==BossStages.boss_slug(stage),"%d: only selected boss species appears" % stage)
+	check(session.encounter.enemies.size()==1 and str(session.encounter.enemies[0].slug)==w.current_boss_slug(),"%d: only selected boss species appears" % stage)
 	check(int(session.encounter.get("boss_stage",0))==stage,"%d: encounter persists stage id" % stage)
 	var battle=Battle.new(w.definitions,91)
 	check(battle.restore(session.encounter.checkpoint),"%d: live battle can be restored" % stage)
@@ -45,6 +45,7 @@ func _fight_and_win(session: Node, stage: int) -> void:
 	session.reload_world()
 	w=session.world
 	check(BossStages.defeated(w.event_flags,stage) and w.tiles[23]!="boss","%d: stage cannot respawn on save reload" % stage)
+	check(BossStages.valid(w.definitions,w.boss_assignments),"saved draw remains valid after reload")
 	w.generate()
 	check(w.tiles[23]!="boss","%d: stage does not return on next-lap shuffle" % stage)
 
@@ -61,7 +62,27 @@ func _run() -> void:
 	session.start_new_world()
 	var world=session.world
 	var definitions: Dictionary=world.definitions
-	check(BossStages.valid(definitions),"three distinct existing boss species are configured")
+	check(BossStages.valid(definitions,world.boss_assignments),"three distinct candidates selected in this expedition")
+	check(BossStages.CANDIDATES.size()==6 and BossStages.reserved_slugs().size()==7,"six exclusive boss candidates plus the final dragon")
+	var seen_species: Dictionary={}
+	var seen_rosters: Dictionary={}
+	var all_draws_valid: bool=true
+	for seed in range(1,101):
+		var draw: Dictionary=BossStages.roll_assignments(seed)
+		if not BossStages.valid(definitions,draw): all_draws_valid=false
+		seen_rosters[JSON.stringify(draw)]=true
+		for stage in BossStages.STAGES:
+			seen_species[str(draw[str(stage)])]=true
+	check(all_draws_valid,"100 generated expeditions use three distinct eligible bosses")
+	check(seen_rosters.size()>1,"different expedition seeds roll different boss trios")
+	check(seen_species.size()==6,"all six boss species can be drawn across expeditions")
+	var original_draw: Dictionary=world.boss_assignments.duplicate(true)
+	check(BossStages.valid(definitions,original_draw),"initial boss assignment is valid")
+	var old_snapshot: Dictionary=world.snapshot().duplicate(true)
+	old_snapshot.erase("boss_assignments")
+	var legacy_world=load("res://systems/map_state.gd").new(definitions,123)
+	check(legacy_world.restore(old_snapshot) and legacy_world.boss_assignments==BossStages.legacy_assignments(),"old saves retain the previous fixed trio")
+	check(world.snapshot().boss_assignments==original_draw,"legacy restore does not mutate active run")
 	check(BossStages.current_stage(19)==0 and BossStages.current_stage(20)==20 and BossStages.current_stage(39)==20,"first stage is 20 to 39")
 	check(BossStages.current_stage(40)==40 and BossStages.current_stage(59)==40 and BossStages.current_stage(60)==60 and BossStages.current_stage(79)==60,"next stages are 40 and 60")
 	check(BossStages.current_stage(80)==80,"final dragon retains separate 80+ gate")
@@ -80,6 +101,7 @@ func _run() -> void:
 	world.generate()
 	_fight_and_win(session,20)
 	world=session.world
+	check(world.boss_assignments==original_draw,"first victory and reload preserve full stage draw")
 	world.contamination=39
 	world.generate()
 	check(world.tiles[23]!="boss","defeated first stage never returns at 39")
@@ -87,6 +109,7 @@ func _run() -> void:
 	world.generate()
 	_fight_and_win(session,40)
 	world=session.world
+	check(world.boss_assignments==original_draw,"second victory and reload preserve full stage draw")
 	world.contamination=41
 	world.generate()
 	check(world.tiles[23]!="boss","defeated second stage never returns")
@@ -94,6 +117,7 @@ func _run() -> void:
 	world.generate()
 	_fight_and_win(session,60)
 	world=session.world
+	check(world.boss_assignments==original_draw,"third victory and reload preserve full stage draw")
 	world.contamination=79
 	world.generate()
 	check(world.tiles[23]!="boss","defeated third stage never returns")
@@ -102,7 +126,7 @@ func _run() -> void:
 	check(world.tiles[23]!="boss","80+ dragon still needs acknowledged final story")
 	StoryFixture.seed_completed_final_hunt(world)
 	check(world.reveal_boss_at_threshold() and world.tiles[23]=="boss","real existing final-story prerequisite unlocks dragon")
-	check(BossStages.boss_slug(80)=="dragon" and not BossStages.defeated(world.event_flags,80),"dragon remains separate one-time final stage")
+	check(BossStages.boss_slug(80,world.boss_assignments)=="dragon" and not BossStages.defeated(world.event_flags,80),"dragon remains separate one-time final stage")
 	world.mark_boss_defeated(80)
 	check(world.conceal_boss_below_threshold(),"final boss can be retired after victory")
 	world.generate()

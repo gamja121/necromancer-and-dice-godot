@@ -468,7 +468,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	elif type=="boss" and world.boss_available():
 		# One fixed monster per stage. The final dragon is still unlocked
 		# ONLY after the last story's explicit completion.
-		slugs = [BossStages.boss_slug(world.current_boss_stage())]
+		slugs = [world.current_boss_slug()]
 	else:
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
