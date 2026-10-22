@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - fix/staged-boss-once-20-40-60-20261023
+      - feat/random-six-corruption-bosses-20261023
     paths:
       - "systems/boss_stage_catalog.gd"
       - "systems/map_state.gd"
