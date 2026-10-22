@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 330s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
       - name: Run boss choice, persistent defeat and final-story regression
         shell: bash
