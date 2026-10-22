@@ -5,6 +5,7 @@ extends SceneTree
 
 const MapState = preload("res://systems/map_state.gd")
 const MapScene = preload("res://map.tscn")
+const StoryFixture = preload("res://scripts/boss_story_test_fixture.gd")
 var passed := 0
 var failed := 0
 
@@ -37,6 +38,15 @@ func _run() -> void:
 		state.generate()
 		check(boss_count(state.tiles) == 0, "no premature boss at contamination %d" % corruption)
 		check(state.tiles[0] == "fortune-teller-camp" and state.tiles[8] == "village" and state.tiles[15] == "home", "fixed tile types retained below 20")
+	for corruption in [80,100]:
+		state.contamination=corruption
+		state.generate()
+		check(state.tiles[23]!="boss" and not state.boss_available(),"even max contamination cannot bypass the final story")
+	StoryFixture.seed_completed_final_hunt(state,false)
+	state.contamination=80
+	state.generate()
+	check(state.tiles[23]!="boss","final quest is not enough before last scene Finish")
+	state.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=true
 	for corruption in [80,81,99,100]:
 		state.contamination = corruption
 		state.generate()
@@ -76,6 +86,7 @@ func _run() -> void:
 	var test_path := "user://boss_threshold_acceptance.json"
 	session.save_file_path = test_path
 	session.start_new_world()
+	StoryFixture.seed_completed_final_hunt(session.world)
 	# Lap contamination is +7: start at 73 to cross the boss gate exactly at 80.
 	session.world.contamination = 73
 	session.world.position = MapState.HOME

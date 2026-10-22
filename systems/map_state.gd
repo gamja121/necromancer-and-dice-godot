@@ -4,6 +4,7 @@ const RoutePlan = preload("res://systems/route_plan.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
+const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -92,6 +93,11 @@ static func centers() -> Array:
 static func required_swamp_count(level: int) -> int:
 	return 2 if level >= SECOND_SWAMP_CONTAMINATION else (1 if level >= FIRST_SWAMP_CONTAMINATION else 0)
 
+## Two independent prerequisites: current corruption 80 and a genuinely
+## completed, acknowledged final king-hunt scene. This never depends on lap.
+func boss_available() -> bool:
+	return contamination>=BOSS_CONTAMINATION and FinalBossStoryGate.ready(self)
+
 func generate() -> void:
 	map_serial += 1
 	var counts = COUNTS.duplicate()
@@ -122,7 +128,7 @@ func generate() -> void:
 		if event_flags.get(Discovery.unlock_flag(kind),false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
 			counts.basic -= 1
 			counts[kind] += 1
-	if contamination>=BOSS_CONTAMINATION: counts.monster -= 1
+	if boss_available(): counts.monster -= 1
 	var pool: Array = []
 	for key in counts:
 		for i in range(counts[key]): pool.append(key)
@@ -136,18 +142,18 @@ func generate() -> void:
 		if i==0: tiles.append("fortune-teller-camp")
 		elif i==8: tiles.append("village")
 		elif i==HOME: tiles.append("home")
-		elif i==BOSS_TILE_INDEX and contamination>=BOSS_CONTAMINATION: tiles.append("boss")
+		elif i==BOSS_TILE_INDEX and boss_available(): tiles.append("boss")
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
 	lap_ready = false
 
 
-## If contamination reaches 80 during an existing lap (e.g. a failed
-## world-tree prayer), reveal the boss without waiting for another lap.
+## Reveal the boss once BOTH contamination 80 and the acknowledged final
+## king-hunt scene are complete, including in the middle of a lap.
 ## The caller persists this along with the change in one transaction.
 func reveal_boss_at_threshold() -> bool:
-	if contamination < BOSS_CONTAMINATION or tiles.size() != 24:
+	if not boss_available() or tiles.size() != 24:
 		return false
 	if tiles[BOSS_TILE_INDEX] == "boss":
 		return false
@@ -173,12 +179,12 @@ func reveal_boss_at_threshold() -> bool:
 	return true
 
 
-## When purification lowers contamination below 80, immediately retire
-## the boss at the fixed slot. Restore the monster stone that the boss
+## When contamination drops below 80 OR the final story receipt is missing,
+## immediately retire the boss at the fixed slot. Restore the monster stone that the boss
 ## displaced. Keep cleared status to avoid a duplicate same-lap reward;
 ## drop only stale scout intelligence for the changed tile.
 func conceal_boss_below_threshold() -> bool:
-	if contamination>=BOSS_CONTAMINATION or tiles.size()!=24: return false
+	if boss_available() or tiles.size()!=24: return false
 	if tiles[BOSS_TILE_INDEX]!="boss": return false
 	tiles[BOSS_TILE_INDEX]="monster"
 	if scout.get("intel",[]) is Array:

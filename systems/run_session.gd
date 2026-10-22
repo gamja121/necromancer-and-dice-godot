@@ -423,7 +423,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story:
 		if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,story_spec): return false
 	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
-	if not story and not mimic and world.tiles[index]=="boss" and world.contamination<MapState.BOSS_CONTAMINATION: return false
+	if not story and not mimic and world.tiles[index]=="boss" and not world.boss_available(): return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var allies: Array = []
@@ -456,7 +456,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 			slugs = story_spec.enemies.duplicate()
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
-	elif type=="boss" and world.contamination>=MapState.BOSS_CONTAMINATION:
+	elif type=="boss" and world.boss_available():
 		# Restored 2026-10-07 rule: no lap-based boss thresholds.
 		# At contamination 80+ the boss stone hosts exactly one dragon.
 		slugs = ["dragon"]
@@ -471,7 +471,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	var enemies: Array = []
 	for i in range(slugs.size()):
 		var enemy: Dictionary = rules.individual(slugs[i],"enemy-"+str(i))
-		if type=="boss" and world.contamination>=MapState.BOSS_CONTAMINATION and str(enemy.slug)=="dragon":
+		if type=="boss" and world.boss_available() and str(enemy.slug)=="dragon":
 			# Only this enemy has two simultaneous existing passives.
 			# Other monsters, including any later captured dragon, have one.
 			enemy.passive = "bone"
@@ -588,16 +588,19 @@ func persist_change(before: Dictionary) -> bool:
 	world.max_contamination_reached = maxi(int(world.max_contamination_reached),int(world.contamination))
 	if world.roster.any(func(unit): return int(unit.current_hp)<int(unit.max_hp)):
 		world.event_flags["discovery:ever_injured"] = true
-	# The agreed 80-contamination gate is bidirectional, including prayer,
-	# battle purification and old-save migration. Any change is one save
-	# transaction and rolls back if disk persistence fails.
-	if world.contamination >= MapState.BOSS_CONTAMINATION:
+	# The two-stage gate requires contamination 80 and the explicitly
+	# acknowledged fifth king-hunt story scene. This also reacts when the
+	# story finishes at 80 without any further contamination increase.
+	# Persist tile reveal or concealment with the SAME story transaction.
+	if world.boss_available():
 		world.reveal_boss_at_threshold()
 	else:
 		world.conceal_boss_below_threshold()
-	# At 15/30, automatically change ordinary road tiles into swamps even
-	# before the next home shuffle. No RNG/encounter/story state is modified.
-	if world.contamination > int(before.get("contamination",0)) and world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
+	# Keep the same fixed 15/30 swamp count when saving AND reloading.
+	# A story overlay may consume an ordinary stone during a high-pollution
+	# expedition; restoring only on reload changes the saved map unexpectedly.
+	# Safe repair touches eligible basic roads only, never RNG or story tiles.
+	if world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
 		world.reveal_swamps_for_contamination()
 	if save_world(): return true
 	world.restore(before)
@@ -1064,11 +1067,11 @@ func pray_world_tree(index: int) -> Dictionary:
 	var face = world.rng.randi_range(1,6)
 	var delta = -5 if face==6 else (-3 if face>=4 else 1)
 	world.contamination = clampi(world.contamination+delta,0,100)
-	var boss_appeared: bool = before.contamination < MapState.BOSS_CONTAMINATION and world.contamination >= MapState.BOSS_CONTAMINATION
+	var before_boss: bool = before.tiles[MapState.BOSS_TILE_INDEX]=="boss"
 	world.reward_receipts.append(visit)
 	world.prayer_result = {"visit":visit,"face":face,"delta":delta}
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"face":face,"boss_appeared":boss_appeared,"reason":"%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ( "축복" if face>=4 else "실패"),delta,world.contamination]}
+	return {"ok":true,"face":face,"boss_appeared":not before_boss and world.tiles[MapState.BOSS_TILE_INDEX]=="boss","reason":"%s · 오염도 %+d · 현재 %d/100" % ["대축복" if face==6 else ( "축복" if face>=4 else "실패"),delta,world.contamination]}
 
 ## Grave digging rewards one random dice-control card, independently of
 ## whether an allied monster has ever died. Keep the legacy receipt key so
