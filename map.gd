@@ -1266,13 +1266,15 @@ func show_stage_boss_choices(index: int) -> void:
 		pick.size=Vector2(710,70)
 		panel.add_child(pick)
 		add_button_effect(pick)
-		pick.pressed.connect(func():
-			if not session.select_stage_boss(index,slug):
-				status.text="보스 선택 저장 실패 · 다시 선택하세요."
-				return
-			close_overlay()
-			show_battle_deck(index))
+		pick.pressed.connect(confirm_stage_boss_choice.bind(index,slug))
 	button(panel,"맵으로 돌아가기",Vector2(525,568),Vector2(230,48),dismiss_overlay)
+
+func confirm_stage_boss_choice(index: int, slug: String) -> void:
+	if not session.select_stage_boss(index,slug):
+		status.text="보스 선택 저장 실패 · 다시 선택하세요."
+		return
+	close_overlay()
+	show_battle_deck(index)
 
 func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	if story_event_id.is_empty() and world.tiles[index]=="boss" and world.boss_stage() in [20,40] and world.boss_selected(world.boss_stage()).is_empty():
