@@ -540,6 +540,8 @@ func render() -> void:
 		apply_board_depth_top_light(node)
 		node.pivot_offset = node.size/2
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
+		if KingPortalTile.target(world)==i:
+			node.tooltip_text = "%d번 · 마물의 왕이 나타난 전이문 · 워프 사용 가능" % (i+1)
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
 		if (world.tiles[i]=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING)) or (Discovery.exists(str(world.tiles[i])) and session.event_flag_is_set("ui:unlock:%s:tile_pending" % world.tiles[i])):
