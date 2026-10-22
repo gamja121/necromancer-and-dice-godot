@@ -3,6 +3,7 @@ const MapGearShift = preload("res://systems/map_gear_shift.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
+const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 const DiceControl = preload("res://systems/dice_control.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
@@ -68,6 +69,14 @@ func ensure_world() -> void:
 			# Normalize saves written by the temporary incorrect 20-contamination
 			# rule. Keep all other stones in place and preserve the RNG.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
+			# Old versions may have a cleared boss cell without a persistent
+			# stage receipt. Preserve that win instead of respawning it on load.
+			var boss_migrated: bool = false
+			if str(parsed.tiles[MapState.BOSS_TILE_INDEX])=="boss" and MapState.BOSS_TILE_INDEX in world.cleared:
+				var old_stage: int = world.current_boss_stage()
+				if old_stage in [20,40,60,80] and not BossStages.defeated(world.event_flags,old_stage):
+					world.mark_boss_defeated(old_stage)
+					boss_migrated=true
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
@@ -81,7 +90,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
+			if (boss_migrated or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
@@ -457,9 +466,9 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
 	elif type=="boss" and world.boss_available():
-		# Restored 2026-10-07 rule: no lap-based boss thresholds.
-		# At contamination 80+ the boss stone hosts exactly one dragon.
-		slugs = ["dragon"]
+		# One fixed monster per stage. The final dragon is still unlocked
+		# ONLY after the last story's explicit completion.
+		slugs = [BossStages.boss_slug(world.current_boss_stage())]
 	else:
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
@@ -498,6 +507,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story and get_story_event(event_id).battle_result == "lost":
 		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
+	if type=="boss": encounter["boss_stage"]=world.current_boss_stage()
 	if story: encounter["event_id"] = event_id
 	if mimic:
 		world.reward_receipts.append(world.pending_reward.id)
@@ -546,6 +556,10 @@ func finish_encounter(battle) -> bool:
 			return false
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
+		if encounter.type=="boss":
+			# A stage boss is one-time per run, including across save/reload and
+			# later pollution increases. The next stage has its own monster.
+			world.mark_boss_defeated(int(encounter.get("boss_stage",world.current_boss_stage())))
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
 		for unit in battle.units:
@@ -588,9 +602,9 @@ func persist_change(before: Dictionary) -> bool:
 	world.max_contamination_reached = maxi(int(world.max_contamination_reached),int(world.contamination))
 	if world.roster.any(func(unit): return int(unit.current_hp)<int(unit.max_hp)):
 		world.event_flags["discovery:ever_injured"] = true
-	# The two-stage gate requires contamination 80 and the explicitly
+	# Tier bosses at 20/40/60, then the final-story dragon at contamination 80.
 	# acknowledged fifth king-hunt story scene. This also reacts when the
-	# story finishes at 80 without any further contamination increase.
+	# Stage defeat flags prevent respawn, even after pollution rises again.
 	# Persist tile reveal or concealment with the SAME story transaction.
 	if world.boss_available():
 		world.reveal_boss_at_threshold()
