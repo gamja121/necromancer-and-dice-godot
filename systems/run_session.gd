@@ -65,9 +65,19 @@ func ensure_world() -> void:
 			# card records; the restored world does not retain them in gameplay.
 			if not backup_retired_brand_cards(parsed):
 				notice = "오래된 낙인 카드 저장 백업에 실패했습니다. 저장 경로를 확인하세요."
-			# Normalize saves written by the temporary incorrect 20-contamination
-			# rule. Keep all other stones in place and preserve the RNG.
+			# Normalize saves written before persistent stage clear records.
+			# An ongoing old dragon fight is unmistakably the old final stage;
+			# a prior-victory pending dragon corpse is already cleared. Preserve
+			# both without re-rolling the encounter or reopening early bosses.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
+			var legacy_boss_upgraded: bool = false
+			if world.active_encounter.get("type","")=="boss" and not world.active_encounter.has("boss_stage") and world.active_encounter.get("enemies",[]).any(func(u): return str(u.get("slug",""))=="dragon"):
+				world.boss_progress.defeated=[20,40]
+				world.active_encounter["boss_stage"]=80
+				legacy_boss_upgraded=true
+			elif world.pending_reward.get("kind","")=="capture" and world.pending_reward.get("corpses",[]).any(func(corpse): return str(corpse.get("slug",""))=="dragon"):
+				world.boss_progress.defeated=[20,40,80]
+				legacy_boss_upgraded=true
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
@@ -81,7 +91,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
+			if (legacy_boss_upgraded or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
