@@ -70,6 +70,10 @@ func ensure_world() -> void:
 			# Normalize saves written by the temporary incorrect 20-contamination
 			# rule. Keep all other stones in place and preserve the RNG.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
+			# Save-v1 migration: a player already standing at the formerly
+			# unlocked fixed-slot dragon must now meet it at a different warp.
+			# Preserve current position, exact two warps and RNG state.
+			var king_portal_upgraded: bool = world.boss_available() and not KingPortalTile.active(world) and KingPortalTile.activate(world)
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
@@ -83,7 +87,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
+			if (king_portal_upgraded or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
