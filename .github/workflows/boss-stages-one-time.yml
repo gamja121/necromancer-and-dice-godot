@@ -18,6 +18,15 @@ on:
       - "scripts/test_map_shuffle_boss_threshold.gd"
       - "scripts/test_web_unit_catalog_parity.gd"
       - ".github/workflows/boss-stages-one-time.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "systems/boss_stage_catalog.gd"
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "scripts/test_staged_boss_one_time.gd"
+      - "scripts/test_web_unit_catalog_parity.gd"
+      - ".github/workflows/boss-stages-one-time.yml"
   workflow_dispatch:
 
 permissions:
