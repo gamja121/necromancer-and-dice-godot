@@ -1,0 +1,63 @@
+name: Staged Boss Choices and One-Time Defeats
+on:
+  push:
+    branches:
+      - main
+      - feat/staged-boss-choices-once-20-40-20261023
+    paths:
+      - "systems/map_state.gd"
+      - "systems/run_session.gd"
+      - "systems/encounter_generator.gd"
+      - "map.gd"
+      - "scripts/test_staged_boss_choices.gd"
+      - "scripts/test_map_shuffle_boss_threshold.gd"
+      - "scripts/test_final_dragon_boss_stats.gd"
+      - "scripts/test_web_unit_catalog_parity.gd"
+      - ".github/workflows/staged-boss-choices.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stage-bosses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse Godot scripts and import resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Run boss choice, persistent defeat and final-story regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_staged_boss_choices.gd 2>&1 | tee stage.log
+          grep -E 'STAGED_BOSS_CHOICES: [0-9]+ passed, 0 failed' stage.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL staged-boss:' stage.log; then exit 1; fi
+      - name: Final dragon existing stats and passives
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_final_dragon_boss_stats.gd 2>&1 | tee dragon.log
+          grep -E 'FINAL_DRAGON_BOSS: [0-9]+ passed, 0 failed' dragon.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL final-dragon:' dragon.log; then exit 1; fi
+      - name: Original map slots and stage thresholds
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee map.log
+          grep -E 'MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed' map.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL boss-threshold:' map.log; then exit 1; fi
+      - name: Catalog source identity and boss pool exclusivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_web_unit_catalog_parity.gd 2>&1 | tee catalog.log
+          grep -E 'WEB_UNIT_CATALOG_PARITY_REGRESSION: [0-9]+ passed, 0 failed' catalog.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL web-catalog:' catalog.log; then exit 1; fi
