@@ -28,7 +28,10 @@ func battle_at(session: Node, pollution: int, lap: int) -> bool:
 	check((w.tiles[23]=="boss")==(pollution>=80),"post-story boss tile only at contamination %d, lap %d" % [pollution,lap])
 	var ids: Array=[w.roster[0].id,w.roster[1].id]
 	if pollution<80:
-		return not session.start_encounter(23,ids)
+		# The old fixed slot can hold an ordinary monster at 79.
+		# We must forbid the DRAGON boss, not all nonboss combat.
+		var started: bool=session.start_encounter(23,ids)
+		return not started or (session.encounter.get("type","")!="boss" and session.encounter.get("enemies",[]).all(func(u): return str(u.slug)!="dragon"))
 	return session.start_encounter(23,ids)
 
 func test_stats_and_spawn(session: Node) -> void:
@@ -54,7 +57,7 @@ func test_stats_and_spawn(session: Node) -> void:
 	world.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=false
 	check(not world.boss_available(),"removing explicit final acknowledgment relocks boss")
 	check(battle_at(session,79,60),"lap 60 does not grant boss when contamination is 79")
-	check(session.encounter.is_empty(),"no encounter starts below contamination 80")
+	check(session.encounter.is_empty() or (session.encounter.type!="boss" and session.encounter.enemies.all(func(u): return u.slug!="dragon")),"low contamination permits regular monsters but never the dragon boss")
 	check(battle_at(session,80,0),"even lap 0 can trigger boss when contamination reaches 80")
 	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","contamination alone selects lone dragon without lap gate")
 	check(battle_at(session,80,59),"lap 59 receives final boss at contamination 80")
