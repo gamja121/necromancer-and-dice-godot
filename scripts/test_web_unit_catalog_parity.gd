@@ -74,7 +74,7 @@ func _run() -> void:
 	var actual_pool: Array=EncounterGenerator.eligible_roster(definitions)
 	check(actual_pool.size()==expected_pool.size() and actual_pool.size()==40,"three designated boss monsters are excluded from the old 43 random species")
 	check(not actual_pool.has("dracula"),"extra Dracula excluded from new source-parity runs")
-	check(BossStages.valid(definitions) and BossStages.reserved_slugs().size()==3 and BossStages.reserved_slugs().all(func(slug): return not actual_pool.has(slug)),"every designated stage boss is reserved for boss encounters only")
+	check(BossStages.valid(definitions) and BossStages.reserved_slugs().size()==4 and BossStages.reserved_slugs().all(func(slug): return not actual_pool.has(slug)),"every designated stage boss is reserved for boss encounters only")
 	check(not actual_pool.has("guardian-seed") and not actual_pool.has("spiderling") and not actual_pool.has("goblin-commoner"),"summon-only species are never in the random pool")
 	for slug in expected_pool:
 		check(actual_pool.has(slug),"original spawn-eligible unit retained: "+slug)
