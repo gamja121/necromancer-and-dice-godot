@@ -70,6 +70,14 @@ func ensure_world() -> void:
 			# Normalize saves written by the temporary incorrect 20-contamination
 			# rule. Keep all other stones in place and preserve the RNG.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
+			# Historical saves could already have defeated the dragon on the
+			# former fixed boss tile. Preserve that legitimate win, show the
+			# newly available ending once, and NEVER respawn it on a warp.
+			var legacy_won_upgrade: bool = world.tiles[MapState.BOSS_TILE_INDEX]=="boss" and MapState.BOSS_TILE_INDEX in world.cleared and world.boss_available()
+			if legacy_won_upgrade:
+				world.event_flags[KingPortalEncounter.WON]=true
+				world.tiles[MapState.BOSS_TILE_INDEX]="monster"
+				world.cleared.erase(MapState.BOSS_TILE_INDEX)
 			# Save-v1 migration: a player already standing at the formerly
 			# unlocked fixed-slot dragon must now meet it at a different warp.
 			# Preserve current position, exact two warps and RNG state.
@@ -87,7 +95,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (king_portal_upgraded or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
+			if (legacy_won_upgrade or king_portal_upgraded or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
