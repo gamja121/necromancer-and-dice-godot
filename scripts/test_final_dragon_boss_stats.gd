@@ -56,7 +56,7 @@ func test_stats_and_spawn(session: Node) -> void:
 	world.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=false
 	check(not world.boss_available(),"removing explicit final acknowledgment relocks boss")
 	check(battle_at(session,79,60),"lap 60 cannot grant dragon at contamination 79")
-	check(session.encounter.is_empty() or (session.encounter.type!="boss" and session.encounter.enemies.all(func(u): return u.slug!="dragon")),"earlier tier boss cannot be the final dragon")
+	check(session.encounter.is_empty() or (session.encounter.type=="boss" and session.encounter.enemies.all(func(u): return u.slug!="dragon")),"earlier tier boss cannot be the final dragon")
 	check(battle_at(session,80,0),"even lap 0 can trigger boss when contamination reaches 80")
 	check(session.encounter.type=="boss" and session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug=="dragon","contamination alone selects lone dragon without lap gate")
 	check(battle_at(session,80,59),"lap 59 receives final boss at contamination 80")
