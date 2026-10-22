@@ -151,6 +151,13 @@ func final_boss_warp(side: String) -> void:
 	var target: int=KingTile.target(s.world)
 	check(target>=0 and target!=at and s.world.tiles[target]=="warp","only the painted warp is the boss location")
 	check(s.world.tiles[23]!="boss" and s.world.tiles.count("boss")==0,"old fixed boss slot remains inactive")
+	# The shifted final boss must not consume one of the 21 movable stones
+	# when HOME regenerates an entire 24-slot map.
+	s.world.generate()
+	check(s.world.tiles.size()==24 and s.world.tiles.all(func(tile): return tile is String and not tile.is_empty()),"full shuffled map has exactly 24 valid stones with boss on warp")
+	check(s.world.tiles.count("warp")==2 and s.world.tiles.count("boss")==0,"reshuffle keeps both warps and no ghost 24th-slot boss")
+	target=KingTile.target(s.world)
+	check(target>=0 and s.world.tiles[target]=="warp","reshuffled king portal still targets a valid warp")
 	s.world.position=target
 	check(s.save_world(),"arrival at transformed warp is persisted")
 	check(Encounter.can_enter(s,target),"actual current location is eligible")
