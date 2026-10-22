@@ -69,13 +69,15 @@ func _run() -> void:
 		for key in original[slug]:
 			var expected = "아자젤" if slug=="doom-executor" and key=="name" else original[slug][key]
 			check(definitions[slug].get(key,null)==expected,"source field parity or approved name: %s.%s" % [slug,key])
-	var expected_pool: Array=original.keys().filter(func(slug): return original[slug].grade in ["normal","advanced","hero"])
+	var expected_pool: Array=original.keys().filter(func(slug): return original[slug].grade in ["normal","advanced","hero"] and not EncounterGenerator.BOSS_CANDIDATES.has(slug))
 	var actual_pool: Array=EncounterGenerator.eligible_roster(definitions)
-	check(actual_pool.size()==expected_pool.size() and actual_pool.size()==43,"43 battle/reward-eligible species match fixed web data")
+	check(actual_pool.size()==expected_pool.size() and actual_pool.size()==37,"37 ordinary/reward species remain after reserving six exclusive bosses")
 	check(not actual_pool.has("dracula"),"extra Dracula excluded from new source-parity runs")
 	check(not actual_pool.has("guardian-seed") and not actual_pool.has("spiderling") and not actual_pool.has("goblin-commoner"),"summon-only species are never in the random pool")
 	for slug in expected_pool:
-		check(actual_pool.has(slug),"original spawn-eligible unit retained: "+slug)
+		check(actual_pool.has(slug),"nonboss original spawn-eligible unit retained: "+slug)
+	for slug in EncounterGenerator.BOSS_CANDIDATES:
+		check(original.has(slug) and not actual_pool.has(slug),"selected boss candidate never spawns as ordinary enemy/reward: "+slug)
 	var rng=RandomNumberGenerator.new()
 	rng.seed=80191
 	var no_additional_species: bool=true
