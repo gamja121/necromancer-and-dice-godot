@@ -59,5 +59,9 @@ jobs:
             echo "=== $test ==="
             timeout 135s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' "$test.log"; then exit 1; fi
-            grep -E '[0-9]+ passed, 0 failed' "$test.log"
+            if [ "$test" = "test_layered_unit_cards" ]; then
+              grep -F 'LAYERED_CARD_REGRESSION: 0 failures' "$test.log"
+            else
+              grep -E '[0-9]+ passed, 0 failed' "$test.log"
+            fi
           done
