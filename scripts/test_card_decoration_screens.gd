@@ -8,6 +8,7 @@ const BattleDeck = preload("res://systems/battle_deck.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const AltarBadge = preload("res://systems/altar_upgrade_badge.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 
 class FakeSession:
 	extends RefCounted
@@ -175,8 +176,8 @@ func _run() -> void:
 	place.index = 0
 	place.donor_id = str(owned[0].id)
 	place.receiver_id = str(owned[1].id)
-	place.donor_art = place.LayeredUnitCard.make_preview(place,{},Vector2(178,95),Vector2(144,210))
-	place.receiver_art = place.LayeredUnitCard.make_preview(place,{},Vector2(952,95),Vector2(144,210))
+	place.donor_art = LayeredUnitCard.make_preview(place,{},Vector2(178,95),Vector2(144,210))
+	place.receiver_art = LayeredUnitCard.make_preview(place,{},Vector2(952,95),Vector2(144,210))
 	place.donor_hint = place.label_at(place,"",Vector2(140,320),Vector2(200,35))
 	place.receiver_hint = place.label_at(place,"",Vector2(900,320),Vector2(200,35))
 	place.status = place.label_at(place,"",Vector2(200,435),Vector2(850,58))
