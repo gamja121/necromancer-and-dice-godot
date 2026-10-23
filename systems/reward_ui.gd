@@ -2,7 +2,6 @@ extends Control
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
-const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 
@@ -66,7 +65,6 @@ func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensi
 	if kind=="unit":
 		LayeredUnitCard.install(node, str(item.slug), str(item.name), false, item.get("brands", []))
 	if kind=="unit":
-		BrandFrameOverlay.sync(node,item)
 		AltarUpgradeBadge.sync(node,item)
 	return node
 

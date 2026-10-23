@@ -271,22 +271,15 @@ func _pulse_matching_brands(unit: Dictionary) -> void:
 		fade.tween_callback(indicator.queue_free)
 
 func _pulse_unit_card(unit_id: String, blessed: bool) -> void:
-	# Card and brand frame react in the same order as the resolved battlefield cue.
+	# Card pulses after the resolved battlefield cue.
 	# Presentation only: no changes to brand values, rules, or RNG.
 	if scene == null or not scene.cards.has(unit_id): return
 	var card: Control = scene.cards[unit_id]
 	if not is_instance_valid(card): return
 	var base_scale: Vector2 = card.scale
-	var frame := card.get_node_or_null("BrandFrameOverlay") as CanvasItem
-	var frame_color: Color = frame.modulate if frame != null else Color.WHITE
-	var glow: Color = Color(1.0, 0.82, 0.38, 1.0) if blessed else Color(0.72, 0.56, 0.86, 1.0)
 	var tween := create_tween()
 	tween.tween_property(card, "scale", base_scale * (1.045 if blessed else 1.025), 0.075).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(card, "scale", base_scale, 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	if frame != null:
-		var frame_tween := create_tween()
-		frame_tween.tween_property(frame, "modulate", glow, 0.07)
-		frame_tween.tween_property(frame, "modulate", frame_color, 0.20)
 
 # Use the opaque artwork's upper torso, not the ground-plane effect
 # coordinate. This follows individual monsters' real sprite scale, breathing
