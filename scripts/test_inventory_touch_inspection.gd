@@ -91,7 +91,7 @@ func _run() -> void:
 	view.show_kind("unit")
 	check(await wait_idle(view),"original monster hand still opens")
 	var roster_button=view.content.get_node_or_null("InventoryInspect_unit_0") as TextureButton
-	check(roster_button!=null and roster_button.texture_normal!=null,"original monster inventory cards remain clickable")
+	check(roster_button!=null and roster_button.has_node("LayeredCardBase") and roster_button.texture_normal==null,"live layered inventory monster cards remain clickable")
 	if roster_button!=null:
 		await check_shadow_feedback(roster_button,"unit")
 		roster_button.pressed.emit()
