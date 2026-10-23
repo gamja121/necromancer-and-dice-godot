@@ -109,7 +109,7 @@ func _run() -> void:
 		var minimum_changes: int=Gear.changed_count(previous_tiles,session.world.tiles,session.world.map_serial)
 		if lap==0: check(minimum_changes==1,"first lap converts only one tile into the required graveyard")
 		elif lap==1: check(minimum_changes==0,"second lap keeps all shifted tile identities")
-		elif lap==2: check(not session.world.tiles.has("boss"),"three laps alone do not bypass the final-boss story and contamination gate")
+		elif lap==2: check(session.world.tiles[MapState.BOSS_TILE_INDEX]=="boss" and session.world.current_boss_stage()==20 and not session.world.final_dragon_available(),"contamination 21 opens the first stage boss, not the final dragon")
 	check(session.world.map_serial==initial_serial+3,"three actual home exits were committed")
 	if failed==0:
 		session.world.position=MapState.HOME

@@ -39,9 +39,9 @@ func _run() -> void:
 				"24 board slots, %d swamps at contamination %d" % [expected, level])
 			check(world.tiles[0] == "fortune-teller-camp" and world.tiles[8] == "village" and world.tiles[15] == "home",
 				"permanent anchors preserved at contamination %d" % level)
-			check((world.tiles[State.BOSS_TILE_INDEX] == "boss") == bool(level >= State.BOSS_CONTAMINATION),
-				"completed-story boss presence follows current contamination gate at %d" % level)
-			check(world.tiles.count("monster") >= (4 if level >= State.BOSS_CONTAMINATION else 5), "existing automatic monsters survive")
+			check((world.tiles[State.BOSS_TILE_INDEX] == "boss") == bool(level >= State.BossStages.STAGES[0]),
+				"stage boss presence with completed final story follows contamination at %d" % level)
+			check(world.tiles.count("monster") >= (4 if level >= State.BossStages.STAGES[0] else 5), "existing automatic monsters survive")
 			check(world.tiles.count("event") == 2 and world.tiles.count("warp") == 2,
 				"story event and warp tiles unaffected")
 	var old_plan: Dictionary = {"current": Plan.CURRENT.duplicate(), "reserve": Plan.RESERVE.duplicate()}
@@ -111,9 +111,10 @@ func _run() -> void:
 	# Old saved runs at contamination 30 had reserved basic roads but no swamps.
 	world.contamination = 14
 	world.generate()
-	# The old board predates automatic swamp conversion. Keep its current
-	# ordinary/story tile layout while upgrading only eligible basic roads.
+	# The old board predates automatic swamp conversion, but already has
+	# its intermediate boss. Isolate swamp upgrade from the separate boss repair.
 	world.contamination = 30
+	check(world.reveal_boss_at_threshold(),"legacy board includes its already revealed intermediate boss")
 	check(world.tiles.count("swamp") == 0 and session.save_world(), "older high-contamination board fixture stored")
 	var preserved_serial: int = world.map_serial
 	var prior: Array = world.tiles.duplicate()

@@ -1,5 +1,5 @@
 extends SceneTree
-## Boss tile at agreed contamination 80: natural shuffle, mid-lap crossing,
+## Staged boss tiles at contamination 20/40/60, with story-locked final at 80:
 ## persistence migration, no duplicates and safe disk rollback.
 ## Run: godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd
 
@@ -33,11 +33,15 @@ func _run() -> void:
 	check(MapState.BOSS_CONTAMINATION == 80, "boss unlock exactly at contamination 80")
 	check(MapState.BOSS_TILE_INDEX == 23, "canonical boss icon at existing 24th slot")
 	check(ResourceLoader.exists("res://assets/map/tiles/boss.png"), "existing boss stone tile art exists")
-	for corruption in [0,16,19,20,39,40,59,60,79]:
+	for corruption in [0,16,19]:
 		state.contamination = corruption
 		state.generate()
 		check(boss_count(state.tiles) == 0, "no premature boss at contamination %d" % corruption)
 		check(state.tiles[0] == "fortune-teller-camp" and state.tiles[8] == "village" and state.tiles[15] == "home", "fixed tile types retained below 20")
+	for corruption in [20,39,40,59,60,79]:
+		state.contamination=corruption
+		state.generate()
+		check(state.tiles[23]=="boss" and state.boss_available(),"unbeaten stage appears at %d corruption" % corruption)
 	for corruption in [80,100]:
 		state.contamination=corruption
 		state.generate()
@@ -54,14 +58,16 @@ func _run() -> void:
 		check(state.tiles.size() == 24 and state.tiles[0] == "fortune-teller-camp" and state.tiles[8] == "village" and state.tiles[15] == "home", "24-slot geometry unchanged at %d" % corruption)
 		check(state.tiles.count("monster") >= 4, "one existing monster slot replaced; no missing tiles at %d" % corruption)
 
+	state.mark_boss_defeated(60)
 	state.contamination = 79
 	state.generate()
 	state.cleared.append(23)
 	state.scout = {"scouted":true,"intel":[{"index":23,"type":state.tiles[23],"count":1,"grade":"normal","legion":"skeleton"}]}
+	var before_conversion: Array = state.tiles.duplicate(true)
 	var unchanged: Array = state.tiles.slice(0,23).duplicate()
 	state.contamination = 80
 	check(state.reveal_boss_at_threshold(), "crossing threshold reveals boss in current lap")
-	check(state.tiles[23] == "boss" and state.tiles.slice(0,23) == unchanged, "midlap conversion preserves every other tile")
+	check(state.tiles[23]=="boss" and state.tiles.count("event")==before_conversion.count("event") and state.tiles[0]=="fortune-teller-camp" and state.tiles[8]=="village" and state.tiles[15]=="home","midlap conversion preserves existing event count and fixed tiles even when relocating an event from the new boss slot")
 	check(not 23 in state.cleared and state.scout.intel.is_empty(), "stale cleared/scout data removed at converted slot")
 	check(not state.reveal_boss_at_threshold() and boss_count(state.tiles) == 1, "second threshold check is idempotent")
 	var pre_hide: Array = state.tiles.duplicate(true)
@@ -113,11 +119,12 @@ func _run() -> void:
 	session.world.contamination = 24
 	session.world.generate()
 	session.world.tiles[23] = "boss"
+	session.world.cleared.append(23)
 	var last_map: Array = session.world.tiles.slice(0,23).duplicate(true)
 	var original_serial: int = session.world.map_serial
 	check(session.save_world(), "older pre-threshold snapshot stored")
 	session.reload_world()
-	check(session.world.tiles[23] == "monster" and session.world.tiles.slice(0,23) == last_map, "old 20-79 save removes prematurely unlocked boss slot")
+	check(session.world.tiles[23] == "monster" and session.world.tiles.slice(0,23) == last_map, "old cleared stage-20 boss remains gone after restore")
 	check(session.world.map_serial == original_serial, "migration does not generate a new board")
 
 	# A failed write must undo contamination AND boss appearance atomically.

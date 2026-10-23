@@ -59,12 +59,12 @@ func _run() -> void:
 		verify_fixed(state.tiles,"full six-choice contamination %d" % stage)
 		var expected_swamps: int = State.required_swamp_count(stage)
 		check(state.tiles.count("basic") >= Plan.RESERVED_SWAMP_ROADS-expected_swamps, "swamp reservations only convert at their own contamination threshold %d" % stage)
-		var minimum_monsters: int=5 if stage<State.BOSS_CONTAMINATION else 4
+		var minimum_monsters: int=5 if stage<State.BossStages.STAGES[0] else 4
 		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
 		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==expected_swamps,"no rest and exactly %d automatically generated swamp tiles at contamination %d" % [expected_swamps,stage])
 		check(state.tiles.count("event")==2,"two guaranteed event tiles after map generation at contamination %d" % stage)
-		check((state.tiles[State.BOSS_TILE_INDEX]=="boss")==bool(stage>=State.BOSS_CONTAMINATION),
-			"completed-story boss presence follows current contamination gate at %d" % stage)
+		check((state.tiles[State.BOSS_TILE_INDEX]=="boss")==bool(stage>=State.BossStages.STAGES[0]),
+			"stage boss presence with completed final story follows contamination at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
 	var unlocked: Dictionary=Plan.default_plan()
 	unlocked.rest_unlocked=true

@@ -4,6 +4,7 @@ const Fixture = preload("res://scripts/boss_story_test_fixture.gd")
 const Progress = preload("res://systems/final_dragon_progress.gd")
 const DieLayout = preload("res://systems/final_dragon_die_layout.gd")
 const Book = preload("res://systems/final_chapter_screen.gd")
+const BattleDeck = preload("res://systems/battle_deck.gd")
 var passed := 0
 var failed := 0
 var screenshots := ""
@@ -35,6 +36,20 @@ func _run() -> void:
 	var original_path: String = s.save_file_path
 	var scratch := "user://final_chapter_ui_%d.json" % OS.get_process_id()
 	s.save_file_path = scratch
+	for stage_value in [20,40,60]:
+		s.start_new_world()
+		s.world.contamination=stage_value
+		s.world.generate()
+		s.world.position=23
+		check(s.save_world(),"stage %d approach persists" % stage_value)
+		var stage_map: Control=MAP.instantiate()
+		root.add_child(stage_map)
+		current_scene=stage_map
+		await process_frame
+		check(await until_ready(func(): return is_instance_valid(stage_map.overlay) and stage_map.overlay is BattleDeck),"stage %d opens ordinary battle selection" % stage_value)
+		check(not stage_map.overlay is Book and not s.world.event_flags.get(Progress.INTRO_SEEN,false),"stage %d never consumes the final book" % stage_value)
+		stage_map.queue_free()
+		await process_frame
 	s.start_new_world()
 	if source_story.is_empty():
 		Fixture.seed_completed_final_hunt(s.world)

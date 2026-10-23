@@ -125,6 +125,19 @@ func _run() -> void:
 		s.reload_world()
 		check(Progress.cleared(s.world) and s.world.pending_reward.is_empty(),"completed harvest resumes at ending")
 		check(s.world.reward_receipts.count(committed.pending_reward.id)==1,"exactly one harvest receipt")
+	# Shared main now has three intermediate bosses. Each win must remain
+	# a resumable expedition with its own stage receipt and ordinary harvest.
+	for stage_value in [20,40,60]:
+		s.start_new_world()
+		s.world.contamination=stage_value
+		s.world.generate()
+		s.world.position=MapState.BOSS_TILE_INDEX
+		check(s.save_world(),"intermediate boss approach persists")
+		check(not s.acknowledge_final_dragon_intro(MapState.BOSS_TILE_INDEX),"intermediate boss cannot acknowledge the final book")
+		check(s.start_encounter(MapState.BOSS_TILE_INDEX,[s.world.roster[0].id,s.world.roster[1].id]),"intermediate boss encounter starts")
+		check(s.finish_encounter(defeated_rules(s)) and not Progress.cleared(s.world) and s.world.run_result.is_empty(),"intermediate victory keeps expedition active")
+		check(s.world.event_flags.get(MapState.BossStages.stage_flag(stage_value),false) and not s.world.event_flags.get(Progress.COMPLETE,false),"only the intermediate stage is completed")
+		check(s.world.pending_reward.get("kind","")=="capture","intermediate victory retains ordinary soul harvest")
 	prepare_encounter(s,false)
 	check(s.finish_encounter(defeated_rules(s)) and s.world.run_result.is_empty(),"ordinary victory does not clear expedition")
 	prepare_encounter(s)
