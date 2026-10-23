@@ -56,7 +56,7 @@ func _run() -> void:
 	if ready:
 		var panel=map.overlay
 		check(panel.reward_origins.size()==3 and panel.reward_outlines.size()==3 and panel.reward_materials.size()==3,"each offer has an independent visual highlight")
-		check(panel.options.size()==3 and panel.options.all(func(o): return o.texture_normal!=null),"three original reward art assets render")
+		check(panel.options.size()==3 and panel.options.all(func(o): return o.texture_normal!=null or o.has_node("LayeredCardBase")),"three rewards show live monster cards or regular dice art")
 		for i in range(3):
 			check(near(panel.options[i].rotation_degrees,[-7.0,0.0,7.0][i]),"source reward-card tilt %d" % i)
 			check(panel.options[i].position.distance_to(Vector2(314+i*216,245))<1.0 and panel.options[i].size.distance_to(Vector2(170,254))<0.3,"reward card %d preserves source layout" % i)
