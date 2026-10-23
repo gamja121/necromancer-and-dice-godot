@@ -277,7 +277,7 @@ func _pulse_unit_card(unit_id: String, blessed: bool) -> void:
 	var card: Control = scene.cards[unit_id]
 	if not is_instance_valid(card): return
 	var base_scale: Vector2 = card.scale
-		var tween := create_tween()
+	var tween := create_tween()
 	tween.tween_property(card, "scale", base_scale * (1.045 if blessed else 1.025), 0.075).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(card, "scale", base_scale, 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
