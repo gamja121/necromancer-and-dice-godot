@@ -62,7 +62,8 @@ func _run() -> void:
 	check(session.world.roster.size()==original_count-1,"exactly one original owned card consumed")
 	check(scene.unit_options.has(donor_id),"the old card stays displayed until dissolve finishes")
 	check(scene.material_art.texture!=null,"the preview remains visible at animation start")
-	await create_timer(0.24).timeout
+	await create_timer(0.41).timeout
+	print("INHERITANCE_ASH_MID: scale=",scene.material_art.scale.x," alpha=",scene.material_art.modulate.a)
 	check(scene.busy and scene.material_art.scale.x<0.95,"preview shrinks during ash animation")
 	check(scene.material_art.modulate.a<0.99,"preview fades only after saved success")
 	check(scene.unit_options.has(donor_id),"hand refresh waits for visual effect")
