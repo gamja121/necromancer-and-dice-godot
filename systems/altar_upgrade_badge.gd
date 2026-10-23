@@ -9,6 +9,13 @@ const NODE_NAME = "AltarUpgradeBadge"
 
 static func _art_rect(card: Control) -> Rect2:
 	var bounds := Rect2(Vector2.ZERO,card.size)
+	# Composite monster cards have no flattened texture: use their real
+	# parchment footprint for the saved altar-level badge instead.
+	var nested := card.get_node_or_null("LayeredCardPreview") as Control
+	var owner: Control = nested if nested != null else card
+	var parchment := owner.get_node_or_null("LayeredCardBase") as TextureRect
+	if parchment != null:
+		return Rect2(owner.position + parchment.position if nested != null else parchment.position, parchment.size)
 	var picture: Texture2D = null
 	var keep_aspect := false
 	if card is TextureButton:
