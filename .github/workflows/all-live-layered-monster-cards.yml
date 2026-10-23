@@ -1,0 +1,78 @@
+name: All Live Layered Monster Cards (Godot)
+on:
+  pull_request:
+    paths:
+      - "systems/layered_unit_card.gd"
+      - "systems/home_inheritance.gd"
+      - "systems/place_actions.gd"
+      - "systems/altar_upgrade_badge.gd"
+      - "systems/reward_ui.gd"
+      - "systems/battle_deck.gd"
+      - "systems/corpse_capture.gd"
+      - "systems/permanent_death.gd"
+      - "systems/battle_resources.gd"
+      - "battlefield.gd"
+      - "map.gd"
+      - "main.gd"
+      - "scripts/test_card_decoration_screens.gd"
+      - "scripts/test_inheritance_sacrifice_effect.gd"
+      - ".github/workflows/all-live-layered-monster-cards.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/layered_unit_card.gd"
+      - "systems/home_inheritance.gd"
+      - "systems/place_actions.gd"
+      - "systems/altar_upgrade_badge.gd"
+      - "systems/reward_ui.gd"
+      - "systems/battle_deck.gd"
+      - "systems/corpse_capture.gd"
+      - "systems/permanent_death.gd"
+      - "systems/battle_resources.gd"
+      - "battlefield.gd"
+      - "map.gd"
+      - "main.gd"
+      - "scripts/test_card_decoration_screens.gd"
+      - "scripts/test_inheritance_sacrifice_effect.gd"
+      - ".github/workflows/all-live-layered-monster-cards.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  layered-cards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot project import and parser check
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Check actual live card UI, sacrifice, capture and 47 monsters
+        shell: bash
+        run: |
+          set -euo pipefail
+          for item in \
+            "test_layered_unit_cards|LAYERED_CARD_REGRESSION: 0 failures" \
+            "test_card_decoration_screens|CARD_SCREEN_REGRESSION: [0-9]+ passed, 0 failed" \
+            "test_inheritance_sacrifice_effect|INHERITANCE_SACRIFICE_EFFECT: [0-9]+ passed, 0 failed" \
+            "test_ui_altar_ritual_stage5n|UI_ALTAR_RITUAL_PARITY: [0-9]+ passed, 0 failed" \
+            "test_inventory_touch_inspection|INVENTORY_TOUCH_INSPECTION: [0-9]+ passed, 0 failed" \
+            "test_ui_treasure_reward_parity|UI_TREASURE_REWARD_PARITY: [0-9]+ passed, 0 failed" \
+            "test_p4_all_monster_presentation|P4_ALL_MONSTER_PRESENTATION: [0-9]+ passed, 0 failed"; do
+            script="${item%%|*}"
+            expected="${item#*|}"
+            echo "::group::${script}"
+            timeout 230s godot --headless --path . --script "res://scripts/${script}.gd" 2>&1 | tee "${script}.log"
+            grep -E "${expected}" "${script}.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' "${script}.log"; then exit 1; fi
+            echo "::endgroup::"
+          done
