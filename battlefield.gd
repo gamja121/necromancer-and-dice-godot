@@ -32,7 +32,6 @@ const CorpseCapture = preload("res://systems/corpse_capture.gd")
 const CombatCues = preload("res://systems/combat_cues.gd")
 const BattleVisuals = preload("res://systems/battle_visuals.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
-const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
@@ -560,7 +559,6 @@ func render_units(values: Array) -> void:
 			card.z_index = 44
 			cards[u.id] = card
 			LayeredUnitCard.install(card, str(u.slug), str(u.name), false, u.get("brands", []))
-			BrandFrameOverlay.sync(card,u)
 			AltarUpgradeBadge.sync(card,u)
 		var sprite: TextureRect = sprites[u.id]
 		# Hold the seed image through dice/brand cues until its bloom is played.

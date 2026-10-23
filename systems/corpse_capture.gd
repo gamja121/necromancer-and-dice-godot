@@ -1,6 +1,5 @@
 extends Control
 const Overflow = preload("res://systems/reward_overflow.gd")
-const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
@@ -76,7 +75,6 @@ func setup(battle_scene) -> void:
 		choice_parent.add_child(option)
 		place_choice_node(option,choice_parent)
 		add_selection_outline(option)
-		BrandFrameOverlay.sync(option,unit)
 		AltarUpgradeBadge.sync(option,unit)
 		# The battle death pose starts at RGB 0.4 / alpha 0.35. Once it is
 		# offered as a reward, bring back its silhouette without changing the
@@ -289,7 +287,6 @@ func complete_success() -> void:
 			else:
 				# Only monsters without layered art use the legacy texture.
 				spirit = scene.image(spirit_parent,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
-				BrandFrameOverlay.sync(spirit,scene.rules.find_id(str(corpse.id)))
 				AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
 			spirit.z_index = 76 if spirit_parent!=self else 0
 			spirit.pivot_offset = spirit.size*0.5
