@@ -1,0 +1,63 @@
+name: Card Brand Border Removal Regression
+on:
+  push:
+    branches:
+      - fix/remove-brand-count-card-borders-20261023
+  pull_request:
+    paths:
+      - "systems/brand_frame_overlay.gd"
+      - "assets/cards/brand_frame_*.webp"
+      - "systems/reward_ui.gd"
+      - "systems/battle_deck.gd"
+      - "systems/corpse_capture.gd"
+      - "systems/permanent_death.gd"
+      - "systems/combat_cues.gd"
+      - "systems/home_inheritance.gd"
+      - "systems/place_actions.gd"
+      - "systems/layered_unit_card.gd"
+      - "systems/altar_upgrade_badge.gd"
+      - "battlefield.gd"
+      - "map.gd"
+      - "scripts/test_card_decoration_*.gd"
+      - "scripts/test_layered_unit_cards.gd"
+      - "scripts/render_card_decoration_preview.gd"
+      - ".github/workflows/card-brand-border-removal.yml"
+  workflow_dispatch:
+jobs:
+  inheritance-card-appearance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Verify no deleted borders are imported or referenced
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e systems/brand_frame_overlay.gd
+          test ! -e assets/cards/brand_frame_2.webp
+          test ! -e assets/cards/brand_frame_3.webp
+          if grep -R -n -E 'BrandFrameOverlay|brand_frame_overlay.gd|brand_frame_[23]\\.webp|WOOD_FRAME|IRON_FRAME' --include='*.gd' --include='*.tscn' systems scripts map.gd battlefield.gd main.gd 2>/dev/null; then
+            echo "Obsolete brand borders still referenced"
+            exit 1
+          fi
+      - name: Import project and validate scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify card decoration and inheritance screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_card_decoration_layout test_card_decoration_screens test_layered_unit_cards test_ui_route_inheritance_parity test_ui_battle_card_dock_parity; do
+            echo "=== $test ==="
+            timeout 135s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' "$test.log"; then exit 1; fi
+            grep -E '[0-9]+ passed, 0 failed' "$test.log"
+          done
