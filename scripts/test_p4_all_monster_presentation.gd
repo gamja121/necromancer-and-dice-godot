@@ -54,7 +54,7 @@ func check_species(scene, unit: Dictionary) -> void:
 	var card_path: String = "res://assets/cards/unit-card-%s.png" % slug
 	var portrait_path: String = "res://assets/battle/ui/info-portraits/%s.png" % slug
 	check(scene.sprites.has(id) and scene.sprites[id].texture == scene.texture(scene.frame_path(unit, "attack", 1)), slug + ": production scene renders real idle frame")
-	check(scene.cards.has(id) and scene.cards[id].texture_normal == scene.texture(card_path), slug + ": production battle card uses correct art")
+	check(scene.cards.has(id) and scene.cards[id].texture_normal == null and scene.cards[id].has_node("LayeredCardBase") and scene.cards[id].has_node("LayeredCardCharacter"), slug + ": production battle card uses only layered art")
 	check(str(scene.cards[id].tooltip_text).contains(str(unit.name)), slug + ": actual card tooltip has original species name")
 	var geometry: Dictionary = scene.presentation_layout.geometry(unit, scene.surface_size)
 	check(geometry.size.x > 0 and geometry.size.y > 0 and geometry.position.is_finite(), slug + ": original field geometry produces finite sprite bounds")
