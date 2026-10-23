@@ -1,8 +1,8 @@
 extends SceneTree
-## Visual-layout contract for card brands (0..3) and independent altar upgrades (0..3).
+## The old inheritance brand-count borders are removed. Only altar plaques
+## are laid over cards; brand icons live on the lower card panel separately.
 ## Run: godot --headless --path . --script res://scripts/test_card_decoration_layout.gd
 
-const BrandFrame = preload("res://systems/brand_frame_overlay.gd")
 const AltarBadge = preload("res://systems/altar_upgrade_badge.gd")
 const CARD_ART = preload("res://assets/cards/unit-card-skeleton-archer.png")
 
@@ -12,16 +12,13 @@ var failed := 0
 func _initialize() -> void:
 	call_deferred("_run")
 
-func check(value: bool, label: String) -> void:
-	if value:
+func check(ok: bool, label: String) -> void:
+	if ok:
 		passed += 1
 		print("PASS card-decoration: ", label)
 	else:
 		failed += 1
 		printerr("FAIL card-decoration: ", label)
-
-func close_to(first: Vector2, second: Vector2) -> bool:
-	return first.distance_to(second) < 0.02
 
 func card_button(dimensions: Vector2) -> TextureButton:
 	var card := TextureButton.new()
@@ -33,49 +30,33 @@ func card_button(dimensions: Vector2) -> TextureButton:
 	return card
 
 func check_layout(card: Control, case_name: String) -> void:
-	var full = {"brands":[{"type":"critical"},{"type":"guard"},{"type":"freeze"}],"altar_enhancements":3}
-	BrandFrame.sync(card,full)
-	AltarBadge.sync(card,full)
-	var iron := card.get_node_or_null("BrandFrameOverlay") as TextureRect
+	var brands: Array = [{"type":"critical"},{"type":"guard"},{"type":"freeze"}]
+	var unit := {"brands":brands,"altar_enhancements":3}
+	AltarBadge.sync(card,unit)
 	var badge := card.get_node_or_null("AltarUpgradeBadge") as TextureRect
-	check(iron != null and badge != null,case_name+" 3 brands and +3 coexist")
-	if iron == null or badge == null: return
-	check(iron.texture == BrandFrame.IRON_FRAME,case_name+" iron frame texture")
-	check(badge.texture == AltarBadge.BADGE_3,case_name+" +3 plaque texture")
-	var art: Rect2 = BrandFrame._card_art_rect(card)
-	var wood_frame_size := Vector2(art.size.x*BrandFrame.FRAME_WIDTH_FACTOR,art.size.y*BrandFrame.FRAME_HEIGHT_FACTOR)
-	var target_pos: Vector2 = art.position+(art.size-wood_frame_size)*0.5
-	check(close_to(iron.size,wood_frame_size) and close_to(iron.position,target_pos),case_name+" matches 2-brand frame bounds")
-	check(absf((badge.position.x+badge.size.x*0.5)-(art.position.x+art.size.x*0.5))<0.02,case_name+" plaque centered")
-	check(absf(badge.position.y-(art.position.y+art.size.y*0.01))<0.02,case_name+" plaque on top line")
-	check(iron.get_parent()==card and badge.get_parent()==card and iron.z_index==0 and badge.z_index==0,case_name+" both decorations follow card overlap")
-	check(iron.mouse_filter==Control.MOUSE_FILTER_IGNORE and badge.mouse_filter==Control.MOUSE_FILTER_IGNORE,case_name+" card interaction remains unblocked")
-	var reference_pos: Vector2 = iron.position
-	var reference_size: Vector2 = iron.size
-	full.brands = [{"type":"critical"},{"type":"guard"}]
-	BrandFrame.sync(card,full)
-	var wood := card.get_node_or_null("BrandFrameOverlay") as TextureRect
-	check(wood != null and wood.texture == BrandFrame.WOOD_FRAME,case_name+" 2-brand wood frame")
-	if wood != null:
-		check(close_to(wood.position,reference_pos) and close_to(wood.size,reference_size),case_name+" 2/3 frames exactly aligned")
-	full.brands = [{"type":"critical"}]
-	BrandFrame.sync(card,full)
-	AltarBadge.sync(card,full)
-	check(card.get_node_or_null("BrandFrameOverlay")==null and card.get_node_or_null("AltarUpgradeBadge")!=null,case_name+" +3 allowed at 1 brand")
-	full.brands = []
-	BrandFrame.sync(card,full)
-	AltarBadge.sync(card,full)
-	check(card.get_node_or_null("BrandFrameOverlay")==null and card.get_node_or_null("AltarUpgradeBadge")!=null,case_name+" +3 allowed at 0 brands")
-	full.brands = [{"type":"critical"},{"type":"guard"},{"type":"freeze"}]
-	full.altar_enhancements = 0
-	BrandFrame.sync(card,full)
-	AltarBadge.sync(card,full)
-	check(card.get_node_or_null("BrandFrameOverlay")!=null and card.get_node_or_null("AltarUpgradeBadge")==null,case_name+" 3 brands allowed without altar enhancement")
+	check(badge != null,case_name+" +3 badge present")
+	if badge == null: return
+	check(card.get_child_count()==1,case_name+" has exactly one visual decoration")
+	check(badge.texture==AltarBadge.BADGE_3,case_name+" +3 texture")
+	var art: Rect2 = AltarBadge._art_rect(card)
+	check(absf((badge.position.x+badge.size.x*0.5)-(art.position.x+art.size.x*0.5))<0.02,case_name+" badge centered")
+	check(absf(badge.position.y-(art.position.y+art.size.y*0.01))<0.02,case_name+" badge on top line")
+	check(badge.get_parent()==card and badge.z_index==0,case_name+" badge follows parent overlap")
+	check(badge.mouse_filter==Control.MOUSE_FILTER_IGNORE,case_name+" badge cannot block clicks")
+	for count in range(4):
+		unit.brands = brands.slice(0,count)
+		AltarBadge.sync(card,unit)
+		check(card.get_child_count()==1 and card.get_node_or_null("AltarUpgradeBadge")==badge,
+			case_name+" brand count %d does not add any border" % count)
+	unit.altar_enhancements = 0
+	AltarBadge.sync(card,unit)
+	check(card.get_node_or_null("AltarUpgradeBadge")==null and card.get_child_count()==0,case_name+" zero altar level has no overlays")
 	for level in range(1,4):
-		full.altar_enhancements = level
-		AltarBadge.sync(card,full)
+		unit.altar_enhancements = level
+		AltarBadge.sync(card,unit)
 		var plaque := card.get_node_or_null("AltarUpgradeBadge") as TextureRect
-		check(plaque!=null and plaque.texture==[AltarBadge.BADGE_1,AltarBadge.BADGE_2,AltarBadge.BADGE_3][level-1],case_name+" correct altar plaque +"+str(level))
+		check(plaque!=null and plaque.texture==[AltarBadge.BADGE_1,AltarBadge.BADGE_2,AltarBadge.BADGE_3][level-1],
+			case_name+" correct altar plaque +"+str(level))
 	card.queue_free()
 
 func _run() -> void:

@@ -325,7 +325,7 @@ static func flight_visual_copy(card: TextureButton) -> Control:
 	flyer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	flyer.modulate = card.modulate
 	for child in card.get_children():
-		if child.name in [BASE_NAME, ACTOR_NAME, BANNER_NAME, TEXT_NAME, BRAND_ROW_NAME, "BrandFrameOverlay", "AltarUpgradeBadge"]:
+		if child.name in [BASE_NAME, ACTOR_NAME, BANNER_NAME, TEXT_NAME, BRAND_ROW_NAME, "AltarUpgradeBadge"]:
 			var copied := child.duplicate(0) as Control
 			if copied != null:
 				copied.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -7,7 +7,6 @@ const InventoryPanel = preload("res://systems/inventory_panel.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
-const BrandFrame = preload("res://systems/brand_frame_overlay.gd")
 const AltarBadge = preload("res://systems/altar_upgrade_badge.gd")
 
 class FakeSession:
@@ -41,19 +40,17 @@ func unit(idx: int, brand_count: int = 3, altar_level: int = 3) -> Dictionary:
 	for j in range(brand_count): marks.append({"type":"guard","bless":[1],"curse":[5]})
 	return {"id":"ui-test-%d"%idx,"slug":"skeleton-archer","name":"해골 궁수","brands":marks,"altar_enhancements":altar_level,"current_hp":8,"max_hp":8,"attack":2,"speed":3}
 
-func assert_decorations(card: Control, prefix: String, frame_expected: bool = true, badge_expected: bool = true) -> void:
+func assert_decorations(card: Control, prefix: String, badge_expected: bool = true) -> void:
 	if card == null:
 		check(false,prefix+" card exists")
 		return
-	var frame: TextureRect = card.get_node_or_null("BrandFrameOverlay") as TextureRect
 	var badge: TextureRect = card.get_node_or_null("AltarUpgradeBadge") as TextureRect
-	check((frame != null)==frame_expected,prefix+" brand frame present as expected")
 	check((badge != null)==badge_expected,prefix+" altar plaque present as expected")
-	if frame != null and badge != null:
-		check(frame.get_parent()==card and badge.get_parent()==card,prefix+" overlays belong to card")
-		check(frame.z_index==0 and badge.z_index==0 and frame.z_as_relative and badge.z_as_relative,prefix+" overlays respect card stacking")
-		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE and badge.mouse_filter==Control.MOUSE_FILTER_IGNORE,prefix+" decoration never intercepts clicks")
-		check(frame.texture == BrandFrame.IRON_FRAME and badge.texture == AltarBadge.BADGE_3,prefix+" iron+3 graphic selection")
+	if badge != null:
+		check(badge.get_parent()==card,prefix+" plaque belongs to parent card")
+		check(badge.z_index==0 and badge.z_as_relative,prefix+" plaque follows card stacking")
+		check(badge.mouse_filter==Control.MOUSE_FILTER_IGNORE,prefix+" plaque never intercepts clicks")
+		check(badge.texture == AltarBadge.BADGE_3,prefix+" +3 graphic selection")
 		var art: Rect2 = AltarBadge._art_rect(card)
 		check(absf((badge.position.x+badge.size.x*0.5)-(art.position.x+art.size.x*0.5)) < 0.04,prefix+" plaque center")
 		var old: Vector2 = badge.get_global_transform_with_canvas().origin
@@ -74,11 +71,11 @@ func _run() -> void:
 	check(second.get_index()>first.get_index(),"later overlapping card drawn after earlier card")
 	assert_decorations(second,"second overlapping card")
 	var naked := reward.card(reward,"unit",unit(2,1,2),Vector2(350,90),Vector2(136,218),Callable())
-	check(naked.get_node_or_null("BrandFrameOverlay")==null and naked.get_node_or_null("AltarUpgradeBadge")!=null,"1 brand +2 altar badge independent")
+	check(naked.get_node_or_null("AltarUpgradeBadge")!=null,"1 brand +2 altar badge independent")
 	var plain := reward.card(reward,"unit",unit(3,3,0),Vector2(490,90),Vector2(136,218),Callable())
-	check(plain.get_node_or_null("BrandFrameOverlay")!=null and plain.get_node_or_null("AltarUpgradeBadge")==null,"3 brands without altar badge")
+	check(plain.get_node_or_null("AltarUpgradeBadge")==null,"3 brands without altar badge")
 	var dice := reward.card(reward,"dice",{"image":"1","label":"눈금 1"},Vector2(640,90),Vector2(136,218),Callable())
-	check(dice.get_node_or_null("BrandFrameOverlay")==null and dice.get_node_or_null("AltarUpgradeBadge")==null,"non-unit cards left unmodified")
+	check(dice.get_node_or_null("AltarUpgradeBadge")==null,"non-unit cards left unmodified")
 
 	# 2: real inventory fan with eight overlapping cards and hover Z.
 	var owned: Array = []
@@ -94,7 +91,7 @@ func _run() -> void:
 	check(inventory.get_node_or_null("InventoryOutsideClose") is Button,"book hand catches outside click to close")
 	check(not inventory.close_button.visible,"book hand hides redundant close button")
 	check(inventory.tab_buttons.size()==2 and not inventory.tab_buttons[0].visible and not inventory.tab_buttons[1].visible,
-		"book hand hides both remaining monster/dice tabs; standalone brand cards stay retired")
+		"book hand hides both existing toolbar tabs without deleting the other inventory modes")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")
 	if inventory.fan.entries.size()==8:
 		var hand_first: TextureButton = inventory.fan.entries[0].card
@@ -138,15 +135,17 @@ func _run() -> void:
 	if inventory.fan.entries.size()==8:
 		var left: TextureButton = inventory.fan.entries[0].card
 		var right: TextureButton = inventory.fan.entries[1].card
-		check(left.get_node_or_null("BrandFrameOverlay").texture==BrandFrame.WOOD_FRAME,"inventory two brands wood")
-		check(right.get_node_or_null("BrandFrameOverlay").texture==BrandFrame.IRON_FRAME,"inventory three brands iron")
+		var left_brands := left.get_node_or_null("LayeredCardBrands") as Control
+		var right_brands := right.get_node_or_null("LayeredCardBrands") as Control
+		check(left_brands!=null and left_brands.get_child_count()==2,"inventory two brands displayed in lower icon row")
+		check(right_brands!=null and right_brands.get_child_count()==3,"inventory three brands displayed in lower icon row")
 		check(left.get_node_or_null("AltarUpgradeBadge")!=null and right.get_node_or_null("AltarUpgradeBadge")!=null,"inventory badges on overlapping cards")
 		left.mouse_entered.emit()
 		check(left.z_index==20 and left.get_node("AltarUpgradeBadge").z_index==0,"inventory hover raises whole card with plaque")
 		left.mouse_exited.emit()
 		check(left.z_index==0,"inventory hover exit restores card stacking")
 
-	# 3: deck formation uses the same overlays on hand cards and lineup cards.
+	# 3: deck formation retains altar badges and lower brand icons on hand and lineup cards.
 	var deck = BattleDeck.new()
 	root.add_child(deck)
 	deck.setup(owned)
@@ -188,7 +187,7 @@ func _run() -> void:
 	assert_decorations(place.receiver_art,"altar receiver preview")
 	place.receiver_id = ""
 	place.refresh()
-	check(place.receiver_art.get_node_or_null("AltarUpgradeBadge")==null and place.receiver_art.get_node_or_null("BrandFrameOverlay")==null,"altar empty preview removes previous decorations")
+	check(place.receiver_art.get_node_or_null("AltarUpgradeBadge")==null,"altar empty preview removes previous enhancement plaque")
 
 	# 5: real inheritance set_preview, including clear-on-blank behavior.
 	var inheritance = HomeInheritance.new()
@@ -201,7 +200,15 @@ func _run() -> void:
 	inheritance.set_preview(preview,"unit",owned[1])
 	assert_decorations(preview,"inheritance receiver preview")
 	inheritance.set_preview(preview,"unit",{})
-	check(preview.get_node_or_null("BrandFrameOverlay")==null and preview.get_node_or_null("AltarUpgradeBadge")==null,"inheritance blank preview clears both decorations")
+	check(preview.get_node_or_null("AltarUpgradeBadge")==null,"inheritance blank preview clears enhancement plaque")
 
+	# A headless frame can finish before the audio mixer processes stop().
+	deck.click_audio.stop()
+	await create_timer(0.1).timeout
+	# Release test scenes and let audio playback leave the mixer before quitting.
+	for scene in [reward,inventory,pair,large_inventory,deck,place,inheritance]:
+		scene.queue_free()
+	await process_frame
+	await process_frame
 	print("CARD_SCREEN_REGRESSION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

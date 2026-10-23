@@ -104,7 +104,7 @@ func source_contract() -> void:
 	check(spec.choice=="intervene","battle requires saved intervention choice")
 	check(spec.enemy_selection=="ritual_portal","hero-first four enemy selection policy")
 	check(spec.retry_after_loss==false,"original loss is final rather than retryable")
-	check(spec.enemies==["death-knight","doom-executor","plague-doctor","hydra"],"source fallback roster retained")
+	check(spec.enemies==["soul-reaper","doom-executor","plague-doctor","grave-worm"],"ordinary fallback roster excludes reserved bosses")
 	check(spec.outcomes.won.status=="active" and spec.outcomes.lost.status=="active","both results defer actual king revival")
 	check(not spec.outcomes.won.presentation.retry and not spec.outcomes.lost.presentation.retry,"win and loss are irreversible source outcomes")
 	for result in ["won","lost"]:

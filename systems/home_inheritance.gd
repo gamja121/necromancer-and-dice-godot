@@ -105,7 +105,6 @@ func panel_slot(pos: Vector2, material: bool) -> void:
 
 func set_preview(node: TextureRect, kind: String, item: Dictionary) -> void:
 	node.texture = load(Catalog.image(kind,item)) if not item.is_empty() else null
-	BrandFrameOverlay.sync(node,item if kind=="unit" else {})
 	AltarUpgradeBadge.sync(node,item if kind=="unit" else {})
 
 func detail(value: String, color: Color = Color("34251c")) -> void:

@@ -102,13 +102,17 @@ func enemy_selection() -> void:
 		var slugs: Array=Enemies.select(s.world.definitions,rng)
 		check(Enemies.valid(s.world.definitions,slugs),"random set %d: four unique with elite lead and no special" % n)
 	var tiny: Dictionary={
-		"death-knight":{"grade":"hero"},
+		"cerberus":{"grade":"hero"},
 		"plague-doctor":{"grade":"advanced"},
 		"ghoul":{"grade":"normal"},
 		"skeleton-spear":{"grade":"normal"}
 	}
 	check(Enemies.select(tiny,rng).size()==4,"valid 4-unit catalog can roll")
 	check(Enemies.valid(tiny,Enemies.select(tiny,rng)),"4-unit catalog preserves elite lead")
+	var reserved: Dictionary=tiny.duplicate(true)
+	reserved.erase("cerberus")
+	reserved["death-knight"]={"grade":"hero"}
+	check(Enemies.select(reserved,rng).is_empty(),"reserved boss cannot supply the fourth ordinary enemy")
 	check(Enemies.select({"ghoul":{"grade":"normal"}},rng).is_empty(),"missing fallback catalog fails closed")
 	check(not Enemies.valid(s.world.definitions,["ghoul","ghoul","ghoul","ghoul"]),"duplicates forbidden")
 	check(not Enemies.valid(s.world.definitions,["ghoul","death-knight","plague-doctor","skeleton-spear"]),"first enemy must be elite")

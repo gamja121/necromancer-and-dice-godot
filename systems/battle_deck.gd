@@ -4,7 +4,6 @@ const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 signal confirmed(selected_ids: Array)
 signal rename_submitted(instance_id: String, candidate: String)
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
-const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
@@ -146,7 +145,6 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	# Card art is built from independent runtime nodes, not a flattened PNG.
 	LayeredUnitCard.install(button, str(unit.slug), str(unit.name), selected_ids.has(unit.id), unit.get("brands", []))
 	CardDepthMotion.install(button, selected_ids.has(unit.id))
-	BrandFrameOverlay.sync(button,unit)
 	AltarUpgradeBadge.sync(button,unit)
 	button.pressed.connect(func(): toggle_unit(unit.id))
 	return button
