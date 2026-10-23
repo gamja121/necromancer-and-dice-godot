@@ -16,7 +16,7 @@ func check(ok: bool, label: String) -> void:
 		printerr("FAIL inheritance-ash: ",label)
 
 func _run() -> void:
-	var session: Node=root.get_node_or_null("RunSession")
+	var session=root.get_node_or_null("RunSession")
 	if session==null:
 		check(false,"RunSession autoload")
 		quit(1)
@@ -66,7 +66,7 @@ func _run() -> void:
 	check(scene.busy and scene.material_art.scale.x<0.95,"preview shrinks during ash animation")
 	check(scene.material_art.modulate.a<0.99,"preview fades only after saved success")
 	check(scene.unit_options.has(donor_id),"hand refresh waits for visual effect")
-	check(not scene.confirm_button.disabled==false or scene.completed,"duplicate inheritance cannot begin while animating")
+	check(scene.confirm_button.disabled,"duplicate inheritance cannot begin while animating")
 	await create_timer(FX.DURATION+0.18).timeout
 	check(not scene.busy and scene.completed,"effect has completed and unlocked the screen")
 	check(scene.material_art.texture==null and scene.material_hint.text=="소모 완료","sacrificial preview clears only after dissolve")
