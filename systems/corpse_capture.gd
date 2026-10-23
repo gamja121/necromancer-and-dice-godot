@@ -21,8 +21,9 @@ func _exit_tree() -> void:
 # Used both by real soul harvest and the layered-card regression fixture.
 static func make_choice_card(source: TextureButton, unit: Dictionary) -> TextureButton:
 	var option := TextureButton.new()
-	option.texture_normal = source.texture_normal
-	option.texture_disabled = option.texture_normal
+	# Never expose the obsolete source card art, even in disabled state.
+	option.texture_normal = null
+	option.texture_disabled = null
 	option.ignore_texture_size = true
 	option.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	option.size = source.size
@@ -285,8 +286,9 @@ func complete_success() -> void:
 				spirit_parent.add_child(spirit)
 				spirit.position = selected_card.position
 			else:
-				# Only monsters without layered art use the legacy texture.
-				spirit = scene.image(spirit_parent,"res://assets/cards/unit-card-%s.png" % corpse.slug,selected_card.position,selected_card.size)
+				# All registered monsters have layered cards, including in
+				# standalone preview mode; never resurrect a flattened PNG.
+				spirit = LayeredUnitCard.make_preview(spirit_parent,corpse,selected_card.position,selected_card.size)
 				AltarUpgradeBadge.sync(spirit,scene.rules.find_id(str(corpse.id)))
 			spirit.z_index = 76 if spirit_parent!=self else 0
 			spirit.pivot_offset = spirit.size*0.5
