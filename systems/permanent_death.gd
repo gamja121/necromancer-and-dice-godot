@@ -1,5 +1,4 @@
 extends Control
-const BrandFrameOverlay = preload("res://systems/brand_frame_overlay.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 
 var scene
@@ -133,7 +132,6 @@ func play(battle_scene, fallen: Array) -> void:
 			card.position = Vector2(scene.cards[u.id].position.x,scene.card_rest_y()-18.8)
 			card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(card)
-			BrandFrameOverlay.sync(card,u)
 			AltarUpgradeBadge.sync(card,u)
 			source.visible = false
 			scene.bars[u.id].visible = false

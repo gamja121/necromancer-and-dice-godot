@@ -48,7 +48,7 @@ static func sync(card: Control, unit: Dictionary) -> void:
 		badge.focus_mode = Control.FOCUS_NONE
 		badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		badge.stretch_mode = TextureRect.STRETCH_SCALE
-		# Keep card, brand frame and altar badge in the same overlap order.
+		# Keep the altar badge within its parent card overlap order.
 		badge.z_index = 0
 		card.add_child(badge)
 	badge.texture = icon
