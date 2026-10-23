@@ -184,6 +184,13 @@ func _run() -> void:
 		root.add_child(session)
 	var prior_path: String=session.save_file_path
 	check(Routine.ORDER.size()==6 and Routine.CARDS.size()==6,"exactly six original-format routine cards registered")
+	for event_id in Routine.ORDER:
+		var art_path: String=Routine.dedicated_art_path(event_id)
+		var original_fallback: String=str(Routine.CARDS[event_id].illustration)
+		var expected: String=art_path if ResourceLoader.exists(art_path) else original_fallback
+		check(art_path==("res://assets/map/events/routine_%s.png" % event_id),event_id+": dedicated art has a stable event-specific path")
+		check(str(Routine.details(event_id).illustration)==expected,event_id+": uses the original art when installed, not another event's artwork")
+	check(Routine.dedicated_art_path("not_a_routine")=="","unknown routine cannot bind unapproved art")
 	for card_id in Routine.ORDER:
 		await verify_card(card_id,true)
 		await verify_card(card_id,false)
