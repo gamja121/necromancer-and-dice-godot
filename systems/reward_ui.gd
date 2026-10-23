@@ -50,7 +50,9 @@ func add_button_effect(node: BaseButton) -> void:
 
 func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensions: Vector2, callback: Callable) -> TextureButton:
 	var node = TextureButton.new()
-	node.texture_normal = load(Catalog.image(kind,item))
+	# Unit cards are entirely composed from the approved live layers.
+	# Only consumable dice cards retain a single source texture.
+	if kind!="unit": node.texture_normal = load(Catalog.image(kind,item))
 	node.ignore_texture_size = true
 	node.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	node.position = pos
