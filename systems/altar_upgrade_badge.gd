@@ -59,6 +59,10 @@ static func sync(card: Control, unit: Dictionary) -> void:
 		badge.z_index = 0
 		card.add_child(badge)
 	badge.texture = icon
+	# Rebuilding a live preview appends a new composite card. Keep the
+	# existing altar badge above that card without changing its Z policy.
+	if card.get_node_or_null("LayeredCardPreview") != null:
+		card.move_child(badge,card.get_child_count()-1)
 	var art := _art_rect(card)
 	var width := art.size.x*0.54
 	var height := width*float(icon.get_height())/float(icon.get_width())
