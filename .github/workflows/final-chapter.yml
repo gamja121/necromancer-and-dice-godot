@@ -2,6 +2,8 @@ name: Final chapter and persistent dragon clear
 on:
   pull_request:
     paths:
+      - "systems/battle_resources.gd"
+      - "scripts/test_battle_resource_lifecycle.gd"
       - "map.gd"
       - "battlefield.gd"
       - "systems/run_session.gd"
@@ -17,6 +19,8 @@ on:
   push:
     branches: [main]
     paths:
+      - "systems/battle_resources.gd"
+      - "scripts/test_battle_resource_lifecycle.gd"
       - "map.gd"
       - "battlefield.gd"
       - "systems/run_session.gd"
@@ -55,9 +59,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in test_final_dragon_clear test_final_chapter_ui test_final_dragon_boss_stats test_map_shuffle_boss_threshold test_p4_full_source_story_chain test_game_over_shatter test_capture_brand_identity test_final_dragon_presentation; do
+          for test in test_final_dragon_clear test_final_chapter_ui test_final_dragon_boss_stats test_map_shuffle_boss_threshold test_p4_full_source_story_chain test_game_over_shatter test_capture_brand_identity test_final_dragon_presentation test_battle_resource_lifecycle; do
             timeout 240s godot --headless --path . --script res://scripts/$test.gd 2>&1 | tee "$test.log"
-            grep -E '^[A-Z_]+: [0-9]+ passed, 0 failed$' "$test.log"
+            grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
           done
       - name: Six separate Godot processes restore final progress

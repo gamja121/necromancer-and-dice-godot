@@ -5,18 +5,37 @@ var pending: Array[String] = []
 var requested: Dictionary = {}
 var queued: Dictionary = {}
 
-# A static callable outlives the scene without keeping a dead Node alive.
-# Claim finished requests on later frames if their owner exits mid-load.
+# A separate drain owns request paths without keeping the exited scene alive.
+# Each drain has a distinct callable target, even for identical request sets.
 class PendingLoads extends RefCounted:
-	static func flush(paths: Array) -> void:
-		# Only application shutdown may join unfinished work. Normal scene
-		# transitions use finish() and never wait for an in-flight request.
+	static var active: Dictionary = {}
+	var tree: SceneTree
+	var paths: Array = []
+
+	static func adopt(scene_tree: SceneTree, requests: Array) -> void:
+		var drain := PendingLoads.new()
+		drain.tree = scene_tree
+		drain.paths = requests
+		active[drain.get_instance_id()] = drain
+		scene_tree.root.tree_exiting.connect(drain.flush,CONNECT_ONE_SHOT)
+		scene_tree.process_frame.connect(drain.finish)
+		drain.finish()
+
+	func release() -> void:
+		if tree.process_frame.is_connected(finish): tree.process_frame.disconnect(finish)
+		if tree.root.tree_exiting.is_connected(flush): tree.root.tree_exiting.disconnect(flush)
+		active.erase(get_instance_id())
+
+	func flush() -> void:
+		# Only application shutdown may join unfinished work. Scene changes
+		# drain at most one completed request per frame without blocking.
 		for path in paths:
 			if ResourceLoader.load_threaded_get_status(path)!=ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 				ResourceLoader.load_threaded_get(path)
 		paths.clear()
+		release()
 
-	static func finish(tree: SceneTree, paths: Array, shutdown: Callable) -> void:
+	func finish() -> void:
 		var finished: String = ""
 		for path in paths:
 			var status = ResourceLoader.load_threaded_get_status(path)
@@ -28,18 +47,13 @@ class PendingLoads extends RefCounted:
 				finished = path
 				break
 		if not finished.is_empty(): paths.erase(finished)
-		if not paths.is_empty():
-			tree.process_frame.connect(finish.bind(tree,paths,shutdown),CONNECT_ONE_SHOT)
-		elif tree.root.tree_exiting.is_connected(shutdown):
-			tree.root.tree_exiting.disconnect(shutdown)
+		if paths.is_empty(): release()
 
 func _exit_tree() -> void:
 	if requested.is_empty(): return
 	var paths: Array = requested.keys()
 	requested.clear()
-	var shutdown: Callable = PendingLoads.flush.bind(paths)
-	get_tree().root.tree_exiting.connect(shutdown,CONNECT_ONE_SHOT)
-	PendingLoads.finish(get_tree(),paths,shutdown)
+	PendingLoads.adopt(get_tree(),paths)
 
 func _ready() -> void:
 	set_process(not pending.is_empty() or not requested.is_empty())

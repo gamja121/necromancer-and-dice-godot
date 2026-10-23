@@ -3,6 +3,7 @@ extends SceneTree
 ## Covers 15/30 generation, in-lap pollution change, v1 save upgrade,
 ## old 2-swamp route plans, save rollback and actual board-tile image.
 const State = preload("res://systems/map_state.gd")
+const BossStoryFixture = preload("res://scripts/boss_story_test_fixture.gd")
 const Plan = preload("res://systems/route_plan.gd")
 const Session = preload("res://systems/run_session.gd")
 const MapScene = preload("res://map.tscn")
@@ -31,15 +32,16 @@ func _run() -> void:
 			var world = State.new(data, 12345 + level, configuration)
 			world.laps = 2
 			world.contamination = level
+			BossStoryFixture.seed_completed_final_hunt(world)
 			world.generate()
 			var expected: int = State.required_swamp_count(level)
 			check(world.tiles.size() == 24 and world.tiles.count("swamp") == expected,
 				"24 board slots, %d swamps at contamination %d" % [expected, level])
 			check(world.tiles[0] == "fortune-teller-camp" and world.tiles[8] == "village" and world.tiles[15] == "home",
 				"permanent anchors preserved at contamination %d" % level)
-			check(world.tiles[23] == ("boss" if level >= State.BOSS_CONTAMINATION else world.tiles[23]),
-				"existing boss slot preserved at contamination %d" % level)
-			check(world.tiles.count("monster") >= (4 if level >= 20 else 5), "existing automatic monsters survive")
+			check((world.tiles[State.BOSS_TILE_INDEX] == "boss") == bool(level >= State.BOSS_CONTAMINATION),
+				"completed-story boss presence follows current contamination gate at %d" % level)
+			check(world.tiles.count("monster") >= (4 if level >= State.BOSS_CONTAMINATION else 5), "existing automatic monsters survive")
 			check(world.tiles.count("event") == 2 and world.tiles.count("warp") == 2,
 				"story event and warp tiles unaffected")
 	var old_plan: Dictionary = {"current": Plan.CURRENT.duplicate(), "reserve": Plan.RESERVE.duplicate()}
@@ -109,10 +111,8 @@ func _run() -> void:
 	# Old saved runs at contamination 30 had reserved basic roads but no swamps.
 	world.contamination = 14
 	world.generate()
-	# Legacy 20+ saves can already have the boss at slot 23 but no swamps.
-	# Preserve that actual pre-15/30 migration shape for the round-trip.
-	world.contamination = 20
-	world.reveal_boss_at_threshold()
+	# The old board predates automatic swamp conversion. Keep its current
+	# ordinary/story tile layout while upgrading only eligible basic roads.
 	world.contamination = 30
 	check(world.tiles.count("swamp") == 0 and session.save_world(), "older high-contamination board fixture stored")
 	var preserved_serial: int = world.map_serial

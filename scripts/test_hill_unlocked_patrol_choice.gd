@@ -1,6 +1,6 @@
 extends SceneTree
 ## Run: godot --headless --path . --script res://scripts/test_hill_unlocked_patrol_choice.gd
-## Real discovery -> HOME editable hill (+/-) -> next board -> reload.
+## Real discovery -> HOME slot/choice buttons -> next board -> reload.
 const MAP = preload("res://map.tscn")
 const Session = preload("res://systems/run_session.gd")
 const RouteUI = preload("res://systems/exploration_actions.gd")
@@ -21,6 +21,15 @@ func check(condition: bool, name: String) -> void:
 		fail_count += 1
 		printerr("FAIL hill-edit: ",name)
 
+func select_kind(route: Control, slot: int, kind: String) -> void:
+	var slot_button: Button = route.content.get_node_or_null("SelectedPatrolSlot%d" % slot)
+	check(slot_button!=null and not slot_button.disabled,"slot %d is selectable" % slot)
+	if slot_button==null or slot_button.disabled: return
+	slot_button.pressed.emit()
+	var choice: Button = route.content.get_node_or_null("PatrolChoice_"+kind)
+	check(choice!=null and not choice.disabled,kind+" choice is enabled")
+	if choice!=null and not choice.disabled: choice.pressed.emit()
+
 func _run() -> void:
 	var session = root.get_node_or_null("RunSession")
 	var own: bool = session == null
@@ -38,14 +47,14 @@ func _run() -> void:
 	fake.selection.forest = 1
 	var denied: Dictionary = session.confirm_patrol(fake)
 	check(not bool(denied.get("ok",false)),"forged hill not selectable before discovery")
-	check(not Discovery.is_unlocked(world,"forest"),"original legacy forest is not an unlock")
+	check(not Discovery.is_unlocked(world,"forest") and world.tiles.count("forest")==0,"new expedition has no unearned forest")
 	var map = MAP.instantiate()
 	root.add_child(map)
 	await process_frame
 	var before = RouteUI.new()
 	map.stage.add_child(before)
 	before.setup(map,State.HOME)
-	check(not before.route_plus_buttons.has("forest"),"hill picker hidden before real unlock")
+	check(before.content.get_node_or_null("PatrolChoice_forest")==null,"hill picker hidden before real unlock")
 	before.queue_free()
 	await process_frame
 
@@ -56,29 +65,30 @@ func _run() -> void:
 	check(session.save_world(),"event approach fixture is saved")
 	var result: Dictionary=session.discover_hill_on_event(event_index)
 	check(bool(result.get("ok",false)) and Discovery.is_unlocked(world,"forest"),"genuine event discovery unlocks an extra forest")
-	check(world.tiles.count("forest")==2,"discovery creates one free hill without optional selection")
+	check(world.tiles.count("forest")==1,"discovery creates one free hill without optional selection")
 
 	world.position=State.HOME
 	check(session.save_world(),"home arrival persisted")
 	var route=RouteUI.new()
 	map.stage.add_child(route)
 	route.setup(map,State.HOME)
-	check(route.route_plus_buttons.has("forest") and route.route_count_labels.has("forest"),"third selector appears after discovery")
-	check(not route.route_plus_buttons["forest"].disabled,"new forest selector accepts clicks")
+	var forest_choice: Button=route.content.get_node_or_null("PatrolChoice_forest")
+	check(forest_choice!=null and not forest_choice.disabled,"forest choice becomes selectable after discovery")
+	check(forest_choice!=null and forest_choice.get_node_or_null("UnlockNewBadge")!=null,"new forest choice shows its unread marker")
 	check(route.find_child("HomeUnlockedForestTile",true,false)!=null,"existing unlocked tile announcement remains")
-	route.route_plus_buttons["forest"].pressed.emit()
-	check(int(route.plan.selection.forest)==1 and Plan.available(route.plan)==5,"hill plus uses one optional slot")
-	check(route.route_count_labels["forest"].text=="1","quantity indicator increments")
-	var preview = route.find_child("SelectedPatrolSlot0",true,false)
-	check(preview is TextureRect and preview.texture!=null and preview.texture.resource_path.ends_with("forest.png"),"selected slot uses real hill art")
-	route.route_minus_buttons["forest"].pressed.emit()
-	check(int(route.plan.selection.forest)==0 and Plan.available(route.plan)==6,"minus returns hill to basic road")
-	route.route_plus_buttons["forest"].pressed.emit()
-	# Six-slot cap shared by monsters/rests/hill.
-	for i in range(5):
-		route.route_plus_buttons["monster"].pressed.emit()
-	check(Plan.available(route.plan)==0 and route.route_plus_buttons["forest"].disabled,"six optional choices cannot exceed capacity")
-	route.route_minus_buttons["monster"].pressed.emit()
+	select_kind(route,0,"forest")
+	check(int(route.plan.selection.forest)==1 and Plan.available(route.plan)==5,"one forest selection uses one optional slot")
+	check(route.route_slot_kind(0)=="forest","selected slot records the forest choice")
+	var forest_art: bool=route.content.get_children().any(func(node):
+		return node is TextureRect and node.position.is_equal_approx(Vector2(162,327)) and node.texture!=null and node.texture.resource_path.ends_with("forest.png"))
+	check(forest_art,"selected slot uses real hill art")
+	select_kind(route,0,"basic")
+	check(int(route.plan.selection.forest)==0 and Plan.available(route.plan)==6,"choosing empty road removes the optional hill")
+	select_kind(route,0,"forest")
+	# Six fixed selection slots share the same monster/rest/hill capacity.
+	for i in range(1,6): select_kind(route,i,"monster")
+	check(Plan.available(route.plan)==0 and Plan.total_selected(route.plan)==6 and route.content.get_node_or_null("SelectedPatrolSlot6")==null,"six optional choices cannot exceed capacity")
+	select_kind(route,5,"basic")
 	check(Plan.available(route.plan)==1,"removing a monster frees one choice")
 	var saved_plan: Dictionary=route.plan.duplicate(true)
 	route.action_button.pressed.emit()
@@ -92,11 +102,11 @@ func _run() -> void:
 	world.lap_ready=true
 	world.position=State.HOME
 	check(session.leave_home(),"house departure regenerates next map from selected plan")
-	check(world.tiles.size()==24 and world.tiles.count("forest")==3,"legacy hill + discovery hill + one optional hill exist on next board")
+	check(world.tiles.size()==24 and world.tiles.count("forest")==2,"one discovered hill and one optional hill exist on next board")
 	check(world.tiles[0]=="fortune-teller-camp" and world.tiles[8]=="village" and world.tiles[15]=="home","fixed map anchors still present")
 	check(world.tiles.count("basic")>=Plan.RESERVED_SWAMP_ROADS-State.required_swamp_count(world.contamination),"protected swamp roads retained")
 	session.reload_world()
-	check(session.world.tiles.count("forest")==3 and session.world.patrol_plan.selection.forest==1,"real newly generated hill tiles survive reload")
+	check(session.world.tiles.count("forest")==2 and session.world.patrol_plan.selection.forest==1,"real newly generated hill tiles survive reload")
 
 	# Prior 2-key modern plans are valid: migrate to hill=0 rather than crash.
 	var previous: Dictionary = {"selection":{"monster":2,"rest":0},"rest_unlocked":false,"rest_discovered":false}

@@ -1,6 +1,8 @@
 extends SceneTree
 ## Real UI hooks, isolated save, and presentation clock/input/RNG contracts.
 const MAP = preload("res://map.tscn")
+const State = preload("res://systems/map_state.gd")
+const BossStoryFixture = preload("res://scripts/boss_story_test_fixture.gd")
 const BATTLE = preload("res://battlefield.tscn")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const Accent = preload("res://systems/presentation_accent.gd")
@@ -80,8 +82,9 @@ func run() -> void:
 	await create_timer(0.22).timeout
 	await capture("02_swamp")
 	check(JSON.stringify(world.snapshot())==before,"swamp accent never mutates the saved board")
-	world.contamination = 20
-	world.reveal_boss_at_threshold()
+	world.contamination = State.BOSS_CONTAMINATION
+	BossStoryFixture.seed_completed_final_hunt(world)
+	check(world.reveal_boss_at_threshold(),"completed final story and current contamination gate reveal the boss")
 	session.save_world()
 	map.presentation.refresh()
 	await process_frame

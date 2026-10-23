@@ -45,7 +45,8 @@ func _run() -> void:
 	var panel := ExplorationActions.new()
 	root.add_child(panel)
 	panel.setup(map,MapState.HOME)
-	check(panel.route_plus_buttons.has("rest") and panel.route_plus_buttons["rest"].get_node_or_null("UnlockNewBadge") != null, "home rest-selection plus shows NEW without changing choices")
+	var rest_choice: Button = panel.content.get_node_or_null("PatrolChoice_rest")
+	check(rest_choice != null and not rest_choice.disabled and rest_choice.get_node_or_null("UnlockNewBadge") != null, "home rest choice shows NEW without changing the selected slots")
 	panel.queue_free()
 	await process_frame
 	# Place the real unlocked rest terrain on the next board, without a test UI.
