@@ -127,7 +127,6 @@ func text_label(parent: Control, value: String, pos: Vector2, dimensions: Vector
 func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, tilt: float) -> TextureButton:
 	var button = TextureButton.new()
 	button.ignore_texture_size = true
-	button.texture_normal = load("res://assets/cards/unit-card-%s.png" % unit.slug)
 	button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	button.position = pos
 	button.size = dimensions
