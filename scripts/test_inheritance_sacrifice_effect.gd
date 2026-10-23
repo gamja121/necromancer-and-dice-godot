@@ -53,7 +53,7 @@ func _run() -> void:
 	scene.confirm()
 	check(not scene.busy and not scene.completed,"save failure releases screen lock")
 	check(session.world.snapshot()==before_state,"save failure preserves full world")
-	check(scene.material_art.texture!=null and scene.material_art.modulate.a>=0.99,"failed save does not animate away donor")
+	check(scene.material_art.has_node("LayeredCardPreview/LayeredCardBase") and scene.material_art.modulate.a>=0.99,"failed save does not animate away donor")
 	check(scene.unit_options.has(donor_id) and is_instance_valid(donor_card),"failed save leaves original donor card")
 	session.save_file_path=test_path
 	scene.confirm()
@@ -61,7 +61,7 @@ func _run() -> void:
 	check(session.owned_unit(donor_id).is_empty(),"donor was durably removed BEFORE animation")
 	check(session.world.roster.size()==original_count-1,"exactly one original owned card consumed")
 	check(scene.unit_options.has(donor_id),"the old card stays displayed until dissolve finishes")
-	check(scene.material_art.texture!=null,"the preview remains visible at animation start")
+	check(scene.material_art.has_node("LayeredCardPreview/LayeredCardBase"),"live layered preview remains visible at animation start")
 	await create_timer(0.41).timeout
 	print("INHERITANCE_ASH_MID: scale=",scene.material_art.scale.x," alpha=",scene.material_art.modulate.a)
 	check(scene.busy and scene.material_art.scale.x<0.95,"preview shrinks during ash animation")
@@ -70,9 +70,9 @@ func _run() -> void:
 	check(scene.confirm_button.disabled,"duplicate inheritance cannot begin while animating")
 	await create_timer(FX.DURATION+0.18).timeout
 	check(not scene.busy and scene.completed,"effect has completed and unlocked the screen")
-	check(scene.material_art.texture==null and scene.material_hint.text=="소모 완료","sacrificial preview clears only after dissolve")
+	check(not scene.material_art.has_node("LayeredCardPreview") and scene.material_hint.text=="소모 완료","sacrificial preview clears only after dissolve")
 	check(not scene.unit_options.has(donor_id),"deleted donor no longer appears in the new hand")
-	check(scene.receiver_art.texture!=null,"receiver card remains")
+	check(scene.receiver_art.has_node("LayeredCardPreview/LayeredCardBase"),"recipient retains live layered card")
 	check(scene.material_art.scale==Vector2.ONE and scene.material_art.modulate==Color.WHITE,"temporary dissolve transforms were reset")
 	check(session.owned_unit(receiver_id).brands.size()==original_receiver_count+1,"exactly one inherited blessing is added")
 	check(not session.home_action_allowed().ok,"receipt prevents second inheritance in this visit")
