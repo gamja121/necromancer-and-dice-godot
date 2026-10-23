@@ -108,12 +108,12 @@ func _run() -> void:
 			card.size = dims
 			card.ignore_texture_size = true
 			card.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			card.texture_normal = load("res://assets/cards/unit-card-%s.png" % slug)
-			var original := card.texture_normal
+			# The legacy PNG is not required even as a hidden hit texture.
+			var original: Texture2D = null
 			root.add_child(card)
 			var owned_brands: Array = [{"type":"critical"}, {"type":"freeze"}, {"type":"counter"}]
 			check(Layered.install(card, slug, "검사 이름", false, owned_brands), "%s installed at %s" % [slug, dims])
-			check(card.texture_normal == original, "original TextureButton art identity remains available")
+			check(card.texture_normal == original, "layered art needs no flattened hit texture")
 			check(is_zero_approx(card.self_modulate.a), "only the flattened art is hidden, not the children")
 			var base := card.get_node_or_null("LayeredCardBase") as TextureRect
 			var actor := card.get_node_or_null("LayeredCardCharacter") as TextureRect
@@ -148,7 +148,7 @@ func _run() -> void:
 				# flattened source card on the post-victory soul harvest screen.
 				var reward_choice: TextureButton = SoulCapture.make_choice_card(card, {"slug":slug,"name":"검사 이름","brands":owned_brands})
 				root.add_child(reward_choice)
-				check(reward_choice.texture_normal == card.texture_normal and reward_choice.texture_disabled == card.texture_normal, "%s capture retains original hit and disabled texture" % slug)
+				check(reward_choice.texture_normal == null and reward_choice.texture_disabled == null, "%s capture uses no flattened texture" % slug)
 				check(reward_choice.has_node("LayeredCardBase") and reward_choice.has_node("LayeredCardCharacter") and reward_choice.has_node("LayeredCardRibbon") and reward_choice.has_node("LayeredCardBrands"), "%s soul-harvest choice uses live layered portrait" % slug)
 				var reward_actor := reward_choice.get_node_or_null("LayeredCardCharacter") as TextureRect
 				check(reward_actor != null and reward_actor.texture.resource_path.ends_with("%s.webp" % slug.replace("-", "_")) or slug in ["skeleton-spear","skeleton-archer"] and reward_actor != null, "%s soul-harvest choice uses approved art path" % slug)
@@ -195,12 +195,11 @@ func _run() -> void:
 			card.queue_free()
 	var unrelated := TextureButton.new()
 	unrelated.size = Vector2(120,220)
-	unrelated.texture_normal = load("res://assets/cards/unit-card-siren.png")
 	root.add_child(unrelated)
 	check(not Layered.install(unrelated, "unregistered-fallback", "미등록"), "other monsters keep original cards")
 	check(Layered.flight_visual_copy(unrelated) == null, "unlayered cards use the existing flight art path")
 	var legacy_choice := SoulCapture.make_choice_card(unrelated, {"slug":"unregistered-fallback","name":"미등록","brands":[]})
-	check(not legacy_choice.has_node("LayeredCardBase") and legacy_choice.texture_normal == unrelated.texture_normal, "unlayered capture choice retains flat fallback")
+	check(not legacy_choice.has_node("LayeredCardBase") and legacy_choice.texture_normal == null, "unregistered fallback does not surface old art")
 	legacy_choice.free()
 	unrelated.queue_free()
 	print("LAYERED_CARD_REGRESSION: %d failures" % failed)
