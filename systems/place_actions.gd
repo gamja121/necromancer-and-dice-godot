@@ -75,14 +75,14 @@ func setup(map_scene, tile_index: int) -> void:
 		return
 	if type=="altar":
 		setup_altar_visual()
-		donor_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",Vector2(340,108),Vector2(190,254))
+		donor_art=LayeredUnitCard.make_preview(self,{},Vector2(340,108),Vector2(190,254))
 		donor_art.name="AltarMaterialCard"
 		donor_art.z_index=3
 		donor_art.texture=null
 		donor_hint=label_at(self,"재물 먼저 선택",Vector2(320,379),Vector2(230,35),13)
 		donor_hint.name="AltarMaterialHint"
 		donor_hint.z_index=4
-		receiver_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",Vector2(752,108),Vector2(190,254))
+		receiver_art=LayeredUnitCard.make_preview(self,{},Vector2(752,108),Vector2(190,254))
 		receiver_art.name="AltarTargetCard"
 		receiver_art.z_index=3
 		receiver_art.texture=null
@@ -170,7 +170,7 @@ func setup_shop_visual() -> void:
 	var offer_origin: Vector2=SHOP_STAGE.position+Vector2(SHOP_STAGE.size.x*0.445,SHOP_STAGE.size.y*0.122)
 	label_at(self,"내가 올린 카드",trade_origin+Vector2(12,0),Vector2(235,28),17)
 	label_at(self,"상인의 제안",offer_origin+Vector2(50,0),Vector2(300,28),17)
-	donor_art=art(self,"res://assets/cards/unit-card-skeleton-spear.png",trade_origin+Vector2(45,35),Vector2(166,211))
+	donor_art=LayeredUnitCard.make_preview(self,{},trade_origin+Vector2(45,35),Vector2(166,211))
 	donor_art.texture=null
 	donor_hint=label_at(self,"교환할 마물 선택",trade_origin+Vector2(15,247),Vector2(225,32),14)
 	shop_cancel_button=button(self,"거래대에서 내리기",trade_origin+Vector2(38,281),Vector2(189,37),reset_shop_selection)
@@ -265,12 +265,12 @@ func select_unit(id: String) -> void:
 
 func refresh() -> void:
 	var donor=session.owned_unit(donor_id)
-	donor_art.texture=load(Catalog.image("unit",donor)) if not donor.is_empty() else null
+	LayeredUnitCard.sync_preview(donor_art,donor)
 	AltarUpgradeBadge.sync(donor_art,donor)
 	donor_hint.text=donor.name if not donor.is_empty() else ("재물 먼저 선택" if type=="altar" else "교환할 마물 선택")
 	if type=="altar":
 		var receiver=session.owned_unit(receiver_id)
-		receiver_art.texture=load(Catalog.image("unit",receiver)) if not receiver.is_empty() else null
+		LayeredUnitCard.sync_preview(receiver_art,receiver)
 		AltarUpgradeBadge.sync(receiver_art,receiver)
 		var level=int(receiver.get("altar_enhancements",0))
 		receiver_hint.text="%s · 강화 %d/3" % [receiver.name,level] if not receiver.is_empty() else "강화 대상 선택"
