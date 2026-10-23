@@ -1,6 +1,7 @@
 extends "res://systems/reward_ui.gd"
 const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 const PanelDepthMotion = preload("res://systems/panel_depth_motion.gd")
+const SacrificeEffect = preload("res://systems/inheritance_sacrifice_effect.gd")
 signal closed
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 var session
@@ -218,16 +219,31 @@ func confirm() -> void:
 	if busy or completed or confirm_button.disabled: return
 	busy = true
 	render_selection()
-	var result = session.inherit_at_home(receiver_id,material_id)
-	busy = false
+	var consumed_id: String = material_id
+	# Persist the real inheritance BEFORE starting any animation. A failed
+	# transaction leaves both cards exactly where they were.
+	var result = session.inherit_at_home(receiver_id,consumed_id)
 	if not result.ok:
+		busy = false
 		notice = result.reason
 		render_selection()
 		return
 	completed = true
 	notice = ""
+	# The screen stays locked and both original card nodes stay visible until
+	# the sacrificial dissolve has finished; don't re-render prematurely.
+	var source_card: Control = unit_options.get(consumed_id,null) as Control
+	await SacrificeEffect.play(material_art,source_card)
+	if not is_inside_tree(): return
 	material_id = ""
 	render_hand()
+	# render_hand/render_selection clears the donor's picture. Reset its
+	# transient canvas transform so reused preview slots remain canonical.
+	material_art.scale = Vector2.ONE
+	material_art.rotation_degrees = 0.0
+	material_art.modulate = Color.WHITE
+	busy = false
+	render_selection()
 	var flash = create_tween()
 	receiver_art.modulate = Color(1.3,1.15,0.85)
 	flash.tween_property(receiver_art,"modulate",Color.WHITE,0.28)
