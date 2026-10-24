@@ -64,12 +64,16 @@ func _run() -> void:
 	var panel=map.overlay
 	check(is_instance_valid(panel),"live map opens actual fortune action panel")
 	check(panel.get_script().resource_path.ends_with("place_actions.gd"),"fortune panel uses original PlaceActions code")
-	check(panel.fortune_result!=null and not panel.fortune_result.visible,"fortune result label exists but is hidden until prophecy")
+	check(panel.fortune_result!=null and panel.fortune_result.visible,"fortune guidance occupies a single lower notice panel before rolling")
+	check(panel.fortune_notice_panel!=null and panel.fortune_notice_panel.name=="FortuneNoticePanel","fortune painting keeps one small dedicated result panel")
+	check(panel.fortune_notice_panel.position==Vector2(345,467) and panel.fortune_notice_panel.size==Vector2(590,73),"notice stays at approved compact lower-art position")
+	check(panel.fortune_notice_panel.mouse_filter==Control.MOUSE_FILTER_IGNORE and panel.status.mouse_filter==Control.MOUSE_FILTER_IGNORE,"notice and its labels never intercept shared die clicks")
 	check(panel.get_node_or_null("FortuneProphecyCrystal")==null and panel.get_node_or_null("FortuneCrystalAura")==null,"redundant crystal/table asset and purple halo are not spawned")
-	check(panel.fortune_result.position==Vector2(405,186) and panel.fortune_result.size==Vector2(470,164),"prophecy result uses centered text without the removed crystal area")
+	check(panel.fortune_result.position==Vector2(363,509) and panel.fortune_result.size==Vector2(554,23),"result subline stays inside the bottom panel, away from the center of the painting")
+	check(panel.status.position==Vector2(368,477) and panel.status.size==Vector2(544,29),"primary result and title share the same bottom panel")
 	check(panel.get_node_or_null("LocationSceneImage")!=null,"original fortune-teller painting remains behind the simplified UI")
 	check(panel.confirm_button==null,"fortune has no separate action button")
-	check(panel.status.text.contains("예언을 받으려면 주사위를 누르세요."),"fortune shows a direct shared-die instruction")
+	check(panel.status.text=="예언 듣기" and panel.fortune_result.text.contains("주사위를 눌러 예언을 확인하세요"),"one-line title and unobtrusive shared-die guidance appear only once")
 	var redundant_action: bool=false
 	for child in panel.get_children():
 		if child is Button and child.text=="예언 듣기": redundant_action=true
@@ -89,8 +93,10 @@ func _run() -> void:
 		await process_frame
 	check(not panel.busy and not panel.close_button.disabled,"actual roll animation finishes and restores close button")
 	check(int(world.last_prophecy.get("face",-1))==4,"live persisted prophecy uses real RNG result, not mocked UI result")
-	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"prophecy result appears in unobstructed centered notice area")
-	check(panel.fortune_result.text.contains("누적:"),"centered result displays cumulative effect")
+	check(panel.status.text.contains("축복") and panel.status.text.contains("아군 체력 +2"),"primary line shows the real prophecy result after the roll")
+	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"bottom subline shows saved cumulative buff")
+	check(panel.fortune_result.text.begins_with("누적 효과: "),"cumulative effect appears once beneath the main outcome")
+	check(not panel.status.text.contains("누적:"),"the primary outcome is not duplicated with the cumulative line")
 	check(world.reward_receipts.size()==before_receipts+1 and world.prophecy.rolls.size()==before_rolls+1,"exactly one fortune receipt and stack added")
 	check(not session.fortune_prophecy(index).get("ok",true),"same visit cannot issue a second prophecy")
 	var serialized: Dictionary=world.snapshot().duplicate(true)
@@ -120,7 +126,9 @@ func _run() -> void:
 	check(panel.confirm_button==null and map.dice.disabled,"loaded already-used fortune disables the single shared die without adding a button")
 	check(map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,"reopened fortune result still draws the same die above original artwork")
 	check(panel.get_node_or_null("FortuneProphecyCrystal")==null and panel.get_node_or_null("FortuneCrystalAura")==null,"reopened result never recreates old crystal/table overlay")
-	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"reopened result displays same chosen face and effect")
+	check(panel.fortune_notice_panel!=null and panel.fortune_notice_panel.position==Vector2(345,467),"reopened prophecy uses the same compact bottom panel")
+	check(panel.status.text.contains("아군 체력 +2") and not panel.status.text.contains("누적:"),"reopened primary result is restored without a duplicate line")
+	check(panel.fortune_result.visible and panel.fortune_result.text.begins_with("누적 효과: ") and panel.fortune_result.text.contains("아군 체력 +2"),"reopened result displays persisted cumulative effect under the primary outcome")
 	check(panel.dice.texture_normal==map.texture("res://assets/battle/dice/result-04.png"),"result die texture restores from persisted face")
 	check(session.world.reward_receipts.size()==before_receipts+1,"reopen never duplicates fortune receipt")
 	map.queue_free()
