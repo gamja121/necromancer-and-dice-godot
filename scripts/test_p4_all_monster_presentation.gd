@@ -5,6 +5,7 @@ extends SceneTree
 ## Windows/real-monitor visual or audible acceptance.
 const BattleScene = preload("res://battlefield.tscn")
 const Layout = preload("res://systems/battle_presentation_layout.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 
 var passed: int = 0
 var failed: int = 0
@@ -30,8 +31,10 @@ func verify_art_catalog(slugs: Array, layout) -> bool:
 	var total: int = 0
 	for raw in slugs:
 		var slug: String = str(raw)
-		for prefix in ["res://assets/cards/unit-card-%s.png", "res://assets/battle/ui/info-portraits/%s.png"]:
-			var path: String = prefix % slug
+		if not LayeredUnitCard.supports(slug): missing.append(slug + ":no_layered_card")
+		var card_background: String = str(LayeredUnitCard.BACKGROUNDS.get(slug,LayeredUnitCard.BACKGROUND))
+		var card_portrait: String = str(LayeredUnitCard.PORTRAITS.get(slug,""))
+		for path in [card_background,card_portrait,LayeredUnitCard.NAMEPLATE,"res://assets/battle/ui/info-portraits/%s.png" % slug]:
 			if not texture_ok(path): missing.append(path)
 			else: total += 1
 		for motion in ["attack", "hit", "death"]:
@@ -44,14 +47,13 @@ func verify_art_catalog(slugs: Array, layout) -> bool:
 				var path: String = "res://assets/battle/frames/%s/%s-%02d.png" % [slug, motion, index]
 				if index != i + 1 or not texture_ok(path): missing.append(path)
 				else: total += 1
-	check(missing.is_empty(), "all 47 battle-card, information portrait and attack/hit/death file paths decode: " + ", ".join(missing.slice(0, 10)))
-	check(total >= 47 * 2 + 700, "every card and portrait plus over 700 animation frames decoded: " + str(total))
+	check(missing.is_empty(), "all 47 layered card backgrounds, cutout portraits, ribbons, information portraits and attack/hit/death paths decode: " + ", ".join(missing.slice(0, 10)))
+	check(total >= 47 * 4 + 700, "every layered card component and information portrait plus over 700 animation frames decoded: " + str(total))
 	return missing.is_empty()
 
 func check_species(scene, unit: Dictionary) -> void:
 	var slug: String = str(unit.slug)
 	var id: String = str(unit.id)
-	var card_path: String = "res://assets/cards/unit-card-%s.png" % slug
 	var portrait_path: String = "res://assets/battle/ui/info-portraits/%s.png" % slug
 	check(scene.sprites.has(id) and scene.sprites[id].texture == scene.texture(scene.frame_path(unit, "attack", 1)), slug + ": production scene renders real idle frame")
 	check(scene.cards.has(id) and scene.cards[id].texture_normal == null and scene.cards[id].has_node("LayeredCardBase") and scene.cards[id].has_node("LayeredCardCharacter"), slug + ": production battle card uses only layered art")
