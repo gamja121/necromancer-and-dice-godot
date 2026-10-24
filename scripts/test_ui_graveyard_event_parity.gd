@@ -65,7 +65,7 @@ func _run() -> void:
 	map.add_child(extraction)
 	extraction.setup(map,grave)
 	await process_frame
-	check(extraction.content.get_node_or_null("GraveyardDigFrame")!=null,"cemetery digging panel replaces two-column brand extraction")
+	check(extraction.content.get_node_or_null("GraveyardDigFrame")==null and extraction.content.get_node_or_null("GraveyardNoticeStrip")!=null,"cemetery now uses the original painting and approved hand-drawn parchment instead of the old dark panel")
 	check(extraction.content.get_node_or_null("GraveyardDigConfirm")!=null,"digging has a visible explicit confirmation")
 	check(extraction.action_button!=null and not extraction.action_button.disabled,"digging is available with zero allied corpses")
 	var before_cards: int=session.world.dice_cards.size()
