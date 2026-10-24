@@ -103,7 +103,7 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 		check(panel.get_node_or_null("OverflowStatus")!=null and not panel.status.visible,"unselected state has no explanatory text clutter")
 		check(panel.monster_grid!=null and panel.monster_grid.columns==5 and panel.monster_grid.get_child_count()==10,"owned monster cards display in exactly two rows of five")
 		check(panel.card_scroll==null,"monster exchange never hides choices behind a horizontal scroller")
-		check(panel.choices["__new__"].size==Vector2(214,343) and panel.choices["__new__"].has_node("LayeredCardCharacter"),"incoming monster displays a large real layered portrait")
+		check(panel.choices["__new__"].size.is_equal_approx(Vector2(214,343)) and panel.choices["__new__"].has_node("LayeredCardCharacter"),"incoming monster displays a large real layered portrait (size %s, delta %.12f, layered %s)" % [panel.choices["__new__"].size,panel.choices["__new__"].size.distance_to(Vector2(214,343)),panel.choices["__new__"].has_node("LayeredCardCharacter")])
 		check(panel.get_node_or_null("OverflowDeclineNew")!=null and panel.decline_button.text=="획득하지 않기" and panel.confirm.text=="선택한 마물과 교체","two approved action labels replace the old discard picker")
 		check(panel.choices[str(items[0].id)].size==Vector2(112,175),"owned cards use readable original card proportions")
 	else:
