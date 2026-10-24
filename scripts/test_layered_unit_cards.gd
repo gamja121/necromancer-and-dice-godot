@@ -142,6 +142,13 @@ func _run() -> void:
 				check(absf(painted.end.y - (rect.position.y + rect.size.y * Layered.PORTRAIT_BASELINE)) < 0.55, "%s body shares the same foot line at %s" % [slug, dims])
 				check(painted.size.y <= rect.size.y * Layered.PORTRAIT_HEIGHT + 0.55, "%s visible portrait fits card height at %s" % [slug, dims])
 				check(painted.size.x <= rect.size.x * Layered.PORTRAIT_WIDTH_WIDE + 0.55, "%s wide details keep their width budget at %s" % [slug, dims])
+				# Calculate the previous approved fit independently: new pixel
+				# art must be exactly 90% at every slot, wide or tall species.
+				var original_width_budget := rect.size.x * (Layered.PORTRAIT_WIDTH_WIDE if slug in Layered.WIDE_PORTRAITS else Layered.PORTRAIT_WIDTH_NORMAL)
+				var original_fit_scale := minf(rect.size.y * Layered.PORTRAIT_HEIGHT / maxf(float(alpha.size.y),1.0),original_width_budget / maxf(float(alpha.size.x),1.0))
+				var expected_art_size := Vector2(alpha.size) * original_fit_scale * 0.90
+				check(painted.size.distance_to(expected_art_size) < 0.12,"%s artwork alone renders at 90 percent of previously approved size at %s" % [slug,dims])
+				check(absf(actor.scale.x-1.0)<0.01 and absf(actor.scale.y-1.0)<0.01,"%s 90 percent is baked into art layout without shrinking card or interaction hit area" % slug)
 			check(ribbon.position.y > base.position.y and ribbon.position.y < base.position.y + base.size.y, "%s title ribbon stays within parchment at %s" % [slug, dims])
 			if dims == Vector2(136,218):
 				# Regression: a defeated enemy must not revert to the

@@ -124,6 +124,9 @@ const WIDE_PORTRAITS := [
 # The 136 x 218 approved book card is the reference; no hit target is resized.
 const CARD_ASPECT := 136.0 / 218.0
 const PORTRAIT_HEIGHT := 0.76
+# Uniformly reduce only the visible character artwork. Scenery, card hitbox,
+# ribbon, name and branded badge dimensions stay at their approved values.
+const PORTRAIT_VISUAL_SCALE := 0.90
 const PORTRAIT_BASELINE := 0.65
 const PORTRAIT_WIDTH_NORMAL := 1.12
 const PORTRAIT_WIDTH_WIDE := 1.30
@@ -279,7 +282,10 @@ static func relayout(card: TextureButton) -> void:
 	# Fit the *nontransparent* body to a shared height and ground line while
 	# retaining wide beasts' silhouettes. Never crop or stretch the portrait.
 	var allowed_width := extent.x * (PORTRAIT_WIDTH_WIDE if slug in WIDE_PORTRAITS else PORTRAIT_WIDTH_NORMAL)
-	var art_scale := minf(extent.y * PORTRAIT_HEIGHT / maxf(used.size.y, 1.0), allowed_width / maxf(used.size.x, 1.0))
+	var fit_scale := minf(extent.y * PORTRAIT_HEIGHT / maxf(used.size.y, 1.0), allowed_width / maxf(used.size.x, 1.0))
+	# Reuse the original horizontal center and foot line. Only the opaque
+	# character silhouette shrinks 10%, regardless of source canvas margins.
+	var art_scale := fit_scale * PORTRAIT_VISUAL_SCALE
 	var visible_size := used.size * art_scale
 	var visible_left := rect.position.x + (extent.x - visible_size.x) * 0.5
 	var visible_top := rect.position.y + extent.y * PORTRAIT_BASELINE - visible_size.y
