@@ -1,4 +1,4 @@
-name: Inheritance Roster Frame and Five-by-Two Cards
+name: Inheritance Roster Frame and Centered Ten-Card Row
 on:
   pull_request:
     paths:
@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
-      - name: Ten clickable layered cards render in exactly two rows
+      - name: Ten layered cards form one centered horizontal row at 720p
         shell: bash
         run: |
           set -euo pipefail
