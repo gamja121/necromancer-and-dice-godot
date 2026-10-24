@@ -1,0 +1,71 @@
+name: Audit Legacy Monster Card Removal
+on:
+  push:
+    branches:
+      - audit/legacy-monster-card-cleanup-20261024
+  pull_request:
+    paths:
+      - "assets/cards/unit-card-*"
+      - ".github/workflows/legacy-monster-card-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-asset-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inventory legacy files and active references before removal
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess, sys
+          paths = [p for p in subprocess.check_output(['git','ls-files','-z']).decode().split('\0') if p]
+          originals = sorted(p for p in paths if p.startswith('assets/cards/unit-card-'))
+          print('LEGACY_ASSET_COUNT:', len(originals))
+          for path in originals:
+              print('LEGACY_FILE:', path)
+          imports = [p for p in originals if p.endswith('.import')]
+          uids = {}
+          for imp in imports:
+              txt = pathlib.Path(imp).read_text(encoding='utf-8',errors='replace')
+              match = re.search(r'(?m)^uid="(uid://[^"]+)"',txt)
+              if match:
+                  uids[match.group(1)] = imp
+          print('LEGACY_UID_COUNT:',len(uids))
+          ext = {'.gd','.tscn','.tres','.godot','.cfg','.json','.yml','.yaml','.xml','.html','.js','.ts','.css','.py','.sh','.md','.txt','.gdshader','.svg'}
+          refs = []
+          uid_refs = []
+          for path in paths:
+              if path.startswith('assets/cards/unit-card-') or path == '.github/workflows/legacy-monster-card-audit.yml':
+                  continue
+              if pathlib.Path(path).suffix.lower() not in ext:
+                  continue
+              try:
+                  txt = pathlib.Path(path).read_text(encoding='utf-8',errors='replace')
+              except (OSError,ValueError):
+                  continue
+              for index,line in enumerate(txt.splitlines(),1):
+                  if 'unit-card-' in line or 'Catalog.image("unit"' in line or "Catalog.image('unit'" in line:
+                      refs.append((path,index,line.strip()[:240]))
+                  for uid in uids:
+                      if uid in line:
+                          uid_refs.append((path,index,uid))
+          print('LEGACY_REFERENCE_COUNT:',len(refs))
+          for entry in refs[:220]:
+              print('LEGACY_REFERENCE:',*entry,sep=' | ')
+          print('LEGACY_UID_REFERENCE_COUNT:',len(uid_refs))
+          for entry in uid_refs[:120]:
+              print('LEGACY_UID_REFERENCE:',*entry,sep=' | ')
+          active_refs = [r for r in refs if pathlib.Path(r[0]).suffix.lower() not in {'.md','.txt'}]
+          active_uid_refs = [r for r in uid_refs if pathlib.Path(r[0]).suffix.lower() not in {'.md','.txt'}]
+          print('ACTIVE_LEGACY_REFERENCES:',len(active_refs))
+          print('ACTIVE_LEGACY_UID_REFERENCES:',len(active_uid_refs))
+          if active_refs or active_uid_refs:
+              print('AUDIT_RESULT: BLOCKED_BY_ACTIVE_REFERENCES')
+              sys.exit(1)
+          print('AUDIT_RESULT: NO_ACTIVE_REFERENCES')
+          PY
