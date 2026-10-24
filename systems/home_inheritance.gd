@@ -46,7 +46,8 @@ func setup(run_session, map_scene: Control = null) -> void:
 	if map_scene != null:
 		map_scene.location_scene_image(self,"res://assets/map/events/home-interior.jpg")
 	label_at(self,"낙인 계승",Vector2(450,7),Vector2(380,30),24)
-	button(self,"닫기",Vector2(1129,29),Vector2(92,38),func(): if not busy: close_depth())
+	var close_action=button(self,"닫기",Vector2(1129,29),Vector2(92,38),func(): if not busy: close_depth())
+	close_action.set_meta("sfx_manual",true)
 	# Web prototype shows three adjacent columns and two simultaneous card sources.
 	panel_slot(Vector2(198,38),true)
 	panel_slot(Vector2(814,38),false)
@@ -398,6 +399,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func close_depth() -> void:
 	if busy or closing_depth: return
+	Sound.cue(self,"ui_cancel")
 	closing_depth = true
 	for panel in depth_panels:
 		if is_instance_valid(panel): PanelDepthMotion.exit(panel, Callable())

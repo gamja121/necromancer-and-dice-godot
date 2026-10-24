@@ -18,7 +18,7 @@ static func play(paper: Button) -> void:
 	# Disable the regular hover/click tween before taking ownership of transforms.
 	var button_effect=paper.get_node_or_null("ButtonEffectsModule")
 	if button_effect!=null:
-		button_effect.reset_tween()
+		button_effect.stop_animation()
 		button_effect.set_process(false)
 		button_effect.set_process_input(false)
 	paper.pivot_offset=Vector2(paper.size.x*0.18,paper.size.y*0.10)

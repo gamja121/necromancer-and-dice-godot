@@ -938,7 +938,7 @@ func select_tile(index: int) -> void:
 func story_modal() -> Control:
 	# A beat replacement keeps the book open; a later visit opens it afresh.
 	var continuing: bool = is_instance_valid(overlay) and overlay is StoryBook
-	if is_instance_valid(overlay): close_overlay()
+	if is_instance_valid(overlay): close_overlay(false)
 	var panel = StoryBook.new()
 	panel.instant = continuing
 	panel.z_index = 80
@@ -973,10 +973,13 @@ func modal(dim_board: bool = true) -> Control:
 	PanelEffects.attach(node)
 	return node
 
-func close_overlay() -> void:
+func close_overlay(play_book_close: bool = true) -> void:
 	if is_instance_valid(book_button) and (not is_instance_valid(book_lock) or not book_lock.locked): book_button.texture_normal = texture("res://assets/map/ui/map-book-closed.png")
 	if is_instance_valid(deck_button): deck_button.texture_normal = texture("res://assets/map/ui/map-card-deck.png")
 	if is_instance_valid(overlay):
+		if overlay is StoryBook:
+			preload("res://systems/game_audio.gd").stop(overlay)
+			if play_book_close: sound("book_close")
 		stage.remove_child(overlay)
 		overlay.queue_free()
 	overlay = null
@@ -984,9 +987,6 @@ func close_overlay() -> void:
 func dismiss_overlay(after: Callable = Callable()) -> void:
 	var panel = overlay
 	if not is_instance_valid(panel): return
-	if panel is StoryBook:
-		preload("res://systems/game_audio.gd").stop(panel)
-		sound("book_close")
 	if panel.has_method("close_cards"):
 		if panel.closing: return
 		await panel.close_cards()
@@ -1478,6 +1478,7 @@ func show_game_over(instant: bool = false) -> void:
 			var point: Vector2=embedded_battle.presentation_layout.geometry(unit,embedded_battle.surface_size).foot
 			var global_point: Vector2=embedded_battle.get_global_transform_with_canvas()*point
 			footprints.append(stage.get_global_transform_with_canvas().affine_inverse()*global_point)
+	if is_instance_valid(embedded_battle): embedded_battle.stop_audio()
 	game_over_screen=GameOverScreen.new()
 	stage.add_child(game_over_screen)
 	game_over_screen.setup(session,dice,footprints,instant)
@@ -1809,7 +1810,9 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 		# First press finishes the visible line, never commits a choice/beat.
 		action = func() -> void:
 			if _reveal_story_text(parent): return
-			if parent is StoryBook: sound("book_confirm")
+			if parent is StoryBook:
+				var navigation: bool = title in ["돌아가기","나가기","맵으로 나가기","닫기","취소"] or title.ends_with(" 기능")
+				sound("ui_cancel" if navigation else "book_confirm")
 			callback.call()
 	var node = button(parent,title,pos,dimensions,action)
 	# Location actions must draw over both the source painting and its frame.

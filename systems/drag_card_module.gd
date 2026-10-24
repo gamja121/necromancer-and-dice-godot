@@ -60,6 +60,7 @@ func _input(event: InputEvent) -> void:
 		else: release(event.position)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
+		preload("res://systems/game_audio.gd").cue(self,"ui_cancel")
 		cancel()
 		get_viewport().set_input_as_handled()
 

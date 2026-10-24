@@ -1,4 +1,5 @@
 extends "res://systems/reward_ui.gd"
+const Sound = preload("res://systems/game_audio.gd")
 signal chosen(instance_id: String)
 signal closed
 const DiceControl = preload("res://systems/dice_control.gd")
@@ -49,6 +50,7 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 		label_at(self,history,Vector2(240,147),Vector2(800,32),16)
 		status = label_at(self,"위로 살짝 끌거나 클릭하면 1장을 사용하고 자동으로 굴립니다",Vector2(180,548),Vector2(920,40),16)
 		close_button = button(self,"닫기",Vector2(550,605),Vector2(180,42),close_hand)
+	close_button.set_meta("sfx_manual",true)
 	fan = FanMotion.new()
 	add_child(fan)
 	if items.is_empty():
@@ -75,6 +77,7 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 		option.z_index = 5-i if battle else 0
 		var available = DiceControl.can_use(str(item.card_id),context)
 		option.disabled = not available.ok
+		option.set_meta("sfx_manual",bool(available.ok))
 		option.modulate = Color.WHITE if available.ok else Color(0.55,0.55,0.55)
 		option.tooltip_text = DiceControl.description(str(item.card_id)) if available.ok else available.reason
 		option.set_meta("instance_id",id)
@@ -102,6 +105,7 @@ func setup_battle_shell(items: Array, context: Dictionary) -> void:
 	mouse_filter=Control.MOUSE_FILTER_PASS
 	battle_backdrop=Button.new()
 	battle_backdrop.name="BattleDiceBackdrop"
+	battle_backdrop.set_meta("sfx_manual",true)
 	battle_backdrop.flat=true
 	battle_backdrop.size=size
 	battle_backdrop.tooltip_text="카드창 바깥을 눌러 닫기"
@@ -120,6 +124,7 @@ func choose(instance_id: String) -> void:
 		# IDs are bound to each button, never to a mutable array index.
 		if str(option.get_meta("instance_id",""))==instance_id: selected = option
 	if selected == null: return
+	Sound.cue(self,"card_use")
 	choosing = true
 	close_button.disabled = true
 	for option in options: option.disabled = true
@@ -133,6 +138,7 @@ func choose(instance_id: String) -> void:
 
 func close_hand() -> void:
 	if choosing: return
+	Sound.cue(self,"ui_cancel")
 	choosing = true
 	fan.closing = true
 	close_button.disabled = true

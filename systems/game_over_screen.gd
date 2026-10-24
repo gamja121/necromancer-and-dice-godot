@@ -1,6 +1,7 @@
 extends Control
 ## Terminal expedition screen. The existing, saved die remains untouched:
 ## a transient copy cracks and splits into textured triangular fragments.
+const Sound = preload("res://systems/game_audio.gd")
 signal displayed
 
 const FONT = preload("res://assets/fonts/nanum_gothic_regular.ttf")
@@ -134,9 +135,8 @@ func _crack_die() -> void:
 		shards.append(piece)
 	die_copy.hide()
 	# Use existing heavy impact and soul-death samples; no new asset files.
-	if DisplayServer.get_name()!="headless":
-		_play_impact("res://assets/battle/sfx/heavy.ogg",-4.0,0.72)
-		_play_impact("res://assets/battle/sfx/death.ogg",-9.0,0.92)
+	Sound.cue(self,"defeat_crack")
+	Sound.cue(self,"defeat_echo")
 	for k in range(shards.size()):
 		var piece: Polygon2D=shards[k]
 		var direction: Vector2=Vector2.RIGHT.rotated(TAU*(float(k)+0.28)/float(shards.size()))
@@ -147,18 +147,9 @@ func _crack_die() -> void:
 		tween.tween_property(piece,"rotation",(-1.0 if k%2==0 else 1.0)*(0.5+float(k%3)*0.24),0.65)
 		tween.tween_property(piece,"modulate:a",0.0,0.6).set_delay(0.12)
 
-func _play_impact(path: String, volume: float, pitch: float) -> void:
-	var player=AudioStreamPlayer.new()
-	player.bus="SFX"
-	player.stream=load(path)
-	player.volume_db=volume
-	player.pitch_scale=pitch
-	add_child(player)
-	player.finished.connect(player.queue_free)
-	player.play()
-
 func finish_now() -> void:
 	if finished: return
+	Sound.stop(self)
 	finished=true
 	cinematic=false
 	ring_alpha=0
@@ -248,3 +239,6 @@ func _new_run() -> void:
 
 func _back_to_title() -> void:
 	get_tree().change_scene_to_file("res://title.tscn")
+
+func _exit_tree() -> void:
+	Sound.stop(self)

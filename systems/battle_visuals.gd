@@ -415,9 +415,7 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 				if report.amount>0:
 					play_hit(target_id,original.hit_kind(actor.slug))
 					play_species_accent(actor_id,target_id)
-					var hit_cue: String = "battle_critical" if bool(report.get("critical",false)) else ("dragon_impact" if actor.slug=="dragon" else ("heavy" if attack_kind(actor)=="heavy" else "hit"))
-					if str(states[target_id].slug)=="dragon": hit_cue="dragon_hit"
-					scene.sound(hit_cue)
+					scene.sound(impact_cue(str(actor.slug),str(states[target_id].slug),bool(report.get("critical",false)),attack_kind(actor)=="heavy"))
 					flashes[target_id] = clock+0.26*speed
 					var target_profile: Dictionary = scene.presentation_layout.metrics.get(states[target_id].slug,{})
 					hit_motions[target_id] = {"started":idle_clock,"frames":scene.motion_frames(states[target_id],"hit"),"interval":maxf(0.045,float(target_profile.get("hit_interval",0.135))/speed)}
@@ -604,3 +602,9 @@ func play_deaths(before: Array, after: Array) -> void:
 	var effect = PermanentDeath.new()
 	scene.layer.add_child(effect)
 	await effect.play(scene,fallen)
+
+static func impact_cue(actor_slug: String, target_slug: String, critical: bool, heavy: bool = false) -> String:
+	if target_slug=="dragon": return "dragon_critical" if critical else "dragon_hit"
+	if critical: return "battle_critical"
+	if actor_slug=="dragon": return "dragon_impact"
+	return "heavy" if heavy else "hit"

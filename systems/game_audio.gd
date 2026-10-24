@@ -3,7 +3,7 @@ extends Node
 signal cue_started(kind: String)
 const Settings = preload("res://systems/audio_settings.gd")
 const MAX_VOICES := 14
-const UI_NAMES := ["ui_select","ui_confirm","ui_cancel","ui_blocked"]
+const UI_NAMES := ["ui_select","ui_confirm","ui_cancel","ui_blocked","card_use"]
 var profiles: Dictionary = {}
 var streams: Dictionary = {}
 var voices: Array[Dictionary] = []
@@ -39,10 +39,12 @@ func _build_profiles() -> void:
 		_register(kind,"res://assets/battle/sfx/"+file_kind+"."+extension,-12.0,group,0.07 if group in ["dice","map"] else 0.045,3 if group in ["dice","map"] else 6,1.0,2)
 	for kind in UI_NAMES:
 		_register(kind,"res://assets/audio/sfx/"+kind+".wav",-18.0,"ui",0.065,2,1.0,1)
-	for kind in ["book_close","book_stamp","book_confirm","reward_gain","capture_success","capture_fail","recovery","cleanse","swamp_hit","battle_critical","battle_block","battle_miss","battle_heal","shop_trade","ritual_complete","inheritance_complete","grave_dig","prayer_bless","prayer_fail","prophecy_bless","prophecy_curse","dragon_intro","dragon_roar","dragon_impact","dragon_attack","dragon_hit","dragon_death","final_clear"]:
+	for kind in ["book_close","book_stamp","book_confirm","reward_gain","capture_success","capture_fail","recovery","cleanse","swamp_hit","battle_critical","battle_block","battle_miss","battle_heal","shop_trade","ritual_complete","inheritance_complete","grave_dig","prayer_bless","prayer_fail","prophecy_bless","prophecy_curse","dragon_intro","dragon_roar","dragon_impact","dragon_attack","dragon_hit","dragon_critical","dragon_death","final_clear"]:
 		var group := "book" if kind.begins_with("book_") else ("dragon" if kind.begins_with("dragon_") else ("battle" if kind.begins_with("battle_") else "result"))
-		var loud: bool = kind in ["dragon_roar","dragon_impact","dragon_death","final_clear"]
+		var loud: bool = kind in ["dragon_roar","dragon_impact","dragon_critical","dragon_death","final_clear"]
 		_register(kind,"res://assets/audio/sfx/"+kind+".wav",-14.0 if loud else -17.0,group,0.10,2 if group=="book" else (3 if group!="battle" else 6),1.0,4 if loud else 2)
+	_register("defeat_crack","res://assets/battle/sfx/heavy.ogg",-12.0,"terminal",0.10,2,0.72,4)
+	_register("defeat_echo","res://assets/battle/sfx/death.ogg",-16.0,"terminal",0.10,2,0.92,3)
 	_register("book_open","res://assets/battle/sfx/book-cards-open.mp3",-15.0,"book",0.12,2,0.88,2)
 	_register("book_page","res://assets/battle/sfx/book-cards-open.mp3",-19.0,"book",0.12,2,1.0,2)
 

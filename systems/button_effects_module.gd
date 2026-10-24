@@ -123,6 +123,9 @@ func reset_tween() -> void:
 	_tween = create_tween()
 	_tween.set_ease(ease_type).set_trans(transition_type).set_parallel(true)
 
+func stop_animation() -> void:
+	_kill_tween()
+
 func _kill_tween() -> void:
 	if _tween != null and _tween.is_valid(): _tween.kill()
 	_tween = null

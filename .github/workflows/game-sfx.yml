@@ -7,6 +7,11 @@ on:
       - "assets/battle/sfx/**"
       - "project.godot"
       - "scripts/test_game_audio.gd"
+      - "scripts/test_sfx_review_fixes.gd"
+      - "systems/dice_control_hand.gd"
+      - "systems/game_over_screen.gd"
+      - "systems/battle_visuals.gd"
+      - "map.gd"
       - ".github/workflows/game-sfx.yml"
   push:
     branches: [main]
@@ -16,6 +21,11 @@ on:
       - "assets/battle/sfx/**"
       - "project.godot"
       - "scripts/test_game_audio.gd"
+      - "scripts/test_sfx_review_fixes.gd"
+      - "systems/dice_control_hand.gd"
+      - "systems/game_over_screen.gd"
+      - "systems/battle_visuals.gd"
+      - "map.gd"
       - ".github/workflows/game-sfx.yml"
 permissions:
   contents: read
@@ -43,3 +53,11 @@ jobs:
           grep -E '^GAME_AUDIO: [0-9]+ passed, 0 failed$' audio.log
           if grep -E 'SCRIPT ERROR|Parse Error|^FAIL|ERROR:|leaked at exit' audio.log; then exit 1; fi
           git diff --check
+
+      - name: Regress card input, story completion, critical hits and defeat skip
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60s godot --headless --path . --script res://scripts/test_sfx_review_fixes.gd 2>&1 | tee review.log
+          grep -E '^SFX_REVIEW_FIXES: [0-9]+ passed, 0 failed$' review.log
+          if grep -E 'SCRIPT ERROR|Parse Error|^FAIL|ERROR:|leaked at exit' review.log; then exit 1; fi
