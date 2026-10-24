@@ -63,7 +63,7 @@ func setup(category: String, heading: String, description: String, reward: Strin
 	size = Vector2(452, 630)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var template = ROUTINE_BASE_SVG if not show_reward else (CUSTOM_BASE if ResourceLoader.exists(CUSTOM_BASE) else BASE_SVG)
-	_picture(template, Vector2.ZERO, size, TextureRect.STRETCH_SCALE)
+	_picture(template, Vector2.ZERO, size, TextureRect.STRETCH_SCALE).name = "EventDiscoveryCardBackground"
 	var art = illustration if ResourceLoader.exists(illustration) else DEFAULT_ART
 	var visual = _picture(art, Vector2(34, 113), Vector2(384, 259), TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 	visual.name = "EventDiscoveryIllustration"
