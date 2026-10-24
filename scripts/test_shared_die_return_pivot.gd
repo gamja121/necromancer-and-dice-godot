@@ -89,7 +89,7 @@ func _run() -> void:
 		var before_die_id: int=map.dice.get_instance_id()
 		var exit_button: Button=null
 		for node in map.overlay.get_children():
-			if node is Button and node.text=="나가기": exit_button=node
+			if node is Button and node.text=="맵으로 나가기": exit_button=node
 		check(exit_button!=null,"painted tile has real exit button")
 		if exit_button!=null:
 			exit_button.pressed.emit()

@@ -60,8 +60,26 @@ func _run() -> void:
 		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
 		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==expected_swamps,"no rest and exactly %d automatically generated swamp tiles at contamination %d" % [expected_swamps,stage])
 		check(state.tiles.count("event")==2,"two guaranteed event tiles after map generation at contamination %d" % stage)
-		if stage>=20: check(state.tiles[23]=="boss","boss remains on 24th board slot at %d" % stage)
+		# Explicit rule-level expectation, independent of the function under test:
+		# stages 20/40/60 appear if undefeated; 80+ dragon requires story flags.
+		var expected_boss: bool = stage>=20 and stage<State.BOSS_CONTAMINATION
+		check(state.boss_available()==expected_boss,
+			"unbeaten staged boss availability follows thresholds and final quest gate at %d" % stage)
+		check((state.tiles[State.BOSS_TILE_INDEX]=="boss")==expected_boss,
+			"24th board slot matches staged boss threshold and quest rules at contamination %d" % stage)
+		if stage>=80:
+			check(not state.boss_available(),"final dragon stays locked without acknowledged king-hunt quest at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
+	# A defeated middle-stage boss cannot respawn on subsequent shuffles.
+	var won_boss_state=State.new(defs,971)
+	won_boss_state.contamination=40
+	won_boss_state.generate()
+	check(won_boss_state.boss_available() and won_boss_state.tiles[State.BOSS_TILE_INDEX]=="boss",
+		"unbeaten contamination-40 boss occupies the reserved final tile")
+	won_boss_state.mark_boss_defeated(40)
+	won_boss_state.generate()
+	check(not won_boss_state.boss_available() and won_boss_state.tiles[State.BOSS_TILE_INDEX]!="boss",
+		"defeated contamination-40 boss stays absent on regenerated map")
 	var unlocked: Dictionary=Plan.default_plan()
 	unlocked.rest_unlocked=true
 	unlocked.selection["rest"]=3

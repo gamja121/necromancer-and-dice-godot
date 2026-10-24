@@ -37,8 +37,11 @@ func _run() -> void:
 				"24 board slots, %d swamps at contamination %d" % [expected, level])
 			check(world.tiles[0] == "fortune-teller-camp" and world.tiles[8] == "village" and world.tiles[15] == "home",
 				"permanent anchors preserved at contamination %d" % level)
-			check(world.tiles[23] == ("boss" if level >= State.BOSS_CONTAMINATION else world.tiles[23]),
-				"existing boss slot preserved at contamination %d" % level)
+			# 20/40/60 show undefeated stage bosses; 80+ final dragon
+			# stays locked unless the real king-hunt finale is acknowledged.
+			var expected_boss: bool = level>=20 and level<State.BOSS_CONTAMINATION
+			check(world.boss_available()==expected_boss and (world.tiles[State.BOSS_TILE_INDEX]=="boss")==expected_boss,
+				"boss slot obeys staged thresholds and final story lock at contamination %d" % level)
 			check(world.tiles.count("monster") >= (4 if level >= 20 else 5), "existing automatic monsters survive")
 			check(world.tiles.count("event") == 2 and world.tiles.count("warp") == 2,
 				"story event and warp tiles unaffected")
