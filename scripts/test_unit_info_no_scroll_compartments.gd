@@ -54,7 +54,12 @@ func verify_bounds(panel: Control,case_name: String) -> void:
 	check(not right.get_children().any(func(n): return n is ScrollContainer),case_name+" has no scroll element or scrollbar")
 	check(container.get_child_count()>0 and container.get_children().all(func(n): return n is HBoxContainer or n is VBoxContainer or n is GridContainer),case_name+" uses aligned label rows and major-section rules, never paper boxes")
 	check(actual_height<=expected_height+1.0,case_name+" all effects fit in the painted panel without scrolling or clipping")
-	check(container.size.x*container.scale.x<=UnitInfo.EFFECT_CONTENT_WIDTH+2.0,case_name+" effect columns use the parchment width without overflowing")
+	check(container.size.x*container.scale.x<=UnitInfo.EFFECT_CONTENT_WIDTH+2.0,case_name+" aligned columns stay within paper width")
+	check(right.size.y<=UnitInfo.PAPER_MAX_HEIGHT+1.0 and right.size.y>=UnitInfo.PAPER_MIN_HEIGHT-1.0,case_name+" background resizes within safe painted boundaries")
+	check(not container.get_children().any(func(n): return n is PanelContainer),case_name+" no repetitive card-like boxes")
+	if case_name.begins_with("three different"):
+		check(container.scale.x>=0.99,case_name+" normal three-brand layout retains full readable font size")
+		check(right.size.y<UnitInfo.PAPER_MAX_HEIGHT,case_name+" short content does not leave an enormous blank parchment")
 	check(container.scale.x>=0.55,case_name+" content remains legible within an extreme full-effects case")
 	var original: NinePatchRect=right.get_node_or_null("OriginalEffectsParchment")
 	check(original!=null and original.texture.resource_path=="res://assets/battle/ui/legion-info-window-hd.png",case_name+" preserves original hand-painted parchment")
