@@ -58,6 +58,7 @@ HISTORICAL_CLOUD_FALLBACK_SHA = "d10dcadffda9a4758314b54fc830011c1b9348d3"
 # monster brand mechanics or original art from Git history. The historical
 # 791-row web mapping remains intact; the runtime file must be absent.
 # This is NOT authorization to delete the web reference repository.
+OWNER_RETIRED_FLAT_CARD_DECISION = "docs/retired_flat_monster_cards_20261024.md"
 OWNER_RETIRED_RUNTIME_ASSETS = {
     ("art/v2-style/ui/brand-card.png", "assets/cards/brand-card.png"):
         ("3ca86a8da6ca8ec12735a3ef5f3279c22a516938", 195677),
@@ -188,6 +189,7 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
     baseline = collections.Counter()
     observed_review = set()
     observed_cloud_repair = set()
+    retired_flat_cards = []
     if len(assets) != 791:
         problems.append(f"asset baseline rows {len(assets)} != 791")
     for row in assets:
@@ -201,6 +203,21 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
                 problems.append(f"discard status unexpectedly has Godot path: {original}")
             continue
         if status in HISTORIC_MAPPED:
+            # 2026-10-24 owner decision: retire 46 historical flat unit cards
+            # from the playable Godot tree without rewriting the immutable
+            # web-source ledger or weakening SHA/size provenance checks.
+            if row["category"] == "unit_card":
+                match = re.fullmatch(r"art/v2-style/ui/unit-card-([a-z0-9-]+)\.png", original)
+                expected_runtime = ("assets/cards/unit-card-" + match.group(1) + ".png") if match else ""
+                if (not match or status != "EXACT" or godot_path != expected_runtime
+                        or expected_sha != row["godot_sha"]
+                        or int(row["web_size"]) != int(row["godot_size"])):
+                    problems.append("retired flat card historical provenance drift: " + original)
+                else:
+                    retired_flat_cards.append(godot_path)
+                    if godot_path in tracked or godot_path + ".import" in tracked:
+                        problems.append("retired flat card unexpectedly returned: " + godot_path)
+                continue
             retirement = OWNER_RETIRED_RUNTIME_ASSETS.get((original, godot_path))
             if retirement is not None:
                 # Keep the historical inventory and exact provenance checked,
@@ -276,6 +293,14 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
             continue
         problems.append(f"unexpected historical asset status: {status}")
 
+    if len(retired_flat_cards) != 46 or len(set(retired_flat_cards)) != 46:
+        problems.append(f"historical 46 flat monster cards have invalid retirement coverage: {len(retired_flat_cards)}")
+    if OWNER_RETIRED_FLAT_CARD_DECISION not in tracked:
+        problems.append("retired monster card asset decision record missing")
+    for path in tracked:
+        if path.startswith("assets/cards/unit-card-"):
+            problems.append("obsolete flat monster card still tracked: " + path)
+
     for path, pinned in OWNER_APPROVED_TILE_SCENE_ART.items():
         if tracked.get(path) != pinned:
             problems.append(f"previous tile painting drift {path}: "
@@ -315,6 +340,7 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
         "historical_missing_now_found": len(archive),
         "historical_missing_exact": sum(x["classification"] == "NOW_EXACT" for x in archive),
         "historical_missing_changed": sum(x["classification"] == "NOW_PRESENT_CHANGED_REVIEW" for x in archive),
+        "retired_flat_runtime_cards": len(retired_flat_cards),
         "mapped_assets_missing": len(missing),
         "candidate_paths_missing": sum("missing Godot candidate" in x for x in problems),
         "review_pending": review,
