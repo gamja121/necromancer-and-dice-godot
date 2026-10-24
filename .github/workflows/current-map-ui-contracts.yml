@@ -1,0 +1,65 @@
+name: Current Map and Unlock UI Contracts (Godot)
+on:
+  pull_request:
+    paths:
+      - "scripts/test_unlock_notice_badge.gd"
+      - "scripts/test_patrol_six_slots_unlocks.gd"
+      - "scripts/test_shared_die_return_pivot.gd"
+      - "systems/exploration_actions.gd"
+      - "systems/map_state.gd"
+      - "map.gd"
+      - "systems/final_boss_story_gate.gd"
+      - ".github/workflows/current-map-ui-contracts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/test_unlock_notice_badge.gd"
+      - "scripts/test_patrol_six_slots_unlocks.gd"
+      - "scripts/test_shared_die_return_pivot.gd"
+      - "systems/exploration_actions.gd"
+      - "systems/map_state.gd"
+      - "map.gd"
+      - "systems/final_boss_story_gate.gd"
+      - ".github/workflows/current-map-ui-contracts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-map-and-badges:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot editor import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: NEW unlock badge survives save and checks current buttons
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --script res://scripts/test_unlock_notice_badge.gd 2>&1 | tee unlock.log
+          grep -E 'UNLOCK_NOTICE_BADGE: [0-9]+ passed, 0 failed' unlock.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' unlock.log; then exit 1; fi
+      - name: Patrol six slots and actual staged boss gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --script res://scripts/test_patrol_six_slots_unlocks.gd 2>&1 | tee patrol.log
+          grep -E 'PATROL_SIX_SLOTS: [0-9]+ passed, 0 failed' patrol.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' patrol.log; then exit 1; fi
+      - name: Die pose persists through actual location and battle returns
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 250s godot --headless --path . --script res://scripts/test_shared_die_return_pivot.gd 2>&1 | tee die.log
+          grep -E 'SHARED_DIE_RETURN_PIVOT: [0-9]+ passed, 0 failed' die.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' die.log; then exit 1; fi

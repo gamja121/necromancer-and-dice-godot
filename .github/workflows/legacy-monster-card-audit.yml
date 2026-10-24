@@ -1,0 +1,112 @@
+name: Audit Legacy Monster Card Removal
+on:
+  push:
+    branches:
+      - audit/legacy-monster-card-cleanup-20261024
+  pull_request:
+    paths:
+      - "assets/cards/unit-card-*"
+      - ".github/workflows/legacy-monster-card-audit.yml"
+      - "scripts/test_card_decoration_layout.gd"
+      - "scripts/test_p4_all_monster_presentation.gd"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-asset-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inventory legacy files and active references before removal
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess, sys
+          paths = [p for p in subprocess.check_output(['git','ls-files','-z']).decode().split('\0') if p]
+          originals = sorted(p for p in paths if p.startswith('assets/cards/unit-card-'))
+          print('LEGACY_ASSET_COUNT:', len(originals))
+          for path in originals:
+              print('LEGACY_FILE:', path)
+          imports = [p for p in originals if p.endswith('.import')]
+          uids = {}
+          for imp in imports:
+              txt = pathlib.Path(imp).read_text(encoding='utf-8',errors='replace')
+              match = re.search(r'(?m)^uid="(uid://[^"]+)"',txt)
+              if match:
+                  uids[match.group(1)] = imp
+          print('LEGACY_UID_COUNT:',len(uids))
+          ext = {'.gd','.tscn','.tres','.godot','.cfg','.json','.yml','.yaml','.xml','.html','.js','.ts','.css','.py','.sh','.md','.txt','.gdshader','.svg'}
+          refs = []
+          uid_refs = []
+          for path in paths:
+              if path.startswith('assets/cards/unit-card-') or path == '.github/workflows/legacy-monster-card-audit.yml':
+                  continue
+              if pathlib.Path(path).suffix.lower() not in ext:
+                  continue
+              try:
+                  txt = pathlib.Path(path).read_text(encoding='utf-8',errors='replace')
+              except (OSError,ValueError):
+                  continue
+              for index,line in enumerate(txt.splitlines(),1):
+                  if 'unit-card-' in line or 'Catalog.image("unit"' in line or "Catalog.image('unit'" in line:
+                      refs.append((path,index,line.strip()[:240]))
+                  for uid in uids:
+                      if uid in line:
+                          uid_refs.append((path,index,uid))
+          print('LEGACY_REFERENCE_COUNT:',len(refs))
+          for entry in refs[:220]:
+              print('LEGACY_REFERENCE:',*entry,sep=' | ')
+          print('LEGACY_UID_REFERENCE_COUNT:',len(uid_refs))
+          for entry in uid_refs[:120]:
+              print('LEGACY_UID_REFERENCE:',*entry,sep=' | ')
+          active_refs = [r for r in refs if pathlib.Path(r[0]).suffix.lower() not in {'.md','.txt'} and r[0] not in {'.github/workflows/all-live-layered-monster-cards.yml','scripts/audit_p5_03_parity.py'}]
+          active_uid_refs = [r for r in uid_refs if pathlib.Path(r[0]).suffix.lower() not in {'.md','.txt'}]
+          print('ACTIVE_LEGACY_REFERENCES:',len(active_refs))
+          print('ACTIVE_LEGACY_UID_REFERENCES:',len(active_uid_refs))
+          if active_refs or active_uid_refs:
+              print('AUDIT_RESULT: BLOCKED_BY_ACTIVE_REFERENCES')
+              sys.exit(1)
+          if originals:
+              print('AUDIT_RESULT: BLOCKED_RETIRED_FILES_STILL_TRACKED')
+              sys.exit(1)
+          print('AUDIT_RESULT: NO_ACTIVE_REFERENCES_AND_NO_RETIRED_FILES')
+          PY
+
+  monster-card-post-deletion:
+    needs: legacy-asset-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse and import all retained scenes and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify card badges, all 47 layered species, battle, inheritance and screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_card_decoration_layout test_layered_unit_cards test_card_decoration_screens test_inheritance_sacrifice_effect test_ui_altar_ritual_stage5n test_p4_all_monster_presentation; do
+            echo "::group::$test"
+            timeout 250s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
+            case "$test" in
+              test_card_decoration_layout) expected='CARD_DECORATION_REGRESSION: [0-9]+ passed, 0 failed';;
+              test_layered_unit_cards) expected='LAYERED_CARD_REGRESSION: 0 failures';;
+              test_card_decoration_screens) expected='CARD_SCREEN_REGRESSION: [0-9]+ passed, 0 failed';;
+              test_inheritance_sacrifice_effect) expected='INHERITANCE_SACRIFICE_EFFECT: [0-9]+ passed, 0 failed';;
+              test_ui_altar_ritual_stage5n) expected='UI_ALTAR_RITUAL_PARITY: [0-9]+ passed, 0 failed';;
+              test_p4_all_monster_presentation) expected='P4_ALL_MONSTER_PRESENTATION: [0-9]+ passed, 0 failed';;
+            esac
+            grep -E "$expected" "$test.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' "$test.log"; then exit 1; fi
+            echo "::endgroup::"
+          done

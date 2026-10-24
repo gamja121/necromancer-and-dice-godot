@@ -104,6 +104,12 @@ func reward_shade(option: TextureButton) -> ShaderMaterial:
 	material.set_shader_parameter("desaturate",0.0)
 	material.set_shader_parameter("brightness",1.0)
 	option.material=material
+	# The source TextureButton now has no flattened monster texture.
+	# Apply reward brightness to its actual visual layers as well.
+	if option.has_node("LayeredCardBase"):
+		for child in option.get_children():
+			if child is TextureRect and child.name in ["LayeredCardBase","LayeredCardCharacter","LayeredCardRibbon"]:
+				child.material=material
 	return material
 
 func build_options() -> void:

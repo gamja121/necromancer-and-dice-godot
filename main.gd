@@ -1,6 +1,7 @@
 extends Control
 
 const ExpeditionModel = preload("res://systems/expedition.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const SAVE_PATH = "user://expedition_v1.json"
 const LEGION_NAMES = {"skeleton":"언데드","beast":"야수","corpse":"시체","plague":"역병","ice":"얼음","summon":"소환","demon":"악마","plant":"식물","insect":"벌레","element":"원소"}
 const BRAND_NAMES = {"critical":"치명타","vampire":"흡혈","combo":"연격","freeze":"빙결","poison":"독","guard":"수호","summon":"소환","counter":"반격","healing":"회복","lightspeed":"광속"}
@@ -13,7 +14,6 @@ var content: VBoxContainer
 var notice: Label
 var busy = false
 var save_error = ""
-var texture_cache: Dictionary = {}
 
 func _ready() -> void:
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json"))
@@ -243,15 +243,9 @@ func card(parent: Node, u: Dictionary, image_height: int, callback: Callable, se
 	parent.add_child(container)
 	var box = VBoxContainer.new()
 	container.add_child(box)
-	var path = "res://assets/cards/unit-card-%s.png" % u.slug
-	if ResourceLoader.exists(path):
-		if not texture_cache.has(path): texture_cache[path] = load(path)
-		var art = TextureRect.new()
-		art.texture = texture_cache[path]
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.custom_minimum_size.y = image_height
-		box.add_child(art)
+	var visual: TextureRect = LayeredUnitCard.make_preview(box,u,Vector2.ZERO,Vector2(136.0,float(image_height)))
+	visual.custom_minimum_size = Vector2(136.0,float(image_height))
+	visual.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(label(u.name + ("  ✓" if selected_card else ""),18))
 	box.add_child(label("체력 %d/%d · 공격 %d · 속도 %d" % [u.get("hp",u.max_hp),u.max_hp,u.attack,u.speed],13))
 	if u.has("frozen"):

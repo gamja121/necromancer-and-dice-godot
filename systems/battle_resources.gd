@@ -1,4 +1,5 @@
 extends Node
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 ## Keeps a bounded set of shared battle assets alive; reads them off the UI thread.
 var resources: Dictionary = {}
 var pending: Array[String] = []
@@ -103,8 +104,15 @@ func setup(world) -> void:
 	var regions = {"default":"dark-forest","winter":"snow-forest","hell":"lava-forest"}
 	enqueue("res://assets/battle/backgrounds/%s.jpg" % regions.get(world.region,"dark-forest"))
 	for unit in world.roster:
-		enqueue("res://assets/cards/unit-card-%s.png" % unit.slug)
-		enqueue("res://assets/battle/frames/%s/attack-01.png" % unit.slug)
+		var slug: String = str(unit.slug)
+		# Warm the actual layered scenery, portrait and nameplate.
+		for card_path in [
+			str(LayeredUnitCard.BACKGROUNDS.get(slug,LayeredUnitCard.BACKGROUND)),
+			str(LayeredUnitCard.PORTRAITS.get(slug,"res://assets/battle/frames/dragon/attack-01.png")),
+			LayeredUnitCard.NAMEPLATE
+		]:
+			enqueue(card_path)
+		enqueue("res://assets/battle/frames/%s/attack-01.png" % slug)
 
 func enqueue(path: String) -> void:
 	if queued.has(path) or not ResourceLoader.exists(path): return

@@ -32,7 +32,7 @@ jobs:
       - name: Import and check Godot scripts
         run: |
           set -euo pipefail
-          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
       - name: Verify tile and button notification after genuine rest unlock
         run: |

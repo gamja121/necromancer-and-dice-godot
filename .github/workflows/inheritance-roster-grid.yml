@@ -1,0 +1,71 @@
+name: Inheritance Roster Frame and Centered Ten-Card Row
+on:
+  pull_request:
+    paths:
+      - "assets/map/ui/inheritance_roster_frame.webp"
+      - "systems/home_inheritance.gd"
+      - "scripts/test_home_inheritance_roster_grid.gd"
+      - "scripts/test_inheritance_parchment_readability.gd"
+      - "scripts/test_inheritance_sacrifice_effect.gd"
+      - ".github/workflows/inheritance-roster-grid.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/map/ui/inheritance_roster_frame.webp"
+      - "systems/home_inheritance.gd"
+      - "scripts/test_home_inheritance_roster_grid.gd"
+      - "scripts/test_inheritance_parchment_readability.gd"
+      - "scripts/test_inheritance_sacrifice_effect.gd"
+      - ".github/workflows/inheritance-roster-grid.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual-and-interaction-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import new transparent WebP and parse scenes
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Ten layered cards form one centered horizontal row at 720p
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_home_inheritance_roster_grid.gd 2>&1 | tee grid.log
+          grep -E '^INHERITANCE_ROSTER_GRID: [0-9]+ passed, 0 failed$' grid.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL inheritance-grid:' grid.log; then exit 1; fi
+      - name: Readable parchment sections and true blessing die faces
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_inheritance_parchment_readability.gd 2>&1 | tee read.log
+          grep -E '^INHERITANCE_READABILITY: [0-9]+ passed, 0 failed$' read.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL inheritance-readability:' read.log; then exit 1; fi
+      - name: Inheritance materials dissolve only after durable save
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_inheritance_sacrifice_effect.gd 2>&1 | tee ash.log
+          grep -E '^INHERITANCE_SACRIFICE_EFFECT: [0-9]+ passed, 0 failed$' ash.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL inheritance-ash:' ash.log; then exit 1; fi
+      - name: Existing route and inheritance preview API preserved
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_ui_route_inheritance_parity.gd 2>&1 | tee parity.log
+          grep -E '^UI_STAGE3_PARITY: [0-9]+ passed, 0 failed$' parity.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|^FAIL ui-stage3:' parity.log; then exit 1; fi
+      - name: Check whitespace and collisions
+        shell: bash
+        run: git diff --check

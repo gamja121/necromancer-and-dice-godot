@@ -97,7 +97,7 @@ func _run() -> void:
 		var id: String = actor_ids[slug]
 		var unit: Dictionary = scene.rules.find_id(id)
 		check(scene.sprites.has(id) and scene.sprites[id].texture!=null,slug+" live sprite is visible")
-		check(scene.cards.has(id) and scene.cards[id].texture_normal!=null,slug+" live battle card is present")
+		check(scene.cards.has(id) and scene.cards[id].texture_normal==null and scene.cards[id].has_node("LayeredCardBase") and scene.cards[id].has_node("LayeredCardCharacter"),slug+" live layered battle card is present")
 		for motion in ["attack","hit","death"]:
 			# Exercise the real BattleField.animate_unit coroutine, not a
 			# test-only image path. It advances frames using in-engine ticks.

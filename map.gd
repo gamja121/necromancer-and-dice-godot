@@ -1200,6 +1200,9 @@ func animate_reward_to_inventory(kind: String, source: TextureButton) -> void:
 	var target: TextureButton = deck_button if kind=="dice" else book_button
 	# Use the current live layers when a won/captured monster flies to the book.
 	var flyer: Control = LayeredUnitCard.flight_visual_copy(source)
+	if flyer == null and kind=="unit":
+		push_warning("Layered monster reward flight is unavailable; no legacy image fallback")
+		return
 	if flyer != null:
 		stage.add_child(flyer)
 		flyer.position = stage.get_global_transform_with_canvas().affine_inverse() * (source.get_global_transform_with_canvas() * Vector2.ZERO)
@@ -1472,7 +1475,6 @@ func _return_battle_cards_to_book() -> void:
 		if not battle.cards.has(unit.id): continue
 		var card: TextureButton = battle.cards[unit.id] as TextureButton
 		if not is_instance_valid(card) or not card.visible or card.modulate.a < 0.01: continue
-		if card.texture_normal == null: continue
 		var transform: Transform2D = card.get_global_transform_with_canvas()
 		var origin: Vector2 = inverse * (transform * Vector2.ZERO)
 		var x_axis: Vector2 = inverse * (transform * Vector2(card.size.x, 0))
@@ -1480,11 +1482,9 @@ func _return_battle_cards_to_book() -> void:
 		# A layered card remains layered all the way into the book.
 		var ghost: Control = LayeredUnitCard.flight_visual_copy(card)
 		if ghost == null:
-			var flat := TextureRect.new()
-			flat.texture = card.texture_normal
-			flat.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			flat.stretch_mode = TextureRect.STRETCH_SCALE
-			ghost = flat
+			# No historic single-image monster card may return from battle.
+			push_warning("Missing layered combat card: %s" % str(unit.slug))
+			continue
 		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ghost.z_index = 95
 		ghost.position = origin

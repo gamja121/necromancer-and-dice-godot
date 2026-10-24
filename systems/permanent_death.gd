@@ -1,5 +1,6 @@
 extends Control
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 
 var scene
 var souls: Array = []
@@ -89,6 +90,11 @@ func _draw() -> void:
 			var ash: Vector2 = soul.center+offset+Vector2(sin(i*1.4)*20*t,-(25+i%7*8)*t)
 			draw_circle(ash,1.0+i%3*0.5,Color(0.72,0.65,0.85,(1-t)*0.75))
 
+func _apply_card_dissolve(node: Node, shader_material: ShaderMaterial) -> void:
+	for child in node.get_children():
+		if child is CanvasItem: child.material = shader_material
+		_apply_card_dissolve(child,shader_material)
+
 func play(battle_scene, fallen: Array) -> void:
 	scene = battle_scene
 	size = scene.surface_size
@@ -124,14 +130,15 @@ func play(battle_scene, fallen: Array) -> void:
 			focus.flip_h = source.flip_h
 			focus.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(focus)
-			var card = TextureRect.new()
-			card.texture = scene.cards[u.id].texture_normal
-			card.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			card.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			# Dissolve the same layered artwork the player fought with.
+			var card: Control = LayeredUnitCard.flight_visual_copy(scene.cards[u.id])
+			if card == null:
+				card = LayeredUnitCard.make_preview(self,u,Vector2.ZERO,scene.cards[u.id].size)
+			else:
+				add_child(card)
 			card.size = scene.cards[u.id].size
 			card.position = Vector2(scene.cards[u.id].position.x,scene.card_rest_y()-18.8)
 			card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			add_child(card)
 			AltarUpgradeBadge.sync(card,u)
 			source.visible = false
 			scene.bars[u.id].visible = false
@@ -170,6 +177,7 @@ func play(battle_scene, fallen: Array) -> void:
 			var card_material = ShaderMaterial.new()
 			card_material.shader = shader
 			soul.card.material = card_material
+			_apply_card_dissolve(soul.card,card_material)
 		dissolving = true
 		elapsed = 0
 		var remaining = 0.65

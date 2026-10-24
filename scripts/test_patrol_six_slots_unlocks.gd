@@ -4,7 +4,6 @@ extends SceneTree
 ## that become automatic swamps at contamination 15 and 30.
 const Plan=preload("res://systems/route_plan.gd")
 const State=preload("res://systems/map_state.gd")
-const BossStoryFixture=preload("res://scripts/boss_story_test_fixture.gd")
 const Session=preload("res://systems/run_session.gd")
 var passed: int=0
 var failed: int=0
@@ -49,23 +48,38 @@ func _run() -> void:
 	check(Plan.total_selected(plan)==5 and Plan.available(plan)==1,"minus click restores exactly one free road")
 	var chosen: Dictionary=Plan.default_plan()
 	chosen.selection["monster"]=6
-	for stage in [0,1,14,15,20,29,30,40,79,80,100]:
+	for stage in [0,1,14,15,20,29,30,40,80,100]:
 		var state=State.new(defs,642+stage,chosen)
 		state.laps=0 if stage==0 else 12
 		state.contamination=stage
-		# Exercise coexistence with the current final-boss story prerequisite.
-		BossStoryFixture.seed_completed_final_hunt(state)
 		state.generate()
 		verify_fixed(state.tiles,"full six-choice contamination %d" % stage)
 		var expected_swamps: int = State.required_swamp_count(stage)
 		check(state.tiles.count("basic") >= Plan.RESERVED_SWAMP_ROADS-expected_swamps, "swamp reservations only convert at their own contamination threshold %d" % stage)
-		var minimum_monsters: int=5 if stage<State.BossStages.STAGES[0] else 4
+		var minimum_monsters: int=5 if stage<20 else 4
 		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
 		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==expected_swamps,"no rest and exactly %d automatically generated swamp tiles at contamination %d" % [expected_swamps,stage])
 		check(state.tiles.count("event")==2,"two guaranteed event tiles after map generation at contamination %d" % stage)
-		check((state.tiles[State.BOSS_TILE_INDEX]=="boss")==bool(stage>=State.BossStages.STAGES[0]),
-			"stage boss presence with completed final story follows contamination at %d" % stage)
+		# Explicit rule-level expectation, independent of the function under test:
+		# stages 20/40/60 appear if undefeated; 80+ dragon requires story flags.
+		var expected_boss: bool = stage>=20 and stage<State.BOSS_CONTAMINATION
+		check(state.boss_available()==expected_boss,
+			"unbeaten staged boss availability follows thresholds and final quest gate at %d" % stage)
+		check((state.tiles[State.BOSS_TILE_INDEX]=="boss")==expected_boss,
+			"24th board slot matches staged boss threshold and quest rules at contamination %d" % stage)
+		if stage>=80:
+			check(not state.boss_available(),"final dragon stays locked without acknowledged king-hunt quest at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
+	# A defeated middle-stage boss cannot respawn on subsequent shuffles.
+	var won_boss_state=State.new(defs,971)
+	won_boss_state.contamination=40
+	won_boss_state.generate()
+	check(won_boss_state.boss_available() and won_boss_state.tiles[State.BOSS_TILE_INDEX]=="boss",
+		"unbeaten contamination-40 boss occupies the reserved final tile")
+	won_boss_state.mark_boss_defeated(40)
+	won_boss_state.generate()
+	check(not won_boss_state.boss_available() and won_boss_state.tiles[State.BOSS_TILE_INDEX]!="boss",
+		"defeated contamination-40 boss stays absent on regenerated map")
 	var unlocked: Dictionary=Plan.default_plan()
 	unlocked.rest_unlocked=true
 	unlocked.selection["rest"]=3
@@ -99,14 +113,12 @@ func _run() -> void:
 		var displaced: String=str(boss_crossing.tiles[State.BOSS_TILE_INDEX])
 		boss_crossing.tiles[event_at]=displaced
 		boss_crossing.tiles[State.BOSS_TILE_INDEX]="event"
-	boss_crossing.contamination=State.BOSS_CONTAMINATION
-	check(not boss_crossing.reveal_boss_at_threshold(),"high contamination alone cannot reveal the final boss")
-	BossStoryFixture.seed_completed_final_hunt(boss_crossing)
+	boss_crossing.contamination=20
 	var original_event_count: int=boss_crossing.tiles.count("event")
 	var original_monster_count: int=boss_crossing.tiles.count("monster")
 	var original_rng: int=boss_crossing.rng.state
 	var original_serial: int=boss_crossing.map_serial
-	check(boss_crossing.reveal_boss_at_threshold(),"current contamination gate with acknowledged final hunt reveals a real boss tile")
+	check(boss_crossing.reveal_boss_at_threshold(),"crossing contamination 20 reveals a real boss tile")
 	check(boss_crossing.tiles[23]=="boss" and boss_crossing.tiles.count("event")==original_event_count and original_event_count==2,
 		"mid-lap boss keeps two existing event tiles when slot 23 was an event")
 	check(boss_crossing.tiles.count("monster")==original_monster_count-1 and boss_crossing.rng.state==original_rng and boss_crossing.map_serial==original_serial,

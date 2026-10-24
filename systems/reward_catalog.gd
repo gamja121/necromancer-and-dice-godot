@@ -14,7 +14,7 @@ static func dice_cards() -> Array:
 	return result
 
 static func image(kind: String, item: Dictionary) -> String:
-	if kind=="unit": return "res://assets/cards/unit-card-%s.png" % item.slug
+	if kind=="unit": return "" # Monster visuals are composed by LayeredUnitCard, never a flat image.
 	return "res://assets/cards/dice-control-ko-%s.png" % item.image
 
 static func label(kind: String, item: Dictionary) -> String:

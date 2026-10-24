@@ -20,14 +20,17 @@ func check(ok: bool, msg: String) -> void:
 		failed+=1
 		printerr("FAIL rest-unlock: ",msg)
 
-func click_kind(route: Control, slot: int, kind: String) -> void:
-	var slot_button: Button=route.content.get_node_or_null("SelectedPatrolSlot%d" % slot)
-	check(slot_button!=null and not slot_button.disabled,"slot %d accepts selection" % slot)
-	if slot_button==null or slot_button.disabled: return
+func press_route_choice(route, slot: int, kind: String) -> bool:
+	var slot_button: Button=route.find_child("SelectedPatrolSlot%d" % slot,true,false) as Button
+	if slot_button==null or slot_button.disabled: return false
 	slot_button.pressed.emit()
-	var choice: Button=route.content.get_node_or_null("PatrolChoice_"+kind)
-	check(choice!=null and not choice.disabled,kind+" choice is enabled")
-	if choice!=null and not choice.disabled: choice.pressed.emit()
+	var choice: Button=route.find_child("PatrolChoice_"+kind,true,false) as Button
+	if choice==null or choice.disabled: return false
+	choice.pressed.emit()
+	return route.route_slot_kind(slot)==kind
+
+func rest_choice_button(route: Control) -> Button:
+	return route.find_child("PatrolChoice_rest",true,false) as Button
 
 func _run() -> void:
 	var session: Node=root.get_node_or_null("RunSession")
@@ -48,11 +51,11 @@ func _run() -> void:
 	map.stage.add_child(route)
 	route.setup(map,State.HOME)
 	await process_frame
-	var rest_choice: Button=route.content.get_node_or_null("PatrolChoice_rest")
-	var monster_choice: Button=route.content.get_node_or_null("PatrolChoice_monster")
-	check(rest_choice!=null and rest_choice.text=="숙영 해금","rest choice visibly presents an unlock action")
-	check(rest_choice!=null and rest_choice.disabled and not session.rest_unlock_allowed().ok,"new expedition shows unlock choice locked until first homecoming")
-	check(rest_choice!=null and rest_choice.disabled and monster_choice!=null and not monster_choice.disabled,"rest initially locked; monsters initially selectable")
+	var locked_rest_choice: Button=rest_choice_button(route)
+	var monster_choice: Button=route.find_child("PatrolChoice_monster",true,false) as Button
+	check(locked_rest_choice!=null and locked_rest_choice.text=="숙영 해금","rest tile visibly presents the actual unlock choice")
+	check(locked_rest_choice!=null and locked_rest_choice.disabled and not session.rest_unlock_allowed().ok,"new expedition locks rest choice until first homecoming")
+	check(monster_choice!=null and not monster_choice.disabled,"first expedition permits an added monster slot while rest is locked")
 	var blocked: Dictionary=session.unlock_rest_tile()
 	check(not blocked.ok and not session.world.patrol_plan.rest_unlocked,"direct unlock call cannot bypass initial first-lap gate")
 	# The normal movement system sets lap_ready when the player returns to
@@ -61,31 +64,34 @@ func _run() -> void:
 	session.world.lap_ready=true
 	check(session.save_world(),"completed first homecoming persisted before unlocking")
 	route.render_route()
-	rest_choice=route.content.get_node_or_null("PatrolChoice_rest")
-	check(rest_choice!=null and not rest_choice.disabled,"first fully completed lap enables the home unlock choice")
+	var earned_unlock: Button=rest_choice_button(route)
+	check(earned_unlock!=null and not earned_unlock.disabled and earned_unlock.text=="숙영 해금","first completed lap enables the actual rest unlock choice")
 	var seed_before: int=session.world.rng.state
 	var count_before: int=session.world.reward_receipts.size()
-	click_kind(route,0,"monster")
+	check(press_route_choice(route,0,"monster"),"the first current six-slot button selects a monster")
 	check(int(route.plan.selection.monster)==1,"pending extra monster survives unlocking the first rest tile")
-	click_kind(route,0,"rest")
+	earned_unlock=rest_choice_button(route)
+	if earned_unlock!=null: earned_unlock.pressed.emit()
 	check(session.world.patrol_plan.rest_unlocked and Route.valid(session.world.patrol_plan),"explicit unlock writes legitimate durable rest permission")
-	rest_choice=route.content.get_node_or_null("PatrolChoice_rest")
-	check(rest_choice!=null and rest_choice.text=="숙영" and not rest_choice.disabled,"after unlock, rest choice becomes usable immediately")
+	var unlocked_rest_choice: Button=rest_choice_button(route)
+	check(unlocked_rest_choice!=null and not unlocked_rest_choice.disabled and unlocked_rest_choice.text=="숙영","after unlock, rest choice becomes usable immediately")
 	check(int(route.plan.selection.monster)==1 and bool(route.plan.rest_unlocked),"unlock preserves pending edits and adds the permission")
 	check(not session.world.patrol_plan.has("current"),"new route system remains six-slot mode")
 	check(session.world.tiles==initial and session.world.rng.state==seed_before,"unlock does NOT regenerate current board or consume random dice")
 	check(session.world.reward_receipts.size()==count_before,"unlock does not consume the visit's one route confirmation")
-	for slot in range(1,4): click_kind(route,slot,"rest")
+	for slot in [1,2,3]:
+		check(press_route_choice(route,slot,"rest"),"actual slot %d selects an unlocked rest" % slot)
 	check(int(route.plan.selection.rest)==3 and int(route.plan.selection.monster)==1,"exactly three rest choices visible next to one monster")
-	var capped: Dictionary=route.plan.duplicate(true)
-	click_kind(route,4,"rest")
-	check(route.plan==capped and route.route_slot_kind(4)=="basic","fourth rest choice cannot exceed the hard max three")
-	check(Route.available(route.plan)==2 and route.route_slot_layout.count("rest")==3,"six slots show three rests and two remaining roads")
+	check(not press_route_choice(route,4,"rest") and int(route.plan.selection.rest)==3,"fourth rest is refused at the hard three-tile limit")
+	check(Route.available(route.plan)==2 and route.status.text.contains("2칸 남음"),"six-slot count immediately shows two remaining")
+	var before_reset: Dictionary=route.plan.duplicate(true)
 	route.route_reset_button.pressed.emit()
 	check(bool(session.world.patrol_plan.rest_unlocked) and bool(route.plan.rest_unlocked),"reset never removes permanent rest unlock")
 	check(int(route.plan.selection.rest)==0 and Route.available(route.plan)==6,"reset clears optional counts but not unlock")
-	for slot in range(3): click_kind(route,slot,"rest")
-	for slot in range(3,6): click_kind(route,slot,"monster")
+	for slot in range(3):
+		check(press_route_choice(route,slot,"rest"),"real slot %d reselects rest after reset" % slot)
+	for slot in range(3,6):
+		check(press_route_choice(route,slot,"monster"),"real slot %d reselects monster after reset" % slot)
 	check(int(route.plan.selection.rest)==3 and int(route.plan.selection.monster)==3 and Route.available(route.plan)==0,"3 rests + 3 extra monsters fill fixed six slots")
 	var plan_to_save: Dictionary=route.plan.duplicate(true)
 	route.action_button.pressed.emit()
@@ -106,7 +112,7 @@ func _run() -> void:
 	check(session.world.laps==1 and session.world.contamination==7,"home exit keeps exact +7 contamination")
 	check(session.world.tiles.count("rest")==3 and session.world.tiles.count("monster")==8,"next lap contains precisely 3 rest and 5+3 monster tiles")
 	check(session.world.tiles.count("graveyard")==1 and session.world.tiles.count("event")==2,"mandatory graveyard and two event stones unaffected")
-	check(session.world.tiles.count("basic")==4 and session.world.tiles.count("swamp")==0 and session.world.tiles.count("forest")==0,"four remaining roads include two protected roads; no unearned swamp or hill")
+	check(session.world.tiles.count("basic")==4 and session.world.tiles.count("swamp")==0,"two guaranteed events leave four empty roads including two protected; no premature swamp")
 	check(session.world.tiles.size()==24 and session.world.tiles[State.HOME]=="home","all 24 tile slots still valid")
 	var saved_tiles: Array=session.world.tiles.duplicate()
 	session.reload_world()

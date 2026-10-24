@@ -4,6 +4,7 @@ const MapScene=preload("res://map.tscn")
 const PatrolUI=preload("res://systems/exploration_actions.gd")
 const InheritanceUI=preload("res://systems/home_inheritance.gd")
 const RoutePlan=preload("res://systems/route_plan.gd")
+const InheritRules=preload("res://systems/brand_inheritance.gd")
 var passed=0
 var failed=0
 func _initialize() -> void:
@@ -76,10 +77,16 @@ func _run() -> void:
 	var donor_id: String=str(session.world.roster[0].id)
 	var receiver_id: String=str(session.world.roster[1].id)
 	inherit.select_unit(donor_id)
-	check(inherit.material_id==donor_id and inherit.status.text.contains("②"),"first monster becomes donor")
+	check(inherit.material_id==donor_id and inherit.status.text=="② 받을 마물 선택","first monster becomes donor with one compact next-action hint")
 	inherit.select_unit(receiver_id)
 	check(inherit.receiver_id==receiver_id and not inherit.confirm_button.disabled,"second monster becomes recipient")
-	check(inherit.status.text.contains("마물 영구 소모") and inherit.confirm_button.text.contains("마물 소모"),"material cost explicitly shows monster sacrifice")
+	var donor_has_curse: bool=false
+	for brand in InheritRules.normalize(session.owned_unit(donor_id),session.world.definitions):
+		if not brand.curse.is_empty():
+			donor_has_curse=true
+			break
+	var expected_progress: String="축복만 무작위 계승" if donor_has_curse else "낙인 1개 무작위 계승"
+	check(inherit.sacrifice_warning.text=="재료 마물 영구 소멸" and inherit.status.text==expected_progress and inherit.confirm_button.text=="계승 확정","single permanent-sacrifice warning and accurate blessing-only random inheritance note")
 	inherit.select_unit(donor_id)
 	check(inherit.material_id.is_empty() and inherit.confirm_button.disabled,"deselecting donor blocks incomplete inheritance")
 	inherit.queue_free()
