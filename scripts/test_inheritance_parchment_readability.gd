@@ -68,7 +68,21 @@ func _run() -> void:
 	check(donor_copy.contains("축복 2") and donor_copy.contains("축복 5"),"material shows real die faces, not +2 and +5 attributes")
 	check(not donor_copy.contains("이번 라운드") and not donor_copy.contains("중독 +1"),"repeated full effect prose is removed from the compact parchment")
 	check(warning!=null and warning.text.contains("영구 소멸"),"donor selection gives permanent death warning")
+	check(scene.details.get_node_or_null("InheritanceSectionGap")==null,"only selected donor does not introduce unused section whitespace")
 	scene.select_unit(receiver_id)
+	await process_frame
+	var section_gap := scene.details.get_node_or_null("InheritanceSectionGap") as Control
+	check(section_gap!=null and is_equal_approx(section_gap.custom_minimum_size.y,20.0),"material and existing brand blocks have their own 20px spacer")
+	if section_gap!=null:
+		var gap_index: int=section_gap.get_index()
+		var child_count: int=scene.details.get_child_count()
+		check(gap_index>0 and gap_index<child_count-1,"spacer appears between source brand and recipient section, not at the outer edges")
+		if gap_index>0 and gap_index<child_count-1:
+			var donor_last := scene.details.get_child(gap_index-1) as Control
+			var receiver_heading := scene.details.get_child(gap_index+1) as Label
+			check(donor_last!=null and receiver_heading!=null and receiver_heading.text.begins_with("기존 낙인"),"spacer separates donor's last brand from receiver's existing-brand title")
+			if donor_last!=null and receiver_heading!=null:
+				check(receiver_heading.get_global_rect().position.y-donor_last.get_global_rect().end.y>=19.0,"a real on-screen gap remains between donor and receiver information")
 	var full_copy: String=all_copy(scene.details)
 	check(full_copy.contains("기존 낙인") and full_copy.contains("1/3칸"),"existing recipient brands and capacity stay visible without duplicate monster name")
 	check(full_copy.contains("치명타") and full_copy.contains("축복 3"),"recipient existing die faces stay distinct from material candidates")
