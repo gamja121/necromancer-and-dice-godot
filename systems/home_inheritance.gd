@@ -12,6 +12,7 @@ const ROSTER_CARD_GAP = 8.0
 signal closed
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 var session
+var map_scene
 var closing_depth := false
 var depth_panels: Array[Control] = []
 var material_id = ""
@@ -37,6 +38,7 @@ var interface_data: Dictionary
 
 func setup(run_session, map_scene: Control = null) -> void:
 	session = run_session
+	self.map_scene = map_scene
 	z_index = 85
 	interface_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json"))
 	backdrop()
@@ -363,6 +365,10 @@ func confirm() -> void:
 		render_selection()
 		return
 	completed = true
+	# Reuse the source parchment bitmap; do not interfere with the separate
+	# sacrificial-card dissolve already owned by this functional screen.
+	if is_instance_valid(map_scene):
+		map_scene.animate_used_location_paper(self,session.MapState.HOME,"inheritance")
 	Sound.cue(self,"inheritance_complete")
 	inherited_brand = result.brand.duplicate(true)
 	notice = ""

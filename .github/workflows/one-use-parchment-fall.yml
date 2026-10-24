@@ -1,0 +1,62 @@
+name: Once-Per-Visit Parchment Fall (Godot)
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/used_parchment_fall.gd"
+      - "systems/exploration_actions.gd"
+      - "systems/place_actions.gd"
+      - "systems/home_inheritance.gd"
+      - "scripts/test_one_use_parchment_fall.gd"
+      - ".github/workflows/one-use-parchment-fall.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/used_parchment_fall.gd"
+      - "systems/exploration_actions.gd"
+      - "systems/place_actions.gd"
+      - "systems/home_inheritance.gd"
+      - "scripts/test_one_use_parchment_fall.gd"
+      - ".github/workflows/one-use-parchment-fall.yml"
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  paper-peel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and check game scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 185s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify actual one-use paper fall after saved receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_one_use_parchment_fall.gd 2>&1 | tee paper.log
+          grep -E '^ONE_USE_PARCHMENT_FALL: [0-9]+ passed, 0 failed$' paper.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL used-paper:' paper.log; then exit 1; fi
+      - name: Verify real graveyard card, exit, and save
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_graveyard_extraction_exit.gd 2>&1 | tee grave.log
+          grep -E '^GRAVEYARD_EXTRACTION_EXIT: [0-9]+ passed, 0 failed$' grave.log
+      - name: Verify existing location and original right hand button positions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_ui_location_layout_stage5s.gd 2>&1 | tee positions.log
+          grep -E '^UI_LOCATION_LAYOUT_STAGE5S: [0-9]+ passed, 0 failed$' positions.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-location-layout:' positions.log; then exit 1; fi

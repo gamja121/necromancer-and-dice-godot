@@ -234,7 +234,10 @@ func dig_graveyard() -> void:
 	graveyard_message = "카드를 찾았다"
 	render_graveyard()
 	if result.get("overflow",false):
+		# A full hand is only pending; peel after the replacement/refusal saves.
 		show_graveyard_overflow()
+	else:
+		map.animate_used_location_paper(self,index,"grave-extract")
 
 func show_graveyard_overflow() -> void:
 	if str(session.world.pending_reward.get("kind",""))!="grave-dig": return
@@ -248,6 +251,8 @@ func show_graveyard_overflow() -> void:
 		graveyard_result = graveyard_result if outcome.get("kept",false) else {}
 		graveyard_message = "카드를 찾았다" if outcome.get("kept",false) else "새 카드를 포기했습니다."
 		render_graveyard()
+		# The same persisted visit receipt is consumed whether keeping or refusing.
+		map.animate_used_location_paper(self,index,"grave-extract")
 	)
 	popup.setup(session)
 
@@ -473,7 +478,9 @@ func adjust_route_tile(kind: String, difference: int) -> void:
 func confirm_route() -> void:
 	var result=session.confirm_patrol(plan)
 	status.text=result.reason
-	if result.ok: closed.emit()
+	if result.ok:
+		await map.animate_used_location_paper(self,session.MapState.HOME,"patrol")
+		if is_inside_tree(): closed.emit()
 
 func pray() -> void:
 	if busy: return
@@ -486,6 +493,9 @@ func pray() -> void:
 	Sound.cue(map,"prayer_fail" if int(session.world.prayer_result.delta)>0 else "prayer_bless")
 	status.text=result.reason
 	map.presentation.refresh()
+	# Prayer reward has been saved before the roll starts: peel its location
+	# parchment as soon as the shared die has shown the result.
+	map.animate_used_location_paper(self,index,"purify")
 	if bool(result.get("boss_appeared",false)) and map.buttons.size() > MapState.BOSS_TILE_INDEX:
 		# A world-tree prayer can cross 19→20 mid-lap. Reveal the
 		# already-persisted boss tile in place, with a quiet short fade.
