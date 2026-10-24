@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "scripts/candidate_card_alpha_pinhole_repair.py"
+      - "scripts/candidate_card_ink_shadow_repair.py"
       - ".github/workflows/review-conservative-card-repair.yml"
 permissions:
   contents: read
@@ -22,9 +23,18 @@ jobs:
           grep -E '^CONSERVATIVE_CARD_REPAIR_COMPLETE 2$' repair.log
           test -s card_repair_candidates/hell_mantis_before_after_light.jpg
           test -s card_repair_candidates/skeleton_cavalry_before_after_light.jpg
+      - name: Create and compare alternate ink shadow reconstruction (review only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/candidate_card_ink_shadow_repair.py | tee shadow-review.log
+          test -s card_shadow_ink_review/hell_mantis_before_after_paper.jpg
+          test -s card_shadow_ink_review/skeleton_cavalry_before_after_paper.jpg
       - name: Publish review artifact, DO NOT change originals
         uses: actions/upload-artifact@v4
         with:
           name: original-card-ink-restoration-candidates
-          path: card_repair_candidates/*
+          path: |
+            card_repair_candidates/*
+            card_shadow_ink_review/*
           if-no-files-found: error
