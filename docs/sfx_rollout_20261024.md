@@ -43,3 +43,7 @@ The native SFX bus capture's maximum peak was 0.279218 for the six representativ
 A broad all-story legacy suite exceeded this task runner's 120-second limit and was stopped. It was replaced by the focused production-book check; no full original-difficulty run or universal all-game certification is claimed here. Early type-inference/test-fixture issues and an off-tree shutdown cleanup error were corrected; the final listed checks are clean. All execution used isolated APPDATA/LOCALAPPDATA profiles.
 
 32 original procedural WAVs total about 1.02 MB. Source provenance is in assets/audio/sfx/SOURCES.md. New shared-service CI covers imported assets, control semantics, mute, voice caps, pause inheritance and scene cleanup.
+
+## Shared-source integration
+
+Preserved upstream main 9546154, including the location button stack and graveyard/fortune parchment UI. Post-integration editor import is clean; location layout 376 passed and current fortune UI 46 passed with no diagnostics.
