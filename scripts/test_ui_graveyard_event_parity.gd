@@ -74,7 +74,7 @@ func _run() -> void:
 	check(session.world.dice_cards.size()==before_cards+1 and not session.world.snapshot().has("brand_cards") and not session.world.snapshot().has("legacy_brand_cards"),"digging grants one dice card and no brand cards")
 	check(extraction.content.get_node_or_null("GraveyardFoundDiceCard")!=null,"found dice card appears in digging screen")
 	check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"digging receipt committed")
-	check(extraction.action_button.disabled,"spent digging action cannot run twice")
+	check(extraction.action_button==null and extraction.content.get_node_or_null("GraveyardDigConfirm")==null,"spent digging action disappears when the actual found card is displayed")
 	var committed: Dictionary=session.world.snapshot().duplicate(true)
 	session.reload_world()
 	check(session.world.snapshot()==committed,"graveyard digging persists without duplicate rewards")
