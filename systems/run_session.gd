@@ -1,4 +1,5 @@
 extends Node
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const MapGearShift = preload("res://systems/map_gear_shift.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
@@ -418,6 +419,14 @@ func start_story_encounter(event_id: String, index: int, selected_ids: Array) ->
 	if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,spec): return false
 	return _start_encounter(index,selected_ids,event_id)
 
+## Acknowledging/ skipping the book is cosmetic: no encounter or RNG is created.
+func acknowledge_final_dragon_intro(index: int) -> bool:
+	if world == null or not world.run_result.is_empty(): return false
+	if index!=world.position or index<0 or index>=world.tiles.size() or world.tiles[index]!="boss": return false
+	if not world.final_dragon_available() or index in world.cleared: return false
+	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return false
+	return set_event_flag(FinalDragonProgress.INTRO_SEEN)
+
 func start_encounter(index: int, selected_ids: Array) -> bool:
 	return _start_encounter(index,selected_ids)
 
@@ -576,6 +585,9 @@ func finish_encounter(battle) -> bool:
 		if not corpses.is_empty():
 			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
 		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
+		if FinalDragonProgress.is_final_encounter(encounter):
+			FinalDragonProgress.record_victory(world,encounter)
+			notice = "최종 드래곤 격파 · 마지막 영혼 수확 후 원정 기록을 마칩니다."
 	else: notice = "전투 패배 · 원정 종료"
 	# All defeated battles end the expedition, even if owned monsters
 	# remain. The battle record, permanent losses, and game-over are saved
@@ -675,6 +687,7 @@ func create_item(kind: String, source: Dictionary) -> Dictionary:
 	return {}
 
 func open_treasure(index: int = -1) -> bool:
+	if world == null or not world.run_result.is_empty(): return false
 	if not encounter.is_empty() or not world.pending_move.is_empty(): return false
 	if not world.pending_reward.is_empty(): return world.pending_reward.get("kind","") in ["treasure","mimic"]
 	if index<0: index = world.position
@@ -793,6 +806,7 @@ func resolve_owned_card(instance_id: String, context: Dictionary, rng: RandomNum
 	return resolved
 
 func prepare_map_roll(instance_id: String = "") -> Dictionary:
+	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
 	if not encounter.is_empty() or not world.pending_reward.is_empty(): return {"ok":false,"reason":"지금은 이동할 수 없습니다."}
 	if not world.pending_move.is_empty(): return {"ok":false,"reason":"이전 이동을 먼저 완료하세요."}
 	var before: Dictionary = world.snapshot().duplicate(true)
@@ -865,12 +879,14 @@ func home_visit_id() -> String:
 	return place_visit_id("inheritance",MapState.HOME)
 
 func home_action_allowed() -> Dictionary:
+	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
 	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty():
 		return {"ok":false,"reason":"이동·전투·보상을 먼저 완료하세요."}
 	if home_visit_id() in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 계승은 완료했습니다."}
 	return {"ok":true}
 
 func enter_home() -> bool:
+	if world == null or not world.run_result.is_empty(): return false
 	if not encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty(): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	for unit in world.roster: unit.current_hp = unit.max_hp
@@ -953,6 +969,7 @@ func place_visit_id(kind: String, index: int) -> String:
 	return legacy+(":map:%d" % world.map_serial if world.map_serial>0 else "")
 
 func place_allowed(index: int, type: String) -> Dictionary:
+	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
 	if index<0 or index>=world.tiles.size() or world.tiles[index]!=type:
 		return {"ok":false,"reason":"이 장소에서는 사용할 수 없습니다."}
 	if not encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty():

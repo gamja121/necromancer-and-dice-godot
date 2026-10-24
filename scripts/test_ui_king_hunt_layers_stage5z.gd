@@ -53,7 +53,7 @@ func clear_temp()->void:
 
 func art_layer(map:Control,name:String)->TextureRect:
 	if not is_instance_valid(map.overlay):return null
-	return map.overlay.get_node_or_null(name) as TextureRect
+	return map.overlay.find_child(name,true,false) as TextureRect
 
 func button(map:Control,caption:String)->bool:
 	if not is_instance_valid(map.overlay):return false
@@ -166,8 +166,8 @@ func verify_route(session:Node,mode:String)->void:
 	check(portrait_bounds.size.distance_to(frame.size*Vector2(0.58,0.74))<0.01,tag+"hunter portrait CSS size 58%x78%")
 	check(approximately(MOTION.SCENE_ENTRY_SECONDS,0.52,0.001) and approximately(MOTION.PORTRAIT_ENTRY_SECONDS,0.48,0.001),tag+"source trace/revival durations are 520/480ms")
 	# Tests still verify original CSS fractions; render bounds follow the new left column.
-	scene_bounds=map.StorySplit.map_art_rect(scene_bounds)
-	portrait_bounds=map.StorySplit.map_art_rect(portrait_bounds)
+	scene_bounds=map.StoryBook.layer_bounds(BEATS.SCENE_ART,scene_bounds)
+	portrait_bounds=map.StoryBook.layer_bounds(BEATS.PORTRAIT_ART,portrait_bounds)
 	var receipts:Array=session.world.reward_receipts.duplicate(true)
 	for i in range(BEATS.count()):
 		var beat:Dictionary=BEATS.beat(i,mode)

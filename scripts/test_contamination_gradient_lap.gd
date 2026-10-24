@@ -64,7 +64,7 @@ func _run() -> void:
 		check(world.contamination==7*(i+1),"lap %d adds exactly seven" % (i+1))
 		check(world.laps==i+1 and not world.lap_ready,"lap %d advances once and resets home-ready state" % (i+1))
 		check(world.tiles.size()==24,"lap %d preserves all map tiles" % (i+1))
-	check(world.tiles[STATE.BOSS_TILE_INDEX]=="boss","crossing contamination 20 reveals boss tile at the normal boundary")
+	check(world.tiles[STATE.BOSS_TILE_INDEX]=="boss" and world.current_boss_stage()==20 and not world.final_dragon_available(),"contamination 21 reveals only the first intermediate boss")
 	world.contamination = 98
 	world.position = STATE.HOME
 	world.lap_ready = true

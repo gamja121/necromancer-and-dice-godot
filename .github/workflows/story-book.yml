@@ -1,0 +1,58 @@
+name: Main story book and original gameplay flow
+on:
+  pull_request:
+    paths:
+      - 'map.gd'
+      - 'systems/main_story_book.gd'
+      - 'systems/story_book_*.gd'
+      - 'systems/final_chapter_screen.gd'
+      - 'assets/map/ui/story_book_*.png'
+      - 'scripts/test_main_story_book.gd'
+      - 'scripts/test_story_event_layout.gd'
+      - 'scripts/test_story_typewriter.gd'
+      - '.github/workflows/story-book.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'map.gd'
+      - 'systems/main_story_book.gd'
+      - 'systems/story_book_*.gd'
+      - 'systems/final_chapter_screen.gd'
+      - 'assets/map/ui/story_book_*.png'
+      - 'scripts/test_main_story_book.gd'
+      - 'scripts/test_story_event_layout.gd'
+      - 'scripts/test_story_typewriter.gd'
+      - '.github/workflows/story-book.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: story-book-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  story-book:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import production resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR' import.log; then exit 1; fi
+      - name: Book bounds, deliberate choices, full story and final ending
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_story_event_layout test_story_typewriter test_main_story_book test_final_chapter_ui test_p4_single_run_end_to_end; do
+            timeout 300s godot --headless --path . --script res://scripts/$test.gd 2>&1 | tee "$test.log"
+            grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
+          done
+      - name: Whitespace
+        run: git diff --check

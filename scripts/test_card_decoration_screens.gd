@@ -206,5 +206,13 @@ func _run() -> void:
 	inheritance.set_preview(preview,"unit",{})
 	check(preview.get_node_or_null("AltarUpgradeBadge")==null,"inheritance blank preview clears enhancement plaque")
 
+	# A headless frame can finish before the audio mixer processes stop().
+	deck.click_audio.stop()
+	await create_timer(0.1).timeout
+	# Release test scenes and let audio playback leave the mixer before quitting.
+	for scene in [reward,inventory,pair,large_inventory,deck,place,inheritance]:
+		scene.queue_free()
+	await process_frame
+	await process_frame
 	print("CARD_SCREEN_REGRESSION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

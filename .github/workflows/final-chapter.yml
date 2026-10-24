@@ -1,0 +1,77 @@
+name: Final chapter and persistent dragon clear
+on:
+  pull_request:
+    paths:
+      - "systems/battle_resources.gd"
+      - "scripts/test_battle_resource_lifecycle.gd"
+      - "map.gd"
+      - "battlefield.gd"
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "systems/final_dragon*.gd"
+      - "systems/final_chapter_screen.gd"
+      - "systems/monster_king_hunt_entry.gd"
+      - "systems/ritual_portal_entry.gd"
+      - "scripts/test_final_chapter_ui.gd"
+      - "scripts/test_final_dragon_clear.gd"
+      - "scripts/test_final_dragon_restart.gd"
+      - ".github/workflows/final-chapter.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/battle_resources.gd"
+      - "scripts/test_battle_resource_lifecycle.gd"
+      - "map.gd"
+      - "battlefield.gd"
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "systems/final_dragon*.gd"
+      - "systems/final_chapter_screen.gd"
+      - "systems/monster_king_hunt_entry.gd"
+      - "systems/ritual_portal_entry.gd"
+      - "scripts/test_final_chapter_ui.gd"
+      - "scripts/test_final_dragon_clear.gd"
+      - "scripts/test_final_dragon_restart.gd"
+      - ".github/workflows/final-chapter.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: final-chapter-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  final-chapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual final battle, story, harvest and defeat regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_final_dragon_clear test_final_chapter_ui test_final_dragon_boss_stats test_map_shuffle_boss_threshold test_p4_full_source_story_chain test_game_over_shatter test_capture_brand_identity test_final_dragon_presentation test_battle_resource_lifecycle; do
+            timeout 240s godot --headless --path . --script res://scripts/$test.gd 2>&1 | tee "$test.log"
+            grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
+          done
+      - name: Six separate Godot processes restore final progress
+        shell: bash
+        run: |
+          set -euo pipefail
+          for phase in approach battle victory harvest claim ending; do
+            timeout 60s godot --headless --path . --script res://scripts/test_final_dragon_restart.gd -- "$phase" 2>&1 | tee "restart-$phase.log"
+            grep -E '^FINAL_DRAGON_RESTART: [0-9]+ passed, 0 failed$' "restart-$phase.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "restart-$phase.log"; then exit 1; fi
+          done
+      - name: Whitespace
+        run: git diff --check

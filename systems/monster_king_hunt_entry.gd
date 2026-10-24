@@ -1,4 +1,5 @@
 extends RefCounted
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 ## P1-05K-5: fifth source scene and atomic king-hunt completion.
 ## The actual king boss encounter remains a separate implementation.
@@ -108,7 +109,8 @@ static func completed(session) -> bool:
 	var state: Dictionary=session.get_story_event(EVENT_ID)
 	if state.status!="complete" or state.choice!="" or state.battle_result!="": return false
 	var flags: Dictionary=session.world.event_flags
-	for key in [SEEN_FLAG,COMPLETE_FLAG,HUNT_COMPLETE_FLAG,SEALED_RUINS_FLAG,FINAL_BATTLE_FLAG,REVIVED_FLAG]:
+	if not FinalDragonProgress.quest_reached(flags): return false
+	for key in [SEEN_FLAG,COMPLETE_FLAG,HUNT_COMPLETE_FLAG,SEALED_RUINS_FLAG,REVIVED_FLAG]:
 		if flags.get(key,false)!=true: return false
 	if flags.get(HUNT_ACTIVE_FLAG,false)!=false: return false
 	for i in [1,2,3]:

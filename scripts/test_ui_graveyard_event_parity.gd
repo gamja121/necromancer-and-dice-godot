@@ -16,7 +16,7 @@ func check(ok: bool, label: String) -> void:
 		printerr("FAIL ui-stage4: ",label)
 func child_named(parent: Node, label: String) -> Node:
 	if not is_instance_valid(parent): return null
-	return parent.get_node_or_null(label)
+	return parent.find_child(label,true,false)
 func has_button(parent: Control, title: String) -> bool:
 	if not is_instance_valid(parent): return false
 	for node in parent.get_children():
@@ -53,7 +53,7 @@ func _run() -> void:
 	check(not session.get_story_event("graveyard_child_ambush_01").status=="complete","visual beat alone does not complete story")
 	map.show_graveyard_child_beat(grave,2)
 	check(child_named(map.overlay,"StoryCharacterLayer")!=null,"ghoul visible on its own image layer")
-	check(child_named(map.overlay,"StoryDialogueFrame") is TextureRect and child_named(map.overlay,"StoryDialogueFrame").texture.resource_path=="res://assets/map/ui/shared_dialogue_panel.svg","shared transparent high-resolution dialogue frame displays in graveyard scene")
+	check(child_named(map.overlay,"StoryDialogueFrame") is TextureRect and child_named(map.overlay,"StoryDialogueFrame").texture.resource_path=="res://assets/map/ui/story_book_open.png","shared transparent high-resolution dialogue frame displays in graveyard scene")
 	var speech=child_named(map.overlay,"StoryDialogueText")
 	check(speech is Label and speech.text.contains("도와주세요"),"original child dialogue appears in speech frame")
 	map.show_graveyard_child_beat(grave,3)

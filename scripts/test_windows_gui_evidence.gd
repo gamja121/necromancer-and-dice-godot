@@ -65,11 +65,14 @@ func capture_frame(filename: String) -> void:
 ## Capture only after the actual Map ink-reveal animation has settled.
 ## These are render snapshots, not evidence of walking to or clicking a location.
 func capture_settled_art(map: Control, expected_path: String, label: String, filename: String) -> void:
+	if is_instance_valid(map.overlay) and map.overlay.get_script()==map.StoryBook:
+		await create_timer(1.7).timeout
+		map.overlay.typewriter.reveal_all()
 	await create_timer(1.1).timeout
 	var art: TextureRect = null
 	var expected: Texture2D = map.texture(expected_path)
 	if is_instance_valid(map.overlay):
-		for node in map.overlay.get_children():
+		for node in map.overlay.find_children("*","TextureRect",true,false):
 			if node is TextureRect and node.texture == expected:
 				art = node
 				break
@@ -306,7 +309,7 @@ func _run() -> void:
 		check(COMMANDER.advance(session,village_index,i), "commander visual advance %d" % i)
 	gallery_map.show_knight_commander_beat(village_index)
 	check(is_instance_valid(gallery_map.overlay)
-		and gallery_map.overlay.get_node_or_null("PlayerStoryPortrait") is TextureRect,
+		and gallery_map.overlay.find_child("PlayerStoryPortrait",true,false) is TextureRect,
 		"commander player reply uses actual left portrait")
 	await capture_settled_art(gallery_map, COMMANDER.ART, "commander player reply",
 		"18_commander_reply_layer_native_windows.png")
@@ -317,7 +320,7 @@ func _run() -> void:
 	check(HUNTER.advance(session,tree_index,0), "hunter revealed-scene beat selected")
 	gallery_map.show_monster_hunter_beat(tree_index)
 	check(is_instance_valid(gallery_map.overlay)
-		and gallery_map.overlay.get_node_or_null("HunterSceneLayer") is TextureRect,
+		and gallery_map.overlay.find_child("HunterSceneLayer",true,false) is TextureRect,
 		"hunter beast layer exists in real live overlay")
 	await capture_settled_art(gallery_map, HUNTER.BASE_ART, "hunter beast scene",
 		"19_hunter_beast_layer_native_windows.png")
@@ -325,7 +328,7 @@ func _run() -> void:
 		check(HUNTER.advance(session,tree_index,i), "hunter portrait preparation %d" % i)
 	gallery_map.show_monster_hunter_beat(tree_index)
 	check(is_instance_valid(gallery_map.overlay)
-		and gallery_map.overlay.get_node_or_null("HunterPortrait") is TextureRect,
+		and gallery_map.overlay.find_child("HunterPortrait",true,false) is TextureRect,
 		"hunter human portrait uses real overlay layer")
 	await capture_settled_art(gallery_map, HUNTER.BASE_ART, "hunter portrait scene",
 		"20_hunter_portrait_layer_native_windows.png")
@@ -336,7 +339,7 @@ func _run() -> void:
 	check(CULTIST.advance(session,village_index,0), "cultist procession beat selected")
 	gallery_map.show_cultist_rumor_beat(village_index)
 	check(is_instance_valid(gallery_map.overlay)
-		and gallery_map.overlay.get_node_or_null("CultistProcessionLayer") is TextureRect,
+		and gallery_map.overlay.find_child("CultistProcessionLayer",true,false) is TextureRect,
 		"cultist procession layer exists in real UI")
 	await capture_settled_art(gallery_map, CULTIST.BASE_ART, "cultist procession",
 		"21_cultist_procession_layer_native_windows.png")
@@ -347,7 +350,7 @@ func _run() -> void:
 	check(ALTAR.advance(session,altar_index,0), "altar ritual reveal beat selected")
 	gallery_map.show_cultist_altar_beat(altar_index)
 	check(is_instance_valid(gallery_map.overlay)
-		and gallery_map.overlay.get_node_or_null("CultistRitualLayer") is TextureRect,
+		and gallery_map.overlay.find_child("CultistRitualLayer",true,false) is TextureRect,
 		"altar ritual layer exists in real UI")
 	await capture_settled_art(gallery_map, ALTAR.BASE_ART, "altar ritual layer",
 		"22_altar_ritual_layer_native_windows.png")
@@ -359,7 +362,7 @@ func _run() -> void:
 	check(PORTAL.advance(session,forest_index,0), "portal energy beat selected")
 	gallery_map.show_ritual_portal_beat(forest_index)
 	check(is_instance_valid(gallery_map.overlay)
-		and gallery_map.overlay.get_node_or_null("PortalEnergyLayer") is TextureRect,
+		and gallery_map.overlay.find_child("PortalEnergyLayer",true,false) is TextureRect,
 		"portal energy artwork uses live layered panel")
 	await capture_settled_art(gallery_map, PORTAL.BASE_ART, "portal energy layer",
 		"23_portal_energy_layer_native_windows.png")
@@ -367,7 +370,7 @@ func _run() -> void:
 		check(PORTAL.advance(session,forest_index,i), "portal omen preparation %d" % i)
 	gallery_map.show_ritual_portal_beat(forest_index)
 	check(is_instance_valid(gallery_map.overlay)
-		and gallery_map.overlay.get_node_or_null("PortalOmenLayer") is TextureRect,
+		and gallery_map.overlay.find_child("PortalOmenLayer",true,false) is TextureRect,
 		"portal omen artwork uses live layered panel")
 	await capture_settled_art(gallery_map, PORTAL.BASE_ART, "portal omen layer",
 		"24_portal_omen_layer_native_windows.png")

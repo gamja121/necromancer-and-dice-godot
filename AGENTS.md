@@ -10,6 +10,12 @@
 - Commit only intended, tested changes when authorized. Push only to an explicitly authorized remote/branch. Never force-push, rewrite history, or delete source assets without authorization.
 - Never commit credentials, personal assistant data, or machine-specific secrets. Do not disable antivirus, the sandbox, or AnyDesk to speed up development.
 
+## Latest shared boss integration (2026-10-23)
+
+- Shared main `b002c1d` added contamination-20/40/60 bosses: three distinct species drawn from six reserved candidates once per expedition, with saved assignments and one-time stage defeat receipts. Preserve this concurrent implementation; the older incomplete-stage notes below are historical.
+- Final dragon completion integrates that work. Intermediate bosses open ordinary deck selection, keep the expedition active after victory and use ordinary soul harvest. Only the actual final dragon gets the book intro and terminal ending.
+- The final 80+acknowledged-hunt gate is inherited from the shared boss implementation, not newly chosen by this ending task. Preserve the separate combat artwork and original book presentation. See `docs/boss_stages_20261023.md` and `docs/final_chapter_completion_20261022.md`.
+
 ## Canonical automatic swamp thresholds — user correction (2026-10-14)
 
 - **Current final swamp rule:** contamination **0–14 = 0 swamp**, **15–29 = 1 swamp**, **30–100 = 2 swamps (hard cap)** for newly generated boards. The former **40/80 swamp spawn milestones are RETIRED**. Do not reuse them for swamp counts, even though the separate high-contamination extra-monster conversions still use 40/80.
@@ -25,6 +31,14 @@
 - Sync note (2026-10-22): upstream `2a4ad34` separately added a `dragon` enemy at `world.laps >= 60` with stats/passives. Preserve that concurrent work; its existence is NOT confirmation that the canonical contamination 20/40/60 stages became lap milestones. This appearance task does not reconcile or change that condition. The user has separately reiterated the contamination rule; resolve the trigger design explicitly in the boss-rule task.
 - `LAP_CONTAMINATION_GAIN = 7` increases contamination when leaving home after a completed lap; laps are **not** boss appearance thresholds. Preserve unrelated lap mechanics, other collaborators' changes and saved runs.
 - Read `docs/map_port.md` before work on boss trigger, encounter, progress flags, save/migration or UI. Gameplay implementation needs Trigger/Information/Interaction/Visual/State review and regression tests. Do not implement an invented final threshold.
+
+## Final dragon completion — user approval (2026-10-23)
+
+- After the end-to-end audit #271, the user approved stepwise completion in the existing style. #272 connects the preserved book intro to actual boss arrival and deck confirmation, then actual final victory → existing soul harvest → book ending → title/Continue.
+- Final victory, completed final quest, durable defeat flag and pending harvest are one atomic save. Resume pending harvest before the ending; never route a clear to the defeat shatter screen. Preserve historical portal/hunt completion after closing the final quest.
+- This supersedes the earlier standalone-only presentation scope. Integrate the separately published 20/40/60 stage bosses without changing their roster, RNG, assignments or receipts. Preserve the shared 80+acknowledged-hunt runtime gate.
+- The event presentation assets and separate combat attack/hit/rot-death frames remain unchanged. Keep one shared die and gameplay RNG/face; avoid the colossal dragon in render space.
+- Read docs/final_chapter_completion_20261022.md for the flow and tests. Original-difficulty full-run balance remains separate; the shared intermediate-boss implementation is preserved and covered by integration tests.
 
 ## Guaranteed two event tiles — user correction (2026-10-15)
 

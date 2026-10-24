@@ -75,5 +75,22 @@ func _run() -> void:
 	check(not loader.is_processing() and loader.pending.is_empty(),"cached and missing paths do not wake an idle loader")
 	loader.queue_free()
 	await process_frame
+	# Two scene owners can exit in the same frame with equal pending paths.
+	# Distinct cleanup callbacks must survive value-equal bound arrays.
+	var exiting_before: int=root.tree_exiting.get_connections().size()
+	var owners: Array=[]
+	for i in range(2):
+		var leaving=ObservedLoader.new()
+		root.add_child(leaving)
+		leaving.requested["res://orphaned_cleanup_a.tres"]=true
+		leaving.requested["res://orphaned_cleanup_b.tres"]=true
+		owners.append(leaving)
+	for leaving in owners:
+		root.remove_child(leaving)
+		leaving.free()
+	check(root.tree_exiting.get_connections().size()==exiting_before+2,"equal pending paths retain two independent scene cleanup callbacks")
+	await process_frame
+	await process_frame
+	check(root.tree_exiting.get_connections().size()==exiting_before,"both exited-scene cleanup callbacks release after draining")
 	print("BATTLE_RESOURCE_LIFECYCLE: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

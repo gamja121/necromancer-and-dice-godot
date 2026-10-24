@@ -12,6 +12,7 @@ const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const StorySplit = preload("res://systems/story_split_layout.gd")
+const StoryBook = preload("res://systems/main_story_book.gd")
 const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
@@ -71,6 +72,9 @@ const InventoryPanel = preload("res://systems/inventory_panel.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
 const BrushSettingsArt = preload("res://systems/brush_map_settings_art.gd")
 const Battlefield = preload("res://battlefield.tscn")
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
+const FinalDragonDieLayout = preload("res://systems/final_dragon_die_layout.gd")
+const FinalChapterScreen = preload("res://systems/final_chapter_screen.gd")
 const GameOverScreen = preload("res://systems/game_over_screen.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
@@ -95,7 +99,11 @@ const DIE_FOREGROUND_Z = 96
 const DIE_BEHIND_LOCATION_Z = 20
 var shared_die_busy: bool = false
 var game_over_screen: Control
+var final_chapter_screen: Control
 var status: Label
+
+func final_dragon_die_exclusion() -> Rect2:
+	return FinalDragonDieLayout.exclusion(embedded_battle,stage)
 
 func shared_dice_position() -> Vector2:
 	var stored := Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
@@ -114,6 +122,7 @@ func remember_shared_die() -> void:
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		wall = presentation.gauge.dice_wall_rect()
 	var safe: Vector2 = dice_animation.safe_rest_position(dice.position,dice.size,SHARED_DIE_AREA,wall)
+	safe = FinalDragonDieLayout.rest_position(safe,dice.size,SHARED_DIE_AREA,final_dragon_die_exclusion())
 	var stopped := Vector2(roundf(safe.x),roundf(safe.y))
 	dice.position = stopped
 	var final_angle: int = roundi(dice.rotation_degrees)
@@ -133,6 +142,8 @@ func roll_shared_die(face: int, battle_area: bool = false) -> void:
 	var wall: Rect2 = Rect2()
 	if not battle_area and not is_instance_valid(overlay) and is_instance_valid(presentation.gauge):
 		wall = presentation.gauge.dice_wall_rect()
+	var dragon_wall: Rect2 = final_dragon_die_exclusion()
+	if dragon_wall.has_area(): wall = dragon_wall
 	await dice_animation.roll_map(dice,face,SHARED_DIE_AREA,texture,sound,wall)
 	world.dice_visual_face = clampi(face,1,6)
 	remember_shared_die()
@@ -149,7 +160,7 @@ func refresh_shared_die_input() -> void:
 		dice.disabled = embedded_battle.busy or (not is_instance_valid(embedded_battle.capture_panel) and not embedded_battle.rules.winner().is_empty())
 		return
 	if not is_instance_valid(overlay):
-		dice.disabled = false
+		dice.disabled = not world.run_result.is_empty()
 		return
 	if overlay is ExplorationActions and overlay.type=="unknown":
 		var prayer_used: bool = session.place_visit_id("purify",overlay.index) in session.world.reward_receipts
@@ -261,15 +272,17 @@ func _ready() -> void:
 		session.notice = ""
 	if world.roster.is_empty(): status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
 	session.save_world()
-	if not world.run_result.is_empty():
+	if world.run_result.get("reason","")=="battle_defeat":
 		call_deferred("show_game_over",true)
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
+	elif FinalDragonProgress.cleared(world): call_deferred("show_final_ending",true)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
+	elif world.tiles[world.position]=="boss" and not world.position in world.cleared: call_deferred("show_tile",world.position)
 	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
@@ -277,6 +290,8 @@ func texture(path: String) -> Texture2D:
 	return textures[path]
 
 func image(parent: Control, path: String, pos: Vector2, dimensions: Vector2) -> TextureRect:
+	if parent is StoryBook and path.begins_with("res://assets/map/events/") and StoryBook.is_source_art_rect(pos,dimensions):
+		return parent.add_source_image(path,Rect2(pos,dimensions),texture(path))
 	var node = TextureRect.new()
 	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	node.texture = texture(path)
@@ -292,6 +307,7 @@ func image(parent: Control, path: String, pos: Vector2, dimensions: Vector2) -> 
 	return node
 
 func shared_story_frame(panel: Control) -> TextureRect:
+	if panel is StoryBook: return panel.page_frame
 	# Decorative art only: neither the parchment nor its headers consume input.
 	var split: bool = bool(panel.get_meta("story_split_layout",false))
 	var bounds: Rect2 = StorySplit.NARRATION_FULL if split else SHARED_DIALOGUE_RECT
@@ -333,6 +349,7 @@ func _arrange_story_buttons(panel: Control) -> void:
 			control.size = bounds.size
 
 func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2, font_size: int = 15) -> Label:
+	if parent is StoryBook: return parent.add_source_label(value,Rect2(pos,dimensions),font_size)
 	var node = Label.new()
 	node.text = value
 	node.position = pos
@@ -414,7 +431,7 @@ func button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, c
 	node.size = dimensions
 	node.pressed.connect(callback)
 	parent.add_child(node)
-	add_button_effect(node)
+	if not parent is StoryBook: add_button_effect(node)
 	return node
 
 func add_button_effect(node: BaseButton) -> void:
@@ -914,18 +931,21 @@ func select_tile(index: int) -> void:
 	show_tile(index)
 
 func story_modal() -> Control:
-	var panel := modal()
+	# A beat replacement keeps the book open; a later visit opens it afresh.
+	var continuing: bool = is_instance_valid(overlay) and overlay is StoryBook
+	if is_instance_valid(overlay): close_overlay()
+	var panel = StoryBook.new()
+	panel.instant = continuing
+	panel.z_index = 80
 	panel.set_meta("story_split_layout",true)
-	StorySplit.install_shell(panel)
-	# Only the story overlay bubbles background taps to its reveal handler.
-	for child in panel.get_children():
-		if child is ColorRect and child.get_meta("ui_backdrop",false):
-			child.mouse_filter = Control.MOUSE_FILTER_PASS
+	stage.add_child(panel)
+	overlay = panel
 	panel.gui_input.connect(func(event: InputEvent): _on_story_panel_input(event,panel))
 	return panel
 
 func _reveal_story_text(panel: Control) -> bool:
 	if not is_instance_valid(panel): return false
+	if panel is StoryBook: return panel.reveal_for_input()
 	var typewriter = panel.get_node_or_null("StoryTypewriter")
 	return typewriter != null and typewriter.reveal_all()
 
@@ -974,6 +994,7 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 		if after.is_valid(): after.call())
 
 func show_tile(index: int, actual_landing: bool = false) -> void:
+	if not world.run_result.is_empty(): return
 	var type: String = world.tiles[index]
 	# Dispatch the earliest available story before generic location actions.
 	# can_enter blocks previewing other tiles and saves on an actual landing.
@@ -1057,6 +1078,9 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 	if type=="basic": return
 	if type=="home":
 		show_home()
+		return
+	if type=="boss" and not index in world.cleared and index!=world.position:
+		status.text = "최후의 드래곤 · 보스 타일에 도착하면 마지막 장이 열립니다." if world.final_dragon_available() else "단계 보스 · 보스 타일에 도착하면 전투를 준비합니다."
 		return
 	if type in ["monster","rare-monster","boss"] and not index in world.cleared:
 		show_battle_deck(index)
@@ -1243,6 +1267,10 @@ func confirm_new_run() -> void:
 
 
 func show_battle_deck(index: int, story_event_id: String = "") -> void:
+	if not world.run_result.is_empty(): return
+	if story_event_id.is_empty() and world.tiles[index]=="boss" and world.final_dragon_available() and not world.event_flags.get(FinalDragonProgress.INTRO_SEEN,false):
+		show_final_dragon_intro(index)
+		return
 	if world.roster.is_empty():
 		status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
 		return
@@ -1317,6 +1345,9 @@ func open_embedded_battle(animate_lock: bool = true, transfer_cards: Dictionary 
 	embedded_battle = battle
 	battle.finished.connect(finish_embedded_battle)
 	viewport.add_child(battle)
+	# The same die was hidden by the deck. Place it outside the giant sprite
+	# before the first battlefield draw; preserve pip, rotation and RNG.
+	dice.position = FinalDragonDieLayout.rest_position(dice.position,dice.size,SHARED_DIE_AREA,final_dragon_die_exclusion())
 	if not transfer_cards.is_empty():
 		# Hide real combat cards BEFORE first draw, avoiding a one-frame
 		# duplicate underneath the incoming cards.
@@ -1389,10 +1420,44 @@ func _fly_selected_cards_to_battle(battle: Control, selected: Dictionary) -> voi
 		battle.entry_card_transfer_pending=false
 		battle.entry_cards_landed.emit()
 
-# The defeated expedition is committed in the same save as the battle loss.
-# An archived defeat must never resume normal map interactions.
+# Present the preserved book before committing a real final encounter.
+func show_final_dragon_intro(index: int) -> void:
+	if index!=world.position or not world.final_dragon_available(): return
+	if is_instance_valid(overlay): close_overlay()
+	var book := FinalChapterScreen.new()
+	stage.add_child(book)
+	overlay = book
+	map_music.stream_paused = true
+	book.show_intro()
+	book.return_requested.connect(func():
+		if overlay!=book: return
+		map_music.stream_paused = false
+		dismiss_overlay(render))
+	book.battle_requested.connect(func():
+		if overlay!=book: return
+		if not session.acknowledge_final_dragon_intro(index):
+			book.show_storage_error("저장에 실패했습니다. 전투 편성을 다시 눌러 주세요.")
+			return
+		close_overlay()
+		show_battle_deck(index))
+
+func show_final_ending(instant: bool = false) -> void:
+	if not FinalDragonProgress.cleared(world) or not world.pending_reward.is_empty(): return
+	if is_instance_valid(final_chapter_screen): return
+	close_overlay()
+	final_chapter_screen = FinalChapterScreen.new()
+	stage.add_child(final_chapter_screen)
+	overlay = final_chapter_screen
+	dice.disabled = true
+	dice.hide()
+	map_music.stream_paused = true
+	final_chapter_screen.show_ending(world.run_result,instant)
+	final_chapter_screen.title_requested.connect(func():
+		get_tree().change_scene_to_file("res://title.tscn"))
+
+# Defeat is a separate terminal path; victory must never shatter the die.
 func show_game_over(instant: bool = false) -> void:
-	if is_instance_valid(game_over_screen) or world.run_result.is_empty(): return
+	if is_instance_valid(game_over_screen) or world.run_result.get("reason","")!="battle_defeat": return
 	var footprints: Array=[]
 	if is_instance_valid(embedded_battle):
 		for unit in embedded_battle.rules.units:
@@ -1466,10 +1531,10 @@ func _return_battle_cards_to_book() -> void:
 	await get_tree().create_timer(longest+0.03).timeout
 
 func finish_embedded_battle() -> void:
-	if not world.run_result.is_empty():
+	if world.run_result.get("reason","")=="battle_defeat":
 		show_game_over()
 		return
-	if battle_returning: return
+	if battle_returning or not world.pending_reward.is_empty(): return
 	battle_returning = true
 	var completed_story_event_id: String = returning_story_event_id
 	returning_story_event_id = ""
@@ -1487,7 +1552,9 @@ func finish_embedded_battle() -> void:
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
-	if not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
+	if FinalDragonProgress.cleared(world):
+		show_final_ending()
+	elif not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
 		show_story_battle_result(completed_story_event_id)
 
 
@@ -1713,7 +1780,8 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 		var is_secondary: bool = title in ["돌아가기","나가기","맵으로","부활 확인","흔적 확인"] or title.ends_with(" 기능")
 		node.set_meta("story_button_primary",not is_secondary)
 		node.add_theme_font_size_override("font_size",16)
-		_arrange_story_buttons(parent)
+		if parent is StoryBook: parent.arrange_actions()
+		else: _arrange_story_buttons(parent)
 	return node
 
 ## The story presentation advances only by explicit input; no timer picks a choice.
@@ -1784,7 +1852,6 @@ func show_village_rumor_beat(index: int, event_id: String) -> void:
 	var beat_index: int=VillageRumorEntry.current_beat(session,event_id)
 	var beat: Dictionary=VillageRumorBeats.beat(event_id,beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var artwork=image(panel,VillageRumorEntry.SCENE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
@@ -1834,8 +1901,8 @@ func show_knight_commander_beat(index: int) -> void:
 	var beat_index: int=KnightCommanderEntry.current_beat(session)
 	var beat: Dictionary=KnightCommanderBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("quest_accepted",false): panel.show_seal("의뢰")
 	var artwork=image(panel,KnightCommanderEntry.ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
 	# The frozen web uses distinct right/mirrored commander and left player
@@ -1888,8 +1955,8 @@ func show_monster_hunter_beat(index: int) -> void:
 	var beat_index: int=MonsterHunterEntry.current_beat(session)
 	var beat: Dictionary=MonsterHunterBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("clue_obtained",false): panel.show_seal("단서")
 	var art=image(panel,MonsterHunterEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
 	var visual: String=str(beat.visual)
@@ -1952,8 +2019,8 @@ func show_cultist_rumor_beat(index: int) -> void:
 	var beat_index: int=CultistRumorEntry.current_beat(session)
 	var beat: Dictionary=CultistRumorBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("trackingActivated",false): panel.show_seal("추적")
 	var art=image(panel,CultistRumorEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
 	var layer: String=CultistRumorBeats.layer_for(str(beat.visual))
@@ -2013,8 +2080,8 @@ func show_monster_king_hunt_beat(index: int) -> void:
 	var beat_index: int=MonsterKingHuntEntry.current_beat(session)
 	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("locationKnown",false): panel.show_seal("위치")
 	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
 	# Frozen web reuses the already ported hunter scene and hunter portrait
@@ -2081,7 +2148,6 @@ func show_ritual_portal_beat(index: int) -> void:
 	if beat.is_empty(): return
 	var scene_state: Dictionary=session.get_story_event(RitualPortalEntry.EVENT_ID)
 	var intervening: bool=scene_state.status=="active" and scene_state.choice=="intervene"
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
@@ -2148,8 +2214,8 @@ func show_ritual_portal_aftermath(index: int) -> void:
 	var result: String=str(session.get_story_event(RitualPortalEntry.EVENT_ID).battle_result)
 	var beat: Dictionary=RitualPortalBeats.aftermath(result)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	panel.show_seal("추적")
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
 	var bounds: Rect2=RitualPortalLayerMotion.source_rect(TILE_EVENT_SCENE_RECT)
@@ -2200,7 +2266,6 @@ func show_cultist_altar_beat(index: int) -> void:
 	if beat.is_empty(): return
 	var altar_state: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
 	var fighting: bool=altar_state.status=="active" and altar_state.choice=="fight"
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var artwork=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
@@ -2253,8 +2318,8 @@ func show_cultist_altar_followup(index: int) -> void:
 	var story: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
 	var narration: String=CultistAltarBeats.followup_effect(str(story.choice),str(story.battle_result))
 	if narration.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	panel.show_seal("추적")
 	var art=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
 	var overlay_path: String=CultistAltarBeats.RITUAL if story.choice=="pass" else CultistAltarBeats.SUMMON
@@ -2328,7 +2393,6 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if index != world.position or session.get_story_event(StoryEventEntry.EVENT_ID).status == "complete": return
 	var beat: Dictionary = GraveyardStoryBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var artwork = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	artwork.name="StorySceneImage"
@@ -2340,13 +2404,11 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 		# Animate only its nested image to avoid competing position tweens.
 		var ghoul_frame = TextureRect.new()
 		ghoul_frame.name = "StoryCharacterLayer"
-		var ghoul_bounds: Rect2 = StorySplit.map_art_rect(Rect2(
-			TILE_EVENT_SCENE_RECT.position + TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position,
-			TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size))
+		var ghoul_bounds := Rect2(StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position,StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size)
 		ghoul_frame.position = ghoul_bounds.position
 		ghoul_frame.size = ghoul_bounds.size
 		ghoul_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.add_child(ghoul_frame)
+		panel.art.add_child(ghoul_frame)
 		var ghoul_art = image(ghoul_frame,GraveyardStoryBeats.GHOUL_ART,Vector2.ZERO,ghoul_frame.size)
 		ghoul_art.name = "GhoulSprite"
 		GraveyardGhoulMotion.play(ghoul_art,beat_index == 1)
@@ -2376,7 +2438,7 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		dialogue.add_theme_color_override("font_color",Color("21150d"))
 		dialogue.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-		if not beat.choice:
+		if not beat.choice and not panel is StoryBook:
 			var advance_hint=label_at(panel,"▼",Vector2(1013,609),Vector2(26,24),17)
 			advance_hint.name="StoryDialogueNext"
 			GraveyardStoryEntryMotion.play_next_hint(advance_hint)

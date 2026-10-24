@@ -23,6 +23,7 @@ var scratch:String=""
 
 class Victory:
 	extends RefCounted
+	var units: Array = []
 	func winner()->String: return "ally"
 	func find_id(_id:String)->Dictionary: return {}
 
@@ -44,7 +45,7 @@ func cleanup()->void:
 
 func art_layer(map:Control,name:String)->TextureRect:
 	if not is_instance_valid(map.overlay): return null
-	return map.overlay.get_node_or_null(name) as TextureRect
+	return map.overlay.find_child(name,true,false) as TextureRect
 
 func has_button(map:Control,caption:String)->bool:
 	if not is_instance_valid(map.overlay): return false
@@ -65,6 +66,14 @@ func _run()->void:
 	var former:String=session.save_file_path
 	session.save_file_path=scratch
 	session.start_new_world()
+	session.world.laps=1
+	session.world.contamination=int(preload("res://systems/story_contamination_gate.gd").MINIMUMS.values().max())
+	session.world.generate()
+	# Isolated visual fixture shortens access to optional source locations.
+	for terrain in ["unknown","altar","forest"]:
+		if session.world.tiles.find(terrain)<0:
+			var slot: int=session.world.tiles.find("basic")
+			if slot>=0: session.world.tiles[slot]=terrain
 	var grave:int=session.world.tiles.find("graveyard")
 	var village:int=session.world.tiles.find("village")
 	var tree:int=session.world.tiles.find("unknown")
@@ -117,6 +126,7 @@ func _run()->void:
 	check(expected.size.distance_to(frame.size*Vector2(0.75,0.75))<0.01,"CSS 75% width / 75% height image")
 	check(approximately(MOTION.ENTRY_SECONDS,0.5,0.001) and approximately(MOTION.ENTRY_SCALE,0.985,0.001),"500ms 98.5% scale source reveal")
 	check(MOTION.ENTRY_OFFSET_FRACTION.distance_to(Vector2(0.0,0.02))<0.001,"CSS reveal starts 2% below resting image")
+	expected=map.StoryBook.layer_bounds(BEATS.ENERGY_ART,expected)
 	var receipts:Array=session.world.reward_receipts.duplicate(true)
 	for beat_idx in range(BEATS.count()):
 		var beat:Dictionary=BEATS.beat(beat_idx)
@@ -139,13 +149,13 @@ func _run()->void:
 			if displayed!=null:
 				var target:String=BEATS.layer_for(str(beat.visual))
 				check(displayed.texture==map.texture(target) and displayed.texture.resource_path==target,"beat %d uses source original image bytes"%beat_idx)
-				check(displayed.size.distance_to(expected.size)<0.02 and displayed.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,"beat %d correct 75% footprint and aspect"%beat_idx)
+				check(displayed.size.distance_to(expected.size)<0.02 and displayed.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,"beat %d correct 75%% footprint and aspect"%beat_idx)
 				check(displayed.mouse_filter==Control.MOUSE_FILTER_IGNORE and displayed.get_meta("ui_custom_open_motion",false),"beat %d layer ignores touch, avoids generic modal movement"%beat_idx)
 				check(displayed.pivot_offset.distance_to(Vector2(displayed.size.x/2,displayed.size.y))<0.01,"beat %d bottom-center transform pivot"%beat_idx)
 				var animated:bool=beat.id in ["portal_reveal","omen"]
 				if animated:
-					check(displayed.position.distance_to(expected.position+displayed.size*MOTION.ENTRY_OFFSET_FRACTION)<0.15,"beat %d source animation begins 2% down"%beat_idx)
-					check(approximately(displayed.scale.x,MOTION.ENTRY_SCALE,0.01) and approximately(displayed.modulate.a,0,0.01),"beat %d source animation starts transparent at 98.5% size"%beat_idx)
+					check(displayed.position.distance_to(expected.position+displayed.size*MOTION.ENTRY_OFFSET_FRACTION)<0.15,"beat %d source animation begins 2%% down"%beat_idx)
+					check(approximately(displayed.scale.x,MOTION.ENTRY_SCALE,0.01) and approximately(displayed.modulate.a,0,0.01),"beat %d source animation starts transparent at 98.5%% size"%beat_idx)
 					await create_timer(0.62).timeout
 				else:
 					check(displayed.position.distance_to(expected.position)<0.15 and approximately(displayed.modulate.a,1,0.01),"beat %d correctly stays static: no fictitious crossing animation"%beat_idx)

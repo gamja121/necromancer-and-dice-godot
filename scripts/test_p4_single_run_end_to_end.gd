@@ -267,7 +267,8 @@ func return_home_and_advance(session: Node, map: Control) -> bool:
 	var interior: bool = await until_ready(func(): return panel_button(map,"낙인 계승")!=null and panel_button(map,"순찰경로")!=null)
 	check(interior,"same run opens real house interior with inheritance and patrol actions")
 	check(world.roster.all(func(u): return int(u.current_hp)==int(u.max_hp)),"house heals all surviving monsters without reviving the dead")
-	var leave: Button = panel_button(map,"나가기")
+	var leave: Button = panel_button(map,"다음 바퀴 출발")
+	check(leave!=null,"home exposes the current next-lap departure action")
 	if leave==null: return false
 	leave.pressed.emit()
 	var completed: bool = await until_ready(func(): return not map.moving and world.map_serial==before_serial+1,65000)

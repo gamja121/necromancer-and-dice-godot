@@ -4,6 +4,7 @@ const RoutePlan = preload("res://systems/route_plan.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
@@ -107,10 +108,14 @@ func current_boss_slug() -> String:
 	return BossStages.boss_slug(current_boss_stage(),boss_assignments)
 
 func boss_available() -> bool:
+	if FinalDragonProgress.cleared(self): return false
 	var stage: int = current_boss_stage()
 	if stage==0 or BossStages.defeated(event_flags,stage): return false
 	if stage==BOSS_CONTAMINATION: return FinalBossStoryGate.ready(self)
 	return BossStages.valid(definitions,boss_assignments)
+
+func final_dragon_available() -> bool:
+	return current_boss_stage()==BossStages.FINAL and current_boss_slug()=="dragon" and boss_available()
 
 func mark_boss_defeated(stage: int) -> void:
 	if stage in [20,40,60,80]:
@@ -298,7 +303,8 @@ func restore(saved: Dictionary) -> bool:
 	if int(saved.get("enemies_defeated",0))<0: return false
 	var terminal: Dictionary = saved.get("run_result",{})
 	if not terminal.is_empty():
-		if terminal.get("reason","")!="battle_defeat" or terminal.get("ended",false)!=true: return false
+		if terminal.get("reason","") not in ["battle_defeat",FinalDragonProgress.REASON] or terminal.get("ended",false)!=true: return false
+		if not FinalDragonProgress.valid_record(saved): return false
 		for value in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			if not terminal.has(value) or int(terminal[value])<0: return false
 	# Old saves had fixed 20/40/60 species; do not reroll an ongoing run.

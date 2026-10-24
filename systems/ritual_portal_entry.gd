@@ -1,4 +1,5 @@
 extends RefCounted
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 ## P1-05J-6: after an acknowledged fight, explicitly complete the ritual.
 ## The revival form, ended ritual quest and new hunt are atomic receipts.
@@ -180,7 +181,7 @@ static func completed(session) -> bool:
 	var hunt_done: bool=(flags.get("quest:monster_king_hunt:complete",false)==true
 		and flags.get("event:monster_king_hunt_trace_01:complete",false)==true
 		and flags.get("story:monster_king:sealed_ruins_location_known",false)==true
-		and flags.get("quest:monster_king_final_battle:active",false)==true)
+		and FinalDragonProgress.quest_reached(flags))
 	if hunt_active==hunt_done: return false
 	for key in [TRACKING_FLAG,INTERVENTION_FLAG,RESULT_PENDING_FLAG]:
 		if flags.get(key,false)==true: return false

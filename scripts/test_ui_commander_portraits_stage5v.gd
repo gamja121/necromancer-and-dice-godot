@@ -15,6 +15,7 @@ var save: String = ""
 
 class Victory:
 	extends RefCounted
+	var units: Array = []
 	func winner() -> String: return "ally"
 	func find_id(_id: String) -> Dictionary: return {}
 
@@ -33,7 +34,7 @@ func clean() -> void:
 
 func portrait(map: Control, player_reply: bool) -> TextureRect:
 	if not is_instance_valid(map.overlay): return null
-	return map.overlay.get_node_or_null("PlayerStoryPortrait" if player_reply else "CommanderStoryPortrait") as TextureRect
+	return map.overlay.find_child("PlayerStoryPortrait" if player_reply else "CommanderStoryPortrait",true,false) as TextureRect
 
 func near(a: float,b: float,tolerance: float = 0.2) -> bool:
 	return absf(a-b)<tolerance
@@ -53,6 +54,10 @@ func _run() -> void:
 	var former: String = session.save_file_path
 	session.save_file_path=save
 	session.start_new_world()
+	# Prepare the existing post-home story gates for this isolated visual fixture.
+	session.world.laps=1
+	session.world.contamination=int(preload("res://systems/story_contamination_gate.gd").MINIMUMS.values().max())
+	session.world.generate()
 	var grave: int=session.world.tiles.find("graveyard")
 	var village: int=session.world.tiles.find("village")
 	check(grave>=0 and village>=0,"real generated world contains child and commander story tiles")
@@ -95,7 +100,7 @@ func _run() -> void:
 		var beat: Dictionary=BEATS.beat(i)
 		var is_player: bool=str(beat.id)=="player_reply"
 		var animated: bool=beat.id in ["arrival","recognition","player_reply"]
-		var expected: Rect2=player_bounds if is_player else commander_bounds
+		var expected: Rect2=map.StoryBook.layer_bounds(str(beat.portrait),player_bounds if is_player else commander_bounds)
 		var expected_name: String="PlayerStoryPortrait" if is_player else "CommanderStoryPortrait"
 		check(COMMANDER.current_beat(session)==i,"visible commander beat %d is the actual saved progress" % i)
 		map.show_knight_commander_beat(village)
@@ -110,8 +115,8 @@ func _run() -> void:
 			check(art.get_meta("ui_custom_open_motion",false),"beat %d disables competing generic portrait motion only" % i)
 			check(art.size.distance_to(expected.size)<0.02 and art.pivot_offset.distance_to(Vector2(art.size.x/2.0,art.size.y))<0.02,"beat %d source footprint and foot pivot" % i)
 			if animated:
-				check(art.position.distance_to(expected.position+art.size*MOTION.START_OFFSET_FRACTION)<0.1,"beat %d enters from 7% left and 2% down" % i)
-				check(near(art.scale.x,0.96,0.01) and near(art.modulate.a,0.0,0.01),"beat %d animated entrance starts at 96% size and transparent" % i)
+				check(art.position.distance_to(expected.position+art.size*MOTION.START_OFFSET_FRACTION)<0.1,"beat %d enters from 7%% left and 2%% down" % i)
+				check(near(art.scale.x,0.96,0.01) and near(art.modulate.a,0.0,0.01),"beat %d animated entrance starts at 96%% size and transparent" % i)
 				await create_timer(0.64).timeout
 			else:
 				check(art.position.distance_to(expected.position)<0.1 and near(art.modulate.a,1,0.01),"beat %d never invents an entry animation" % i)
@@ -142,7 +147,7 @@ func _run() -> void:
 	check(COMMANDER.current_beat(session)==BEATS.count()-1,"reconnected game maintains same story choice point")
 	map.show_knight_commander_beat(village)
 	var final_portrait=portrait(map,false)
-	check(is_instance_valid(final_portrait) and final_portrait.flip_h and final_portrait.position.distance_to(commander_bounds.position)<0.2,"saved final beat restores static mirrored commander")
+	check(is_instance_valid(final_portrait) and final_portrait.flip_h and final_portrait.position.distance_to(map.StoryBook.layer_bounds(BEATS.COMMANDER,commander_bounds).position)<0.2,"saved final beat restores static mirrored commander")
 	check(session.get_story_event(COMMANDER.EVENT_ID).status=="seen","opening artwork alone does not finish story or activate quest")
 	map.close_overlay()
 	map.queue_free()
