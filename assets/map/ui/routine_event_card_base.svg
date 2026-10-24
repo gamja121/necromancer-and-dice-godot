@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="630" viewBox="0 0 450 630">
+<!-- Ordinary/routine incident card: original parchment style, NO reward preview or colored reward strip. -->
+<defs>
+  <linearGradient id="paper" x2="0" y2="1"><stop stop-color="#e8bf82"/><stop offset=".55" stop-color="#d9a968"/><stop offset="1" stop-color="#c69a5a"/></linearGradient>
+  <linearGradient id="body" x2="0" y2="1"><stop stop-color="#eed0a0"/><stop offset="1" stop-color="#dfb782"/></linearGradient>
+  <pattern id="grain" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="4" cy="9" r=".45" fill="#604427" opacity=".35"/><path d="M9 4l4 2M15 17l3-1M1 20l2-3" stroke="#816343" stroke-width=".6" opacity=".30"/></pattern>
+</defs>
+<rect x="5" y="5" width="440" height="620" rx="16" fill="#140f0a"/>
+<rect x="9" y="8" width="432" height="614" rx="15" fill="url(#paper)"/>
+<rect x="9" y="8" width="432" height="614" rx="15" fill="url(#grain)"/>
+<g fill="none" stroke="#332417" stroke-width="2.1">
+  <path d="M25 22H425V608H25Z"/><path d="M31 28H419V602H31"/>
+  <path d="M25 103H425 M25 380H425"/>
+  <path d="M39 38l17-14 M411 38l-17-14 M39 592l17 14 M411 592l-17 14"/>
+</g>
+<path d="M31 110H419V375H31Z" fill="#746955" stroke="#211912" stroke-width="2"/>
+<rect x="31" y="381" width="388" height="221" fill="url(#body)"/>
+<path d="M31 550H419" stroke="#6b4a2b" stroke-width="1.6" opacity=".62"/>
+<path d="M26 22h36M388 22h36M26 607h36M388 607h36" stroke="#291a10" stroke-width="3"/>
+<g fill="none" stroke="#332417" stroke-width="1.7">
+  <path d="M89 60h100l7-5 7 5 M361 60H261l-7-5-7 5"/>
+  <path d="M102 549h99l8-4 8 4 M348 549h-99l-8-4-8 4"/>
+  <path d="M225 14l17 22-17-7-17 7z M225 16v32 M217 25l8 8 8-8"/>
+</g>
+<g opacity=".25" fill="none" stroke="#64472d" stroke-width="1">
+  <path d="M25 198l9-35 M415 319l10-23 M35 398l13 24 M413 487l-15-9 M342 32l-9 14"/>
+  <path d="M20 184l13 7 M433 435l-21-8 M369 613l16-8"/>
+</g>
+</svg>
