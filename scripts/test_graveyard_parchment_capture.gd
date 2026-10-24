@@ -71,7 +71,11 @@ func _run() -> void:
 	check(text!=null and text.text=="카드를 찾았다","exact approved message shown on parchment after discovery")
 	var prize: TextureButton=panel.content.get_node_or_null("GraveyardFoundDiceCard")
 	check(prize!=null and prize.texture_normal!=null,"actual saved dice-control card artwork is visible")
-	check(prize!=null and not prize.get_child(0).visible,"no extra floating card caption over parchment")
+	var visible_caption: bool=false
+	if prize!=null:
+		for child in prize.get_children():
+			if child is Label and child.visible: visible_caption=true
+	check(prize!=null and not visible_caption,"no extra floating card caption over parchment")
 	check(panel.content.get_node_or_null("GraveyardDigConfirm")==null,"no second dig button behind awarded card")
 	check(session.world.dice_cards.size()==1 and session.place_visit_id("grave-extract",index) in session.world.reward_receipts,"real card acquisition and one-visit receipt persist")
 	await create_timer(0.35).timeout
