@@ -1,9 +1,8 @@
 extends SceneTree
-## Stage 5L: original fortune crystal from the frozen web, live dice roll,
-## persistent once-only outcome and user-accessible portrait after reload.
+## Fortune scene: no duplicate crystal/table overlay, real shared die,
+## persistent once-only outcome and user-accessible result after reload.
 const MapScene=preload("res://map.tscn")
 const SessionScript=preload("res://systems/run_session.gd")
-const CRYSTAL="res://assets/map/events/fortune-prophecy-ui.png"
 var passed: int=0
 var failed: int=0
 var save: String=""
@@ -27,18 +26,6 @@ func clear_save() -> void:
 func _run() -> void:
 	save="user://ui_fortune_stage5l_%d.json" % OS.get_process_id()
 	clear_save()
-	var tex: Texture2D=load(CRYSTAL)
-	check(tex!=null,"recovered original fortune crystal decodes at runtime")
-	if tex==null:
-		print("UI_FORTUNE_PROPHECY_PARITY: %d passed, %d failed" % [passed,failed])
-		quit(1)
-		return
-	check(tex.get_width()==96 and tex.get_height()==93,"frozen web crystal original aspect and dimensions")
-	var rgba: Image=tex.get_image()
-	check(rgba!=null and not rgba.is_empty(),"fortune crystal contains actual pixel data")
-	if rgba!=null and not rgba.is_empty():
-		var bounds: Rect2i=rgba.get_used_rect()
-		check(bounds.size.x>=90 and bounds.size.y>=88,"recovered original crystal has nontrivial alpha bounds")
 	var session=root.get_node_or_null("RunSession")
 	var owns: bool=session==null
 	if owns:
@@ -77,10 +64,10 @@ func _run() -> void:
 	var panel=map.overlay
 	check(is_instance_valid(panel),"live map opens actual fortune action panel")
 	check(panel.get_script().resource_path.ends_with("place_actions.gd"),"fortune panel uses original PlaceActions code")
-	check(panel.fortune_stone!=null and panel.fortune_aura!=null and panel.fortune_result!=null,"three source-specific fortune overlay nodes created")
-	check(panel.fortune_stone.texture==tex,"visible crystal node references decoded web crystal")
-	check(panel.fortune_stone.size==Vector2(210,204),"fortune crystal obeys original 210-pixel sizing")
-	check(not panel.fortune_stone.visible and not panel.fortune_result.visible,"crystal/result hidden before pressing once-only prophecy")
+	check(panel.fortune_result!=null and not panel.fortune_result.visible,"fortune result label exists but is hidden until prophecy")
+	check(panel.get_node_or_null("FortuneProphecyCrystal")==null and panel.get_node_or_null("FortuneCrystalAura")==null,"redundant crystal/table asset and purple halo are not spawned")
+	check(panel.fortune_result.position==Vector2(405,186) and panel.fortune_result.size==Vector2(470,164),"prophecy result uses centered text without the removed crystal area")
+	check(panel.get_node_or_null("LocationSceneImage")!=null,"original fortune-teller painting remains behind the simplified UI")
 	check(panel.confirm_button==null,"fortune has no separate action button")
 	check(panel.status.text.contains("예언을 받으려면 주사위를 누르세요."),"fortune shows a direct shared-die instruction")
 	var redundant_action: bool=false
@@ -94,16 +81,16 @@ func _run() -> void:
 	# This goes through Map.on_shared_die_pressed -> PlaceActions.roll_prophecy.
 	map.dice.pressed.emit()
 	await process_frame
-	check(panel.fortune_stone.visible and panel.fortune_aura.visible,"crystal and purple halo appear only after user confirms")
+	check(panel.get_node_or_null("FortuneProphecyCrystal")==null and panel.get_node_or_null("FortuneCrystalAura")==null,"prophecy roll never creates a floating crystal, table or purple halo")
 	check(map.dice.disabled and panel.close_button.disabled,"fortune locks repeated rolls and exit during animation")
-	check(panel.fortune_stone.mouse_filter==Control.MOUSE_FILTER_IGNORE and panel.fortune_aura.mouse_filter==Control.MOUSE_FILTER_IGNORE,"visual props never steal map input")
+	check(panel.fortune_result.mouse_filter==Control.MOUSE_FILTER_IGNORE,"outcome text does not steal shared die input")
 	var start=Time.get_ticks_msec()
 	while panel.busy and Time.get_ticks_msec()-start<11000:
 		await process_frame
 	check(not panel.busy and not panel.close_button.disabled,"actual roll animation finishes and restores close button")
 	check(int(world.last_prophecy.get("face",-1))==4,"live persisted prophecy uses real RNG result, not mocked UI result")
-	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"prophecy result appears in right-hand notice area")
-	check(panel.fortune_result.text.contains("누적:"),"right-side result displays cumulative effect")
+	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"prophecy result appears in unobstructed centered notice area")
+	check(panel.fortune_result.text.contains("누적:"),"centered result displays cumulative effect")
 	check(world.reward_receipts.size()==before_receipts+1 and world.prophecy.rolls.size()==before_rolls+1,"exactly one fortune receipt and stack added")
 	check(not session.fortune_prophecy(index).get("ok",true),"same visit cannot issue a second prophecy")
 	var serialized: Dictionary=world.snapshot().duplicate(true)
@@ -132,7 +119,7 @@ func _run() -> void:
 	panel=map.overlay
 	check(panel.confirm_button==null and map.dice.disabled,"loaded already-used fortune disables the single shared die without adding a button")
 	check(map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,"reopened fortune result still draws the same die above original artwork")
-	check(panel.fortune_stone.visible and panel.fortune_aura.visible,"reopened result restores crystal without rerolling")
+	check(panel.get_node_or_null("FortuneProphecyCrystal")==null and panel.get_node_or_null("FortuneCrystalAura")==null,"reopened result never recreates old crystal/table overlay")
 	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"reopened result displays same chosen face and effect")
 	check(panel.dice.texture_normal==map.texture("res://assets/battle/dice/result-04.png"),"result die texture restores from persisted face")
 	check(session.world.reward_receipts.size()==before_receipts+1,"reopen never duplicates fortune receipt")
