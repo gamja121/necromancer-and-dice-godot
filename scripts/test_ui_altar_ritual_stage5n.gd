@@ -71,7 +71,7 @@ func _run() -> void:
 	check(panel.confirm_button.position==Vector2(746,435) and panel.confirm_button.size==Vector2(125,43),"original ritual confirm docks on right side of info plaque")
 	check(panel.altar_level.text=="강화 대상 선택 전","source enhancement level starts without target")
 	check(panel.altar_scroll!=null and panel.altar_scroll.position==Vector2(192,532),"source hand spans 70% board, anchored below original panel")
-	check(panel.close_button.text=="닫기" and panel.close_button.position==Vector2(1114,29),"source parchment dismiss button remains usable")
+	check(panel.close_button.text=="← 돌아가기" and panel.close_button.position==Vector2(1114,29),"source parchment dismiss button remains usable")
 	await create_timer(0.97).timeout
 	check(panel.altar_slots.modulate.a>0.99 and panel.altar_info.modulate.a>0.99,"260ms panel entrance finishes without becoming invisible")
 	check(panel.hand.position.length()<0.1 and panel.hand.modulate.a>0.99,"680ms roster rise finishes and is clickable")
