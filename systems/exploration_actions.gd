@@ -171,6 +171,7 @@ func clear_content() -> void:
 ## Discoveries display the real dice-control card, not a new drawn placeholder.
 func render_graveyard() -> void:
 	clear_content()
+	action_button=null # No stale reference after the found card replaces the dig control.
 	var used: bool = session.place_visit_id("grave-extract",index) in session.world.reward_receipts
 	var pending: bool = str(session.world.pending_reward.get("kind",""))=="grave-dig"
 	var found: bool = not graveyard_result.is_empty()
