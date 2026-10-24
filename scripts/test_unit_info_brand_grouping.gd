@@ -19,8 +19,11 @@ func check(value: bool, name: String) -> void:
 
 func effect_rows(panel: Control) -> Array[String]:
 	var texts: Array[String]=[]
-	for child in panel.effects.get_children():
+	var queue: Array=panel.effects.get_children()
+	while not queue.is_empty():
+		var child: Node=queue.pop_front()
 		if child is Label: texts.append(child.text)
+		queue.append_array(child.get_children())
 	return texts
 
 func show_unit(unit: Dictionary, battle) -> Control:
@@ -94,7 +97,7 @@ func _run() -> void:
 	empty.brands=[]
 	var minimal: Control=show_unit(empty,battle)
 	await process_frame
-	check(effect_rows(minimal).count("낙인 없음")==1,"no-brand state retains existing fallback")
+	check(effect_rows(minimal).count("낙인 없음")==0,"no-mark messages no longer take space when other active effects exist")
 	minimal.queue_free()
 	await process_frame
 	print("UNIT_BRAND_STACK_AND_GROUP: %d passed, %d failed" % [passed,failed])
