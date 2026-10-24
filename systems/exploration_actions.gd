@@ -200,8 +200,8 @@ func render_graveyard() -> void:
 		reward_card.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		reward_card.z_index=4
 		# The card texture already contains its own label; no floating second caption.
-		var caption: Label=reward_card.get_child(0) as Label
-		caption.visible=false
+		for child in reward_card.get_children():
+			if child is Label: child.visible=false
 	else:
 		action_button=button(content,"시체 파헤치기",Vector2(504,313),Vector2(272,64),dig_graveyard)
 		action_button.name="GraveyardDigConfirm"
