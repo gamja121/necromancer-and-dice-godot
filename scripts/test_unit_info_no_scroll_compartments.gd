@@ -72,8 +72,8 @@ func create_battle(all: bool=false) -> Dictionary:
 	ally.passive="bone" if all else ""
 	ally.brands=[
 		{"type":"freeze","bless":[1,4],"curse":[2]},
-		{"type":"combo","bless":[3],"curse":[5]},
-		{"type":"guard","bless":[2,6],"curse":[4]}
+		{"type":"combo","bless":[3],"curse":[]},
+		{"type":"guard","bless":[2,6],"curse":[]}
 	]
 	rules.start([ally],[enemy])
 	if all:
@@ -95,6 +95,7 @@ func _run() -> void:
 	await verify_bounds(panel,"three different brands, no active legion/passive")
 	check(not node_exists(panel,"ActiveLegionEffects"),"inactive legion and even its heading are absent")
 	check(not node_exists(panel,"PassiveEffects"),"missing passive and its heading are absent")
+	check(shown_rows(panel.effects).count("저주")==1 and node_exists(panel,"Curse_freeze") and not node_exists(panel,"Curse_combo") and not node_exists(panel,"Curse_guard"),"real game displays one shared curse and retains its genuine penalty")
 	var left: Control=panel.get_node("UnitInfoPortraitPanel")
 	check(not left.get_children().any(func(n): return n is Label and n.text=="패시브 없음"),"empty passive label also vanishes from the left portrait panel")
 	check(node_exists(panel,"Brand_freeze") and node_exists(panel,"Brand_combo") and node_exists(panel,"Brand_guard"),"all three different brands have distinct aligned text rows")
