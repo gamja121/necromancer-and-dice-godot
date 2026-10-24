@@ -2,6 +2,7 @@ extends "res://systems/reward_ui.gd"
 signal closed
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const SHOP_COUNTER_PATH = "res://assets/map/ui/monster-shop-counter.png"
+const FORTUNE_STRIP_PATH = "res://assets/map/ui/fortune_parchment_strip.webp"
 const ALTAR_SLOTS_PATH = "res://assets/map/events/altar-ritual-slots.png"
 const ALTAR_INFO_PATH = "res://assets/map/events/altar-ritual-info.png"
 const ALTAR_SLOTS_RECT = Rect2(192.0,36.0,896.0,403.2)
@@ -28,7 +29,7 @@ var donor_hint: Label
 var receiver_hint: Label
 var dice: TextureButton
 var fortune_result: Label
-var fortune_notice_panel: Panel
+var fortune_notice_strip: TextureRect
 var unit_options: Dictionary = {}
 var offer_options: Array = []
 var shop_counter: TextureRect
@@ -350,36 +351,30 @@ func perform_ritual() -> void:
 # remain part of the ORIGINAL full-screen artwork, never spawned as new props.
 # All coordinates target the actual 1280x720 embedded location artwork.
 func setup_fortune_result() -> void:
-	fortune_notice_panel=Panel.new()
-	fortune_notice_panel.name="FortuneNoticePanel"
-	fortune_notice_panel.position=Vector2(345,467)
-	fortune_notice_panel.size=Vector2(590,73)
-	fortune_notice_panel.z_index=2
-	fortune_notice_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var paper := StyleBoxFlat.new()
-	paper.bg_color=Color(0.075,0.052,0.039,0.90)
-	paper.border_color=Color("b79759")
-	paper.set_border_width_all(2)
-	paper.set_corner_radius_all(5)
-	paper.shadow_color=Color(0,0,0,0.36)
-	paper.shadow_size=4
-	fortune_notice_panel.add_theme_stylebox_override("panel",paper)
-	add_child(fortune_notice_panel)
-	status.position=Vector2(368,477)
-	status.size=Vector2(544,29)
+	# Transparent hand-inked parchment artwork replaces the generic box.
+	# Keep its 4:1 aspect ratio, transparent edges and original UI depth.
+	fortune_notice_strip=art(self,FORTUNE_STRIP_PATH,Vector2(340,423),Vector2(600,150))
+	fortune_notice_strip.name="FortuneNoticeStrip"
+	fortune_notice_strip.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	fortune_notice_strip.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	fortune_notice_strip.z_index=2
+	# Keep both lines inside the parchment's central cream-colored area.
+	# Old location painting, original crystal and table remain untouched.
+	status.position=Vector2(394,465)
+	status.size=Vector2(492,30)
 	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	status.add_theme_font_size_override("font_size",21)
-	status.add_theme_color_override("font_color",Color("f1d392"))
+	status.add_theme_font_size_override("font_size",20)
+	status.add_theme_color_override("font_color",Color("48301d"))
 	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	status.z_index=3
-	fortune_result=label_at(self,"",Vector2(363,509),Vector2(554,23),14)
+	fortune_result=label_at(self,"",Vector2(393,500),Vector2(494,24),14)
 	fortune_result.name="FortuneProphecyOutcome"
 	fortune_result.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	fortune_result.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	fortune_result.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	fortune_result.add_theme_color_override("font_color",Color("d4c4ab"))
+	fortune_result.add_theme_color_override("font_color",Color("5b412d"))
 	fortune_result.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	fortune_result.z_index=3
 	fortune_result.visible=false
