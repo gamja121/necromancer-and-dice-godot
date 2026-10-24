@@ -95,3 +95,5 @@ jobs:
             git commit -m "chore(cards): remove 47 unused flat monster PNGs and 47 import files"
             git push origin HEAD:audit/legacy-monster-card-cleanup-20261024
           fi
+
+# Audited removal trigger: legacy refs and imported UIDs were confirmed unused.
