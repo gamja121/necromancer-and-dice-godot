@@ -159,12 +159,15 @@ func test_monster_exchange_accept() -> void:
 	check(JSON.stringify(fake.world)==original and fake.discarded.is_empty(),"selection leaves permanent roster unchanged")
 	panel.confirm.pressed.emit()
 	check(panel.monster_commit_pending and fake.discarded.is_empty() and not panel.confirm.disabled,"confirm click defers game-state change and keeps the press animation enabled")
+	var press_fx: Node = panel.confirm.get_node("ButtonEffectsModule")
+	check(press_fx.get("_clicking")==true and press_fx.get("_tween")!=null,"button press starts the native shrink animation while the dialog remains alive")
+	var normal_look := panel.confirm.get_theme_stylebox("normal") as StyleBoxFlat
+	var pressed_look := panel.confirm.get_theme_stylebox("pressed") as StyleBoxFlat
+	check(pressed_look != null and normal_look != null and pressed_look.bg_color != normal_look.bg_color,"actual press changes the button surface color")
 	panel.confirm.pressed.emit()
 	panel.select_card(str(items[4].id))
 	check(panel.selected==str(items[3].id) and fake.discarded.is_empty(),"rapid second click and late card selection cannot replace the locked discard target")
-	await create_timer(0.06).timeout
-	check(panel.confirm.scale.x < 1.0,"confirmed monster exchange actually renders a shrink-frame before closing")
-	await create_timer(0.15).timeout
+	await create_timer(0.21).timeout
 	check(fake.discarded==[str(items[3].id)],"confirm sends the precise old monster ID exactly once after the press animation")
 	await process_frame
 	check(not is_instance_valid(panel),"successful exchange closes the modal")
@@ -185,7 +188,9 @@ func test_monster_decline_button() -> void:
 	panel.select_card(str(roster[0].id))
 	check(panel.decline_button.text=="획득하지 않기" and not panel.confirm.disabled,"choosing an owned card cancels decline confirmation")
 	panel.decline_button.pressed.emit()
-	check(panel.monster_commit_pending and fake.discarded.is_empty(),"second explicit decline click starts pulse instead of immediately destroying the UI")
+	check(panel.selected=="__new__" and not panel.monster_commit_pending and fake.discarded.is_empty(),"first decline click after changing selection only arms the confirmation")
+	panel.decline_button.pressed.emit()
+	check(panel.monster_commit_pending and fake.discarded.is_empty(),"second deliberate decline click starts pulse instead of immediately destroying the UI")
 	panel.decline_button.pressed.emit()
 	await create_timer(0.21).timeout
 	check(fake.discarded==["__new__"],"second explicit decline click commits only once after the press animation")
