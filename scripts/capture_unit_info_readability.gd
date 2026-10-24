@@ -61,18 +61,21 @@ func _run() -> void:
 	await frame("02_same_bottom",same)
 	same.queue_free()
 	await process_frame
-	var mix=battle.find_id("info-preview")
+	var mixed_battle=Rules.new(definitions,457)
+	var mix=mixed_battle.individual("ice-lord","mixed-preview")
 	mix.brands=[
 		{"type":"freeze","bless":[1,4],"curse":[2]},
 		{"type":"combo","bless":[3],"curse":[5]},
 		{"type":"guard","bless":[2,6],"curse":[4]}
 	]
-	var other: Control=show_real_info(battle,"info-preview")
+	mixed_battle.start([mix],[foe])
+	var mixed_baseline: String=JSON.stringify(mixed_battle.snapshot())
+	var other: Control=show_real_info(mixed_battle,"mixed-preview")
 	await frame("03_mixed_top",other)
 	var mixed_scroll: ScrollContainer=other.get_node("UnitInfoEffectsPanel/EffectScroll")
 	mixed_scroll.scroll_vertical=10000
 	await frame("04_mixed_bottom",other)
-	verify(JSON.stringify(battle.snapshot())==baseline,"UI display changes never changed battle or saved state")
+	verify(JSON.stringify(battle.snapshot())==baseline and JSON.stringify(mixed_battle.snapshot())==mixed_baseline,"UI display changes never changed battle or saved state")
 	other.queue_free()
 	await process_frame
 	print("UNIT_INFO_REAL_CAPTURE: %d passed, %d failed" % [passed,failed])
