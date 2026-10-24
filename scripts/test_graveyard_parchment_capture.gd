@@ -51,9 +51,13 @@ func _run() -> void:
 	var map: Control=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
-	map.show_place_actions(index)
+	map.show_exploration_actions(index)
 	var panel: Control=map.overlay
-	check(is_instance_valid(panel) and panel.type=="graveyard","live cemetery exploration actions loaded")
+	if not is_instance_valid(panel) or panel.get_script().resource_path!="res://systems/exploration_actions.gd":
+		printerr("FAIL grave-parchment: real cemetery extraction panel did not open")
+		quit(1)
+		return
+	check(panel.type=="graveyard","live cemetery extraction actions loaded")
 	check(panel.get_node_or_null("LocationSceneImage")!=null,"original cemetery painting and shared frame remain")
 	check(panel.content.get_node_or_null("GraveyardDigFrame")==null,"old large rectangular box is removed")
 	var scroll: TextureRect=panel.content.get_node_or_null("GraveyardNoticeStrip")
