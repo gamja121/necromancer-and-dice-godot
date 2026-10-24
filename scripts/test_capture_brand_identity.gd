@@ -4,6 +4,8 @@ extends SceneTree
 const SessionScript=preload("res://systems/run_session.gd")
 const Battle=preload("res://systems/battlefield_rules.gd")
 const UnitInfo=preload("res://systems/unit_info.gd")
+const CaptureUI=preload("res://systems/corpse_capture.gd")
+const LayeredCard=preload("res://systems/layered_unit_card.gd")
 var passed:=0
 var failed:=0
 var save_path: String
@@ -120,6 +122,8 @@ func _run() -> void:
 			break
 	check(not corpse.is_empty(),"original defeated enemy appears in corpse list")
 	check(not corpse.get("unit",{}).is_empty(),"corpse persists the exact enemy source unit")
+	check(str(corpse.get("slug",""))==str(origin.slug) and str(corpse.get("name",""))==str(origin.name),"corpse listed for reward retains exact fought enemy name and species")
+	check(str(corpse.get("unit",{}).get("slug",""))==str(origin.slug) and str(corpse.get("unit",{}).get("name",""))==str(origin.name),"durable corpse source does not transform into a different monster")
 	check(normalized_brands(corpse.get("unit",{}))==normalized_brands(origin),"corpse brands exactly match actual fought enemy")
 	check(str(corpse.get("unit",{}).get("passive",""))==str(origin.get("passive","")),"original passive also preserved")
 	# Simulate reopening capture UI after game restart, before rolling.
@@ -158,6 +162,16 @@ func _run() -> void:
 	check(normalized_brands(item)==normalized_brands(origin),"captured reward has identical brand types/blessing/curse faces")
 	check(str(item.get("passive",""))==str(origin.get("passive","")),"captured reward retains enemy passive")
 	check(str(item.get("id",""))!=str(origin.id),"new owned card has a distinct ID")
+	check(str(item.get("slug",""))==str(origin.slug) and str(item.get("name",""))==str(origin.name),"soul-harvest reward has the exact enemy species and name, not a randomly rerolled monster")
+	var source_button:=TextureButton.new()
+	source_button.size=Vector2(96,120)
+	var chosen_art: TextureButton=CaptureUI.make_choice_card(source_button,corpse.get("unit",{}))
+	root.add_child(chosen_art)
+	check(str(chosen_art.get_meta("layered_slug",""))==str(origin.slug),"visible soul-harvest candidate uses the fought enemy's species")
+	var portrait: TextureRect=chosen_art.get_node_or_null("LayeredCardCharacter") as TextureRect
+	check(portrait!=null and portrait.texture!=null and portrait.texture.resource_path==str(LayeredCard.PORTRAITS.get(str(origin.slug),"")),"capture card portrait resolves to that species's registered card source")
+	chosen_art.queue_free()
+	source_button.queue_free()
 	check(int(item.get("current_hp",0))==int(item.get("max_hp",-1)),"captured card starts with full persistent HP")
 	# Crash/restart after success, before claiming the reward.
 	session.reload_world()
@@ -171,6 +185,7 @@ func _run() -> void:
 	var recruited: Dictionary=world.roster[-1]
 	check(normalized_brands(recruited)==normalized_brands(origin),"owned deck exactly reproduces the fought monster's dice faces")
 	check(str(recruited.get("passive",""))==str(origin.get("passive","")),"owned monster passive remains unchanged")
+	check(str(recruited.get("slug",""))==str(origin.slug) and str(recruited.get("name",""))==str(origin.name),"captured monster in roster retains the same fought species and name")
 	var recruited_battle=Battle.new(world.definitions,27)
 	var foe=Battle.new(world.definitions,29).individual("skeleton-archer","display-test-foe")
 	recruited_battle.start([recruited],[foe])
@@ -180,6 +195,7 @@ func _run() -> void:
 	session.reload_world()
 	world=session.world
 	check(normalized_brands(world.roster[-1])==normalized_brands(origin),"roster keeps original brands after another reload")
+	check(str(world.roster[-1].get("slug",""))==str(origin.slug) and str(world.roster[-1].get("name",""))==str(origin.name),"save/reload never changes the captured enemy's species or name")
 	check(world.reward_receipts.size()==receipt_count and world.pending_reward.is_empty(),"reward cannot be duplicated on reload")
 	session.save_file_path=previous_path
 	if created: session.queue_free()
