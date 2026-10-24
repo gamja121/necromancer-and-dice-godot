@@ -1,0 +1,45 @@
+name: Unit Info Three Marks and Grouped Effects
+on:
+  pull_request:
+    paths:
+      - "systems/unit_info.gd"
+      - "scripts/test_unit_info_brand_grouping.gd"
+      - ".github/workflows/unit-info-brand-grouping.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/unit_info.gd"
+      - "scripts/test_unit_info_brand_grouping.gd"
+      - ".github/workflows/unit-info-brand-grouping.yml"
+permissions:
+  contents: read
+jobs:
+  unit-info-brands:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import original assets and parse all Godot scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210s godot --headless --path . --editor --quit 2>&1 | tee parse.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' parse.log; then exit 1; fi
+      - name: Verify triple marks fit and same-effect faces group without changing battle
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_unit_info_brand_grouping.gd 2>&1 | tee grouped.log
+          grep -E '^UNIT_BRAND_STACK_AND_GROUP: [0-9]+ passed, 0 failed$' grouped.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL unit-brand-stack:' grouped.log; then exit 1; fi
+      - name: Existing genuine unit information and battle UI regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_ui_dice_fan_unit_info_parity.gd 2>&1 | tee existing.log
+          grep -E '^UI_DICE_FAN_UNIT_INFO_PARITY: [0-9]+ passed, 0 failed$' existing.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-dice-fan:' existing.log; then exit 1; fi
