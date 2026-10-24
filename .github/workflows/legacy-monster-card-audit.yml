@@ -114,3 +114,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(cards): remove 47 unused flat monster PNGs and 47 import files"
           git push origin HEAD:audit/legacy-monster-card-cleanup-20261024
+
+# Explicitly triggered only after the 94-file inventory and zero-active-reference audit passed.
