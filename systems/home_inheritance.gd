@@ -4,8 +4,10 @@ const PanelDepthMotion = preload("res://systems/panel_depth_motion.gd")
 const SacrificeEffect = preload("res://systems/inheritance_sacrifice_effect.gd")
 # Transparent, unlettered and undivided backdrop; all roster text and cards are live UI.
 const ROSTER_FRAME = "res://assets/map/ui/inheritance_roster_frame.webp"
-const ROSTER_COLUMNS = 5
+const ROSTER_COLUMNS = 10
 const ROSTER_CAPACITY = 10
+const ROSTER_SLOT_WIDTH = 98.0
+const ROSTER_CARD_GAP = 8.0
 signal closed
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 var session
@@ -185,40 +187,44 @@ func render_hand() -> void:
 	frame.texture=load(ROSTER_FRAME)
 	frame.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	frame.stretch_mode=TextureRect.STRETCH_SCALE
-	frame.position=Vector2(234,432)
-	frame.size=Vector2(1012,280)
+	# The top preview boards are symmetrical around x=640. Keep the
+	# lower frame and its contents centered on that same 1280px canvas.
+	frame.position=Vector2(90,439)
+	frame.size=Vector2(1100,271)
 	frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	hand.add_child(frame)
-	var unit_label=label_at(hand,"보유 마물 (%d/%d)" % [session.world.roster.size(),ROSTER_CAPACITY],Vector2(585,439),Vector2(311,30),18)
+	var unit_label=label_at(hand,"보유 마물 (%d/%d)" % [session.world.roster.size(),ROSTER_CAPACITY],Vector2(490,446),Vector2(300,30),18)
 	unit_label.name="InheritanceRosterCount"
 	unit_label.add_theme_color_override("font_color",Color("efcc91"))
-	# ScrollContainer is retained for existing test/API compatibility, but
-	# with a max 10-card roster there is no scrolling in either direction.
+	# Keep the old viewport API for existing callers; a full ten-card roster
+	# fits in one row. Smaller rosters are centered rather than left-aligned.
 	unit_hand_scroll=ScrollContainer.new()
 	unit_hand_scroll.name="InheritanceRosterViewport"
-	unit_hand_scroll.position=Vector2(300,477)
-	unit_hand_scroll.size=Vector2(890,222)
+	var card_count: int = mini(session.world.roster.size(),ROSTER_CAPACITY)
+	var row_width: float = float(card_count)*ROSTER_SLOT_WIDTH + float(maxi(0,card_count-1))*ROSTER_CARD_GAP
+	unit_hand_scroll.position=Vector2((size.x-row_width)*0.5,496)
+	unit_hand_scroll.size=Vector2(row_width,178)
 	unit_hand_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	unit_hand_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	hand.add_child(unit_hand_scroll)
 	var unit_grid=GridContainer.new()
 	unit_grid.name="InheritanceRosterGrid"
 	unit_grid.columns=ROSTER_COLUMNS
-	unit_grid.add_theme_constant_override("h_separation",13)
-	unit_grid.add_theme_constant_override("v_separation",6)
+	unit_grid.add_theme_constant_override("h_separation",int(ROSTER_CARD_GAP))
+	unit_grid.add_theme_constant_override("v_separation",0)
 	unit_hand_scroll.add_child(unit_grid)
 	if session.world.roster.is_empty():
-		label_at(hand,"보유한 마물이 없습니다",Vector2(540,571),Vector2(490,29),16)
+		label_at(hand,"보유한 마물이 없습니다",Vector2(390,570),Vector2(500,29),16)
 	for item in session.world.roster:
 		var box=Control.new()
-		box.custom_minimum_size=Vector2(165,108)
+		box.custom_minimum_size=Vector2(ROSTER_SLOT_WIDTH,172)
 		unit_grid.add_child(box)
 		var id=str(item.id)
-		var option=card(box,"unit",item,Vector2(40,1),Vector2(84,105),func(): select_unit(id))
+		var option=card(box,"unit",item,Vector2(2,10),Vector2(94,151),func(): select_unit(id))
 		option.name="InheritanceRosterCard_%d" % (unit_grid.get_child_count()-1)
 		CardDepthMotion.install(option)
 		# Layered cards draw their names on their own parchment ribbons.
-		# Never stack a second caption across the next row.
+		# No duplicate caption beneath the single compact card row.
 		option.get_child(0).hide()
 		unit_options[id]=option
 	render_selection()

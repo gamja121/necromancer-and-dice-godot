@@ -1,6 +1,6 @@
 extends SceneTree
 ## The approved undecorated-at-center framed panel hosts up to ten REAL
-## layered monster cards in a fixed five-column, two-row click grid.
+## layered monster cards in one compact, screen-centered ten-column click row.
 ## Run: godot --headless --path . --script res://scripts/test_home_inheritance_roster_grid.gd
 const Scene = preload("res://systems/home_inheritance.gd")
 const Session = preload("res://systems/run_session.gd")
@@ -46,6 +46,8 @@ func _run() -> void:
 	await create_timer(0.5).timeout
 	var frame := scene.hand.get_node_or_null("InheritanceRosterFrame") as TextureRect
 	check(frame!=null and frame.texture!=null,"real unlettered background renders behind selectable cards")
+	if frame!=null:
+		check(absf(frame.position.x+frame.size.x*0.5-scene.size.x*0.5)<0.5,"blank decorative frame is centered on the 1280px game screen")
 	if frame!=null and frame.texture!=null:
 		var img := frame.texture.get_image()
 		check(img!=null and not img.is_empty(),"WebP decodes through the Godot renderer")
@@ -56,11 +58,14 @@ func _run() -> void:
 	check(label!=null and label.text=="보유 마물 (10/10)","capacity caption is dynamic UI text, not burned into the artwork")
 	check(scene.unit_hand_scroll!=null and scene.unit_hand_scroll.horizontal_scroll_mode==ScrollContainer.SCROLL_MODE_DISABLED and scene.unit_hand_scroll.vertical_scroll_mode==ScrollContainer.SCROLL_MODE_DISABLED,"neither horizontal nor vertical scrolling is required at ten")
 	var grid := scene.unit_hand_scroll.get_node_or_null("InheritanceRosterGrid") as GridContainer
-	check(grid!=null and grid.columns==5 and grid.get_child_count()==10,"five-by-two roster always holds ten cards without slot borders")
+	check(grid!=null and grid.columns==10 and grid.get_child_count()==10,"single-row grid displays all ten cards without separators or slot borders")
+	check(absf(scene.unit_hand_scroll.position.x+scene.unit_hand_scroll.size.x*0.5-scene.size.x*0.5)<0.5,"ten-card selection viewport is precisely centered")
 	check(scene.unit_options.size()==10,"every distinct monster is individually selectable")
 	if grid!=null:
 		var first_row_y := -1.0
-		var second_row_y := -1.0
+		var first_left_x := -1.0
+		var last_right_x := -1.0
+		var single_row := true
 		var inside := true
 		var layers := true
 		for i in range(10):
@@ -72,12 +77,17 @@ func _run() -> void:
 				continue
 			layers=layers and option.has_node("LayeredCardBase") and option.has_node("LayeredCardCharacter") and option.get_child(0) is Label and not option.get_child(0).visible
 			var rect := option.get_global_rect()
-			inside=inside and rect.position.x>=238 and rect.end.x<=1240 and rect.position.y>=468 and rect.end.y<=710
-			if i==0: first_row_y=rect.position.y
-			if i==5: second_row_y=rect.position.y
-		check(inside,"all ten actual clickable card rectangles fit within the frame and 720p viewport")
+			inside=inside and rect.position.x>=90 and rect.end.x<=1190 and rect.position.y>=490 and rect.end.y<=688
+			if i==0:
+				first_row_y=rect.position.y
+				first_left_x=rect.position.x
+			if i==9: last_right_x=rect.end.x
+			if i>0: single_row=single_row and absf(rect.position.y-first_row_y)<0.5
+		check(inside,"all ten real clickable card rectangles fit inside the frame and 720p viewport")
 		check(layers,"every thumbnail uses the approved live layered card and no duplicated caption")
-		check(second_row_y>first_row_y+90,"sixth card starts the second row, not a horizontal scroller")
+		check(single_row,"all ten monster cards share exactly one horizontal row")
+		check(absf((first_left_x+last_right_x)*0.5-scene.size.x*0.5)<5.0,"first and last monster cards balance symmetrically around the screen center")
+		check(last_right_x-first_left_x<=1060.0,"all ten cards fit tightly in the fixed-width frame")
 	var donor_id := str(session.world.roster[0].id)
 	var recipient_id := str(session.world.roster[1].id)
 	(scene.unit_options[donor_id] as TextureButton).pressed.emit()
@@ -92,6 +102,7 @@ func _run() -> void:
 	var short_label := scene.hand.get_node_or_null("InheritanceRosterCount") as Label
 	var short_grid := scene.unit_hand_scroll.get_node_or_null("InheritanceRosterGrid") as GridContainer
 	check(short_label!=null and short_label.text=="보유 마물 (2/10)" and short_grid!=null and short_grid.get_child_count()==2,"remaining monsters and capacity count refresh after a consumed card")
+	check(absf(scene.unit_hand_scroll.position.x+scene.unit_hand_scroll.size.x*0.5-scene.size.x*0.5)<0.5,"two-card roster is still centered rather than pushed to the left")
 	scene.queue_free()
 	await process_frame
 	for extension in ["",".tmp"]:
