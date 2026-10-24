@@ -45,8 +45,7 @@ func save_frame(tag: String,panel: Control) -> void:
 	check(err==OK and FileAccess.get_file_as_bytes(out).size()>40000,"saved live Godot preview "+tag)
 
 func verify_bounds(panel: Control,case_name: String) -> void:
-	await process_frame
-	await process_frame
+	for i in range(8): await process_frame
 	var container: VBoxContainer=panel.effects
 	var right: Control=panel.get_node("UnitInfoEffectsPanel")
 	var expected_height: float=UnitInfo.EFFECT_CONTENT_HEIGHT
@@ -55,6 +54,7 @@ func verify_bounds(panel: Control,case_name: String) -> void:
 	check(not right.get_children().any(func(n): return n is ScrollContainer),case_name+" has no scroll element or scrollbar")
 	check(container.get_child_count()>0 and container.get_children().all(func(n): return n is PanelContainer),case_name+" every active effect is in its own bordered compartment")
 	check(actual_height<=expected_height+1.0,case_name+" all effects fit in the painted panel without scrolling or clipping")
+	check(container.size.x*container.scale.x<=UnitInfo.EFFECT_CONTENT_WIDTH+2.0,case_name+" effect columns use the parchment width without overflowing")
 	check(container.scale.x>=0.55,case_name+" content remains legible within an extreme full-effects case")
 	var original: NinePatchRect=right.get_node_or_null("OriginalEffectsParchment")
 	check(original!=null and original.texture.resource_path=="res://assets/battle/ui/legion-info-window-hd.png",case_name+" preserves original hand-painted parchment")
@@ -90,6 +90,8 @@ func _run() -> void:
 	await verify_bounds(panel,"three different brands, no active legion/passive")
 	check(not node_exists(panel,"ActiveLegionEffects"),"inactive legion and even its heading are absent")
 	check(not node_exists(panel,"PassiveEffects"),"missing passive and its heading are absent")
+	var left: Control=panel.get_node("UnitInfoPortraitPanel")
+	check(not left.get_children().any(func(n): return n is Label and n.text=="패시브 없음"),"empty passive label also vanishes from the left portrait panel")
 	check(node_exists(panel,"Brand_freeze") and node_exists(panel,"Brand_combo") and node_exists(panel,"Brand_guard"),"all three different brand types have their own bordered cells")
 	check(shown_rows(panel.effects).count("활성 군단 없음")==0,"old inactive-legion filler is removed")
 	check(shown_rows(panel.effects).count("군단 활성은 전투 시작 시 고정")==0,"unnecessary repeated fixed-activation notice removed")
