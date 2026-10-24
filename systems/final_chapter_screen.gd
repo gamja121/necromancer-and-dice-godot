@@ -1,4 +1,5 @@
 extends Control
+const Sound = preload("res://systems/game_audio.gd")
 ## The same approved book skin serves the actual final intro and saved ending.
 ## Durable acknowledgements, combat, rewards and title routing remain in map/RunSession.
 signal battle_requested
@@ -24,6 +25,7 @@ var narrative: Label
 var leaving := false
 var ending_reveal: Tween
 var _last_caption := ""
+var _skipping_intro := false
 
 func _ready() -> void:
 	name = "FinalChapter"
@@ -83,7 +85,7 @@ func show_intro() -> void:
 	action_button.disabled = true
 	skip_button = _action("연출 건너뛰기",Rect2(700,428,440,44),_skip_intro,18)
 	skip_button.name = "SkipFinalIntro"
-	_action("연출 다시보기",Rect2(700,554,210,44),_replay_intro,17)
+	_action("연출 다시보기",Rect2(700,554,210,44),_request_replay,17)
 	_action("돌아가기",Rect2(940,554,200,44),_request_return,17)
 	hint = book.copy("",Rect2(702,382,432,40),16,Book.RED_INK)
 	book.opened.connect(_replay_intro)
@@ -108,13 +110,22 @@ func _replay_intro() -> void:
 	skip_button.show()
 	skip_button.disabled = false
 	hint.text = ""
-	if not presentation.play_intro(): _intro_ready()
+	if not presentation.play_intro(false,_skipping_intro): _intro_ready()
 	skip_button.grab_focus()
+
+func _request_replay() -> void:
+	if leaving or book.opening: return
+	Sound.cue(self,"book_confirm")
+	_replay_intro()
 
 func _skip_intro() -> void:
 	if leaving: return
+	_skipping_intro = true
 	book.skip_opening()
-	if presentation.intro_active: presentation.advance(Dragon.INTRO_SECONDS+0.1)
+	Sound.stop(presentation)
+	if presentation.intro_active: presentation.advance(Dragon.INTRO_SECONDS+0.1,true)
+	_skipping_intro = false
+	Sound.cue(self,"book_confirm")
 	_sync_from_presentation()
 	_intro_ready()
 
@@ -125,10 +136,14 @@ func _intro_ready() -> void:
 
 func _request_battle() -> void:
 	if leaving or action_button.disabled or book.opening: return
+	Sound.stop(presentation)
+	Sound.cue(self,"book_confirm")
 	battle_requested.emit()
 
 func _request_return() -> void:
 	if leaving: return
+	Sound.stop(presentation)
+	Sound.cue(self,"book_confirm")
 	leaving = true
 	return_requested.emit()
 
@@ -195,10 +210,13 @@ func show_ending(result: Dictionary, instant: bool=false) -> void:
 			action_button.disabled = false
 			action_button.grab_focus()
 		else:
+			Sound.cue(self,"final_clear")
 			InkReveal.play(dragon,1.25)
 			seal.modulate.a = 0.0
 			ending_reveal = create_tween()
-			ending_reveal.tween_property(seal,"modulate:a",1.0,0.45).set_delay(0.85)
+			ending_reveal.tween_interval(0.85)
+			ending_reveal.tween_callback(func(): Sound.cue(self,"book_stamp"))
+			ending_reveal.tween_property(seal,"modulate:a",1.0,0.45)
 			ending_reveal.tween_callback(func():
 				action_button.disabled = false
 				action_button.grab_focus())
@@ -206,6 +224,7 @@ func show_ending(result: Dictionary, instant: bool=false) -> void:
 
 func _request_title() -> void:
 	if leaving or action_button.disabled or book.opening: return
+	Sound.cue(self,"book_confirm")
 	leaving = true
 	action_button.disabled = true
 	book.closed.connect(func(): title_requested.emit(),CONNECT_ONE_SHOT)
@@ -217,5 +236,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _exit_tree() -> void:
+	Sound.stop(self)
 	if ending_reveal != null and ending_reveal.is_valid(): ending_reveal.kill()
 	if is_instance_valid(presentation): presentation.stop()

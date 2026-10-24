@@ -1,4 +1,5 @@
 extends Control
+const Sound = preload("res://systems/game_audio.gd")
 const Overflow = preload("res://systems/reward_overflow.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
@@ -270,6 +271,7 @@ func complete_success() -> void:
 		scene.message.text = "획득 저장 실패 · 주사위를 눌러 다시 저장하세요"
 		return
 	if outcome.kept:
+		Sound.cue(scene,"capture_success")
 		if scene.uses_map_tile_dock() and is_instance_valid(scene.map_owner) and is_instance_valid(scene.map_owner.book_button):
 			# The battle cards and the actual chained monster book share the
 			# original map stage. Reuse the SAME curved flight, brand/badge

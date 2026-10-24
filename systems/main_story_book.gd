@@ -2,6 +2,7 @@ extends Control
 ## Production story shell. RunSession and the existing map callbacks own progress.
 signal opened
 signal closed
+const Sound = preload("res://systems/game_audio.gd")
 const Surface = preload("res://systems/story_book_surface.gd")
 const InkChoice = preload("res://systems/story_book_ink_choice.gd")
 const Typewriter = preload("res://systems/story_typewriter.gd")
@@ -78,8 +79,10 @@ func _start() -> void:
 	if _ready_emitted or closing or not is_inside_tree(): return
 	_prepare()
 	if instant:
+		Sound.cue(self,"book_page")
 		_finish_opening()
 		return
+	Sound.cue(self,"book_open")
 	_set_page_alpha(0.0)
 	_set_progress(0.0)
 	animation = create_tween()
@@ -131,6 +134,7 @@ func _finish_opening() -> void:
 
 func skip_opening() -> void:
 	if not opening: return
+	Sound.stop(self)
 	if animation != null and animation.is_valid(): animation.kill()
 	_prepare()
 	_finish_opening()
@@ -152,6 +156,8 @@ func _page_input(event: InputEvent) -> void:
 func close_book() -> void:
 	if closing: return
 	closing = true
+	Sound.stop(self)
+	Sound.cue(get_parent(),"book_close")
 	if animation != null and animation.is_valid(): animation.kill()
 	typewriter.clear()
 	for child in get_children():
@@ -213,6 +219,7 @@ func show_seal(value: String) -> void:
 	caption.reparent(seal,false)
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	opened.connect(func():
+		Sound.cue(self,"book_stamp")
 		seal.modulate.a = 0.0
 		create_tween().tween_property(seal,"modulate:a",1.0,0.36)
 	,CONNECT_ONE_SHOT)
@@ -282,6 +289,7 @@ func add_source_label(value: String, original: Rect2, points: int) -> Label:
 	return label
 
 func style_action(action: Button, bounds: Rect2, points: int=22) -> void:
+	action.set_meta("sfx_manual",true) # First input may only reveal dialogue.
 	if action.get_script()!=InkChoice: action.set_script(InkChoice)
 	action.position = bounds.position
 	action.size = bounds.size
@@ -327,4 +335,5 @@ func _has_speech() -> bool:
 	return false
 
 func _exit_tree() -> void:
+	Sound.stop(self)
 	if animation != null and animation.is_valid(): animation.kill()

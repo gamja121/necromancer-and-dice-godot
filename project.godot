@@ -8,6 +8,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 [autoload]
 RunSession="*res://systems/run_session.gd"
 UiTypography="*res://systems/ui_typography.gd"
+GameAudio="*res://systems/game_audio.gd"
 
 [display]
 window/size/mode.windows=3

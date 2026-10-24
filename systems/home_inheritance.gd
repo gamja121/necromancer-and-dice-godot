@@ -1,4 +1,5 @@
 extends "res://systems/reward_ui.gd"
+const Sound = preload("res://systems/game_audio.gd")
 const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 const PanelDepthMotion = preload("res://systems/panel_depth_motion.gd")
 const SacrificeEffect = preload("res://systems/inheritance_sacrifice_effect.gd")
@@ -362,6 +363,7 @@ func confirm() -> void:
 		render_selection()
 		return
 	completed = true
+	Sound.cue(self,"inheritance_complete")
 	inherited_brand = result.brand.duplicate(true)
 	notice = ""
 	# The screen stays locked and both original card nodes stay visible until
@@ -378,6 +380,7 @@ func confirm() -> void:
 	material_art.modulate = Color.WHITE
 	busy = false
 	render_selection()
+	Sound.cue(self,"book_stamp")
 	var flash = create_tween()
 	receiver_art.modulate = Color(1.3,1.15,0.85)
 	flash.tween_property(receiver_art,"modulate",Color.WHITE,0.28)

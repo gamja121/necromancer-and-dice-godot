@@ -1,0 +1,45 @@
+name: Game Sound Effects
+on:
+  pull_request:
+    paths:
+      - "systems/game_audio.gd"
+      - "assets/audio/**"
+      - "assets/battle/sfx/**"
+      - "project.godot"
+      - "scripts/test_game_audio.gd"
+      - ".github/workflows/game-sfx.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/game_audio.gd"
+      - "assets/audio/**"
+      - "assets/battle/sfx/**"
+      - "project.godot"
+      - "scripts/test_game_audio.gd"
+      - ".github/workflows/game-sfx.yml"
+permissions:
+  contents: read
+jobs:
+  sound-effects:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import sound bank and project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify controls, mute, voice limits, pause and scene cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60s godot --headless --path . --script res://scripts/test_game_audio.gd 2>&1 | tee audio.log
+          grep -E '^GAME_AUDIO: [0-9]+ passed, 0 failed$' audio.log
+          if grep -E 'SCRIPT ERROR|Parse Error|^FAIL|ERROR:|leaked at exit' audio.log; then exit 1; fi
+          git diff --check

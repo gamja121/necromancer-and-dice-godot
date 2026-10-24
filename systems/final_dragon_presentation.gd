@@ -1,4 +1,5 @@
 extends Control
+const Sound = preload("res://systems/game_audio.gd")
 ## Explicitly started, presentation-only final boss. Never reads/writes RunSession.
 signal intro_finished
 signal motion_finished(motion: String)
@@ -213,9 +214,11 @@ func _prime(motion: String) -> void:
 	for index in range(int(COUNTS[motion])):
 		_texture(motion, index)
 
-func play_intro(less_motion: bool = false) -> bool:
+func play_intro(less_motion: bool = false, silent_audio: bool = false) -> bool:
 	if not assets_ready:
 		return false
+	Sound.stop(self)
+	if not silent_audio: Sound.cue(self,"dragon_intro")
 	reduced_motion = less_motion
 	paused = false
 	intro_time = 0.0
@@ -232,6 +235,8 @@ func play_intro(less_motion: bool = false) -> bool:
 func play_motion(motion: String) -> bool:
 	if not assets_ready or not COUNTS.has(motion):
 		return false
+	Sound.stop(self)
+	if motion in ["attack","hit","death"]: Sound.cue(self,"dragon_"+motion)
 	intro_active = false
 	current_motion = motion
 	motion_time = 0.0
@@ -248,17 +253,22 @@ func set_playback_speed(value: float) -> void:
 
 func set_paused(value: bool) -> void:
 	paused = value
+	Sound.pause(self,value)
 	set_process(auto_advance and playing and not paused)
 
 func _process(delta: float) -> void:
 	advance(delta)
 
-func advance(delta: float) -> void:
+func advance(delta: float, silent_audio: bool = false) -> void:
 	if paused or not playing or not is_finite(delta) or delta <= 0.0:
 		return
 	var step := delta * playback_speed
 	if intro_active:
+		var previous_intro := intro_time
 		intro_time += step
+		if not silent_audio and not reduced_motion:
+			if previous_intro<3.1 and intro_time>=3.1: Sound.cue(self,"dragon_roar")
+			if previous_intro<3.65 and intro_time>=3.65: Sound.cue(self,"dragon_impact")
 		motion_time = fmod(motion_time + step, duration("idle"))
 		var end_time := 1.0 if reduced_motion else INTRO_SECONDS
 		if intro_time >= end_time:
@@ -365,6 +375,7 @@ func snapshot() -> Dictionary:
 	}
 
 func stop() -> void:
+	Sound.stop(self)
 	playing = false
 	intro_active = false
 	set_process(false)

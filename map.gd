@@ -895,9 +895,9 @@ func roll_move(instance_id: String = "") -> void:
 		await animate_hero_step(index)
 		highlight(index)
 		previous = index
-	await resume_map_move()
+	await resume_map_move(true)
 
-func resume_map_move() -> void:
+func resume_map_move(play_arrival_sound: bool = false) -> void:
 	if world.pending_move.is_empty(): return
 	moving = true
 	dice.disabled = true
@@ -914,6 +914,7 @@ func resume_map_move() -> void:
 		await presentation.warp(hero,hero_position(world.position))
 		highlight(world.position)
 	elif world.tiles[landed]=="swamp":
+		if play_arrival_sound: sound("swamp_hit")
 		status.text = "오염된 늪지대 · 보유 마물 HP -1 · HP 1 보호"
 		await presentation.swamp_hit()
 	if not session.complete_map_move():
@@ -982,6 +983,9 @@ func close_overlay() -> void:
 func dismiss_overlay(after: Callable = Callable()) -> void:
 	var panel = overlay
 	if not is_instance_valid(panel): return
+	if panel is StoryBook:
+		preload("res://systems/game_audio.gd").stop(panel)
+		sound("book_close")
 	if panel.has_method("close_cards"):
 		if panel.closing: return
 		await panel.close_cards()
@@ -1074,6 +1078,7 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 			status.text = str(outcome.get("reason","사건 저장 실패 · 다시 시도하세요"))
 			return
 		if str(outcome.get("type",""))=="discovery":
+			sound("reward_gain")
 			show_discovery_card(str(outcome.location))
 		else:
 			show_routine_card()
@@ -1160,6 +1165,9 @@ func show_routine_card() -> void:
 		if bool(outcome.get("overflow",false)):
 			show_routine_overflow()
 		else:
+			if choice=="take":
+				var result_cue: String={"dice":"reward_gain","heal":"recovery","cleanse":"cleanse"}.get(str(entry.get("effect","")),"reward_gain")
+				sound(result_cue)
 			status.text = str(outcome.get("message","루틴 사건 완료")))
 
 func show_routine_overflow() -> void:
@@ -1171,6 +1179,7 @@ func show_routine_overflow() -> void:
 	popup.resolved.connect(func(outcome: Dictionary):
 		close_overlay()
 		render()
+		if bool(outcome.get("ok",false)) and bool(outcome.get("kept",false)): sound("reward_gain")
 		status.text = "주사위 제어 카드 획득" if bool(outcome.get("kept",false)) else "새 카드 획득을 포기했습니다.")
 	popup.setup(session)
 
@@ -1562,18 +1571,11 @@ func finish_embedded_battle() -> void:
 
 
 func sound(kind: String) -> void:
-	if DisplayServer.get_name()=="headless": return
-	var player = AudioStreamPlayer.new()
-	player.bus = "SFX"
-	var extension = "mp3" if kind in ["treasure-chest-open","book-cards-open"] else "ogg"
-	player.stream = load("res://assets/battle/sfx/%s.%s" % [kind,extension])
-	player.volume_db = -12
-	add_child(player)
-	player.finished.connect(player.queue_free)
-	player.play()
+	preload("res://systems/game_audio.gd").cue(self,kind)
 
 
 func _exit_tree() -> void:
+	preload("res://systems/game_audio.gd").stop(self)
 	for child in get_children():
 		if child is AudioStreamPlayer:
 			child.stop()
@@ -1665,7 +1667,9 @@ func show_home(interior: bool = false) -> void:
 			close_overlay()
 			status.text = "귀환 · 모든 마물 체력 완전 회복"
 			show_home(true)
-			if injured: await presentation.full_heal())
+			if injured:
+				sound("recovery")
+				await presentation.full_heal())
 	else:
 		var allowed: Dictionary = session.home_action_allowed()
 		var action = location_button(panel,"낙인 계승",TILE_EVENT_INHERITANCE_RECT.position,TILE_EVENT_INHERITANCE_RECT.size,show_home_inheritance,3)
@@ -1757,7 +1761,7 @@ func move_from_hill(index: int, steps: int) -> void:
 		await animate_hero_step(tile_index)
 		highlight(tile_index)
 		previous=tile_index
-	await resume_map_move()
+	await resume_map_move(true)
 
 func location_button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, variant: int = 1) -> Button:
 	var action: Callable = callback
@@ -1765,6 +1769,7 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 		# First press finishes the visible line, never commits a choice/beat.
 		action = func() -> void:
 			if _reveal_story_text(parent): return
+			if parent is StoryBook: sound("book_confirm")
 			callback.call()
 	var node = button(parent,title,pos,dimensions,action)
 	# Location actions must draw over both the source painting and its frame.
@@ -2580,6 +2585,7 @@ func show_location(index: int) -> void:
 			status.text = result.reason
 			if not result.ok: return
 			exit.disabled = true
+			sound("recovery")
 			await presentation.full_heal()
 			close_overlay()
 			show_location(index))

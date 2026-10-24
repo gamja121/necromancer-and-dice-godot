@@ -155,14 +155,21 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	LayeredUnitCard.install(button, str(unit.slug), str(unit.name), selected_ids.has(unit.id), unit.get("brands", []))
 	CardDepthMotion.install(button, selected_ids.has(unit.id))
 	AltarUpgradeBadge.sync(button,unit)
+	button.set_meta("sfx_manual",true)
 	button.pressed.connect(func(): toggle_unit(unit.id))
 	return button
 
 func toggle_unit(id: String) -> void:
 	if departing: return
-	click_audio.play()
-	if selected_ids.has(id): selected_ids.erase(id)
-	elif selected_ids.size()<4: selected_ids.append(id)
+	var Sound = preload("res://systems/game_audio.gd")
+	if selected_ids.has(id):
+		Sound.cue(self,"ui_cancel")
+		selected_ids.erase(id)
+	elif selected_ids.size()<4:
+		Sound.cue(self,"ui_select")
+		selected_ids.append(id)
+	else:
+		Sound.cue(self,"ui_blocked")
 	render_selection()
 
 func render_selection() -> void:

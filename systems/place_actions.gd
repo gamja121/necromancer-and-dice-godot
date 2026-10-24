@@ -1,4 +1,5 @@
 extends "res://systems/reward_ui.gd"
+const Sound = preload("res://systems/game_audio.gd")
 signal closed
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const SHOP_COUNTER_PATH = "res://assets/map/ui/monster-shop-counter.png"
@@ -327,6 +328,7 @@ func confirm_shop_trade() -> void:
 	var result=session.shop_trade(index,donor_id,chosen)
 	busy=false
 	if result.ok:
+		Sound.cue(map,"shop_trade")
 		donor_id=""; offers=[]; chosen=-1
 		render_offers()
 		build_hand()
@@ -341,6 +343,7 @@ func perform_ritual() -> void:
 	var result=session.altar_ritual(index,donor_id,receiver_id)
 	busy=false
 	if result.ok:
+		Sound.cue(map,"ritual_complete")
 		completed=true
 		donor_id=""
 		build_hand()
@@ -396,6 +399,7 @@ func roll_prophecy() -> void:
 	status.text="예언의 주사위를 굴리는 중…"
 	fortune_result.text="이번 방문의 예언을 확인하고 있습니다"
 	await map.roll_shared_die(int(result.face))
+	Sound.cue(map,"prophecy_curse" if int(result.face)==1 else ("recovery" if int(result.face)==2 else "prophecy_bless"))
 	status.text=str(session.world.last_prophecy.get("detail",result.reason))
 	show_fortune_result()
 	if int(result.face)==2: await map.presentation.full_heal()

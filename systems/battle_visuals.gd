@@ -382,7 +382,9 @@ func play_action(action: Dictionary) -> void:
 		await scene.wait_presentation(0.24,0.16)
 	else:
 		show_reports(action.visual_hits)
-		if action.miss and not action.target.is_empty(): show_label(action.target,"miss")
+		if action.miss and not action.target.is_empty():
+			scene.sound("battle_miss")
+			show_label(action.target,"miss")
 		await scene.wait_presentation(0.2)
 	set_focus()
 	for bar in scene.bars.values(): bar.clear_preview()
@@ -401,7 +403,7 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 	var motion_profile: Dictionary = scene.presentation_layout.metrics.get(actor.slug,{})
 	var impact_frame = clampi(int(motion_profile.get("impact_frame",ceil(frames.size()/2.0)))-1,0,frames.size()-1)
 	var speed: float = scene.speed_values[scene.speed_index]
-	scene.sound(attack_kind(actor))
+	scene.sound("dragon_attack" if actor.slug=="dragon" else attack_kind(actor))
 	scene.cues.show_attack(actor.name)
 	for i in range(frames.size()):
 		var tex = scene.texture(scene.frame_path(actor,"attack",int(frames[i])))
@@ -413,7 +415,9 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 				if report.amount>0:
 					play_hit(target_id,original.hit_kind(actor.slug))
 					play_species_accent(actor_id,target_id)
-					scene.sound("heavy" if attack_kind(actor)=="heavy" else "hit")
+					var hit_cue: String = "battle_critical" if bool(report.get("critical",false)) else ("dragon_impact" if actor.slug=="dragon" else ("heavy" if attack_kind(actor)=="heavy" else "hit"))
+					if str(states[target_id].slug)=="dragon": hit_cue="dragon_hit"
+					scene.sound(hit_cue)
 					flashes[target_id] = clock+0.26*speed
 					var target_profile: Dictionary = scene.presentation_layout.metrics.get(states[target_id].slug,{})
 					hit_motions[target_id] = {"started":idle_clock,"frames":scene.motion_frames(states[target_id],"hit"),"interval":maxf(0.045,float(target_profile.get("hit_interval",0.135))/speed)}
@@ -426,7 +430,9 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 					presentation_hold = true
 					await scene.wait_presentation(0.054 if strong else 0.022)
 					presentation_hold = false
-			else: show_label(target_id,"miss")
+			else:
+				scene.sound("battle_miss")
+				show_label(target_id,"miss")
 		var delay = maxf(0.13,0.19/speed) if i==impact_frame else maxf(0.045,(0.16 if i==0 else 0.09)/speed)
 		var custom_delays: Array = motion_profile.get("attack_delays",[])
 		if i<custom_delays.size(): delay = maxf(0.045,float(custom_delays[i])/speed)
@@ -475,6 +481,7 @@ func show_label(id: String, kind: String, delay: float = 0.0) -> void:
 
 func show_reports(reports: Array) -> void:
 	var count: Dictionary = {}
+	var healing_sound_played := false
 	for report in reports:
 		var id: String = report.target
 		if not scene.sprites.has(id): continue
@@ -482,6 +489,7 @@ func show_reports(reports: Array) -> void:
 		count[id] = offset+1
 		var delay = offset*0.09
 		if report.type=="damage" and report.get("blocked",false):
+			scene.sound("battle_block")
 			show_label(id,"immune",delay)
 		if report.amount<=0: continue
 		var healing = report.type=="heal"
@@ -491,7 +499,11 @@ func show_reports(reports: Array) -> void:
 		art_items[-1]["pop"] = true
 		if healing or scene.bars[id].preview_damage <= 0:
 			scene.bars[id].value = report.hp
-		if healing: heal_crosses(id,report.amount)
+		if healing:
+			if not healing_sound_played:
+				scene.sound("battle_heal")
+				healing_sound_played = true
+			heal_crosses(id,report.amount)
 		elif report.get("critical",false): show_label(id,"critical",delay)
 
 func heal_crosses(id: String, amount: int) -> void:

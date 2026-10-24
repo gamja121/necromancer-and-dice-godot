@@ -119,6 +119,7 @@ func clear_map_tile_cards() -> void:
 			card.queue_free()
 
 func stop_audio() -> void:
+	preload("res://systems/game_audio.gd").stop(self)
 	for child in get_children():
 		if child is AudioStreamPlayer:
 			child.stop()
@@ -222,6 +223,7 @@ func button(parent: Control, value: String, pos: Vector2, dimensions: Vector2, c
 	return node
 
 func reset_battle() -> void:
+	preload("res://systems/game_audio.gd").stop(self)
 	close_brand_reference()
 	busy = false
 	paused = false
@@ -639,14 +641,8 @@ func animate_unit(id: String, motion: String) -> void:
 		step += 1
 
 func sound(kind: String) -> void:
-	if DisplayServer.get_name() == "headless": return
-	var player = AudioStreamPlayer.new()
-	player.bus = "SFX"
-	player.stream = load("res://assets/battle/sfx/permanent_death.wav" if kind=="permanent-death" else "res://assets/battle/sfx/%s.ogg" % kind)
-	player.volume_db = -12
-	add_child(player)
-	player.finished.connect(player.queue_free)
-	player.play()
+	preload("res://systems/game_audio.gd").cue(self,kind)
+
 
 func roll_round(instance_id: String = "") -> void:
 	# Scripted resume/tests can request a round while the intro is still
@@ -670,6 +666,7 @@ func roll_round(instance_id: String = "") -> void:
 	set_deck_disabled(true)
 	pause_button.disabled = false
 	var result: Dictionary = {}
+	var shared_landing_played := false
 	if phase=="ready":
 		if map_mode:
 			result = session.prepare_battle_roll(rules,instance_id)
@@ -681,6 +678,7 @@ func roll_round(instance_id: String = "") -> void:
 		if embedded and is_instance_valid(map_owner):
 			# Bounce freely over the real board/battle without snapping to center.
 			await map_owner.roll_shared_die(int(result.face),true)
+			shared_landing_played = true
 		else:
 			await dice_animation.roll_battle(dice,texture,sound,wait_time)
 		phase = "rolled"
@@ -692,7 +690,7 @@ func roll_round(instance_id: String = "") -> void:
 		if map_mode and not session.checkpoint_battle(rules,"actions"):
 			storage_failed("턴 시작 저장 실패 · 주사위를 눌러 재개하세요")
 			return
-		sound("dice-land")
+		if not shared_landing_played: sound("dice-land")
 		dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % rules.face)
 		round_label.text = "%d턴 · 주사위 %d" % [rules.round_number,rules.face]
 		render_units(rules.units)
@@ -823,6 +821,7 @@ func return_to_map() -> void:
 
 func toggle_pause() -> void:
 	paused = not paused
+	preload("res://systems/game_audio.gd").pause(self,paused)
 	pause_button.text = "계속" if paused else "일시정지"
 
 func cycle_speed() -> void:

@@ -1,4 +1,5 @@
 extends "res://systems/reward_ui.gd"
+const Sound = preload("res://systems/game_audio.gd")
 signal closed
 signal leave_to_map
 signal hill_route_chosen(steps: int)
@@ -228,6 +229,7 @@ func dig_graveyard() -> void:
 		graveyard_message = str(result.get("reason","발굴을 진행할 수 없습니다."))
 		render_graveyard()
 		return
+	Sound.cue(map,"grave_dig")
 	graveyard_result = result.item.duplicate(true)
 	graveyard_message = "카드를 찾았다"
 	render_graveyard()
@@ -242,6 +244,7 @@ func show_graveyard_overflow() -> void:
 	graveyard_overflow = popup
 	add_child(popup)
 	popup.resolved.connect(func(outcome: Dictionary):
+		if outcome.get("ok",false) and outcome.get("kept",false): Sound.cue(map,"reward_gain")
 		graveyard_result = graveyard_result if outcome.get("kept",false) else {}
 		graveyard_message = "카드를 찾았다" if outcome.get("kept",false) else "새 카드를 포기했습니다."
 		render_graveyard()
@@ -480,6 +483,7 @@ func pray() -> void:
 	close_button.disabled=true
 	status.text="세계수에 정화 기도 중…"
 	await map.roll_shared_die(int(result.face))
+	Sound.cue(map,"prayer_fail" if int(session.world.prayer_result.delta)>0 else "prayer_bless")
 	status.text=result.reason
 	map.presentation.refresh()
 	if bool(result.get("boss_appeared",false)) and map.buttons.size() > MapState.BOSS_TILE_INDEX:

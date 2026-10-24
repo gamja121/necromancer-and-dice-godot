@@ -1,4 +1,5 @@
 extends "res://systems/reward_ui.gd"
+const Sound = preload("res://systems/game_audio.gd")
 signal finished
 signal mimic_revealed(index: int)
 const Overflow = preload("res://systems/reward_overflow.gd")
@@ -210,6 +211,7 @@ func receive(index: int) -> void:
 		refresh()
 		return
 	if outcome.kept:
+		Sound.cue(map,"reward_gain")
 		show_confirmed_choice(index)
 		status.text = options[index].tooltip_text+" 획득"
 		await map.animate_reward_to_inventory(kind,options[index])
