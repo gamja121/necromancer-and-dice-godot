@@ -28,6 +28,7 @@ var donor_hint: Label
 var receiver_hint: Label
 var dice: TextureButton
 var fortune_result: Label
+var fortune_notice_panel: Panel
 var unit_options: Dictionary = {}
 var offer_options: Array = []
 var shop_counter: TextureRect
@@ -63,9 +64,11 @@ func setup(map_scene, tile_index: int) -> void:
 		dice=map.dice
 		# The persistent map die is the only prophecy action: no duplicate button.
 		var used=session.place_visit_id("prophecy",index) in session.world.reward_receipts
-		status.text="예언을 받으려면 주사위를 누르세요.\n방문당 1회 · 다음 전투에 적용"
+		status.text="예언 듣기"
+		fortune_result.text="주사위를 눌러 예언을 확인하세요 · 방문당 1회"
+		fortune_result.visible=true
 		if used and session.world.last_prophecy.get("visit","")==session.place_visit_id("prophecy",index):
-			status.text=session.world.last_prophecy.detail+"\n누적: "+session.prophecy_label()
+			status.text=str(session.world.last_prophecy.get("detail",""))
 			show_fortune_result()
 		map.refresh_shared_die_input()
 		return
@@ -343,22 +346,50 @@ func perform_ritual() -> void:
 		refresh()
 	status.text=result.reason
 
-# Only the prophecy text is drawn over the existing fortune-teller location
-# painting. Do not draw the old extra crystal-and-table PNG or its violet halo.
+# One restrained two-line reading panel; the painted tent, table and crystal
+# remain part of the ORIGINAL full-screen artwork, never spawned as new props.
+# All coordinates target the actual 1280x720 embedded location artwork.
 func setup_fortune_result() -> void:
-	fortune_result=label_at(self,"",Vector2(405,186),Vector2(470,164),19)
+	fortune_notice_panel=Panel.new()
+	fortune_notice_panel.name="FortuneNoticePanel"
+	fortune_notice_panel.position=Vector2(345,467)
+	fortune_notice_panel.size=Vector2(590,73)
+	fortune_notice_panel.z_index=2
+	fortune_notice_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var paper := StyleBoxFlat.new()
+	paper.bg_color=Color(0.075,0.052,0.039,0.90)
+	paper.border_color=Color("b79759")
+	paper.set_border_width_all(2)
+	paper.set_corner_radius_all(5)
+	paper.shadow_color=Color(0,0,0,0.36)
+	paper.shadow_size=4
+	fortune_notice_panel.add_theme_stylebox_override("panel",paper)
+	add_child(fortune_notice_panel)
+	status.position=Vector2(368,477)
+	status.size=Vector2(544,29)
+	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_size_override("font_size",21)
+	status.add_theme_color_override("font_color",Color("f1d392"))
+	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	status.z_index=3
+	fortune_result=label_at(self,"",Vector2(363,509),Vector2(554,23),14)
 	fortune_result.name="FortuneProphecyOutcome"
 	fortune_result.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	fortune_result.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	fortune_result.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	fortune_result.add_theme_color_override("font_color",Color("ead7fc"))
+	fortune_result.add_theme_color_override("font_color",Color("d4c4ab"))
+	fortune_result.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	fortune_result.z_index=3
 	fortune_result.visible=false
 
 func show_fortune_result() -> void:
 	if not is_instance_valid(fortune_result): return
 	var value: Dictionary=session.world.last_prophecy
 	if value.is_empty(): return
-	fortune_result.text=str(value.get("detail",""))+"\n누적: "+session.prophecy_label()
+	# The primary result is status above; show the stack only once below.
+	fortune_result.text="누적 효과: "+session.prophecy_label()
 	fortune_result.visible=true
 
 func roll_prophecy() -> void:
@@ -368,8 +399,9 @@ func roll_prophecy() -> void:
 	busy=true
 	close_button.disabled=true
 	status.text="예언의 주사위를 굴리는 중…"
+	fortune_result.text="이번 방문의 예언을 확인하고 있습니다"
 	await map.roll_shared_die(int(result.face))
-	status.text=result.reason
+	status.text=str(session.world.last_prophecy.get("detail",result.reason))
 	show_fortune_result()
 	if int(result.face)==2: await map.presentation.full_heal()
 	close_button.disabled=false
