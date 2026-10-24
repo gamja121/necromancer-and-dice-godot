@@ -4,7 +4,7 @@
 
 - Six existing layered portraits were replaced and seven additional portraits added.
 - All 13 approved WebPs are present at the exact resource paths below. There are 26 registered layered card monster slugs in `systems/layered_unit_card.gd`.
-- Never overwrite flattened `assets/cards/unit-card-*.png`, cards frame, combat rules, original sprites/animations.
+- 2026-10-20 당시 지침은 구형 평면 PNG를 보존하라는 것이었다. 2026-10-24 신형 카드 전면 교체에 따라 이 지침은 폐기됐다. 승인된 레이어 WebP 원화·원본 스프라이트·전투 애니메이션과 게임 규칙은 계속 보호한다.
 - GitHub Actions runs Godot headless editor import and `scripts/test_layered_unit_cards.gd` before merging; inspect final checks and do not claim real PC visual sign-off unless actually performed.
 - A backup of all 13 originals is also stored in the user's Google Drive project folder `네크로멘서 앤드 다이스/카드원화_13종_20261020`.
 - Original image upload commit: `c32a0c251e408cc0f2a07ed26d96090b3a34878b`.
