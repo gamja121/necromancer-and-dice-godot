@@ -23,6 +23,7 @@ func _gui_input(event: InputEvent) -> void:
 const DEFAULT_ART = "res://assets/map/events/forest.jpg"
 const CUSTOM_ART = "res://" + "assets/map/events/" + "discovery_hill.png" # Optional HD art: fallback until installed
 const BASE_SVG = "res://assets/map/ui/event_discovery_card_base.svg"
+const ROUTINE_BASE_SVG = "res://assets/map/ui/routine_event_card_base.svg"
 const CUSTOM_BASE = "res://" + "assets/map/ui/" + "discovery_card_base.png" # Optional approved template
 const TILE_ART = "res://assets/map/tiles/forest.png"
 
@@ -54,14 +55,15 @@ func _picture(path: String, pos: Vector2, dimensions: Vector2, mode: TextureRect
 	return picture
 
 func setup(category: String, heading: String, description: String, reward: String,
-		illustration: String = CUSTOM_ART, tile_image: String = TILE_ART) -> void:
+		illustration: String = CUSTOM_ART, tile_image: String = TILE_ART,
+		show_reward: bool = true) -> void:
 	name = "EventDiscoveryCard"
 	dismissed = false
 	position = Vector2(414, 36)
 	size = Vector2(452, 630)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	var template = CUSTOM_BASE if ResourceLoader.exists(CUSTOM_BASE) else BASE_SVG
-	_picture(template, Vector2.ZERO, size, TextureRect.STRETCH_SCALE)
+	var template = ROUTINE_BASE_SVG if not show_reward else (CUSTOM_BASE if ResourceLoader.exists(CUSTOM_BASE) else BASE_SVG)
+	_picture(template, Vector2.ZERO, size, TextureRect.STRETCH_SCALE).name = "EventDiscoveryCardBackground"
 	var art = illustration if ResourceLoader.exists(illustration) else DEFAULT_ART
 	var visual = _picture(art, Vector2(34, 113), Vector2(384, 259), TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 	visual.name = "EventDiscoveryIllustration"
@@ -78,9 +80,11 @@ func setup(category: String, heading: String, description: String, reward: Strin
 	add_child(outline)
 	_label(category, Vector2(104, 44), Vector2(246, 42), 22, true).name = "EventDiscoveryCategory"
 	_label(heading, Vector2(50, 400), Vector2(352, 40), 25, true).name = "EventDiscoveryTitle"
-	_label(description, Vector2(54, 459), Vector2(344, 47), 17, true).name = "EventDiscoveryDescription"
-	_picture(tile_image, Vector2(47, 524), Vector2(58, 58), TextureRect.STRETCH_KEEP_ASPECT_CENTERED).name = "EventDiscoveryTile"
-	_label(reward, Vector2(135, 529), Vector2(264, 50), 20).name = "EventDiscoveryReward"
+	var description_size := Vector2(344, 47) if show_reward else Vector2(344, 88)
+	_label(description, Vector2(54, 459), description_size, 17, true).name = "EventDiscoveryDescription"
+	if show_reward:
+		_picture(tile_image, Vector2(47, 524), Vector2(58, 58), TextureRect.STRETCH_KEEP_ASPECT_CENTERED).name = "EventDiscoveryTile"
+		_label(reward, Vector2(135, 529), Vector2(264, 50), 20).name = "EventDiscoveryReward"
 	# There is deliberately NO confirmation button. The entire parchment
 	# is one tap/click-to-close surface, including touch on the artwork/text.
 	_label("화면을 누르면 닫힙니다", Vector2(109, 579), Vector2(242, 30), 14, true).name = "EventDiscoveryDismissHint"

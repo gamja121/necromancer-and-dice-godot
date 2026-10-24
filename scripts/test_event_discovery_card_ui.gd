@@ -26,6 +26,7 @@ func _run() -> void:
 	check(card.get_node_or_null("EventDiscoveryDescription") != null, "description is live Label")
 	check(card.get_node_or_null("EventDiscoveryIllustration") is TextureRect, "art is live TextureRect")
 	check(card.get_node_or_null("EventDiscoveryTile") is TextureRect, "actual board tile is shown")
+	check(card.get_node_or_null("EventDiscoveryReward") is Label and card.get_node("EventDiscoveryReward").text == "언덕 타일 발견", "separate discovery cards still keep their original reward row")
 	check(card.get_node_or_null("EventDiscoveryClose") == null, "no confirmation button anywhere on card")
 	check(card.get_node_or_null("EventDiscoveryDismissHint") is Label, "single-click dismissal is communicated")
 	check(card.get_node("EventDiscoveryIllustration").texture != null, "fallback art can load")

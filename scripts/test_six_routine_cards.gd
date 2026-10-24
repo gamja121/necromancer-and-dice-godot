@@ -77,7 +77,15 @@ func verify_card(event_id: String, receive: bool) -> void:
 	var entry: Dictionary=Routine.details(event_id)
 	check(card.get_node("EventDiscoveryTitle").text==str(entry.title),event_id+": event title matches the existing card format")
 	check(card.get_node("EventDiscoveryDescription").text==str(entry.description),event_id+": event text matches the existing card format")
-	check(card.get_node("EventDiscoveryIllustration").texture!=null and card.get_node("EventDiscoveryTile").texture!=null,event_id+": actual illustration and reward tile art display")
+	check(card.get_node("EventDiscoveryIllustration").texture!=null,event_id+": actual scene illustration displays")
+	check(card.get_node_or_null("EventDiscoveryTile")==null and card.get_node_or_null("EventDiscoveryReward")==null,event_id+": no premature reward tile or reward text")
+	check(card.get_node("EventDiscoveryCardBackground").texture!=null and card.get_node("EventDiscoveryCardBackground").texture.resource_path=="res://assets/map/ui/routine_event_card_base.svg",event_id+": uses a reward-free parchment background")
+	check(card.get_node("EventDiscoveryDescription").size.y>=80.0,event_id+": scene description fills the freed reward space")
+	var leaked_reward_label: bool=false
+	for child in card.get_children():
+		if child is Label and str(child.text)==str(entry.reward):
+			leaked_reward_label=true
+	check(not leaked_reward_label,event_id+": reward remains hidden until the result phase")
 	check(card.get_node_or_null("EventDiscoveryClose")==null,event_id+": no old confirmation button")
 	check(card.get_node_or_null("RoutineAccept")!=null and card.get_node_or_null("RoutineDecline")!=null,event_id+": both original-style choices are present")
 	var read_before: Dictionary=session.world.pending_reward.duplicate(true)
