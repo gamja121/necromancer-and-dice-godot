@@ -11,6 +11,7 @@ const BattleRules = preload("res://systems/battlefield_rules.gd")
 const Accent = preload("res://systems/presentation_accent.gd")
 const TARGET_RATES = {1:[100],2:[35,65],3:[20,33,47],4:[15,20,27,38]}
 var click_audio: AudioStreamPlayer
+var entry_audio: AudioStreamPlayer
 var card_shader: Shader
 var departing = false
 var owned: Array = []
@@ -103,6 +104,15 @@ void fragment() {
 	hand.modulate.a = 0
 	status.modulate.a = 0
 	confirm_button.modulate.a = 0
+	# Original user-provided wooden-door opening clip; shared with the chest.
+	# Play once for the descending board, never when selected cards redraw.
+	entry_audio = AudioStreamPlayer.new()
+	entry_audio.name = "DeckEntrySound"
+	entry_audio.bus = "SFX"
+	entry_audio.stream = preload("res://assets/battle/sfx/treasure-chest-open.mp3")
+	entry_audio.volume_db = -14.0
+	add_child(entry_audio)
+	entry_audio.play()
 	var drop = create_tween().set_parallel(true)
 	drop.tween_property(board,"position:y",14.4,0.64).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	drop.tween_property(board,"modulate:a",1.0,0.3)
@@ -356,3 +366,9 @@ func release_selected_cards_to(parent: Control) -> Dictionary:
 		if rate!=null: rate.hide()
 		result[str(selected_ids[i])] = chosen
 	return result
+
+func _exit_tree() -> void:
+	for player in [entry_audio,click_audio]:
+		if is_instance_valid(player):
+			player.stop()
+			player.stream = null
