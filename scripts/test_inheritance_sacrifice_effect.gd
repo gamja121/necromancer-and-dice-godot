@@ -80,7 +80,8 @@ func _run() -> void:
 		else:
 			for grandchild in child.get_children():
 				if grandchild is Label: result_text += (grandchild as Label).text + " "
-	check(result_text.contains("계승 결과") and result_text.contains("수호") and result_text.contains("축복 눈금 2"),"after save and ash, parchment shows the actual inherited result")
+	check(result_text.contains("획득한 낙인") and result_text.contains("수호") and result_text.contains("눈금 2"),"after save and ash, parchment shows actual inherited brand and die face without long explanations")
+	check(not result_text.contains("이번 라운드") and scene.sacrifice_warning.text=="계승 완료","completed parchment stays concise and does not repeat the effect paragraph")
 	check(scene.material_art.scale==Vector2.ONE and scene.material_art.modulate==Color.WHITE,"temporary dissolve transforms were reset")
 	check(session.owned_unit(receiver_id).brands.size()==original_receiver_count+1,"exactly one inherited blessing is added")
 	check(not session.home_action_allowed().ok,"receipt prevents second inheritance in this visit")
