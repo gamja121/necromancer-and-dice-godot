@@ -346,6 +346,8 @@ func perform_ritual() -> void:
 		Sound.cue(map,"ritual_complete")
 		completed=true
 		donor_id=""
+		# After the once-only receipt is persisted, remove its original paper.
+		map.animate_used_location_paper(self,index,"ritual")
 		build_hand()
 		refresh()
 	status.text=result.reason
@@ -402,6 +404,8 @@ func roll_prophecy() -> void:
 	Sound.cue(map,"prophecy_curse" if int(result.face)==1 else ("recovery" if int(result.face)==2 else "prophecy_bless"))
 	status.text=str(session.world.last_prophecy.get("detail",result.reason))
 	show_fortune_result()
+	# Shared die is still the input: only the saved entry parchment peels.
+	map.animate_used_location_paper(self,index,"prophecy")
 	if int(result.face)==2: await map.presentation.full_heal()
 	close_button.disabled=false
 	busy=false
