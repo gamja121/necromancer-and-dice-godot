@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   legacy-asset-audit:
@@ -20,6 +20,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Inventory legacy files and active references before removal
         shell: bash
+        env:
+          CLEANUP_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           python3 - <<'PY'
           import pathlib, re, subprocess, sys
@@ -69,50 +71,27 @@ jobs:
               sys.exit(1)
           print('AUDIT_RESULT: NO_ACTIVE_REFERENCES')
           PY
-
-  delete-verified-files:
-    needs: legacy-asset-audit
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/audit/legacy-monster-card-cleanup-20261024' && startsWith(github.event.head_commit.message, 'chore: execute verified legacy card removal') }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: audit/legacy-monster-card-cleanup-20261024
-      - name: Delete only approved retired PNGs and their import metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -d '' legacy < <(git ls-files -z 'assets/cards/unit-card-*')
-          if [ "${#legacy[@]}" -ne 94 ]; then
-            echo "Blocked: expected exactly 94 verified legacy files, got ${#legacy[@]}"
-            exit 1
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/audit/legacy-monster-card-cleanup-20261024" && "$CLEANUP_COMMIT_MESSAGE" == "chore: execute verified legacy card removal"* ]]; then
+            mapfile -d '' legacy < <(git ls-files -z 'assets/cards/unit-card-*')
+            if [ "${#legacy[@]}" -ne 94 ]; then echo "Unexpected inventory"; exit 1; fi
+            png=0
+            meta=0
+            for path in "${legacy[@]}"; do
+              if [[ "$path" =~ ^assets/cards/unit-card-[a-z0-9-]+\.png$ ]]; then
+                ((png+=1))
+                if [ ! -f "$path.import" ]; then exit 1; fi
+              elif [[ "$path" =~ ^assets/cards/unit-card-[a-z0-9-]+\.png\.import$ ]]; then
+                ((meta+=1))
+                if [ ! -f "${path%.import}" ]; then exit 1; fi
+              else
+                echo "Refusing unapproved deletion path $path"
+                exit 1
+              fi
+            done
+            if [ "$png" -ne 47 ] || [ "$meta" -ne 47 ]; then exit 1; fi
+            printf '%s\0' "${legacy[@]}" | xargs -0 --no-run-if-empty git rm --
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(cards): remove 47 unused flat monster PNGs and 47 import files"
+            git push origin HEAD:audit/legacy-monster-card-cleanup-20261024
           fi
-          png=0
-          meta=0
-          for path in "${legacy[@]}"; do
-            if [[ "$path" =~ ^assets/cards/unit-card-[a-z0-9-]+\.png$ ]]; then
-              ((png+=1))
-              if [ ! -f "$path.import" ]; then echo "Missing matching import: $path"; exit 1; fi
-            elif [[ "$path" =~ ^assets/cards/unit-card-[a-z0-9-]+\.png\.import$ ]]; then
-              ((meta+=1))
-              if [ ! -f "${path%.import}" ]; then echo "Missing matching PNG: $path"; exit 1; fi
-            else
-              echo "Unapproved deletion path: $path"
-              exit 1
-            fi
-          done
-          if [ "$png" -ne 47 ] || [ "$meta" -ne 47 ]; then
-            echo "Blocked: expected 47 PNGs and 47 import files"
-            exit 1
-          fi
-          printf '%s\0' "${legacy[@]}" | xargs -0 --no-run-if-empty git rm --
-          echo "Deleted $png retired PNG cards and $meta import files in a single commit."
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(cards): remove 47 unused flat monster PNGs and 47 import files"
-          git push origin HEAD:audit/legacy-monster-card-cleanup-20261024
-
-# Explicitly triggered only after the 94-file inventory and zero-active-reference audit passed.
