@@ -89,18 +89,23 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	root.add_child(panel)
 	panel.setup(fake)
 	await process_frame
-	var background = panel.get_node_or_null("RewardOverflowPanel") as Panel
+	var background = panel.get_node_or_null("RewardOverflowPanel") as Control
 	check(background!=null,"overflow renders a parchment panel for "+kind)
 	check(panel.choices.size()==items.size()+1 and panel.choices.has("__new__"),"all existing and incoming cards are available for "+kind)
 	check(panel.confirm.disabled and near(panel.confirm.modulate.a,0.45),"confirmation disabled until a deliberate choice for "+kind)
-	check(panel.title_label.text.contains("10/10" if kind=="unit" else "5/5"),"overflow shows the actual capacity for "+kind)
 	if kind=="unit":
-		check(panel.is_monster_swap and background.size==Vector2(1184,675),"all monster reward sources use the new wide exchange screen")
+		check(panel.title_label==null and panel.get_node_or_null("OverflowTitle")==null,"approved monster exchange has no decorative title")
+	else:
+		check(panel.title_label.text.contains("5/5"),"dice overflow still shows its actual capacity")
+	if kind=="unit":
+		check(panel.is_monster_swap and background is NinePatchRect and background.size==Vector2(1142,528),"monster swap uses the actual reusable game frame")
+		check(panel.get_node_or_null("OverflowExchangeArrow")!=null and panel.get_node_or_null("OverflowNewMonsterPaper")!=null,"approved minimal swap has one parchment card and a clear exchange arrow")
+		check(panel.get_node_or_null("OverflowStatus")!=null and not panel.status.visible,"unselected state has no explanatory text clutter")
 		check(panel.monster_grid!=null and panel.monster_grid.columns==5 and panel.monster_grid.get_child_count()==10,"owned monster cards display in exactly two rows of five")
 		check(panel.card_scroll==null,"monster exchange never hides choices behind a horizontal scroller")
-		check(panel.choices["__new__"].size==Vector2(180,283) and panel.get_node_or_null("NewRewardBadge")!=null,"incoming monster has its own large identified portrait")
-		check(panel.get_node_or_null("OverflowDeclineNew")!=null,"discarding the new monster is a separate explicit action")
-		check(panel.choices[str(items[0].id)].size==Vector2(116,166),"owned cards are easier to inspect than the former tiny eleven-card row")
+		check(panel.choices["__new__"].size==Vector2(214,343) and panel.choices["__new__"].has_node("LayeredCardCharacter"),"incoming monster displays a large real layered portrait")
+		check(panel.get_node_or_null("OverflowDeclineNew")!=null and panel.decline_button.text=="획득하지 않기" and panel.confirm.text=="선택한 마물과 교체","two approved action labels replace the old discard picker")
+		check(panel.choices[str(items[0].id)].size==Vector2(112,175),"owned cards use readable original card proportions")
 	else:
 		check(not panel.is_monster_swap and background.size==Vector2(760,496),"dice still use the original overflow UI")
 		check(panel.card_scroll!=null and panel.card_scroll.size==Vector2(690,260),"dice overflow retains the original scrolling row")
@@ -110,14 +115,14 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	check(panel.selected==first_id and not panel.confirm.disabled,"existing card choice allows deliberate confirmation for "+kind)
 	check(panel.choices[first_id].get_node("OverflowSelectedOutline").visible,"selected existing card is visibly highlighted for "+kind)
 	if kind=="unit":
-		check(panel.confirm.text=="교체하고 획득" and panel.selection_detail.text.contains("체력 10/10"),"monster choice previews the exact unit being sacrificed")
+		check(panel.confirm.text=="선택한 마물과 교체" and panel.selection_detail.text.contains("체력 10/10") and panel.selection_detail.visible,"only a picked monster reveals the concise permanent-removal detail")
 	else:
 		check(near(panel.choices[first_id].position.y,7.0),"dice still lift the selected card")
 	check(fake.discarded.is_empty() and JSON.stringify(fake.world)==original,"mere UI selection never spends or saves a reward for "+kind)
 	panel.select_card("__new__")
 	check(panel.selected=="__new__" and not panel.choices[first_id].get_node("OverflowSelectedOutline").visible,"incoming reward may be refused for "+kind)
 	if kind=="unit":
-		check(panel.confirm.text=="새 마물 포기 확정","new-monster refusal requires its own second confirmation")
+		check(panel.decline_button.text=="포기 확정" and panel.confirm.disabled,"new-monster refusal is armed and requires its own second tap")
 	fake.fail_next = true
 	panel.finish()
 	check(is_instance_valid(panel) and not panel.confirm.disabled and panel.status.text.contains("저장 실패"),"save failure keeps choice and permits retry for "+kind)
@@ -137,12 +142,33 @@ func test_monster_exchange_accept() -> void:
 	panel.setup(fake)
 	await process_frame
 	panel.select_card(str(items[3].id))
-	check(panel.confirm.text=="교체하고 획득" and panel.choices[str(items[3].id)].get_node("OverflowSelectedOutline").visible,"only the chosen outgoing monster is visually identified")
+	check(panel.confirm.text=="선택한 마물과 교체" and panel.choices[str(items[3].id)].get_node("OverflowSelectedOutline").visible,"only the chosen outgoing monster is visually identified")
 	check(JSON.stringify(fake.world)==original and fake.discarded.is_empty(),"selection leaves permanent roster unchanged")
 	panel.finish()
 	check(fake.discarded==[str(items[3].id)],"confirm sends the precise old monster ID to the existing transaction")
 	await process_frame
 	check(not is_instance_valid(panel),"successful exchange closes the modal")
+
+func test_monster_decline_button() -> void:
+	var roster: Array = []
+	for i in range(10): roster.append(make_unit(i))
+	var fake = FakeSession.new()
+	fake.world = {"roster":roster,"dice_cards":[],"pending_reward":{"kind":"capture","reward":{"kind":"unit","item":make_unit(11)}}}
+	var original: String = JSON.stringify(fake.world)
+	var panel = Overflow.new()
+	root.add_child(panel)
+	panel.setup(fake)
+	await process_frame
+	panel.decline_button.pressed.emit()
+	check(panel.selected=="__new__" and panel.decline_button.text=="포기 확정" and fake.discarded.is_empty(),"first decline click only arms the irreversible choice")
+	check(JSON.stringify(fake.world)==original,"first decline click never modifies real inventory")
+	panel.select_card(str(roster[0].id))
+	check(panel.decline_button.text=="획득하지 않기" and not panel.confirm.disabled,"choosing an owned card cancels decline confirmation")
+	panel.decline_button.pressed.emit()
+	panel.decline_button.pressed.emit()
+	check(fake.discarded==["__new__"],"second explicit decline click commits through existing reward transaction")
+	await process_frame
+	check(not is_instance_valid(panel),"confirmed decline closes minimal swap UI")
 
 func _run() -> void:
 	await test_deck()
@@ -150,5 +176,6 @@ func _run() -> void:
 	await test_overflow("dice")
 	await test_overflow("unit",true)
 	await test_monster_exchange_accept()
+	await test_monster_decline_button()
 	print("UI_DECK_OVERFLOW_PARITY: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
