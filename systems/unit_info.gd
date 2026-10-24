@@ -364,7 +364,7 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	# Never add a ScrollContainer. Recalculate after Godot measures wrapped
 	# Korean labels, so even three different marks + multiple active modifiers
 	# remain visible at once.
-	fit_effects_without_scrolling.call_deferred()
+	call_deferred("fit_effects_without_scrolling")
 
 ## A focused naming overlay instead of an extra screen. No direct save
 ## access lives in this view; the owning RunSession performs the transaction.
