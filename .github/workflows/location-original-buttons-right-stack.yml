@@ -1,0 +1,58 @@
+name: Original Location Button Stack (Godot)
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "scripts/test_ui_location_layout_stage5s.gd"
+      - "scripts/capture_location_original_button_stack.gd"
+      - ".github/workflows/location-original-buttons-right-stack.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "scripts/test_ui_location_layout_stage5s.gd"
+      - "scripts/capture_location_original_button_stack.gd"
+      - ".github/workflows/location-original-buttons-right-stack.yml"
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  location-button-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import genuine Godot UI assets and scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 185s godot --headless --path . --editor --quit 2>&1 | tee button-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' button-import.log; then exit 1; fi
+      - name: Seven locations and home preserve original art and callbacks
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_location_layout_stage5s.gd 2>&1 | tee button-layout.log
+          grep -E '^UI_LOCATION_LAYOUT_STAGE5S: [0-9]+ passed, 0 failed$' button-layout.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-location-layout:' button-layout.log; then exit 1; fi
+      - name: Real graphical Godot native button captures
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/capture_location_original_button_stack.gd 2>&1 | tee button-capture.log
+          grep -E '^LOCATION_ORIGINAL_BUTTON_STACK: [0-9]+ passed, 0 failed$' button-capture.log
+          for pic in location_original_buttons_graveyard.webp location_original_buttons_fortune.webp location_original_buttons_home.webp; do test -s "$pic"; done
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL location-button-stack:' button-capture.log; then exit 1; fi
+      - name: Upload actual before/after UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-godot-original-location-buttons
+          path: location_original_buttons_*.webp
+          if-no-files-found: warn

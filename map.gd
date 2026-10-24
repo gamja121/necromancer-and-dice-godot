@@ -43,11 +43,14 @@ const TILE_EVENT_SCENE_RECT = Rect2(243.2,136.8,793.6,446.4)
 # Battle host: (128,126) 1024x450; inner viewport: (+22,+22) 980x406.
 const LOCATION_EVENT_SCENE_RECT = Rect2(150.0,148.0,980.0,406.0)
 const LOCATION_EVENT_FRAME_RECT = Rect2(128.0,126.0,1024.0,450.0)
-# Keep gameplay actions below the wider art, where none of them hide the scene.
-const TILE_EVENT_ACTION_RECT = Rect2(515.0,595.0,216.0,58.0)
-const TILE_EVENT_EXIT_RECT = Rect2(765.0,595.0,216.0,58.0)
-const TILE_EVENT_INHERITANCE_RECT = Rect2(265.0,595.0,216.0,58.0)
-const TILE_EVENT_PATROL_RECT = Rect2(515.0,595.0,216.0,58.0)
+# Preserve the ORIGINAL painted parchment Button nodes and callbacks.
+# Their 216x58 rectangles now stack vertically at the lower-right INSIDE
+# the 980x406 location art (x=150..1130, y=148..554).
+# Two-button locations: action + exit; house interior: inherit + patrol + exit.
+const TILE_EVENT_ACTION_RECT = Rect2(896.0,415.0,216.0,58.0)
+const TILE_EVENT_EXIT_RECT = Rect2(896.0,481.0,216.0,58.0)
+const TILE_EVENT_INHERITANCE_RECT = Rect2(896.0,349.0,216.0,58.0)
+const TILE_EVENT_PATROL_RECT = Rect2(896.0,415.0,216.0,58.0)
 # Frozen CSS places the ghoul at 55%/18% of the event art frame,
 # sized to 30%/64% (not stretched across the whole scene).
 const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
