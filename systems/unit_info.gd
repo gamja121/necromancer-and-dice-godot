@@ -157,12 +157,24 @@ func effect_tile(key: String, heading: String, lines: Array, colors: Array = [])
 
 func fit_effects_without_scrolling() -> void:
 	if not is_instance_valid(effects) or not effects.is_inside_tree(): return
-	var required_height: float=effects.get_combined_minimum_size().y
-	# Scale as one cohesive panel only if the total cannot physically fit.
-	# No information is clipped, removed or sent to a hidden scroll region.
-	var factor: float=minf(1.0,EFFECT_CONTENT_HEIGHT/maxf(1.0,required_height))
+	# Reflow into the FULL usable parchment width before reducing font size.
+	# Unlike shrinking the whole 571px block, this avoids wasting the right
+	# half of the parchment in unusually dense battles.
+	var factor: float=1.0
+	for i in range(3):
+		if not is_instance_valid(effects): return
+		var required_height: float=effects.get_combined_minimum_size().y
+		factor=minf(1.0,EFFECT_CONTENT_HEIGHT/maxf(1.0,required_height))
+		effects.scale=Vector2(factor,factor)
+		var unscaled_width: float=EFFECT_CONTENT_WIDTH/maxf(0.1,factor)
+		effects.custom_minimum_size.x=unscaled_width
+		effects.size.x=unscaled_width
+		await get_tree().process_frame
+	if not is_instance_valid(effects): return
+	var final_height: float=effects.get_combined_minimum_size().y
+	factor=minf(1.0,EFFECT_CONTENT_HEIGHT/maxf(1.0,final_height))
 	effects.scale=Vector2(factor,factor)
-	effects.set_meta("content_height",required_height)
+	effects.set_meta("content_height",final_height)
 	effects.set_meta("fit_scale",factor)
 
 func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool = false) -> void:
@@ -244,10 +256,13 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	var passive = interface_data.passives.get(u.passive,["패시브 없음",""])
 	var boss_second: String = str(u.get("boss_extra_passive","")) if str(u.get("slug",""))=="dragon" and str(u.get("team",""))=="enemy" and bool(u.get("final_boss",false)) else ""
 	var second_passive: Array = interface_data.passives.get(boss_second,[])
-	label_at(left,"◇",Vector2(48,310),Vector2(34,42),21)
-	var passive_title: String = str(passive[0])
-	if not second_passive.is_empty(): passive_title += " · "+str(second_passive[0])
-	label_at(left,passive_title,Vector2(90,310),Vector2(335,42),15)
+	# The whole empty-passive row vanishes, not just its effects description.
+	if not str(u.passive).is_empty() or not second_passive.is_empty():
+		label_at(left,"◇",Vector2(48,310),Vector2(34,42),21)
+		var passive_title: String = str(passive[0]) if not str(u.passive).is_empty() else ""
+		if not second_passive.is_empty():
+			passive_title += (" · " if not passive_title.is_empty() else "")+str(second_passive[0])
+		label_at(left,passive_title,Vector2(90,310),Vector2(335,42),15)
 	for index in range(mini(3,u.brands.size())):
 		var brand = u.brands[index]
 		var icon = TextureRect.new()
