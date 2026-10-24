@@ -84,19 +84,20 @@ func _run() -> void:
 	session.world.roster[0].brands=[{"type":"vampire","bless":[2],"curse":[4]}]
 	session.world.roster[1].brands=[{"type":"combo","bless":[3],"curse":[6]}]
 	scene.select_unit(donor_id)
+	var source_only_copy: String=all_copy(scene.details)
+	check(source_only_copy.contains("흡혈") and source_only_copy.contains("축복 2") and not source_only_copy.contains("저주"),"donor selection shows its inheritable blessing but never its source curse")
 	scene.select_unit(receiver_id)
 	var cursed_copy: String=all_copy(scene.details)
-	check(cursed_copy.contains("흡혈") and cursed_copy.contains("축복 2") and cursed_copy.contains("저주 4"),"donor brand displays both blessing and actual base curse faces in one compact row")
-	check(cursed_copy.contains("연격") and cursed_copy.contains("축복 3") and cursed_copy.contains("저주 6"),"recipient existing brand displays its persistent curse without losing die faces")
-	var inline_curse: bool=true
+	check(cursed_copy.contains("흡혈") and cursed_copy.contains("축복 2") and not cursed_copy.contains("저주 4"),"donor source curse 4 stays hidden even when recipient is selected")
+	check(cursed_copy.contains("연격") and cursed_copy.contains("축복 3") and cursed_copy.contains("저주 6"),"recipient existing brand still displays its own curse 6 and blessing 3")
+	var curse_count: int=0
 	for node in scene.details.get_children():
 		if node is HBoxContainer:
-			var tags: int=0
 			for child in node.get_children():
 				if child is Label and child.name=="InheritanceCurseFaces":
-					tags+=1
-			inline_curse=inline_curse and tags==1
-	check(inline_curse,"red curse face is part of the same brand line, not a small separate paragraph")
+					curse_count+=1
+					check(child.text=="저주 6","only the recipient's existing curse is rendered in the compact brand row")
+	check(curse_count==1,"exactly one curse label is shown for the recipient, none for the donor")
 	check(scene.status.text=="축복만 무작위 계승","only blessing transfers; donor curses cannot be mistaken for inherited curses")
 	var source: Dictionary=session.world.roster[0].brands[0]
 	var awarded: Dictionary=preload("res://systems/brand_inheritance.gd").blessing(session.world.roster[1],source,session.world.definitions)

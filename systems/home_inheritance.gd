@@ -219,7 +219,9 @@ func render_selection() -> void:
 		if source_brands.is_empty():
 			detail("계승할 낙인 없음",Color("853a31"),15)
 		else:
-			append_brands(source_brands)
+			# Material may carry a curse, but the inheritance preview only
+			# exposes transferable blessings. Existing receiver curses stay visible.
+			append_brands(source_brands,false)
 		if not receiver.is_empty():
 			section_heading("기존 낙인 · %d/3칸" % receiver.brands.size())
 			var existing_brands: Array = BrandInheritance.normalize(receiver,session.world.definitions)
