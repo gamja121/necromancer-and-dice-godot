@@ -65,7 +65,7 @@ func _run() -> void:
 	map.add_child(extraction)
 	extraction.setup(map,grave)
 	await process_frame
-	check(extraction.content.get_node_or_null("GraveyardDigFrame")!=null,"cemetery digging panel replaces two-column brand extraction")
+	check(extraction.content.get_node_or_null("GraveyardDigFrame")==null and extraction.content.get_node_or_null("GraveyardNoticeStrip")!=null,"cemetery now uses the original painting and approved hand-drawn parchment instead of the old dark panel")
 	check(extraction.content.get_node_or_null("GraveyardDigConfirm")!=null,"digging has a visible explicit confirmation")
 	check(extraction.action_button!=null and not extraction.action_button.disabled,"digging is available with zero allied corpses")
 	var before_cards: int=session.world.dice_cards.size()
@@ -74,7 +74,7 @@ func _run() -> void:
 	check(session.world.dice_cards.size()==before_cards+1 and not session.world.snapshot().has("brand_cards") and not session.world.snapshot().has("legacy_brand_cards"),"digging grants one dice card and no brand cards")
 	check(extraction.content.get_node_or_null("GraveyardFoundDiceCard")!=null,"found dice card appears in digging screen")
 	check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"digging receipt committed")
-	check(extraction.action_button.disabled,"spent digging action cannot run twice")
+	check(extraction.action_button==null and extraction.content.get_node_or_null("GraveyardDigConfirm")==null,"spent digging action disappears when the actual found card is displayed")
 	var committed: Dictionary=session.world.snapshot().duplicate(true)
 	session.reload_world()
 	check(session.world.snapshot()==committed,"graveyard digging persists without duplicate rewards")

@@ -1,0 +1,58 @@
+name: Graveyard Hand-Drawn Card Find UI
+on:
+  pull_request:
+    paths:
+      - "systems/exploration_actions.gd"
+      - "scripts/test_graveyard_parchment_capture.gd"
+      - ".github/workflows/graveyard-parchment-card-ui.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/exploration_actions.gd"
+      - "scripts/test_graveyard_parchment_capture.gd"
+      - ".github/workflows/graveyard-parchment-card-ui.yml"
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  graveyard-parchment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and parse production Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 190s godot --headless --path . --editor --quit 2>&1 | tee grave-ui-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' grave-ui-import.log; then exit 1; fi
+      - name: Check existing cemetery enter, leave, card and save workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_graveyard_extraction_exit.gd 2>&1 | tee grave-exit.log
+          grep -E '^GRAVEYARD_EXTRACTION_EXIT: [0-9]+ passed, 0 failed$' grave-exit.log
+          timeout 180s godot --headless --path . --script res://scripts/test_graveyard_random_dice.gd 2>&1 | tee grave-reward.log
+          grep -E '^GRAVEYARD_RANDOM_DICE: [0-9]+ passed, 0 failed$' grave-reward.log
+      - name: Render original graveyard and real dice card in graphical Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/test_graveyard_parchment_capture.gd 2>&1 | tee grave-capture.log
+          grep -E '^GRAVEYARD_PARCHMENT_UI: [0-9]+ passed, 0 failed$' grave-capture.log
+          test -s graveyard_parchment_01_before.webp
+          test -s graveyard_parchment_02_found.webp
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL grave-parchment:' grave-capture.log; then exit 1; fi
+      - name: Upload original Godot screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: graveyard-original-dice-card-parchment
+          path: graveyard_parchment_*.webp
+          if-no-files-found: warn
