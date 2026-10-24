@@ -20,7 +20,7 @@ func check(ok: bool, msg: String) -> void:
 		failed+=1
 		printerr("FAIL rest-unlock: ",msg)
 
-func press_route_choice(route: Control, slot: int, kind: String) -> bool:
+func press_route_choice(route, slot: int, kind: String) -> bool:
 	var slot_button: Button=route.find_child("SelectedPatrolSlot%d" % slot,true,false) as Button
 	if slot_button==null or slot_button.disabled: return false
 	slot_button.pressed.emit()
