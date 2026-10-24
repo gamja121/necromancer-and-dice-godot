@@ -197,6 +197,42 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	_apply_scale(card, false)
 	return true
 
+## Full layered art for non-interactive material/target/detail previews.
+## The parent TextureRect remains the original stable animation and badge anchor.
+## No obsolete flattened unit-card PNG is loaded on this path.
+static func sync_preview(preview: TextureRect, unit: Dictionary) -> bool:
+	if not is_instance_valid(preview): return false
+	var previous := preview.get_node_or_null("LayeredCardPreview")
+	if previous != null:
+		preview.remove_child(previous)
+		previous.queue_free()
+	preview.texture = null
+	if unit.is_empty(): return true
+	var actor := TextureButton.new()
+	actor.name = "LayeredCardPreview"
+	actor.ignore_texture_size = true
+	actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actor.focus_mode = Control.FOCUS_NONE
+	actor.size = preview.size
+	preview.add_child(actor)
+	actor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if not install(actor, str(unit.get("slug", "")), str(unit.get("name", "")), false, unit.get("brands", [])):
+		preview.remove_child(actor)
+		actor.queue_free()
+		return false
+	return true
+
+static func make_preview(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2) -> TextureRect:
+	var preview := TextureRect.new()
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.position = pos
+	preview.size = dimensions
+	parent.add_child(preview)
+	sync_preview(preview, unit)
+	return preview
+
 ## Visible pixels, not source canvas margins, determine the silhouette scale.
 ## Image.get_used_rect is executed once per approved texture; layout itself is cheap.
 static func _portrait_used_rect(texture: Texture2D) -> Rect2:

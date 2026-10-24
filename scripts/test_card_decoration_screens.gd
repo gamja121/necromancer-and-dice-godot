@@ -8,6 +8,7 @@ const BattleDeck = preload("res://systems/battle_deck.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const AltarBadge = preload("res://systems/altar_upgrade_badge.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 
 class FakeSession:
 	extends RefCounted
@@ -175,14 +176,16 @@ func _run() -> void:
 	place.index = 0
 	place.donor_id = str(owned[0].id)
 	place.receiver_id = str(owned[1].id)
-	place.donor_art = place.art(place,"res://assets/cards/unit-card-skeleton-archer.png",Vector2(178,95),Vector2(144,210))
-	place.receiver_art = place.art(place,"res://assets/cards/unit-card-skeleton-archer.png",Vector2(952,95),Vector2(144,210))
+	place.donor_art = LayeredUnitCard.make_preview(place,{},Vector2(178,95),Vector2(144,210))
+	place.receiver_art = LayeredUnitCard.make_preview(place,{},Vector2(952,95),Vector2(144,210))
 	place.donor_hint = place.label_at(place,"",Vector2(140,320),Vector2(200,35))
 	place.receiver_hint = place.label_at(place,"",Vector2(900,320),Vector2(200,35))
 	place.status = place.label_at(place,"",Vector2(200,435),Vector2(850,58))
 	place.confirm_button = Button.new()
 	place.add_child(place.confirm_button)
 	place.refresh()
+	check(place.donor_art.texture==null and place.donor_art.has_node("LayeredCardPreview/LayeredCardBase"),"altar donor uses no flattened monster texture")
+	check(place.receiver_art.texture==null and place.receiver_art.has_node("LayeredCardPreview/LayeredCardCharacter"),"altar receiver uses live character portrait")
 	check(place.donor_art.get_node_or_null("AltarUpgradeBadge")!=null,"altar donor preview has badge")
 	assert_decorations(place.receiver_art,"altar receiver preview")
 	place.receiver_id = ""
@@ -198,6 +201,7 @@ func _run() -> void:
 	preview.size = Vector2(150,208)
 	inheritance.add_child(preview)
 	inheritance.set_preview(preview,"unit",owned[1])
+	check(preview.texture==null and preview.has_node("LayeredCardPreview/LayeredCardBase"),"inheritance material/recipient slots use live layered art")
 	assert_decorations(preview,"inheritance receiver preview")
 	inheritance.set_preview(preview,"unit",{})
 	check(preview.get_node_or_null("AltarUpgradeBadge")==null,"inheritance blank preview clears enhancement plaque")

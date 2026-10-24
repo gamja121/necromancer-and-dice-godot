@@ -105,7 +105,10 @@ func panel_slot(pos: Vector2, material: bool) -> void:
 		receiver_hint = hint
 
 func set_preview(node: TextureRect, kind: String, item: Dictionary) -> void:
-	node.texture = load(Catalog.image(kind,item)) if not item.is_empty() else null
+	if kind=="unit":
+		LayeredUnitCard.sync_preview(node,item)
+	else:
+		node.texture = load(Catalog.image(kind,item)) if not item.is_empty() else null
 	AltarUpgradeBadge.sync(node,item if kind=="unit" else {})
 
 func detail(value: String, color: Color = Color("34251c")) -> void:

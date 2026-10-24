@@ -531,7 +531,6 @@ func render_units(values: Array) -> void:
 				icon.visible = false
 				bar.add_child(icon)
 			var card = TextureButton.new()
-			card.texture_normal = texture("res://assets/cards/unit-card-%s.png" % u.slug)
 			card.ignore_texture_size = true
 			card.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 			card.size = dock_card_size()
@@ -915,7 +914,6 @@ func show_selection() -> void:
 		for i in range(selection.size()):
 			var slug: String = selection[selection.size()-1-i]
 			var slot = TextureButton.new()
-			slot.texture_normal = texture("res://assets/cards/unit-card-%s.png" % slug)
 			slot.ignore_texture_size = true
 			slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 			slot.size = Vector2(170,302.4)
@@ -939,7 +937,6 @@ func show_selection() -> void:
 	for i in range(ROSTER.size()):
 		var slug: String = ROSTER[i]
 		var card = TextureButton.new()
-		card.texture_normal = texture("res://assets/cards/unit-card-%s.png" % slug)
 		card.ignore_texture_size = true
 		card.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		card.position = Vector2(25.6+i*98.09,552.26)
