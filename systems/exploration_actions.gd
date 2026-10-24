@@ -9,6 +9,7 @@ const ROUTE_RESERVE_ART = "res://assets/map/ui/patrol-route-frame.webp"
 const ROUTE_CURRENT_ART = "res://assets/map/ui/patrol-route-current-frame.webp"
 const PATROL_ENTER_PARCHMENT = "res://assets/map/events/enter-parchment.png"
 const PATROL_EXIT_PARCHMENT = "res://assets/map/events/exit-parchment.png"
+const GRAVEYARD_PARCHMENT_STRIP = "res://assets/map/ui/fortune_parchment_strip.webp"
 const MapState = preload("res://systems/map_state.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
@@ -79,9 +80,11 @@ func setup(map_scene, tile_index: int) -> void:
 		close_style.texture=load("res://assets/map/ui/parchment_button_variant_04.png")
 		for state in ["normal","hover","pressed","focus","disabled"]: close_button.add_theme_stylebox_override(state,close_style)
 		close_button.add_theme_color_override("font_color",Color("3f2818"))
+		# Graveyard feedback is now on one hand-painted scroll, never duplicated
+		# in the former floating status line.
 		status.position=Vector2(302,555)
 		status.size=Vector2(674,39)
-		status.add_theme_font_size_override("font_size",13)
+		status.visible=false
 		render_graveyard()
 		# A full dice hand may have a saved unfinished discard/replace choice.
 		# Reopen that exact card; never roll another reward on reload.
@@ -163,42 +166,57 @@ func reset_route() -> void:
 func clear_content() -> void:
 	for child in content.get_children(): content.remove_child(child); child.queue_free()
 
-## Cemetery rewards do not depend on killed allied monsters. The corpse
-## archive is preserved by the run rules, but is no longer a loot material.
+## Cemetery rewards do not depend on killed allied monsters. The original
+## location painting is the stage; the hand-inked scroll is its one-line feedback.
+## Discoveries display the real dice-control card, not a new drawn placeholder.
 func render_graveyard() -> void:
 	clear_content()
-	var frame = Panel.new()
-	frame.name = "GraveyardDigFrame"
-	frame.position = Vector2(256,135)
-	frame.size = Vector2(768,470)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color("191818")
-	style.border_color = Color("66584c")
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
-	frame.add_theme_stylebox_override("panel",style)
-	content.add_child(frame)
-	var title = label_at(content,"공동묘지 · 시체 파헤치기",Vector2(315,171),Vector2(644,40),23)
-	title.name = "GraveyardDigTitle"
-	title.add_theme_color_override("font_color",Color("ddd0be"))
-	var info = label_at(content,"묘지를 파헤쳐 무작위 주사위 제어 카드 1장을 발견합니다.\n방문당 1회 · 제어 카드 보관 한도 5장",Vector2(319,223),Vector2(645,65),16)
-	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	info.add_theme_color_override("font_color",Color("d1c2af"))
 	var used: bool = session.place_visit_id("grave-extract",index) in session.world.reward_receipts
 	var pending: bool = str(session.world.pending_reward.get("kind",""))=="grave-dig"
-	action_button = button(content,"시체 파헤치기",Vector2(507,436),Vector2(268,58),dig_graveyard)
-	action_button.name = "GraveyardDigConfirm"
-	action_button.disabled = used or pending or busy
-	if not graveyard_result.is_empty():
-		var reward_card = card(content,"dice",graveyard_result,Vector2(556,293),Vector2(164,140),Callable())
-		reward_card.name = "GraveyardFoundDiceCard"
-		reward_card.disabled = true
-		action_button.position = Vector2(507,495)
+	var found: bool = not graveyard_result.is_empty()
+	var ribbon: TextureRect = art(content,GRAVEYARD_PARCHMENT_STRIP,Vector2(340,437),Vector2(600,150))
+	ribbon.name="GraveyardNoticeStrip"
+	ribbon.z_index=2
+	ribbon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ribbon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var message: String = "묘지를 파헤쳐 보세요"
+	if found: message="카드를 찾았다"
+	elif not graveyard_message.is_empty(): message=graveyard_message
+	elif pending: message="발견한 카드의 교체를 완료하세요"
+	elif used: message="이번 방문의 발굴은 완료했습니다"
+	var notice: Label=label_at(content,message,Vector2(394,490),Vector2(492,36),22)
+	notice.name="GraveyardNoticeText"
+	notice.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	notice.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	notice.add_theme_color_override("font_color",Color("48301d"))
+	notice.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	notice.z_index=3
+	# Retain the original dice card artwork and its aspect-preserving rendering.
+	if found:
+		var reward_card: TextureButton=card(content,"dice",graveyard_result,Vector2(546,201),Vector2(188,236),Callable())
+		reward_card.name="GraveyardFoundDiceCard"
+		reward_card.disabled=true
+		reward_card.focus_mode=Control.FOCUS_NONE
+		reward_card.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		reward_card.z_index=4
+		# The card texture already contains its own label; no floating second caption.
+		var caption: Label=reward_card.get_child(0) as Label
+		caption.visible=false
 	else:
-		var notice=label_at(content,"흙 아래 남겨진 마법의 흔적을 조사한다",Vector2(400,341),Vector2(484,41),17)
-		notice.add_theme_color_override("font_color",Color("b9a68f"))
-	status.text = graveyard_message if not graveyard_message.is_empty() else ("이번 방문의 발굴은 완료했습니다" if used else ("발굴한 주사위 카드의 교체를 완료하세요" if pending else "시체를 파헤쳐 카드 1장을 찾아보세요"))
+		action_button=button(content,"시체 파헤치기",Vector2(504,313),Vector2(272,64),dig_graveyard)
+		action_button.name="GraveyardDigConfirm"
+		action_button.disabled=used or pending or busy
+		action_button.tooltip_text="방문당 1회 · 무작위 주사위 제어 카드 1장 · 보유 한도 5장"
+		var paper: StyleBoxTexture=StyleBoxTexture.new()
+		paper.texture=load("res://assets/map/ui/parchment_button_variant_04.png")
+		for state in ["normal","hover","pressed","focus","disabled"]:
+			action_button.add_theme_stylebox_override(state,paper)
+		action_button.add_theme_color_override("font_color",Color("3f2818"))
+		action_button.add_theme_font_size_override("font_size",20)
+	# Keep the legacy status available for save/debug assertions, but never
+	# show a second message competing with the scroll.
+	status.text=graveyard_message if not graveyard_message.is_empty() else message
+
 
 func dig_graveyard() -> void:
 	if busy: return
@@ -210,7 +228,7 @@ func dig_graveyard() -> void:
 		render_graveyard()
 		return
 	graveyard_result = result.item.duplicate(true)
-	graveyard_message = str(result.reason)
+	graveyard_message = "카드를 찾았다"
 	render_graveyard()
 	if result.get("overflow",false):
 		show_graveyard_overflow()
@@ -224,7 +242,7 @@ func show_graveyard_overflow() -> void:
 	add_child(popup)
 	popup.resolved.connect(func(outcome: Dictionary):
 		graveyard_result = graveyard_result if outcome.get("kept",false) else {}
-		graveyard_message = "주사위 제어 카드 획득" if outcome.get("kept",false) else "새 카드를 포기했습니다."
+		graveyard_message = "카드를 찾았다" if outcome.get("kept",false) else "새 카드를 포기했습니다."
 		render_graveyard()
 	)
 	popup.setup(session)
