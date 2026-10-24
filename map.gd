@@ -1429,7 +1429,10 @@ func show_final_dragon_intro(index: int) -> void:
 	overlay = book
 	map_music.stream_paused = true
 	book.show_intro()
-	book.return_requested.connect(func(): dismiss_overlay(render))
+	book.return_requested.connect(func():
+		if overlay!=book: return
+		map_music.stream_paused = false
+		dismiss_overlay(render))
 	book.battle_requested.connect(func():
 		if overlay!=book: return
 		if not session.acknowledge_final_dragon_intro(index):

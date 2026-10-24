@@ -48,7 +48,7 @@ func clean(path: String) -> void:
 func ui_texture(panel: Control, tex: Texture2D) -> TextureRect:
 	if not is_instance_valid(panel) or tex == null:
 		return null
-	for child in panel.get_children():
+	for child in panel.find_children("*","TextureRect",true,false):
 		if child is TextureRect and child.texture == tex:
 			return child
 	return null

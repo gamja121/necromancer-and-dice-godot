@@ -79,6 +79,13 @@ func _run() -> void:
 	book.skip_button.pressed.emit()
 	check(not book.action_button.disabled and not book.skip_button.visible,"skip reveals explicit text action")
 	check(s.world.rng.state==rng_before and s.encounter.is_empty(),"skip does not consume RNG or create encounter")
+	var before_return: Dictionary=s.world.snapshot().duplicate(true)
+	book.return_requested.emit()
+	check(not is_instance_valid(map.overlay) and not map.map_music.stream_paused,"returning from boss book restores the map and its music")
+	check(s.world.snapshot()==before_return and s.encounter.is_empty(),"book return does not acknowledge the boss, consume RNG or start battle")
+	map.show_tile(23,true)
+	book=map.overlay
+	check(book is Book and book.mode=="intro","unacknowledged boss book remains available after return")
 	current_scene = null
 	map.queue_free()
 	await process_frame
