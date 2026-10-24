@@ -207,7 +207,7 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
             # from the playable Godot tree without rewriting the immutable
             # web-source ledger or weakening SHA/size provenance checks.
             if row["category"] == "unit_card":
-                match = re.fullmatch(r"art/v2-style/ui/unit-card-([a-z0-9-]+)\\.png", original)
+                match = re.fullmatch(r"art/v2-style/ui/unit-card-([a-z0-9-]+)\.png", original)
                 expected_runtime = ("assets/cards/unit-card-" + match.group(1) + ".png") if match else ""
                 if (not match or status != "EXACT" or godot_path != expected_runtime
                         or expected_sha != row["godot_sha"]
