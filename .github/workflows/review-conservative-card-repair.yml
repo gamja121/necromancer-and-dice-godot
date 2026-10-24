@@ -1,0 +1,30 @@
+name: Review Conservative Card Alpha Repair Candidates
+on:
+  pull_request:
+    paths:
+      - "scripts/candidate_card_alpha_pinhole_repair.py"
+      - ".github/workflows/review-conservative-card-repair.yml"
+permissions:
+  contents: read
+jobs:
+  candidates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install imaging
+        run: python3 -m pip install --disable-pip-version-check --break-system-packages pillow numpy scipy
+      - name: Preserve actual images and create reversible candidate-only previews
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/candidate_card_alpha_pinhole_repair.py | tee repair.log
+          grep -E '^CONSERVATIVE_CARD_REPAIR_COMPLETE 2$' repair.log
+          test -s card_repair_candidates/hell_mantis_before_after_light.jpg
+          test -s card_repair_candidates/skeleton_cavalry_before_after_light.jpg
+      - name: Publish review artifact, DO NOT change originals
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-card-ink-restoration-candidates
+          path: card_repair_candidates/*
+          if-no-files-found: error
