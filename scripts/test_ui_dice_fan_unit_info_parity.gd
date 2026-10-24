@@ -83,7 +83,7 @@ func _run() -> void:
 	check(panel.portrait!=null and panel.portrait.texture!=null,"unit information uses real portrait artwork")
 	check(panel.get_child_count()>=4 and panel.effects!=null,"unit information renders separate portrait and effect sections")
 	check(panel.get_node_or_null("Control/InfoClose")!=null or panel.get_children().any(func(x): return x is Control and x.get_node_or_null("InfoClose")!=null),"original close button retained on portrait")
-	check(panel.effects.get_child_count()>=1 and panel.effects.get_children().all(func(c): return c is PanelContainer),"available effects occupy bordered readable compartments without the old scroll list")
+	check(panel.effects.get_child_count()>=1 and panel.effects.get_children().all(func(c): return c is HBoxContainer or c is VBoxContainer or c is GridContainer),"effect information retains a scrollbar-free aligned ledger with real data")
 	check(before==JSON.stringify(rules.snapshot()),"unit info reads battle without mutating rules")
 	var closed: Array[bool]=[]
 	panel.closed.connect(func(): closed.append(true))
