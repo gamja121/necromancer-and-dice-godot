@@ -156,7 +156,7 @@ func append_brands(brands: Array, show_curse: bool = true) -> void:
 		var faces: String = ", ".join(brand.bless.map(func(n): return str(int(n))))
 		var card_row := HBoxContainer.new()
 		card_row.name="InheritanceBrandRow"
-		card_row.add_theme_constant_override("separation",4)
+		card_row.add_theme_constant_override("separation",7)
 		details.add_child(card_row)
 		var name_label := Label.new()
 		name_label.text=brand_name
@@ -169,7 +169,7 @@ func append_brands(brands: Array, show_curse: bool = true) -> void:
 		card_row.add_child(name_label)
 		var faces_label := Label.new()
 		faces_label.name="InheritanceBlessingFaces"
-		faces_label.text="눈금 " + (faces if not faces.is_empty() else "없음")
+		faces_label.text="축복 " + (faces if not faces.is_empty() else "없음")
 		faces_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 		faces_label.add_theme_font_size_override("font_size",16)
 		faces_label.add_theme_color_override("font_color",Color("6c4327"))
@@ -180,8 +180,17 @@ func append_brands(brands: Array, show_curse: bool = true) -> void:
 		# accessible in the monster/brand information screens. These
 		# values are die faces, never +2 or +3 damage bonuses.
 		if show_curse and not brand.curse.is_empty():
+			# Cursed faces belong to this existing brand. They are not copied
+			# to the recipient by the inheritance rule.
 			var cursed: String = ", ".join(brand.curse.map(func(n): return str(int(n))))
-			detail("기존 저주 눈금 " + cursed,Color("853a31"),13)
+			var curse_label := Label.new()
+			curse_label.name="InheritanceCurseFaces"
+			curse_label.text="저주 " + cursed
+			curse_label.add_theme_font_size_override("font_size",16)
+			curse_label.add_theme_color_override("font_color",Color("903c32"))
+			curse_label.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+			curse_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			card_row.add_child(curse_label)
 
 func render_selection() -> void:
 	var material: Dictionary = session.owned_unit(material_id)
@@ -210,7 +219,7 @@ func render_selection() -> void:
 		if source_brands.is_empty():
 			detail("계승할 낙인 없음",Color("853a31"),15)
 		else:
-			append_brands(source_brands,false)
+			append_brands(source_brands)
 		if not receiver.is_empty():
 			section_heading("기존 낙인 · %d/3칸" % receiver.brands.size())
 			var existing_brands: Array = BrandInheritance.normalize(receiver,session.world.definitions)
@@ -237,7 +246,12 @@ func render_selection() -> void:
 	elif receiver.is_empty():
 		status.text = "② 받을 마물 선택"
 	else:
-		status.text = "낙인 1개 무작위 계승"
+		var material_cursed: bool = false
+		for brand in BrandInheritance.normalize(material,session.world.definitions):
+			if not brand.curse.is_empty():
+				material_cursed=true
+				break
+		status.text = "축복만 무작위 계승" if material_cursed else "낙인 1개 무작위 계승"
 
 	var eligible: bool = not receiver.is_empty() and receiver.brands.size()<3 and not material.is_empty() and not material.brands.is_empty() and material_id!=receiver_id
 	confirm_button.disabled = busy or completed or not eligible or not session.home_action_allowed().ok
