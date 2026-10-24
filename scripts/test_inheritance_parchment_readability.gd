@@ -84,6 +84,7 @@ func _run() -> void:
 	session.world.roster[0].brands=[{"type":"vampire","bless":[2],"curse":[4]}]
 	session.world.roster[1].brands=[{"type":"combo","bless":[3],"curse":[6]}]
 	scene.select_unit(donor_id)
+	scene.select_unit(receiver_id)
 	var cursed_copy: String=all_copy(scene.details)
 	check(cursed_copy.contains("흡혈") and cursed_copy.contains("축복 2") and cursed_copy.contains("저주 4"),"donor brand displays both blessing and actual base curse faces in one compact row")
 	check(cursed_copy.contains("연격") and cursed_copy.contains("축복 3") and cursed_copy.contains("저주 6"),"recipient existing brand displays its persistent curse without losing die faces")
