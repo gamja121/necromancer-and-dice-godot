@@ -20,6 +20,48 @@ var rename_error: Label
 var current_name: String = ""
 var allow_rename: bool = false
 
+# The original left frame has room for three compact, independent marks.
+const BRAND_ICON_TOP := 356.0
+const BRAND_ICON_STEP := 51.0
+const BRAND_ICON_SIZE := 40.0
+
+# Display-only grouping: BattleRules keeps all three independent brands.
+# When the same face occurs twice, retain stacking as "4×2" rather than
+# losing the extra effect by removing duplicates.
+static func merged_face_text(faces: Array) -> String:
+	var counts: Dictionary={}
+	for raw in faces:
+		var face: int=int(raw)
+		if face<1 or face>6: continue
+		counts[face]=int(counts.get(face,0))+1
+	var ordered: Array=counts.keys()
+	ordered.sort()
+	var display: PackedStringArray=PackedStringArray()
+	for face in ordered:
+		var count: int=int(counts[face])
+		display.append(str(face) if count==1 else "%d×%d" % [face,count])
+	return ", ".join(display)
+
+static func grouped_brands(brands: Array) -> Array:
+	var result: Array=[]
+	var locations: Dictionary={}
+	for mark in brands:
+		if not mark is Dictionary: continue
+		var kind: String=str(mark.get("type",""))
+		if kind.is_empty(): continue
+		if not locations.has(kind):
+			locations[kind]=result.size()
+			result.append({"type":kind,"bless":[],"curse":[]})
+		var row: Dictionary=result[int(locations[kind])]
+		var blessing: Array=row["bless"]
+		var curse: Array=row["curse"]
+		blessing.append_array(mark.get("bless",[]))
+		curse.append_array(mark.get("curse",[]))
+		row["bless"]=blessing
+		row["curse"]=curse
+		result[int(locations[kind])]=row
+	return result
+
 func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2, font_size: int = 15, color: Color = Color("211712")) -> Label:
 	var node = Label.new()
 	node.text = value
@@ -94,6 +136,7 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
 	var left = Control.new()
+	left.name = "UnitInfoPortraitPanel"
 	left.position = Vector2(64,76.32)
 	left.size = Vector2(474.65,567.36)
 	left.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -147,14 +190,16 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	for index in range(mini(3,u.brands.size())):
 		var brand = u.brands[index]
 		var icon = TextureRect.new()
+		icon.name = "BrandInfoIcon"
+		icon.set_meta("brand_slot",index)
 		var atlas = AtlasTexture.new()
 		var sheet = "brand-icons-extra-sheet.jpg" if brand.type in ["combo","freeze","lightspeed","counter"] else "brand-icons-sheet.jpg"
 		atlas.atlas = load("res://assets/battle/ui/"+sheet)
 		atlas.region = ICONS[brand.type]
 		icon.texture = atlas
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.position = Vector2(54,373+index*64)
-		icon.size = Vector2(44,44)
+		icon.position = Vector2(54,BRAND_ICON_TOP+index*BRAND_ICON_STEP)
+		icon.size = Vector2(BRAND_ICON_SIZE,BRAND_ICON_SIZE)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		left.add_child(icon)
 		# Recessed socket and a short weighted settle, visual-only.
@@ -177,9 +222,12 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 		var settle := create_tween().set_parallel(true)
 		settle.tween_property(icon, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(float(index) * 0.055)
 		settle.tween_property(icon, "modulate:a", 1.0, 0.18).set_delay(float(index) * 0.055)
-		label_at(left,interface_data.brands[brand.type].name,Vector2(106,373+index*64),Vector2(318,44),15)
+		var brand_name := label_at(left,interface_data.brands[brand.type].name,Vector2(106,BRAND_ICON_TOP+index*BRAND_ICON_STEP),Vector2(318,BRAND_ICON_SIZE),15)
+		brand_name.name="BrandInfoName"
+		brand_name.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	if u.brands.is_empty(): label_at(left,"낙인 없음",Vector2(150,385),Vector2(180,42),15)
 	var right = Control.new()
+	right.name = "UnitInfoEffectsPanel"
 	right.position = Vector2(559.39,183.17)
 	right.size = Vector2(483.84,353.67)
 	right.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -220,12 +268,14 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	if not second_passive.is_empty():
 		effect_line(str(second_passive[0])+" · "+str(second_passive[1]))
 	section("낙인 눈금과 효과")
-	for brand in u.brands:
-		var definition = interface_data.brands[brand.type]
-		effect_line(definition.name,Color("281a12"),14)
-		effect_line("축복 [%s] · %s" % [", ".join(brand.bless.map(func(n): return str(n))),definition.blessing],Color("244e2c"))
-		if not brand.curse.is_empty():
-			effect_line("저주 [%s] · %s" % [", ".join(brand.curse.map(func(n): return str(n))),definition.penalty],Color("782622"))
+	# One effect heading per type; combine the faces of repeated brands.
+	for group in grouped_brands(u.brands):
+		var definition = interface_data.brands.get(group.type,{})
+		if definition.is_empty(): continue
+		effect_line(str(definition.name),Color("281a12"),14)
+		effect_line("축복 [%s] · %s" % [merged_face_text(group.bless),definition.blessing],Color("244e2c"))
+		if not group.curse.is_empty():
+			effect_line("저주 [%s] · %s" % [merged_face_text(group.curse),definition.penalty],Color("782622"))
 	if u.brands.is_empty(): effect_line("낙인 없음")
 	if u.base_hp != u.max_hp or u.base_attack != u.attack or u.base_speed != u.speed:
 		section("능력치 변화")
