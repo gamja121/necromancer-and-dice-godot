@@ -142,34 +142,28 @@ func setup(run_session) -> void:
 	confirm.disabled = true
 	confirm.modulate.a = 0.45
 
-## A dedicated 10-owned / 1-new monster exchange. Only the layout changes:
-## the existing claim_reward(discard_id) transaction still commits on confirmation.
-func exchange_panel(name: String, pos: Vector2, dimensions: Vector2, fill: Color, edge: Color) -> Panel:
-	var panel := Panel.new()
-	panel.name = name
-	panel.position = pos
-	panel.size = dimensions
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = edge
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(7)
-	panel.add_theme_stylebox_override("panel",style)
-	add_child(panel)
-	return panel
-
+## Approved minimal layout (2026-10-24):
+## no header, one large new monster, existing roster in a 5 x 2 grid,
+## an understated arrow, and two explicit decisions.
+## Real layered portraits, portrait foot baselines, brands and reward saving
+## are all handled by the existing shared card / claim_reward paths.
 func exchange_button_style(action: Button, destructive: bool) -> void:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("5c2c25") if destructive else Color("72502e")
-	style.border_color = Color("d1aa75")
+	style.bg_color = Color("572b26") if destructive else Color("324a37")
+	style.border_color = Color("b3946a")
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(5)
+	style.shadow_color = Color("140c09a0")
+	style.shadow_size = 3
 	for state in ["normal","hover","pressed","focus","disabled"]:
 		action.add_theme_stylebox_override(state,style)
-	action.add_theme_color_override("font_color",Color("ffe9c1"))
-	action.add_theme_color_override("font_disabled_color",Color("a99880"))
-	action.add_theme_font_size_override("font_size",17)
+	action.add_theme_color_override("font_color",Color("f5e1bf"))
+	action.add_theme_color_override("font_disabled_color",Color("9a8a71"))
+	action.add_theme_font_size_override("font_size",20)
+	var effect := action.get_node_or_null("ButtonEffectsModule")
+	if effect != null:
+		effect.hover_scale = Vector2(1.015,1.015)
+		effect.hover_rotation_degrees = 0.0
 
 func exchange_outline(option: TextureButton) -> void:
 	var outline := Panel.new()
@@ -177,14 +171,14 @@ func exchange_outline(option: TextureButton) -> void:
 	outline.size = option.size
 	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	outline.z_index = 5
-	var glow := StyleBoxFlat.new()
-	glow.draw_center = false
-	glow.border_color = Color("e9a26c")
-	glow.set_border_width_all(3)
-	glow.set_corner_radius_all(5)
-	glow.shadow_color = Color("e88c5288")
-	glow.shadow_size = 8
-	outline.add_theme_stylebox_override("panel",glow)
+	var rim := StyleBoxFlat.new()
+	rim.draw_center = false
+	rim.border_color = Color("e8b56b")
+	rim.set_border_width_all(3)
+	rim.set_corner_radius_all(3)
+	rim.shadow_color = Color("d89d4e70")
+	rim.shadow_size = 4
+	outline.add_theme_stylebox_override("panel",rim)
 	outline.visible = false
 	option.add_child(outline)
 
@@ -200,86 +194,91 @@ func exchange_summary(unit: Dictionary) -> String:
 func setup_monster_swap(reward: Dictionary) -> void:
 	var shade := get_child(0) as ColorRect
 	if shade != null:
-		shade.color = Color("070403e6")
+		shade.color = Color("140e0aaf")
 	var items: Array = session.world.roster
-	var capacity: int = Catalog.UNIT_CAPACITY
-	# All measurements use the existing 1280x720 Godot canvas.
-	exchange_panel("RewardOverflowPanel",Vector2(48,25),Vector2(1184,675),Color("241910f5"),Color("b89a71"))
-	exchange_panel("NewMonsterSection",Vector2(80,169),Vector2(316,438),Color("32251c"),Color("a78558"))
-	exchange_panel("OwnedMonsterSection",Vector2(415,169),Vector2(785,438),Color("2a2119"),Color("806447"))
-	title_label = label_at(self,"마물 보관함 %d/%d · 동료 교체" % [items.size(),capacity],Vector2(95,54),Vector2(1090,45),28)
-	title_label.name = "OverflowTitle"
-	title_label.add_theme_color_override("font_color",Color("f4d7a0"))
-	status = label_at(self,"새로운 마물을 얻었습니다. 보유 마물 한 명을 내보내거나, 새 마물을 포기하세요.",Vector2(105,111),Vector2(1070,31),17)
-	status.name = "OverflowStatus"
-	status.add_theme_color_override("font_color",Color("d2b99a"))
-
-	var fresh_title := label_at(self,"새로 얻은 마물",Vector2(104,187),Vector2(270,32),19)
-	fresh_title.add_theme_color_override("font_color",Color("ffdf9b"))
-	var old_title := label_at(self,"보유 마물 10장 · 교체할 마물 선택",Vector2(432,187),Vector2(745,31),19)
-	old_title.add_theme_color_override("font_color",Color("e8d2b4"))
+	# Reuse the actual dark-wood and parchment pieces from home/inheritance.
+	# Nine-patch margins preserve the original painted corner ornamentation.
+	var frame := NinePatchRect.new()
+	frame.name = "RewardOverflowPanel"
+	frame.texture = load("res://assets/map/ui/inheritance_roster_frame.webp")
+	frame.patch_margin_left = 40
+	frame.patch_margin_right = 40
+	frame.patch_margin_top = 34
+	frame.patch_margin_bottom = 34
+	frame.position = Vector2(69,105)
+	frame.size = Vector2(1142,528)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(frame)
+	var fresh_paper := art(self,"res://assets/map/ui/inheritance_info.webp",Vector2(110,155),Vector2(304,391))
+	fresh_paper.name = "OverflowNewMonsterPaper"
+	fresh_paper.stretch_mode = TextureRect.STRETCH_SCALE
+	# No duplicate section titles: the larger, isolated card is the incoming one.
 	var fresh: Dictionary = reward.item
-	var new_card := card(self,"unit",fresh,Vector2(147,231),Vector2(180,283),Callable())
+	var new_card := card(self,"unit",fresh,Vector2(155,183),Vector2(214,343),Callable())
 	new_card.name = "OverflowNewMonster"
+	new_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	new_card.focus_mode = Control.FOCUS_NONE
 	if LayeredUnitCard.supports(str(fresh.get("slug",""))):
 		new_card.get_child(0).hide()
-	exchange_outline(new_card)
 	choices["__new__"] = new_card
 	choice_cards.append(new_card)
 
-	var fresh_badge := Panel.new()
-	fresh_badge.name = "NewRewardBadge"
-	fresh_badge.position = Vector2(293,222)
-	fresh_badge.size = Vector2(70,28)
-	fresh_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = Color("783b23")
-	badge_style.border_color = Color("e8b47b")
-	badge_style.set_border_width_all(1)
-	badge_style.set_corner_radius_all(6)
-	fresh_badge.add_theme_stylebox_override("panel",badge_style)
-	add_child(fresh_badge)
-	label_at(fresh_badge,"신규",Vector2.ZERO,fresh_badge.size,14)
-	var new_info := label_at(self,exchange_summary(fresh),Vector2(94,527),Vector2(294,57),13)
-	new_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	new_info.add_theme_color_override("font_color",Color("edcea4"))
+	var arrow := label_at(self,"➜",Vector2(419,327),Vector2(62,70),44)
+	arrow.name = "OverflowExchangeArrow"
+	arrow.add_theme_color_override("font_color",Color("c9ab7b"))
+	arrow.add_theme_color_override("font_shadow_color",Color("24170e"))
+	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	monster_grid = GridContainer.new()
 	monster_grid.name = "OverflowMonsterGrid"
 	monster_grid.columns = 5
-	monster_grid.position = Vector2(437,228)
-	monster_grid.add_theme_constant_override("h_separation",8)
-	monster_grid.add_theme_constant_override("v_separation",6)
+	monster_grid.position = Vector2(487,151)
+	monster_grid.add_theme_constant_override("h_separation",6)
+	monster_grid.add_theme_constant_override("v_separation",11)
 	add_child(monster_grid)
 	for index in range(items.size()):
 		var old: Dictionary = items[index]
 		var key: String = str(old.id)
 		var slot := Control.new()
 		slot.name = "OverflowCandidate_%d" % index
-		slot.custom_minimum_size = Vector2(138,174)
+		slot.custom_minimum_size = Vector2(134,183)
 		monster_grid.add_child(slot)
-		var option := card(slot,"unit",old,Vector2(11,3),Vector2(116,166),func(): select_card(key))
+		var option := card(slot,"unit",old,Vector2(11,4),Vector2(112,175),func(): select_card(key))
 		option.name = "OverflowCard_%d" % index
 		option.focus_mode = Control.FOCUS_ALL
+		option.tooltip_text = exchange_summary(old) + "\n선택 시 신규 마물과 교체"
 		if LayeredUnitCard.supports(str(old.get("slug",""))):
 			option.get_child(0).hide()
 		exchange_outline(option)
 		choices[key] = option
 		choice_cards.append(option)
 
-	decline_button = button(self,"새 마물 포기",Vector2(93,631),Vector2(245,47),func(): select_card("__new__"))
+	# These informational labels stay hidden until an actual choice/error.
+	# Thus the normal state matches the uncluttered approved mockup.
+	status = label_at(self,"",Vector2(300,539),Vector2(680,27),15)
+	status.name = "OverflowStatus"
+	status.add_theme_color_override("font_color",Color("e9c79f"))
+	status.visible = false
+	selection_detail = label_at(self,"",Vector2(260,539),Vector2(760,27),14)
+	selection_detail.name = "OverflowSelectionDetail"
+	selection_detail.add_theme_color_override("font_color",Color("ddc19b"))
+	selection_detail.visible = false
+
+	decline_button = button(self,"획득하지 않기",Vector2(262,572),Vector2(321,51),on_decline_new)
 	decline_button.name = "OverflowDeclineNew"
 	exchange_button_style(decline_button,true)
-	selection_detail = label_at(self,"보유 마물 중 교체 대상을 선택하세요.",Vector2(354,628),Vector2(548,53),14)
-	selection_detail.name = "OverflowSelectionDetail"
-	selection_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	selection_detail.add_theme_color_override("font_color",Color("e7cfaf"))
-	confirm = button(self,"교체 대상 선택 필요",Vector2(917,631),Vector2(278,47),finish)
+	confirm = button(self,"선택한 마물과 교체",Vector2(693,572),Vector2(352,51),finish)
 	confirm.name = "OverflowConfirm"
 	exchange_button_style(confirm,false)
 	confirm.disabled = true
 	confirm.modulate.a = 0.45
+
+func on_decline_new() -> void:
+	# The second tap commits the irreversible refusal; first tap only arms it.
+	if selected == "__new__":
+		finish()
+	else:
+		select_card("__new__")
 
 func select_monster_for_exchange(key: String) -> void:
 	for id in choices:
@@ -287,22 +286,27 @@ func select_monster_for_exchange(key: String) -> void:
 		var chosen: bool = id == key and key != "__new__"
 		option.scale = Vector2(1.025,1.025) if chosen else Vector2.ONE
 		option.z_index = 4 if chosen else 0
-		option.get_node("OverflowSelectedOutline").visible = chosen
+		var outline := option.get_node_or_null("OverflowSelectedOutline")
+		if outline != null:
+			outline.visible = chosen
+	status.visible = false
+	status.text = ""
+	selection_detail.visible = true
 	if key == "__new__":
-		status.text = "새로운 마물을 포기하고 현재 보유 마물 10명을 유지합니다."
-		selection_detail.text = "신규 보상 포기 선택됨 · 아래에서 확정해야 적용됩니다."
-		confirm.text = "새 마물 포기 확정"
+		selection_detail.text = "새 마물 획득 포기 · 왼쪽 버튼을 다시 누르면 확정"
+		decline_button.text = "포기 확정"
+		confirm.disabled = true
+		confirm.modulate.a = 0.45
 	else:
 		var old: Dictionary = {}
 		for unit in session.world.roster:
 			if str(unit.id) == key:
 				old = unit
 				break
-		status.text = "내보낼 마물을 선택했습니다. 보상 확정 시 이 마물은 영구적으로 제외됩니다."
-		selection_detail.text = exchange_summary(old) + "\n선택한 마물을 내보내고 신규 마물을 받습니다."
-		confirm.text = "교체하고 획득"
-	confirm.disabled = false
-	confirm.modulate.a = 1.0
+		selection_detail.text = exchange_summary(old) + " · 영구 제외"
+		decline_button.text = "획득하지 않기"
+		confirm.disabled = false
+		confirm.modulate.a = 1.0
 
 func select_card(key: String) -> void:
 	if not choices.has(key): return
@@ -323,14 +327,28 @@ func select_card(key: String) -> void:
 	confirm.modulate.a = 1.0
 
 func finish() -> void:
-	if selected.is_empty() or confirm.disabled: return
-	confirm.disabled = true
-	confirm.modulate.a = 0.45
+	if selected.is_empty(): return
+	if is_monster_swap:
+		if selected != "__new__" and confirm.disabled: return
+		if selected == "__new__" and decline_button.disabled: return
+		decline_button.disabled = true
+		confirm.disabled = true
+	else:
+		if confirm.disabled: return
+		confirm.disabled = true
+		confirm.modulate.a = 0.45
 	var outcome: Dictionary = session.claim_reward(selected)
 	if not outcome.get("ok",false):
-		status.text = "저장 실패 · 다시 시도하세요"
-		confirm.disabled = false
-		confirm.modulate.a = 1.0
+		status.text = "저장 실패 · 다시 선택해 주세요"
+		status.visible = true
+		if is_monster_swap:
+			decline_button.disabled = false
+			if selected != "__new__":
+				confirm.disabled = false
+				confirm.modulate.a = 1.0
+		else:
+			confirm.disabled = false
+			confirm.modulate.a = 1.0
 		return
 	resolved.emit(outcome)
 	queue_free()
