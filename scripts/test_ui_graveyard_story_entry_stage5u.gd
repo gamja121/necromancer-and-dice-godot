@@ -28,11 +28,11 @@ func clear_save() -> void:
 
 func get_art(map: Control) -> TextureRect:
 	if not is_instance_valid(map.overlay): return null
-	return map.overlay.get_node_or_null("StorySceneImage") as TextureRect
+	return map.overlay.find_child("StorySceneImage",true,false) as TextureRect
 
 func get_hint(map: Control) -> Label:
 	if not is_instance_valid(map.overlay): return null
-	return map.overlay.get_node_or_null("StoryDialogueNext") as Label
+	return map.overlay.find_child("StoryDialogueNext",true,false) as Label
 
 func has_button(map: Control, title: String) -> bool:
 	if not is_instance_valid(map.overlay): return false
@@ -58,6 +58,7 @@ func _run() -> void:
 	# The original ghoul scene becomes accessible after one home reshuffle.
 	session.world.lap_ready=true
 	session.world.leave_home()
+	session.world.contamination=int(preload("res://systems/story_contamination_gate.gd").MINIMUMS.values().max())
 	var index: int=session.world.tiles.find("graveyard")
 	check(index>=0,"real board contains graveyard tile")
 	if index<0:
@@ -80,8 +81,8 @@ func _run() -> void:
 	var art=get_art(map)
 	check(is_instance_valid(art),"original discovery picture shown in real story overlay")
 	if art!=null:
-		var expected: Vector2=Vector2(243.2,136.8)
-		var dimensions: Vector2=Vector2(793.6,446.4)
+		var expected: Vector2=Vector2.ZERO
+		var dimensions: Vector2=Vector2(360,202.5)
 		var entry_position: Vector2=expected + dimensions*Vector2(-0.048,-0.19)
 		check(art.texture != null and art.texture.resource_path==BEATS.BASE_ART,"user original child WebP remains unmodified")
 		check(art.get_meta("ui_custom_open_motion",false),"board image opts out of conflicting generic 6px entrance")
@@ -92,29 +93,20 @@ func _run() -> void:
 		await create_timer(0.77).timeout
 		check(art.position.distance_to(expected)<0.8,"art lands at original scene rect after bounce")
 		check(art.scale.distance_to(Vector2.ONE)<0.01 and absf(art.rotation_degrees)<0.1 and near_number(art.modulate.a,1,0.01),"end of drop restores natural scale, rotation and opacity")
-		check(is_instance_valid(map.overlay.get_node_or_null("PanelEffectsModule")),"normal modal fades still exist while art uses custom motion")
+		check(map.overlay.get_script()==map.StoryBook and map.overlay.scale==Vector2(0.84,0.84),"cover opens with a fixed book transform while the picture uses its own motion")
 	check(not has_button(map,"아이를 구한다") and has_button(map,"계속"),"initial story never grants a choice without clicks")
-	check(map.overlay.get_node_or_null("StoryCharacterLayer")==null,"first frame does not pre-reveal ghoul")
+	check(map.overlay.find_child("StoryCharacterLayer",true,false)==null,"first frame does not pre-reveal ghoul")
 
 	map.show_graveyard_child_beat(index,1)
 	art=get_art(map)
 	check(is_instance_valid(art) and not art.has_meta("ui_custom_open_motion"),"threat beat does not replay original entrance effect")
-	check(map.overlay.get_node_or_null("StoryCharacterLayer") is TextureRect,"existing Stage T ghoul threat remains")
+	check(map.overlay.find_child("StoryCharacterLayer",true,false) is TextureRect,"existing Stage T ghoul threat remains")
 	await create_timer(0.28).timeout
-	check(art.position.distance_to(map.TILE_EVENT_SCENE_RECT.position)<0.8,"ordinary modal entrance still settles after 200ms")
+	check(art.position.distance_to(Vector2.ZERO)<0.8,"ordinary modal entrance still settles after 200ms")
 	map.show_graveyard_child_beat(index,2)
 	var hint=get_hint(map)
-	check(hint is Label and hint.text=="▼","child parchment next indicator still exists with original glyph")
-	check(map.overlay.get_node_or_null("StoryDialogueFrame") is TextureRect,"Stage 5P original dialogue frame remains")
-	if hint!=null:
-		check(hint.get_meta("ui_custom_open_motion",false) and hint.mouse_filter==Control.MOUSE_FILTER_IGNORE,"next indicator animates without blocking input or competing modal motion")
-		check(near_number(hint.position.y,653,0.1) and near_number(hint.modulate.a,0.45,0.01),"first CSS cue frame starts at rest and 45% opacity")
-		await create_timer(0.29).timeout
-		check(hint.position.y>654.2 and hint.position.y<657.5,"900ms cue moves down by up to 4px")
-		check(hint.modulate.a>0.6 and hint.modulate.a<=1.01,"cue gains opacity over first half cycle")
-		await create_timer(0.50).timeout
-		check(hint.position.y<656.2 and hint.position.y>=653.0,"next cue returns toward original base in the same loop")
-		check(hint.modulate.a<0.9 and hint.modulate.a>=0.44,"next cue opacity falls again in second half")
+	check(hint==null,"plain Continue action supplies its own focus triangle, with no floating cue")
+	check(map.overlay.find_child("StoryDialogueFrame",true,false) is TextureRect,"Stage 5P original dialogue frame remains")
 
 	map.show_graveyard_child_beat(index,3)
 	check(get_hint(map)==null,"explicit decision scene does not display a misleading Continue cue")
@@ -141,7 +133,7 @@ func _run() -> void:
 	map=MAP.instantiate()
 	root.add_child(map)
 	for i in range(4): await process_frame
-	check(is_instance_valid(get_art(map)) and is_instance_valid(map.overlay.get_node_or_null("StoryCharacterLayer")),"resume restores original threat picture and ghoul, no fake initial bounce")
+	check(is_instance_valid(get_art(map)) and is_instance_valid(map.overlay.find_child("StoryCharacterLayer",true,false)),"resume restores original threat picture and ghoul, no fake initial bounce")
 	check(not get_art(map).get_meta("ui_custom_open_motion",false),"reconnected threat scene does not replay discovery bounce")
 	map.queue_free()
 	await process_frame

@@ -12,6 +12,7 @@ const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const StorySplit = preload("res://systems/story_split_layout.gd")
+const StoryBook = preload("res://systems/main_story_book.gd")
 const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
@@ -289,6 +290,8 @@ func texture(path: String) -> Texture2D:
 	return textures[path]
 
 func image(parent: Control, path: String, pos: Vector2, dimensions: Vector2) -> TextureRect:
+	if parent is StoryBook and path.begins_with("res://assets/map/events/") and StoryBook.is_source_art_rect(pos,dimensions):
+		return parent.add_source_image(path,Rect2(pos,dimensions),texture(path))
 	var node = TextureRect.new()
 	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	node.texture = texture(path)
@@ -304,6 +307,7 @@ func image(parent: Control, path: String, pos: Vector2, dimensions: Vector2) -> 
 	return node
 
 func shared_story_frame(panel: Control) -> TextureRect:
+	if panel is StoryBook: return panel.page_frame
 	# Decorative art only: neither the parchment nor its headers consume input.
 	var split: bool = bool(panel.get_meta("story_split_layout",false))
 	var bounds: Rect2 = StorySplit.NARRATION_FULL if split else SHARED_DIALOGUE_RECT
@@ -345,6 +349,7 @@ func _arrange_story_buttons(panel: Control) -> void:
 			control.size = bounds.size
 
 func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2, font_size: int = 15) -> Label:
+	if parent is StoryBook: return parent.add_source_label(value,Rect2(pos,dimensions),font_size)
 	var node = Label.new()
 	node.text = value
 	node.position = pos
@@ -426,7 +431,7 @@ func button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, c
 	node.size = dimensions
 	node.pressed.connect(callback)
 	parent.add_child(node)
-	add_button_effect(node)
+	if not parent is StoryBook: add_button_effect(node)
 	return node
 
 func add_button_effect(node: BaseButton) -> void:
@@ -926,18 +931,21 @@ func select_tile(index: int) -> void:
 	show_tile(index)
 
 func story_modal() -> Control:
-	var panel := modal()
+	# A beat replacement keeps the book open; a later visit opens it afresh.
+	var continuing: bool = is_instance_valid(overlay) and overlay is StoryBook
+	if is_instance_valid(overlay): close_overlay()
+	var panel = StoryBook.new()
+	panel.instant = continuing
+	panel.z_index = 80
 	panel.set_meta("story_split_layout",true)
-	StorySplit.install_shell(panel)
-	# Only the story overlay bubbles background taps to its reveal handler.
-	for child in panel.get_children():
-		if child is ColorRect and child.get_meta("ui_backdrop",false):
-			child.mouse_filter = Control.MOUSE_FILTER_PASS
+	stage.add_child(panel)
+	overlay = panel
 	panel.gui_input.connect(func(event: InputEvent): _on_story_panel_input(event,panel))
 	return panel
 
 func _reveal_story_text(panel: Control) -> bool:
 	if not is_instance_valid(panel): return false
+	if panel is StoryBook: return panel.reveal_for_input()
 	var typewriter = panel.get_node_or_null("StoryTypewriter")
 	return typewriter != null and typewriter.reveal_all()
 
@@ -1421,6 +1429,7 @@ func show_final_dragon_intro(index: int) -> void:
 	overlay = book
 	map_music.stream_paused = true
 	book.show_intro()
+	book.return_requested.connect(func(): dismiss_overlay(render))
 	book.battle_requested.connect(func():
 		if overlay!=book: return
 		if not session.acknowledge_final_dragon_intro(index):
@@ -1768,7 +1777,8 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 		var is_secondary: bool = title in ["돌아가기","나가기","맵으로","부활 확인","흔적 확인"] or title.ends_with(" 기능")
 		node.set_meta("story_button_primary",not is_secondary)
 		node.add_theme_font_size_override("font_size",16)
-		_arrange_story_buttons(parent)
+		if parent is StoryBook: parent.arrange_actions()
+		else: _arrange_story_buttons(parent)
 	return node
 
 ## The story presentation advances only by explicit input; no timer picks a choice.
@@ -1839,7 +1849,6 @@ func show_village_rumor_beat(index: int, event_id: String) -> void:
 	var beat_index: int=VillageRumorEntry.current_beat(session,event_id)
 	var beat: Dictionary=VillageRumorBeats.beat(event_id,beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var artwork=image(panel,VillageRumorEntry.SCENE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
@@ -1889,8 +1898,8 @@ func show_knight_commander_beat(index: int) -> void:
 	var beat_index: int=KnightCommanderEntry.current_beat(session)
 	var beat: Dictionary=KnightCommanderBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("quest_accepted",false): panel.show_seal("의뢰")
 	var artwork=image(panel,KnightCommanderEntry.ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
 	# The frozen web uses distinct right/mirrored commander and left player
@@ -1943,8 +1952,8 @@ func show_monster_hunter_beat(index: int) -> void:
 	var beat_index: int=MonsterHunterEntry.current_beat(session)
 	var beat: Dictionary=MonsterHunterBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("clue_obtained",false): panel.show_seal("단서")
 	var art=image(panel,MonsterHunterEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
 	var visual: String=str(beat.visual)
@@ -2007,8 +2016,8 @@ func show_cultist_rumor_beat(index: int) -> void:
 	var beat_index: int=CultistRumorEntry.current_beat(session)
 	var beat: Dictionary=CultistRumorBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("trackingActivated",false): panel.show_seal("추적")
 	var art=image(panel,CultistRumorEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
 	var layer: String=CultistRumorBeats.layer_for(str(beat.visual))
@@ -2068,8 +2077,8 @@ func show_monster_king_hunt_beat(index: int) -> void:
 	var beat_index: int=MonsterKingHuntEntry.current_beat(session)
 	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	if beat.get("locationKnown",false): panel.show_seal("위치")
 	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
 	# Frozen web reuses the already ported hunter scene and hunter portrait
@@ -2136,7 +2145,6 @@ func show_ritual_portal_beat(index: int) -> void:
 	if beat.is_empty(): return
 	var scene_state: Dictionary=session.get_story_event(RitualPortalEntry.EVENT_ID)
 	var intervening: bool=scene_state.status=="active" and scene_state.choice=="intervene"
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
@@ -2203,8 +2211,8 @@ func show_ritual_portal_aftermath(index: int) -> void:
 	var result: String=str(session.get_story_event(RitualPortalEntry.EVENT_ID).battle_result)
 	var beat: Dictionary=RitualPortalBeats.aftermath(result)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	panel.show_seal("추적")
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
 	var bounds: Rect2=RitualPortalLayerMotion.source_rect(TILE_EVENT_SCENE_RECT)
@@ -2255,7 +2263,6 @@ func show_cultist_altar_beat(index: int) -> void:
 	if beat.is_empty(): return
 	var altar_state: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
 	var fighting: bool=altar_state.status=="active" and altar_state.choice=="fight"
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var artwork=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
@@ -2308,8 +2315,8 @@ func show_cultist_altar_followup(index: int) -> void:
 	var story: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
 	var narration: String=CultistAltarBeats.followup_effect(str(story.choice),str(story.battle_result))
 	if narration.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
+	panel.show_seal("추적")
 	var art=image(panel,CultistAltarEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	InkSceneReveal.play(art)
 	var overlay_path: String=CultistAltarBeats.RITUAL if story.choice=="pass" else CultistAltarBeats.SUMMON
@@ -2383,7 +2390,6 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if index != world.position or session.get_story_event(StoryEventEntry.EVENT_ID).status == "complete": return
 	var beat: Dictionary = GraveyardStoryBeats.beat(beat_index)
 	if beat.is_empty(): return
-	if is_instance_valid(overlay): close_overlay()
 	var panel=story_modal()
 	var artwork = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	artwork.name="StorySceneImage"
@@ -2395,13 +2401,11 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 		# Animate only its nested image to avoid competing position tweens.
 		var ghoul_frame = TextureRect.new()
 		ghoul_frame.name = "StoryCharacterLayer"
-		var ghoul_bounds: Rect2 = StorySplit.map_art_rect(Rect2(
-			TILE_EVENT_SCENE_RECT.position + TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position,
-			TILE_EVENT_SCENE_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size))
+		var ghoul_bounds := Rect2(StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position,StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size)
 		ghoul_frame.position = ghoul_bounds.position
 		ghoul_frame.size = ghoul_bounds.size
 		ghoul_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.add_child(ghoul_frame)
+		panel.art.add_child(ghoul_frame)
 		var ghoul_art = image(ghoul_frame,GraveyardStoryBeats.GHOUL_ART,Vector2.ZERO,ghoul_frame.size)
 		ghoul_art.name = "GhoulSprite"
 		GraveyardGhoulMotion.play(ghoul_art,beat_index == 1)
@@ -2431,7 +2435,7 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		dialogue.add_theme_color_override("font_color",Color("21150d"))
 		dialogue.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-		if not beat.choice:
+		if not beat.choice and not panel is StoryBook:
 			var advance_hint=label_at(panel,"▼",Vector2(1013,609),Vector2(26,24),17)
 			advance_hint.name="StoryDialogueNext"
 			GraveyardStoryEntryMotion.play_next_hint(advance_hint)

@@ -28,7 +28,7 @@ func clear_save() -> void:
 
 func get_ghoul_frame(map: Control) -> TextureRect:
 	if not is_instance_valid(map.overlay): return null
-	return map.overlay.get_node_or_null("StoryCharacterLayer") as TextureRect
+	return map.overlay.find_child("StoryCharacterLayer",true,false) as TextureRect
 
 func get_ghoul(map: Control) -> TextureRect:
 	var frame = get_ghoul_frame(map)
@@ -54,6 +54,10 @@ func _run() -> void:
 	var previous_path: String = session.save_file_path
 	session.save_file_path = scratch
 	session.start_new_world()
+	# Prepare the existing post-home story gates for this isolated visual fixture.
+	session.world.laps=1
+	session.world.contamination=int(preload("res://systems/story_contamination_gate.gd").MINIMUMS.values().max())
+	session.world.generate()
 	var index: int = session.world.tiles.find("graveyard")
 	check(index >= 0,"real map includes a graveyard story tile")
 	if index < 0:
@@ -80,7 +84,7 @@ func _run() -> void:
 	var ghoul = get_ghoul(map)
 	check(frame is TextureRect and ghoul is TextureRect,"threat scene creates story character frame and separately animated sprite")
 	if ghoul != null:
-		var source: Rect2 = map.TILE_EVENT_SCENE_RECT
+		var source := Rect2(Vector2.ZERO,map.StoryBook.ART_RECT.size)
 		var expected = Rect2(source.position+source.size*Vector2(0.55,0.18),source.size*Vector2(0.30,0.64))
 		check(frame.position.distance_to(expected.position)<0.1 and frame.size.distance_to(expected.size)<0.1,"ghoul occupies CSS left 55%, top 18%, 30% width, 64% height")
 		check(frame.position.x+frame.size.x<source.end.x and frame.position.y+frame.size.y<source.end.y,"ghoul art stays on the scene right, not full-screen stretched")
@@ -101,7 +105,7 @@ func _run() -> void:
 	frame = get_ghoul_frame(map)
 	ghoul = get_ghoul(map)
 	check(is_instance_valid(ghoul) and near(ghoul.modulate.a,0.96,0.01),"child dialogue uses immediate ghoul visibility, not a second reveal")
-	check(map.overlay.get_node_or_null("StoryDialogueFrame") is TextureRect,"original spoken dialogue parchment survives")
+	check(map.overlay.find_child("StoryDialogueFrame",true,false) is TextureRect,"original spoken dialogue parchment survives")
 	check(has_button(map.overlay,"계속") and has_button(map.overlay,"나가기"),"story buttons remain explicit interaction")
 	map.show_graveyard_child_beat(index,3)
 	check(is_instance_valid(get_ghoul(map)),"choice phase keeps the ghoul in the correct area")

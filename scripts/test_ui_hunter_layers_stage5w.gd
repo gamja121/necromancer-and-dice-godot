@@ -41,7 +41,7 @@ func wipe() -> void:
 
 func layer(map: Control, name: String) -> TextureRect:
 	if not is_instance_valid(map.overlay): return null
-	return map.overlay.get_node_or_null(name) as TextureRect
+	return map.overlay.find_child(name,true,false) as TextureRect
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -124,7 +124,7 @@ func _run() -> void:
 		var is_portrait: bool=visual=="portrait"
 		var animates: bool=beat.id in ["warning_reveal","unnatural","clue"] if is_scene else (beat.id in ["identify","sent_by_commander"] if is_portrait else beat.id=="player_reply")
 		var source_rect: Rect2=beast_rect if is_scene else (portrait_rect if is_portrait else player_rect)
-		var expected_rect: Rect2=map.StorySplit.map_art_rect(source_rect)
+		var expected_rect: Rect2=map.StoryBook.layer_bounds(HUNTER_BEATS.visual_art(str(beat.visual)),source_rect)
 		check(HUNTER.current_beat(session)==beat_i,"hunter beat %d is its real persisted source index" % beat_i)
 		map.show_monster_hunter_beat(worldtree)
 		check(is_instance_valid(map.overlay),"hunter beat %d creates a live source event overlay" % beat_i)

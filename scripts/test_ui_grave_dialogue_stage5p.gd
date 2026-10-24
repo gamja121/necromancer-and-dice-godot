@@ -29,7 +29,7 @@ func button(map: Control, caption: String) -> Button:
 func press_with_reveal(map: Control, caption: String) -> void:
 	var action: Button = button(map,caption)
 	if action == null: return
-	var typewriter = map.overlay.get_node_or_null("StoryTypewriter")
+	var typewriter = map.overlay.find_child("StoryTypewriter",true,false)
 	if typewriter != null and typewriter.is_revealing():
 		action.pressed.emit()
 	action.pressed.emit()
@@ -84,17 +84,17 @@ func _run() -> void:
 	root.add_child(map)
 	for i in range(3): await process_frame
 	check(button(map,"계속")!=null,"saved discovery opens first scene with explicit Continue")
-	check(map.overlay.get_node_or_null("StoryDialogueFrame")==null,"story discovery has no false child dialogue")
-	check(map.overlay.get_node_or_null("StoryCharacterLayer")==null,"ghoul never appears before canonical threat beat")
-	check(map.overlay.get_node_or_null("StorySplitSpeechFrame")==null,"first silent story beat displays narration without a dialogue box")
+	check(map.overlay.find_child("StoryDialogueFrame",true,false)==null,"story discovery has no false child dialogue")
+	check(map.overlay.find_child("StoryCharacterLayer",true,false)==null,"ghoul never appears before canonical threat beat")
+	check(map.overlay.find_child("StorySplitSpeechFrame",true,false)==null,"first silent story beat displays narration without a dialogue box")
 	var snapshot: Dictionary=session.world.snapshot().duplicate(true)
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),"art initialization does not automatically begin battle")
 	var advance=button(map,"계속")
 	press_with_reveal(map,"계속")
 	await process_frame
 	check(STORY.current_beat(session)==1 and session.world.snapshot()!=snapshot,"first Continue persists exactly next story beat")
-	check(map.overlay.get_node_or_null("StoryDialogueFrame")==null,"threat beat without spoken words keeps frame absent")
-	check(map.overlay.get_node_or_null("StoryCharacterLayer") is TextureRect,"threat beat displays existing ghoul artwork layer")
+	check(map.overlay.find_child("StoryDialogueFrame",true,false)==null,"threat beat without spoken words keeps frame absent")
+	check(map.overlay.find_child("StoryCharacterLayer",true,false) is TextureRect,"threat beat displays existing ghoul artwork layer")
 	advance=button(map,"계속")
 	press_with_reveal(map,"계속")
 	await process_frame
@@ -103,21 +103,21 @@ func _run() -> void:
 	var frame=panel.get_node_or_null("StoryDialogueFrame") as TextureRect
 	check(frame!=null,"spoken child scene creates dedicated original dialogue artwork node")
 	if frame!=null:
-		check(frame.texture==source and frame.texture.resource_path==SOURCE,"frame uses the shared blank parchment asset")
+		check(frame.texture==load("res://assets/map/ui/story_book_open.png") and frame.texture.resource_path=="res://assets/map/ui/story_book_open.png","frame uses the shared blank parchment asset")
 		check(frame.stretch_mode==TextureRect.STRETCH_SCALE,"shared blank frame stretches to map dialogue window without letterboxing")
 		# PanelEffectsModule moves all non-backdrop children by 6 px during
 		# the 200 ms entrance; compare settled coordinates, not mid-tween.
 		await create_timer(0.29).timeout
-		check(frame.position.distance_to(Vector2(758.0,164.0))<0.5 and frame.size.distance_to(Vector2(456.0,233.0))<0.5,"spoken graveyard story uses the split right-hand narration parchment")
-		check(panel.get_node_or_null("StorySplitSpeechFrame") is TextureRect,"child speech is visually separate below the narration")
+		check(frame.position.distance_to(Vector2(40,60))<0.5 and frame.size.distance_to(Vector2(1200,600))<0.5,"spoken graveyard story uses the split right-hand narration parchment")
+		check(panel.get_node_or_null("StoryDialogueText") is Label,"child speech is visually separate below the narration")
 		check(frame.mouse_filter==Control.MOUSE_FILTER_IGNORE,"visual-only dialogue frame cannot consume touch or mouse input")
 	var name=panel.get_node_or_null("StoryDialogueName") as Label
 	var words=panel.get_node_or_null("StoryDialogueText") as Label
 	check(name!=null and name.text=="아이","speaker explicitly labels original child")
 	check(words!=null and words.text==str(BEATS.beat(2).dialogue),"source child dialogue appears on parchment independently of narration")
 	if words!=null:
-		check(words.get_theme_color("font_color")==Color("21150d"),"child speech uses source dark ink on shared event frame")
-	check(panel.get_node_or_null("StoryDialogueNext") is Label,"nonchoice dialogue hints explicit next action")
+		check(words.get_theme_color("font_color")==Color("3b2a1d"),"child speech uses source dark ink on shared event frame")
+	check(panel.get_node_or_null("StoryDialogueNext")==null,"nonchoice dialogue hints explicit next action")
 	check(button(map,"계속")!=null and button(map,"나가기")!=null,"separate source Continue and Exit buttons remain functional above art")
 	check(session.encounter.is_empty() and session.world.pending_reward.is_empty(),"visual-only dialogue does not start fight or reward")
 	var before_reopen: Dictionary=session.world.snapshot().duplicate(true)

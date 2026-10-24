@@ -167,14 +167,13 @@ func _run() -> void:
 	check(await until_ready(func(): return is_instance_valid(map.final_chapter_screen) and not map.battle_returning),"actual harvest returns cards and opens book ending")
 	check(not map.dice.visible and map.dice.disabled and not is_instance_valid(map.game_over_screen),"ending hides and blocks shared die, no defeat shatter")
 	check(not s.prepare_map_roll().ok,"ending cannot continue expedition")
-	await create_timer(1.5).timeout
+	check(await until_ready(func(): return not map.final_chapter_screen.action_button.disabled,6.0),"ending book and illustration finish before closing")
 	await capture("final-ending")
 	var final_record: Dictionary = s.world.run_result.duplicate(true)
 	var roster_count: int = s.world.roster.size()
 	# Button goes to real title; Continue returns the same book and record.
 	map.final_chapter_screen.action_button.pressed.emit()
-	await process_frame
-	await process_frame
+	check(await until_ready(func(): return current_scene!=null and current_scene.scene_file_path=="res://title.tscn",4.0),"closing the physical book reaches title once" )
 	check(current_scene!=null and current_scene.scene_file_path=="res://title.tscn","book close reaches title")
 	var title: Control = current_scene
 	title.continue_button.pressed.emit()
