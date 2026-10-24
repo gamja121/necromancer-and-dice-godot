@@ -4,6 +4,7 @@ extends SceneTree
 const Session = preload("res://systems/run_session.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
+const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 var passed: int = 0
 var failed: int = 0
 
@@ -46,7 +47,7 @@ func test_shops(session: Node) -> void:
 				unit_ids.append(str(item.id))
 				selected_index = i
 				check(str(item.grade)==grade and str(item.slug)!=str(donor.slug),"merchant monster matches donor grade but differs in species")
-				check(ResourceLoader.exists(Catalog.image("unit",item)),"merchant monster artwork exists")
+				check(LayeredUnitCard.supports(str(item.slug)) and ResourceLoader.exists(str(LayeredUnitCard.PORTRAITS.get(str(item.slug),""))) and ResourceLoader.exists(str(LayeredUnitCard.BACKGROUNDS.get(str(item.slug),LayeredUnitCard.BACKGROUND))),"merchant monster has live layered artwork")
 		check(unit_slugs.size()==unit_slugs.duplicate().size(),"unit offer count retained")
 		var distinct: Dictionary = {}
 		for slug in unit_slugs: distinct[slug] = true
