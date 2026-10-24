@@ -223,6 +223,13 @@ func render_selection() -> void:
 			# exposes transferable blessings. Existing receiver curses stay visible.
 			append_brands(source_brands,false)
 		if not receiver.is_empty():
+			# Give the donor's blessings and the recipient's existing brands
+			# visual breathing room. The scroll view keeps long lists contained.
+			var section_gap := Control.new()
+			section_gap.name="InheritanceSectionGap"
+			section_gap.custom_minimum_size=Vector2(0,20)
+			section_gap.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			details.add_child(section_gap)
 			section_heading("기존 낙인 · %d/3칸" % receiver.brands.size())
 			var existing_brands: Array = BrandInheritance.normalize(receiver,session.world.definitions)
 			if existing_brands.is_empty():
