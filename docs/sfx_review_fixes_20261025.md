@@ -30,3 +30,5 @@ Previous waveform correlations cleanse/prayer_bless and capture_success/prophecy
 The dedicated Game Sound Effects workflow now runs the reported-path regression alongside the existing service tests. This is focused audio/UI verification, not an original-difficulty full-run balance test.
 
 Final condition-based focused regression: 26 passed with no diagnostics; card tests await the original chosen signal rather than a fixed animation delay.
+
+Shared integration: preserved main 8dc865c (capture identity tests and unit-info brand grouping). Current unit-info regression: 15 passed, no diagnostics. No overlapping audio logic was changed during this rebase.
