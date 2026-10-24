@@ -52,7 +52,7 @@ func setup(run_session, map_scene: Control = null) -> void:
 	PanelDepthMotion.shadow(inheritance_frame)
 	PanelDepthMotion.enter(inheritance_frame)
 	depth_panels.append(inheritance_frame)
-	var title=label_at(self,"낙인 계승 · 최대 3칸",Vector2(497,104),Vector2(286,27),19)
+	var title=label_at(self,"계승 정보",Vector2(497,104),Vector2(286,27),20)
 	title.add_theme_color_override("font_color",Color("34251c"))
 	title.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	var scroll=ScrollContainer.new()
@@ -65,7 +65,7 @@ func setup(run_session, map_scene: Control = null) -> void:
 	details=VBoxContainer.new()
 	details.name="InheritanceDetails"
 	details.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	details.add_theme_constant_override("separation",5)
+	details.add_theme_constant_override("separation",9)
 	scroll.add_child(details)
 	# Warning and progress remain fully inside the parchment, never stretched
 	# across the neighboring donor / recipient cards.
@@ -146,10 +146,10 @@ func detail(value: String, color: Color = Color("34251c"), font_size: int = 14) 
 	return line
 
 func section_heading(value: String) -> void:
-	var title := detail(value,Color("63432f"),15)
+	var title := detail(value,Color("63432f"),16)
 	title.name="InheritanceSectionHeading"
 
-func append_brands(brands: Array, origin: String, show_curse: bool = true) -> void:
+func append_brands(brands: Array, show_curse: bool = true) -> void:
 	for brand in brands:
 		if not (brand is Dictionary): continue
 		var brand_name: String = str(interface_data.brands[brand.type].name).replace("의 낙인","")
@@ -162,24 +162,23 @@ func append_brands(brands: Array, origin: String, show_curse: bool = true) -> vo
 		name_label.text=brand_name
 		name_label.name="InheritanceBrandName"
 		name_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		name_label.add_theme_font_size_override("font_size",17)
+		name_label.add_theme_font_size_override("font_size",19)
 		name_label.add_theme_color_override("font_color",Color("39251c"))
 		name_label.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 		name_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		card_row.add_child(name_label)
 		var faces_label := Label.new()
 		faces_label.name="InheritanceBlessingFaces"
-		faces_label.text="축복 눈금 " + (faces if not faces.is_empty() else "없음")
+		faces_label.text="눈금 " + (faces if not faces.is_empty() else "없음")
 		faces_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-		faces_label.add_theme_font_size_override("font_size",14)
+		faces_label.add_theme_font_size_override("font_size",16)
 		faces_label.add_theme_color_override("font_color",Color("6c4327"))
 		faces_label.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 		faces_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		card_row.add_child(faces_label)
-		# Effect text comes from the established rules catalog. The numbers
-		# are DICE FACES, not +2 / +3 attribute bonuses.
-		var effect: String = str(interface_data.brands[brand.type].blessing)
-		detail(effect,Color("694c38"),13)
+		# Compact selection summary: full blessing effects are already
+		# accessible in the monster/brand information screens. These
+		# values are die faces, never +2 or +3 damage bonuses.
 		if show_curse and not brand.curse.is_empty():
 			var cursed: String = ", ".join(brand.curse.map(func(n): return str(int(n))))
 			detail("기존 저주 눈금 " + cursed,Color("853a31"),13)
@@ -195,52 +194,54 @@ func render_selection() -> void:
 	for child in details.get_children():
 		details.remove_child(child)
 		child.queue_free()
+
+	# Both selected monsters already display their names on the side cards.
+	# The parchment only needs brand names, die faces, and the one real risk.
 	if completed:
 		if not inherited_brand.is_empty():
-			section_heading("계승 결과 · 획득한 낙인")
-			append_brands([inherited_brand],"획득",false)
-		if not receiver.is_empty():
-			section_heading("받는 마물 · %d / 3칸" % receiver.brands.size())
-			append_brands(BrandInheritance.normalize(receiver,session.world.definitions),"결과")
-	elif material.is_empty() and receiver.is_empty():
-		section_heading("① 계승 재료 선택")
-		detail("아래에서 희생할 마물을 선택하세요.",Color("5b4536"),15)
-		detail("② 축복을 받을 마물을 선택하세요.",Color("5b4536"),15)
+			section_heading("획득한 낙인")
+			append_brands([inherited_brand],false)
+	elif material.is_empty():
+		section_heading("① 재료 마물 선택")
+		detail("② 받을 마물 선택",Color("694c38"),16)
 	else:
-		if not material.is_empty():
-			section_heading("재료 · " + str(material.get("name","")))
-			var source_brands: Array = BrandInheritance.normalize(material,session.world.definitions)
-			if source_brands.is_empty():
-				detail("계승 가능한 낙인이 없습니다.",Color("853a31"),14)
-			else:
-				detail("재료 낙인 중 1개를 무작위로 선택",Color("7d4934"),13)
-				append_brands(source_brands,"재료",false)
+		section_heading("재료 낙인")
+		var source_brands: Array = BrandInheritance.normalize(material,session.world.definitions)
+		if source_brands.is_empty():
+			detail("계승할 낙인 없음",Color("853a31"),15)
+		else:
+			append_brands(source_brands,false)
 		if not receiver.is_empty():
-			section_heading("받는 마물 · %d / 3칸" % receiver.brands.size())
+			section_heading("기존 낙인 · %d/3칸" % receiver.brands.size())
 			var existing_brands: Array = BrandInheritance.normalize(receiver,session.world.definitions)
 			if existing_brands.is_empty():
-				detail("기존 낙인 없음 · 최대 3칸",Color("694c38"),14)
+				detail("없음",Color("694c38"),16)
 			else:
-				append_brands(existing_brands,"기존")
+				append_brands(existing_brands)
+
+	# A single unmistakable permanent-sacrifice warning. Never repeat
+	# the same sentence in the step text or the confirm button.
 	if completed:
-		sacrifice_warning.text="계승 완료 · 기존 마물 유지"
+		sacrifice_warning.text = "계승 완료"
 	elif not material.is_empty():
-		sacrifice_warning.text="주의 · 재료 마물 영구 소멸"
+		sacrifice_warning.text = "재료 마물 영구 소멸"
 	else:
-		sacrifice_warning.text="계승 결과는 확정 전 미정"
+		sacrifice_warning.text = ""
+
 	if not notice.is_empty():
-		status.text=notice
+		status.text = notice
 	elif completed:
-		status.text="계승 완료 · 받는 마물의 능력치와 체력은 유지됩니다"
+		status.text = "받는 마물 · 낙인 %d/3칸" % receiver.brands.size()
 	elif material.is_empty():
-		status.text="① 희생할 재료 마물 선택 → ② 받을 마물 선택"
+		status.text = ""
 	elif receiver.is_empty():
-		status.text="② 축복을 받을 마물을 선택하세요 · 재료는 확정 시 영구 소모됩니다"
+		status.text = "② 받을 마물 선택"
 	else:
-		status.text="③ 재료 마물 영구 소모 · 무작위 낙인 1개의 축복 계승"
+		status.text = "낙인 1개 무작위 계승"
+
 	var eligible: bool = not receiver.is_empty() and receiver.brands.size()<3 and not material.is_empty() and not material.brands.is_empty() and material_id!=receiver_id
 	confirm_button.disabled = busy or completed or not eligible or not session.home_action_allowed().ok
-	confirm_button.text = "계승 완료" if completed else "마물 소모 · 계승 확정"
+	confirm_button.text = "계승 완료" if completed else "계승 확정"
 	for id in unit_options:
 		var option: TextureButton = unit_options[id]
 		option.modulate = Color(1.14,1.08,0.87) if id in [material_id,receiver_id] else Color.WHITE
