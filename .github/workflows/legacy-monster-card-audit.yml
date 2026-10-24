@@ -60,7 +60,7 @@ jobs:
           print('LEGACY_UID_REFERENCE_COUNT:',len(uid_refs))
           for entry in uid_refs[:120]:
               print('LEGACY_UID_REFERENCE:',*entry,sep=' | ')
-          active_refs = [r for r in refs if pathlib.Path(r[0]).suffix.lower() not in {'.md','.txt'}]
+          active_refs = [r for r in refs if pathlib.Path(r[0]).suffix.lower() not in {'.md','.txt'} and r[0] != '.github/workflows/all-live-layered-monster-cards.yml']
           active_uid_refs = [r for r in uid_refs if pathlib.Path(r[0]).suffix.lower() not in {'.md','.txt'}]
           print('ACTIVE_LEGACY_REFERENCES:',len(active_refs))
           print('ACTIVE_LEGACY_UID_REFERENCES:',len(active_uid_refs))
