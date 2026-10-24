@@ -13,6 +13,9 @@ var is_monster_swap: bool = false
 var monster_grid: GridContainer
 var selection_detail: Label
 var decline_button: Button
+# Finish the existing ~0.10 s button pulse before reward storage or modal removal.
+const MONSTER_BUTTON_SETTLE_SECONDS := 0.16
+var monster_commit_pending: bool = false
 
 func setup(run_session) -> void:
 	session = run_session
@@ -155,8 +158,13 @@ func exchange_button_style(action: Button, destructive: bool) -> void:
 	style.set_corner_radius_all(5)
 	style.shadow_color = Color("140c09a0")
 	style.shadow_size = 3
-	for state in ["normal","hover","pressed","focus","disabled"]:
+	for state in ["normal","hover","focus","disabled"]:
 		action.add_theme_stylebox_override(state,style)
+	# Give the pointer-down state a small inset/darker surface without changing the art.
+	var down := style.duplicate() as StyleBoxFlat
+	down.bg_color = Color("3c201c") if destructive else Color("23382a")
+	down.shadow_size = 1
+	action.add_theme_stylebox_override("pressed",down)
 	action.add_theme_color_override("font_color",Color("f5e1bf"))
 	action.add_theme_color_override("font_disabled_color",Color("9a8a71"))
 	action.add_theme_font_size_override("font_size",20)
@@ -275,6 +283,7 @@ func setup_monster_swap(reward: Dictionary) -> void:
 
 func on_decline_new() -> void:
 	# The second tap commits the irreversible refusal; first tap only arms it.
+	if monster_commit_pending: return
 	if selected == "__new__":
 		finish()
 	else:
@@ -309,7 +318,7 @@ func select_monster_for_exchange(key: String) -> void:
 		confirm.modulate.a = 1.0
 
 func select_card(key: String) -> void:
-	if not choices.has(key): return
+	if monster_commit_pending or not choices.has(key): return
 	selected = key
 	if is_monster_swap:
 		select_monster_for_exchange(key)
@@ -327,28 +336,45 @@ func select_card(key: String) -> void:
 	confirm.modulate.a = 1.0
 
 func finish() -> void:
-	if selected.is_empty(): return
+	if selected.is_empty() or monster_commit_pending: return
 	if is_monster_swap:
 		if selected != "__new__" and confirm.disabled: return
 		if selected == "__new__" and decline_button.disabled: return
-		decline_button.disabled = true
-		confirm.disabled = true
-	else:
-		if confirm.disabled: return
-		confirm.disabled = true
-		confirm.modulate.a = 0.45
+		# A Button.pressed callback runs before ButtonEffectsModule._on_pressed.
+		# Keep the button enabled long enough for its press/release tween to render.
+		monster_commit_pending = true
+		commit_monster_after_press(selected)
+		return
+	# Dice overflow keeps its existing immediate transaction and closing logic.
+	if confirm.disabled: return
+	confirm.disabled = true
+	confirm.modulate.a = 0.45
 	var outcome: Dictionary = session.claim_reward(selected)
 	if not outcome.get("ok",false):
 		status.text = "저장 실패 · 다시 선택해 주세요"
 		status.visible = true
-		if is_monster_swap:
-			decline_button.disabled = false
-			if selected != "__new__":
-				confirm.disabled = false
-				confirm.modulate.a = 1.0
-		else:
+		confirm.disabled = false
+		confirm.modulate.a = 1.0
+		return
+	resolved.emit(outcome)
+	queue_free()
+
+func commit_monster_after_press(discard_id: String) -> void:
+	# A complete shrink-then-rebound is ~0.10s; the small margin gives the
+	# final frame time to paint before saving and dismissing the overlay.
+	await get_tree().create_timer(MONSTER_BUTTON_SETTLE_SECONDS).timeout
+	if not is_inside_tree() or not monster_commit_pending: return
+	decline_button.disabled = true
+	confirm.disabled = true
+	var outcome: Dictionary = session.claim_reward(discard_id)
+	if not outcome.get("ok",false):
+		status.text = "저장 실패 · 다시 선택해 주세요"
+		status.visible = true
+		decline_button.disabled = false
+		if discard_id != "__new__":
 			confirm.disabled = false
 			confirm.modulate.a = 1.0
+		monster_commit_pending = false
 		return
 	resolved.emit(outcome)
 	queue_free()
