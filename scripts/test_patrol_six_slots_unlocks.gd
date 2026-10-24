@@ -60,7 +60,13 @@ func _run() -> void:
 		check(state.tiles.count("monster")>=minimum_monsters,"automatic monsters retained even after boss reservation at %d" % stage)
 		check(state.tiles.count("rest")==0 and state.tiles.count("swamp")==expected_swamps,"no rest and exactly %d automatically generated swamp tiles at contamination %d" % [expected_swamps,stage])
 		check(state.tiles.count("event")==2,"two guaranteed event tiles after map generation at contamination %d" % stage)
-		if stage>=20: check(state.tiles[23]=="boss","boss remains on 24th board slot at %d" % stage)
+		# Boss tiles reflect their real staged unlock and defeat/quest gates.
+		# At 80/100 the dragon is blocked until the final story is acknowledged.
+		var expected_boss: bool = state.boss_available()
+		check((state.tiles[State.BOSS_TILE_INDEX]=="boss")==expected_boss,
+			"board boss slot matches actual undefeated stage and story gate at contamination %d" % stage)
+		if stage>=80:
+			check(not expected_boss,"final dragon stays locked without the acknowledged king-hunt quest at %d" % stage)
 		if stage>=1: check(state.tiles.count("graveyard")==1,"first complete lap keeps mandatory cemetery at %d" % stage)
 	var unlocked: Dictionary=Plan.default_plan()
 	unlocked.rest_unlocked=true
