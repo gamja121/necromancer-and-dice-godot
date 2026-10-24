@@ -58,6 +58,7 @@ func _run() -> void:
 	session.save_file_path=test_path
 	scene.confirm()
 	check(scene.busy and scene.completed,"success locks screen during dissolve")
+	check(scene.inherited_brand.get("type","")=="guard" and scene.inherited_brand.get("bless",[])==[2],"result details record the actual saved brand and die face")
 	check(session.owned_unit(donor_id).is_empty(),"donor was durably removed BEFORE animation")
 	check(session.world.roster.size()==original_count-1,"exactly one original owned card consumed")
 	check(scene.unit_options.has(donor_id),"the old card stays displayed until dissolve finishes")
@@ -73,6 +74,13 @@ func _run() -> void:
 	check(not scene.material_art.has_node("LayeredCardPreview") and scene.material_hint.text=="소모 완료","sacrificial preview clears only after dissolve")
 	check(not scene.unit_options.has(donor_id),"deleted donor no longer appears in the new hand")
 	check(scene.receiver_art.has_node("LayeredCardPreview/LayeredCardBase"),"recipient retains live layered card")
+	var result_text: String=""
+	for child in scene.details.get_children():
+		if child is Label: result_text += (child as Label).text + " "
+		else:
+			for grandchild in child.get_children():
+				if grandchild is Label: result_text += (grandchild as Label).text + " "
+	check(result_text.contains("계승 결과") and result_text.contains("수호") and result_text.contains("축복 눈금 2"),"after save and ash, parchment shows the actual inherited result")
 	check(scene.material_art.scale==Vector2.ONE and scene.material_art.modulate==Color.WHITE,"temporary dissolve transforms were reset")
 	check(session.owned_unit(receiver_id).brands.size()==original_receiver_count+1,"exactly one inherited blessing is added")
 	check(not session.home_action_allowed().ok,"receipt prevents second inheritance in this visit")
