@@ -52,8 +52,8 @@ func _run() -> void:
 	var icons: Array=[]
 	var labels: Array=[]
 	for node in left.get_children():
-		if node.name=="BrandInfoIcon": icons.append(node)
-		if node.name=="BrandInfoName": labels.append(node)
+		if node is TextureRect and node.has_meta("brand_slot"): icons.append(node)
+		if node is Label and str(node.name).begins_with("BrandInfoName"): labels.append(node)
 	check(icons.size()==3 and labels.size()==3,"all three actual independent brand marks and names remain")
 	check(icons.size()==3 and icons[0].get_meta("brand_slot",-1)==0 and icons[2].get_meta("brand_slot",-1)==2,"brand ordering is not changed")
 	var all_inside: bool=true
