@@ -19,6 +19,8 @@ OUT.mkdir(exist_ok=True)
 source = Path("systems/layered_unit_card.gd").read_text(encoding="utf-8")
 part = source.split("const PORTRAITS :=", 1)[1].split("const BACKGROUNDS :=", 1)[0]
 mapping = dict(re.findall(r'"([^"]+)"\s*:\s*ROOT\s*\+\s*"([^"]+\.webp)"', part))
+# Dragon's card renders the actual combat PNG instead of a layered WebP.
+mapping["dragon"] = "../../battle/frames/dragon/attack-01.png"
 units = json.loads(Path("data/units.json").read_text(encoding="utf-8"))["units"]
 
 try:
