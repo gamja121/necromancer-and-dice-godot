@@ -69,11 +69,11 @@ func setup(run_session, map_scene: Control = null) -> void:
 	scroll.add_child(details)
 	# Warning and progress remain fully inside the parchment, never stretched
 	# across the neighboring donor / recipient cards.
-	sacrifice_warning=label_at(self,"",Vector2(502,318),Vector2(276,28),14)
+	sacrifice_warning=label_at(self,"",Vector2(502,318),Vector2(276,28),16)
 	sacrifice_warning.name="InheritanceSacrificeWarning"
-	sacrifice_warning.add_theme_color_override("font_color",Color("823d31"))
+	sacrifice_warning.add_theme_color_override("font_color",Color("782b22"))
 	sacrifice_warning.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	status=label_at(self,"",Vector2(498,346),Vector2(284,39),14)
+	status=label_at(self,"",Vector2(498,346),Vector2(284,39),16)
 	status.name="InheritanceStepStatus"
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
