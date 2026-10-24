@@ -65,13 +65,13 @@ func _run() -> void:
 	scene.select_unit(donor_id)
 	var donor_copy: String=all_copy(scene.details)
 	check(donor_copy.contains("재료 낙인") and donor_copy.contains("수호") and donor_copy.contains("독"),"material shows only the relevant brand names")
-	check(donor_copy.contains("눈금 2") and donor_copy.contains("눈금 5"),"material shows real die faces, not +2 and +5 attributes")
+	check(donor_copy.contains("축복 2") and donor_copy.contains("축복 5"),"material shows real die faces, not +2 and +5 attributes")
 	check(not donor_copy.contains("이번 라운드") and not donor_copy.contains("중독 +1"),"repeated full effect prose is removed from the compact parchment")
 	check(warning!=null and warning.text.contains("영구 소멸"),"donor selection gives permanent death warning")
 	scene.select_unit(receiver_id)
 	var full_copy: String=all_copy(scene.details)
 	check(full_copy.contains("기존 낙인") and full_copy.contains("1/3칸"),"existing recipient brands and capacity stay visible without duplicate monster name")
-	check(full_copy.contains("치명타") and full_copy.contains("눈금 3"),"recipient existing die faces stay distinct from material candidates")
+	check(full_copy.contains("치명타") and full_copy.contains("축복 3"),"recipient existing die faces stay distinct from material candidates")
 	check(scene.confirm_button!=null and not scene.confirm_button.disabled,"valid selection still enables existing confirmed inheritance action")
 	check(status!=null and status.text=="낙인 1개 무작위 계승" and warning!=null and warning.text=="재료 마물 영구 소멸","random choice and permanent sacrifice each appear once, without duplicated sentences")
 	check(scene.confirm_button.text=="계승 확정","confirmation button has concise copy instead of repeating warning")
@@ -79,6 +79,28 @@ func _run() -> void:
 	check(scene.inherited_brand.is_empty(),"no specific brand is falsely presented as already awarded before confirmation")
 	scene.select_unit(donor_id)
 	check(scene.material_id.is_empty() and scene.confirm_button.disabled,"deselecting donor still blocks incomplete sacrifice")
+	# Use REAL base curse brands from the starting skeleton definitions,
+	# not arbitrary curses that normalize() legitimately discards.
+	session.world.roster[0].brands=[{"type":"vampire","bless":[2],"curse":[4]}]
+	session.world.roster[1].brands=[{"type":"combo","bless":[3],"curse":[6]}]
+	scene.select_unit(donor_id)
+	scene.select_unit(receiver_id)
+	var cursed_copy: String=all_copy(scene.details)
+	check(cursed_copy.contains("흡혈") and cursed_copy.contains("축복 2") and cursed_copy.contains("저주 4"),"donor brand displays both blessing and actual base curse faces in one compact row")
+	check(cursed_copy.contains("연격") and cursed_copy.contains("축복 3") and cursed_copy.contains("저주 6"),"recipient existing brand displays its persistent curse without losing die faces")
+	var inline_curse: bool=true
+	for node in scene.details.get_children():
+		if node is HBoxContainer:
+			var tags: int=0
+			for child in node.get_children():
+				if child is Label and child.name=="InheritanceCurseFaces":
+					tags+=1
+			inline_curse=inline_curse and tags==1
+	check(inline_curse,"red curse face is part of the same brand line, not a small separate paragraph")
+	check(scene.status.text=="축복만 무작위 계승","only blessing transfers; donor curses cannot be mistaken for inherited curses")
+	var source: Dictionary=session.world.roster[0].brands[0]
+	var awarded: Dictionary=preload("res://systems/brand_inheritance.gd").blessing(session.world.roster[1],source,session.world.definitions)
+	check(awarded.get("bless",[])==[2] and awarded.get("curse",[99]).is_empty(),"original inheritance rule transfers blessing and does not copy source curse")
 	scene.queue_free()
 	await process_frame
 	session.save_file_path=previous_path
