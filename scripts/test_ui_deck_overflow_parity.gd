@@ -125,7 +125,8 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 		check(panel.decline_button.text=="포기 확정" and panel.confirm.disabled,"new-monster refusal is armed and requires its own second tap")
 	fake.fail_next = true
 	panel.finish()
-	check(is_instance_valid(panel) and not panel.confirm.disabled and panel.status.text.contains("저장 실패"),"save failure keeps choice and permits retry for "+kind)
+	var retry_enabled: bool = not panel.decline_button.disabled if kind=="unit" else not panel.confirm.disabled
+	check(is_instance_valid(panel) and retry_enabled and panel.status.visible and panel.status.text.contains("저장 실패"),"save failure keeps active decision and permits retry for "+kind)
 	panel.finish()
 	check(fake.discarded==["__new__","__new__"],"refusal callback receives the precise discard key on retry for "+kind)
 	await process_frame
