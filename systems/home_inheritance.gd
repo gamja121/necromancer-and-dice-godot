@@ -2,6 +2,10 @@ extends "res://systems/reward_ui.gd"
 const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 const PanelDepthMotion = preload("res://systems/panel_depth_motion.gd")
 const SacrificeEffect = preload("res://systems/inheritance_sacrifice_effect.gd")
+# Transparent, unlettered and undivided backdrop; all roster text and cards are live UI.
+const ROSTER_FRAME = "res://assets/map/ui/inheritance_roster_frame.webp"
+const ROSTER_COLUMNS = 5
+const ROSTER_CAPACITY = 10
 signal closed
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 var session
@@ -56,8 +60,8 @@ func setup(run_session, map_scene: Control = null) -> void:
 	details.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	details.add_theme_constant_override("separation",5)
 	scroll.add_child(details)
-	status=label_at(self,"",Vector2(361,384),Vector2(558,32),14)
-	confirm_button=button(self,"계승",Vector2(552,419),Vector2(176,46),confirm)
+	status=label_at(self,"",Vector2(361,355),Vector2(558,32),14)
+	confirm_button=button(self,"계승",Vector2(552,389),Vector2(176,40),confirm)
 	confirm_button.add_theme_font_size_override("font_size",17)
 	var parchment=StyleBoxTexture.new()
 	parchment.texture=load("res://assets/map/ui/parchment_button_variant_01.png")
@@ -172,32 +176,53 @@ func render_hand() -> void:
 		hand.queue_free()
 	unit_options.clear()
 	hand=Control.new()
+	hand.name="InheritanceRosterPanel"
 	add_child(hand)
-	# Monster cards are the only material source.
-	var unit_label=label_at(hand,"보유 마물",Vector2(616,479),Vector2(200,25),14)
-	unit_label.add_theme_color_override("font_color",Color("e9cc94"))
+	# The approved art contains one continuous empty surface and an EMPTY
+	# title plaque: no fixed wording, slots, card outlines or dividers.
+	var frame := TextureRect.new()
+	frame.name="InheritanceRosterFrame"
+	frame.texture=load(ROSTER_FRAME)
+	frame.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	frame.stretch_mode=TextureRect.STRETCH_SCALE
+	frame.position=Vector2(234,432)
+	frame.size=Vector2(1012,280)
+	frame.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	hand.add_child(frame)
+	var unit_label=label_at(hand,"보유 마물 (%d/%d)" % [session.world.roster.size(),ROSTER_CAPACITY],Vector2(585,439),Vector2(311,30),18)
+	unit_label.name="InheritanceRosterCount"
+	unit_label.add_theme_color_override("font_color",Color("efcc91"))
+	# ScrollContainer is retained for existing test/API compatibility, but
+	# with a max 10-card roster there is no scrolling in either direction.
 	unit_hand_scroll=ScrollContainer.new()
-	unit_hand_scroll.position=Vector2(351,510)
-	unit_hand_scroll.size=Vector2(828,200)
+	unit_hand_scroll.name="InheritanceRosterViewport"
+	unit_hand_scroll.position=Vector2(300,477)
+	unit_hand_scroll.size=Vector2(890,222)
+	unit_hand_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	unit_hand_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	hand.add_child(unit_hand_scroll)
-	var unit_row=HBoxContainer.new()
-	unit_row.alignment=BoxContainer.ALIGNMENT_CENTER
-	unit_row.add_theme_constant_override("separation",16)
-	unit_hand_scroll.add_child(unit_row)
+	var unit_grid=GridContainer.new()
+	unit_grid.name="InheritanceRosterGrid"
+	unit_grid.columns=ROSTER_COLUMNS
+	unit_grid.add_theme_constant_override("h_separation",13)
+	unit_grid.add_theme_constant_override("v_separation",6)
+	unit_hand_scroll.add_child(unit_grid)
 	if session.world.roster.is_empty():
-		label_at(hand,"보유한 마물이 없습니다",Vector2(540,605),Vector2(490,29),16)
+		label_at(hand,"보유한 마물이 없습니다",Vector2(540,571),Vector2(490,29),16)
 	for item in session.world.roster:
 		var box=Control.new()
-		box.custom_minimum_size=Vector2(106,181)
-		unit_row.add_child(box)
+		box.custom_minimum_size=Vector2(165,108)
+		unit_grid.add_child(box)
 		var id=str(item.id)
-		var option=card(box,"unit",item,Vector2(4,0),Vector2(97,140),func(): select_unit(id))
+		var option=card(box,"unit",item,Vector2(40,1),Vector2(84,105),func(): select_unit(id))
+		option.name="InheritanceRosterCard_%d" % (unit_grid.get_child_count()-1)
 		CardDepthMotion.install(option)
-		option.get_child(0).add_theme_font_size_override("font_size",12)
+		# Layered cards draw their names on their own parchment ribbons.
+		# Never stack a second caption across the next row.
+		option.get_child(0).hide()
 		unit_options[id]=option
 	render_selection()
-	# Rise-in motion matching the source card hand's entrance.
+	# The existing entry motion and dissolve only move visual controls.
 	hand.position.y=48
 	hand.modulate.a=0.0
 	var rise=create_tween().set_parallel(true)
