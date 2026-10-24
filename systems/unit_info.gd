@@ -105,70 +105,74 @@ func section(value: String) -> void:
 	effects.add_child(rule)
 
 
-# Effect rows are bordered paper compartments, not a scrollable text list.
-# All panels use the EXISTING parchment texture, with unscaled original corners.
+# Existing hand-painted parchment; no new bitmap. Keep readable aligned rows,
+# not bordered cards. Only major category changes get one thin ink separator.
 const EFFECT_CONTENT_WIDTH := 571.0
 const EFFECT_CONTENT_HEIGHT := 458.0
+const PAPER_TOP := 76.32
+const PAPER_MAX_HEIGHT := 567.36
+const PAPER_MIN_HEIGHT := 250.0
 
-func effect_tile(key: String, heading: String, lines: Array, colors: Array = []) -> void:
-	var cell := PanelContainer.new()
-	cell.name=key
-	cell.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	cell.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var surface := StyleBoxFlat.new()
-	surface.bg_color=Color(0.94,0.80,0.63,0.055)
-	surface.border_color=Color(0.31,0.20,0.14,0.58)
-	surface.set_border_width_all(1)
-	surface.set_corner_radius_all(2)
-	cell.add_theme_stylebox_override("panel",surface)
-	effects.add_child(cell)
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",9)
-	margin.add_theme_constant_override("margin_right",9)
-	margin.add_theme_constant_override("margin_top",6)
-	margin.add_theme_constant_override("margin_bottom",6)
-	cell.add_child(margin)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation",2)
-	margin.add_child(content)
-	var header := Label.new()
-	header.name="EffectHeading"
-	header.text=heading
-	header.add_theme_font_size_override("font_size",16)
-	header.add_theme_color_override("font_color",Color("352419"))
-	header.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	content.add_child(header)
-	if not lines.is_empty():
-		var hairline := HSeparator.new()
-		var rule := StyleBoxLine.new()
-		rule.color=Color(0.36,0.25,0.18,0.42)
-		rule.thickness=1
-		hairline.add_theme_stylebox_override("separator",rule)
-		content.add_child(hairline)
-	for i in range(lines.size()):
-		var line := Label.new()
-		line.name="EffectDetail"
-		line.text=str(lines[i])
-		line.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-		line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		line.add_theme_font_size_override("font_size",14)
-		line.add_theme_color_override("font_color",colors[i] if i<colors.size() else Color("37271e"))
-		content.add_child(line)
+func effect_section(label_text: String) -> void:
+	var header := HBoxContainer.new()
+	header.name="EffectSection_"+label_text.replace(" ","")
+	header.add_theme_constant_override("separation",10)
+	effects.add_child(header)
+	var label := Label.new()
+	label.text=label_text
+	label.add_theme_font_size_override("font_size",14)
+	label.add_theme_color_override("font_color",Color("4a3225"))
+	header.add_child(label)
+	var line := HSeparator.new()
+	line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	var ink := StyleBoxLine.new()
+	ink.thickness=1
+	ink.color=Color(0.32,0.21,0.15,0.36)
+	line.add_theme_stylebox_override("separator",ink)
+	header.add_child(line)
+
+func effect_row(parent: Container,key: String,heading: String,face: String,description: String,tint: Color = Color("38291e"),small: bool=false) -> void:
+	var line := HBoxContainer.new()
+	line.name=key
+	line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	line.add_theme_constant_override("separation",7 if small else 10)
+	parent.add_child(line)
+	var title := Label.new()
+	title.name="RowTitle"
+	title.text=heading
+	title.custom_minimum_size.x=59.0 if small else 87.0
+	title.add_theme_font_size_override("font_size",14 if small else 15)
+	title.add_theme_color_override("font_color",Color("37251a") if heading!="저주" else Color("832f2c"))
+	line.add_child(title)
+	if not face.is_empty():
+		var eyes := Label.new()
+		eyes.name="RowFaces"
+		eyes.text=face
+		eyes.custom_minimum_size.x=47.0 if small else 89.0
+		eyes.add_theme_font_size_override("font_size",13 if small else 15)
+		eyes.add_theme_color_override("font_color",tint)
+		line.add_child(eyes)
+	var detail := Label.new()
+	detail.name="RowDetail"
+	detail.text=description
+	detail.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	detail.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	detail.add_theme_font_size_override("font_size",14 if small else 15)
+	detail.add_theme_color_override("font_color",tint)
+	line.add_child(detail)
 
 func fit_effects_without_scrolling() -> void:
 	if not is_instance_valid(effects) or not effects.is_inside_tree(): return
-	# Reflow into the FULL usable parchment width before reducing font size.
-	# Unlike shrinking the whole 571px block, this avoids wasting the right
-	# half of the parchment in unusually dense battles.
+	# Use two-column legions to reduce vertical density BEFORE any scaling.
 	var factor: float=1.0
 	for i in range(3):
 		if not is_instance_valid(effects): return
-		var required_height: float=effects.get_combined_minimum_size().y
-		factor=minf(1.0,EFFECT_CONTENT_HEIGHT/maxf(1.0,required_height))
+		var necessary: float=effects.get_combined_minimum_size().y
+		factor=minf(1.0,EFFECT_CONTENT_HEIGHT/maxf(1.0,necessary))
 		effects.scale=Vector2(factor,factor)
-		var unscaled_width: float=EFFECT_CONTENT_WIDTH/maxf(0.1,factor)
-		effects.custom_minimum_size.x=unscaled_width
-		effects.size.x=unscaled_width
+		var width: float=EFFECT_CONTENT_WIDTH/maxf(0.1,factor)
+		effects.custom_minimum_size.x=width
+		effects.size.x=width
 		await get_tree().process_frame
 	if not is_instance_valid(effects): return
 	var final_height: float=effects.get_combined_minimum_size().y
@@ -176,6 +180,16 @@ func fit_effects_without_scrolling() -> void:
 	effects.scale=Vector2(factor,factor)
 	effects.set_meta("content_height",final_height)
 	effects.set_meta("fit_scale",factor)
+	# Reduce surplus parchment height when there are only a few active effects.
+	# The title and content remain in the same position relative to its frame.
+	var right: Control=get_node_or_null("UnitInfoEffectsPanel")
+	if right!=null:
+		var visible_height: float=final_height*factor
+		var target: float=clampf(visible_height+111.0,PAPER_MIN_HEIGHT,PAPER_MAX_HEIGHT)
+		right.size.y=target
+		right.position.y=PAPER_TOP+(PAPER_MAX_HEIGHT-target)*0.5
+		var paper: NinePatchRect=right.get_node("OriginalEffectsParchment")
+		paper.size.y=target
 
 func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool = false) -> void:
 	u = u.duplicate(true)
@@ -335,50 +349,95 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	effects.add_theme_constant_override("separation",6)
 	effects.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	right.add_child(effects)
-	var blocks: int=0
-	# The most relevant roll-dependent effects come first.
-	for group in grouped_brands(u.brands):
-		var definition: Dictionary=interface_data.brands.get(group.type,{})
-		if definition.is_empty(): continue
-		var lines: Array=["축복 [%s] · %s" % [merged_face_text(group.bless),definition.blessing]]
-		var colors: Array=[Color("245035")]
-		if not group.curse.is_empty():
-			lines.append("저주 [%s] · %s" % [merged_face_text(group.curse),definition.penalty])
-			colors.append(Color("842e2c"))
-		effect_tile("Brand_%s" % group.type,str(definition.name),lines,colors)
-		blocks+=1
-	# A missing passive consumes zero rows, including its header.
-	var passive_lines: Array=[]
+	var count: int=0
+	# Three brand slots become at most three aligned blessing rows, with
+	# matching effects merged. No redundant "의 낙인" on every row.
+	var groups: Array=grouped_brands(u.brands)
+	if not groups.is_empty():
+		effect_section("낙인 효과")
+		for group in groups:
+			var def: Dictionary=interface_data.brands.get(group.type,{})
+			if def.is_empty(): continue
+			var short_name: String=str(def.name).replace("의 낙인","")
+			effect_row(effects,"Brand_"+str(group.type),short_name,merged_face_text(group.bless),str(def.blessing),Color("28573a"))
+			count+=1
+		# Curse eyes belong to their actual source mark, not to every new brand
+		# type. Display the heading only once; preserve any legacy saved extras.
+		var printed_curse: bool=false
+		for group in groups:
+			if group.curse.is_empty(): continue
+			var def: Dictionary=interface_data.brands.get(group.type,{})
+			if def.is_empty(): continue
+			var short_name: String=str(def.name).replace("의 낙인","")
+			var curse_desc: String=short_name+" · "+str(def.penalty) if groups.size()>1 else str(def.penalty)
+			effect_row(effects,"Curse_"+str(group.type),"저주" if not printed_curse else "",merged_face_text(group.curse),curse_desc,Color("87372d"))
+			printed_curse=true
+			count+=1
+	var passives: Array=[]
 	if not str(u.passive).is_empty() and not passive.is_empty() and str(passive[0])!="패시브 없음":
-		passive_lines.append(str(passive[0])+" · "+str(passive[1]))
+		passives.append({"name":str(passive[0]),"text":str(passive[1])})
 	if not second_passive.is_empty():
-		passive_lines.append(str(second_passive[0])+" · "+str(second_passive[1]))
-	if not passive_lines.is_empty():
-		effect_tile("PassiveEffects","패시브",passive_lines)
-		blocks+=1
-	# Only effectively ACTIVE, unsuppressed legions show here.
+		passives.append({"name":str(second_passive[0]),"text":str(second_passive[1])})
+	if not passives.is_empty():
+		effect_section("패시브")
+		for i in range(passives.size()):
+			effect_row(effects,"Passive_"+str(i),str(passives[i].name),"",str(passives[i].text))
+			count+=1
 	var legions: Array=[]
 	for key in interface_data.legions:
 		if not battle.active(u.team,key): continue
 		var rule: Dictionary=interface_data.legions[key]
-		legions.append("%s %d/%d · %s" % [rule.name,battle.legions[u.team].counts.get(key,0),rule.need,rule.effect])
+		legions.append({"key":str(key),"name":str(rule.name),"count":"%d/%d" % [battle.legions[u.team].counts.get(key,0),rule.need],"text":str(rule.effect)})
 	if not legions.is_empty():
-		effect_tile("ActiveLegionEffects","군단 효과",legions)
-		blocks+=1
+		effect_section("군단 효과")
+		if legions.size()>4:
+			var legion_grid := GridContainer.new()
+			legion_grid.name="ActiveLegionEffects"
+			legion_grid.columns=2
+			legion_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+			legion_grid.add_theme_constant_override("h_separation",14)
+			legion_grid.add_theme_constant_override("v_separation",4)
+			effects.add_child(legion_grid)
+			for info in legions:
+				var col := VBoxContainer.new()
+				col.custom_minimum_size.x=270
+				col.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+				col.add_theme_constant_override("separation",0)
+				legion_grid.add_child(col)
+				var top := Label.new()
+				top.text=str(info.name)+" · "+str(info.count)
+				top.add_theme_font_size_override("font_size",13)
+				top.add_theme_color_override("font_color",Color("3e291b"))
+				col.add_child(top)
+				var detail := Label.new()
+				detail.text=str(info.text)
+				detail.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+				detail.add_theme_font_size_override("font_size",14)
+				detail.add_theme_color_override("font_color",Color("38291e"))
+				col.add_child(detail)
+				count+=1
+		else:
+			var list := VBoxContainer.new()
+			list.name="ActiveLegionEffects"
+			list.add_theme_constant_override("separation",4)
+			effects.add_child(list)
+			for info in legions:
+				effect_row(list,"Legion_"+str(info.key),str(info.name),str(info.count),str(info.text))
+				count+=1
+	var extras: Array=[]
 	if hp_bonus>0 or attack_bonus>0 or speed_bonus>0:
-		effect_tile("ProphecyEffects","점술 효과",["체력 +%d · 공격력 +%d · 속도 +%d" % [hp_bonus,attack_bonus,speed_bonus]])
-		blocks+=1
+		extras.append({"key":"ProphecyEffects","name":"점술","desc":"체력 +%d · 공격력 +%d · 속도 +%d" % [hp_bonus,attack_bonus,speed_bonus]})
 	if u.base_hp != u.max_hp or u.base_attack != u.attack or u.base_speed != u.speed:
-		effect_tile("StatsChanged","능력치 변화",["최대 체력 %d → %d · 공격력 %d → %d · 속도 %d → %d" % [u.base_hp,u.max_hp,u.base_attack,u.attack,u.base_speed,u.speed]])
-		blocks+=1
-	if u.slug == "guardian-seed":
-		effect_tile("BloomInfo","개화",["공격 불가 · 생성 다음 라운드를 마치면 자동 개화"])
-		blocks+=1
-	if blocks==0:
-		effect_tile("NoActiveEffects","효과 없음",[])
-	# Never add a ScrollContainer. Recalculate after Godot measures wrapped
-	# Korean labels, so even three different marks + multiple active modifiers
-	# remain visible at once.
+		extras.append({"key":"StatsChanged","name":"능력치","desc":"최대 체력 %d → %d · 공격력 %d → %d · 속도 %d → %d" % [u.base_hp,u.max_hp,u.base_attack,u.attack,u.base_speed,u.speed]})
+	if u.slug=="guardian-seed":
+		extras.append({"key":"BloomInfo","name":"개화","desc":"공격 불가 · 생성 다음 라운드를 마치면 자동 개화"})
+	if not extras.is_empty():
+		effect_section("기타 효과")
+		for item in extras:
+			effect_row(effects,str(item.key),str(item.name),"",str(item.desc))
+			count+=1
+	if count==0: effect_section("효과 없음")
+	# Scrollbars and nested cards are never created.
 	call_deferred("fit_effects_without_scrolling")
 
 ## A focused naming overlay instead of an extra screen. No direct save
