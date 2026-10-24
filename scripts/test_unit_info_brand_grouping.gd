@@ -70,9 +70,9 @@ func _run() -> void:
 	check(all_inside,"even the third original brand icon and text fit within the printed inner frame")
 	check(no_overlap,"three icons and label rows do not overlap")
 	var text_rows: Array[String]=effect_rows(panel)
-	check(text_rows.count("빙결의 낙인")==1,"repeated identical effect appears just once in effect information")
-	check(text_rows.any(func(value): return value.begins_with("축복 [1, 3, 4×3, 6]")),"blessing dice faces merge; repeated face 4 shows ×3")
-	check(text_rows.any(func(value): return value.begins_with("저주 [2×2, 5]")),"curse faces merge and preserve stacked face 2")
+	check(text_rows.count("빙결")==1,"repeated identical effect appears as just one readable row")
+	check(text_rows.count("1, 3, 4×3, 6")==1,"blessing faces merge into one column; face 4 remains ×3")
+	check(text_rows.count("2×2, 5")==1 and text_rows.count("저주")==1,"curse is headed only once and keeps overlapping face 2")
 	check(battle.resolve_brand_face(unit.brands,4).bless.get("freeze",0)==3,"combat still stacks all 3 freeze effects on the same blessed face")
 	check(battle.resolve_brand_face(unit.brands,2).curse.get("freeze",0)==2,"combat still stacks overlapping cursed faces")
 	check(before==JSON.stringify(battle.snapshot()),"unit information presentation leaves battle rules and saved state untouched")
@@ -87,10 +87,10 @@ func _run() -> void:
 	var other: Control=show_unit(alternate,battle)
 	await process_frame
 	var other_rows: Array[String]=effect_rows(other)
-	check(other_rows.count("빙결의 낙인")==1,"non-adjacent repeated brand types merge into a single row")
-	check(other_rows.any(func(value): return value.begins_with("축복 [1, 4]")),"non-adjacent freeze faces also merge in numeric order")
+	check(other_rows.count("빙결")==1,"non-adjacent repeated marks still merge into a single row")
+	check(other_rows.count("1, 4")==1,"non-adjacent freeze faces also merge in numeric order")
 	var effects: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://data/interface.json")).brands
-	check(other_rows.count(str(effects.critical.name))==1,"different brand types stay visible as separate effects")
+	check(other_rows.count(str(effects.critical.name).replace("의 낙인",""))==1,"different brand types remain separately readable")
 	other.queue_free()
 	await process_frame
 	var empty: Dictionary=unit.duplicate(true)
