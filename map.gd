@@ -37,6 +37,7 @@ const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
+const UsedParchmentFall = preload("res://systems/used_parchment_fall.gd")
 # Story illustrations keep the existing 16:9 source layout, independently of location scenes.
 const TILE_EVENT_SCENE_RECT = Rect2(243.2,136.8,793.6,446.4)
 # Ordinary tile locations use the exact embedded battlefield footprint and frame.
@@ -1753,6 +1754,17 @@ func move_from_hill(index: int, steps: int) -> void:
 	moving=true
 	dice.disabled=true
 	highlight(index)
+	# The hill action closes its functional modal before the saved move starts.
+	# Replay ONLY its original paper over the map for the successful one-use
+	# hill receipt, then advance the existing hero movement unchanged.
+	var peel_stage := Control.new()
+	peel_stage.name="HillUsedParchmentStage"
+	peel_stage.size=Vector2(1280,720)
+	peel_stage.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	peel_stage.z_index=92
+	stage.add_child(peel_stage)
+	await animate_used_location_paper(peel_stage,index,"hill-route",true)
+	peel_stage.queue_free()
 	var previous: int=index
 	for raw_index in result.path:
 		var tile_index: int=int(raw_index)
@@ -1762,6 +1774,34 @@ func move_from_hill(index: int, steps: int) -> void:
 		highlight(tile_index)
 		previous=tile_index
 	await resume_map_move(true)
+
+## Use the existing parchment_button_variant bitmap and the same position
+## as the original location action; no replacement button illustration.
+## Functional pages replace the entry page, so a visual-only copy peels away
+## after the persisted action succeeds. Game state is never modified here.
+func animate_used_location_paper(panel: Control, index: int, receipt_kind: String, allow_detached: bool = false) -> void:
+	if not is_instance_valid(panel) or not panel.is_inside_tree(): return
+	if not allow_detached and overlay!=panel: return
+	var choices: Dictionary = {
+		"ritual":{"label":"의식","variant":2},
+		"prophecy":{"label":"예언","variant":4},
+		"purify":{"label":"기도","variant":3},
+		"grave-extract":{"label":"시체 파헤치기","variant":4},
+		"patrol":{"label":"순찰경로","variant":4},
+		"inheritance":{"label":"낙인 계승","variant":3},
+		"hill-route":{"label":"이동 위치 선택","variant":2}
+	}
+	if not choices.has(receipt_kind): return
+	if not session.place_visit_id(receipt_kind,index) in session.world.reward_receipts: return
+	if panel.get_node_or_null("SpentLocationParchment")!=null: return
+	var spec: Dictionary=choices[receipt_kind]
+	var rect: Rect2=TILE_EVENT_INHERITANCE_RECT if receipt_kind=="inheritance" else (TILE_EVENT_PATROL_RECT if receipt_kind=="patrol" else TILE_EVENT_ACTION_RECT)
+	var sprite: Button=location_button(panel,str(spec.label),rect.position,rect.size,func(): pass,int(spec.variant))
+	sprite.name="SpentLocationParchment"
+	sprite.z_index=28
+	sprite.disabled=true
+	sprite.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	await UsedParchmentFall.play(sprite)
 
 func location_button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, variant: int = 1) -> Button:
 	var action: Callable = callback
@@ -2580,11 +2620,14 @@ func show_location(index: int) -> void:
 	var exit = location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func(): dismiss_overlay(render),4)
 	if type=="rest":
 		var allowed = session.rest_allowed(index)
-		var heal = location_button(panel,"전체 회복",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
+		var heal: Button
+		heal = location_button(panel,"전체 회복",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			var result = session.heal_at_rest(index)
 			status.text = result.reason
 			if not result.ok: return
 			exit.disabled = true
+			# Animate the ACTUAL existing RestHealAction, not a newly created paper.
+			await UsedParchmentFall.play(heal)
 			sound("recovery")
 			await presentation.full_heal()
 			close_overlay()
