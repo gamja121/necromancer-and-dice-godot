@@ -50,6 +50,14 @@ jobs:
         with:
           version: 4.7.2
           use-dotnet: false
+      - name: Reject flattened monster card paths in shipped runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -F 'res://assets/cards/unit-card-' --include='*.gd' systems map.gd main.gd battlefield.gd; then
+            echo 'Obsolete monster card texture used in runtime'
+            exit 1
+          fi
       - name: Godot project import and parser check
         shell: bash
         run: |
