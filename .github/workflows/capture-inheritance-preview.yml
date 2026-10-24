@@ -1,0 +1,58 @@
+name: Capture Actual Centered One-Row Inheritance UI
+on:
+  push:
+    branches:
+      - audit/inheritance-centered-one-row-capture-20261024
+    paths:
+      - scripts/capture_inheritance_preview.gd
+      - .github/workflows/capture-inheritance-preview.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Godot import and parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Capture real rendered UI in software GL on a virtual display
+        shell: bash
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: "llvmpipe"
+        run: |
+          set -euo pipefail
+          command -v xvfb-run || (sudo apt-get update -qq && sudo apt-get install -y xvfb)
+          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-driver opengl3 --script res://scripts/capture_inheritance_preview.gd 2>&1 | tee capture.log
+          grep -q 'CAPTURE_OK:' capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|CAPTURE_FAILED|Failed loading resource' capture.log; then exit 1; fi
+          test -s docs/screenshots/inheritance_roster_centered_one_row_actual.png
+          file docs/screenshots/inheritance_roster_centered_one_row_actual.png
+          test "$(stat -c%s docs/screenshots/inheritance_roster_centered_one_row_actual.png)" -gt 35000
+      - name: Upload actual in-game screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: inheritance-roster-actual-10-cards
+          path: docs/screenshots/inheritance_roster_centered_one_row_actual.png
+          retention-days: 14
+      - name: Publish screenshot in the audit branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/inheritance_roster_centered_one_row_actual.png
+          git commit -m "docs(screenshot): capture real 10-card inheritance layout on Godot 4.7.2"
+          git push origin HEAD:audit/inheritance-centered-one-row-capture-20261024
