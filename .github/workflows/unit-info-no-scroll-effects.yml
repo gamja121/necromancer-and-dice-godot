@@ -1,0 +1,61 @@
+name: Unit Info All Effects Without Scrolling
+on:
+  pull_request:
+    paths:
+      - "systems/unit_info.gd"
+      - "scripts/test_unit_info_brand_grouping.gd"
+      - "scripts/test_ui_dice_fan_unit_info_parity.gd"
+      - "scripts/test_unit_info_no_scroll_compartments.gd"
+      - ".github/workflows/unit-info-no-scroll-effects.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/unit_info.gd"
+      - "scripts/test_unit_info_no_scroll_compartments.gd"
+permissions:
+  contents: read
+jobs:
+  full-effects:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Parse unchanged gameplay and modified UI scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 190s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Verify no-scroll original UI in actual graphical Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/test_unit_info_no_scroll_compartments.gd 2>&1 | tee full-effects.log
+          grep -E '^NO_SCROLL_EFFECT_COMPARTMENTS: [0-9]+ passed, 0 failed$' full-effects.log
+          test -s unit_info_no_scroll_01_marks_only.webp
+          test -s unit_info_no_scroll_02_all_effects.webp
+          test -s unit_info_no_scroll_03_same_mark.webp
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL no-scroll-info:' full-effects.log; then exit 1; fi
+      - name: Preserve three marks and exact overlapping dice faces
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_unit_info_brand_grouping.gd 2>&1 | tee existing-brand.log
+          grep -E '^UNIT_BRAND_STACK_AND_GROUP: [0-9]+ passed, 0 failed$' existing-brand.log
+      - name: Preserve existing unit information interactions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140s godot --headless --path . --script res://scripts/test_ui_dice_fan_unit_info_parity.gd 2>&1 | tee existing-info.log
+          grep -E '^UI_DICE_FAN_UNIT_INFO_PARITY: [0-9]+ passed, 0 failed$' existing-info.log
+      - name: Upload actual Godot screenshot previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-info-all-effects-no-scroll-real-godot
+          path: unit_info_no_scroll_*.webp
+          if-no-files-found: warn
