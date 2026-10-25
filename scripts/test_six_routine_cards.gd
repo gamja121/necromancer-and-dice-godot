@@ -93,13 +93,17 @@ func verify_card(event_id: String, receive: bool) -> void:
 	card._gui_input(tap)
 	check(session.world.pending_reward==read_before and is_instance_valid(map.overlay),event_id+": plain image click cannot auto-claim a choice")
 	card.get_node("RoutineAccept" if receive else "RoutineDecline").pressed.emit()
-	if receive:
+	if receive and str(entry.effect)=="dice":
 		check(await wait_for(func(): return is_instance_valid(map.overlay) and map.overlay.get_node_or_null("RoutineRewardMotion")!=null),event_id+": acceptance opens reward presentation")
 		var reward_motion: Control=map.overlay.get_node("RoutineRewardMotion")
 		check(session.world.pending_reward==read_before,event_id+": reveal does not award before the extra collect click")
 		check(await wait_for(func(): return reward_motion.phase=="ready"),event_id+": reward turns to the front before collecting")
 		reward_motion.collect()
 		check(await wait_for(func(): return not is_instance_valid(map.overlay)),event_id+": one collect click completes reward delivery")
+	elif receive:
+		check(session.world.pending_reward.is_empty(),event_id+": choosing saves the immediate effect once")
+		check(map.overlay.get_node_or_null("RoutineRewardMotion")==null,event_id+": recovery/tile reward never creates a card")
+		check(await wait_for(func(): return not is_instance_valid(map.overlay)),event_id+": immediate effect clears itself without another click")
 	await process_frame
 	check(session.world.pending_reward.is_empty() and receipt in session.world.reward_receipts,event_id+": choice closes and grants one unique visit receipt")
 	check(not bool(session.complete_routine_choice("take").get("ok",false)),event_id+": repeated choice cannot duplicate reward")

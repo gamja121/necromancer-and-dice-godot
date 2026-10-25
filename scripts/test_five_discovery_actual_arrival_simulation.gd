@@ -22,6 +22,11 @@ func check(ok: bool, msg: String) -> void:
 		failed += 1
 		printerr("FAIL five-discovery: ",msg)
 
+func wait_for(predicate: Callable, limit: int=5000) -> bool:
+	var deadline: int=Time.get_ticks_msec()+limit
+	while not predicate.call() and Time.get_ticks_msec()<deadline: await process_frame
+	return bool(predicate.call())
+
 func discovery_seed() -> int:
 	var probe := RandomNumberGenerator.new()
 	for seed in range(1,700):
@@ -101,19 +106,13 @@ func _run() -> void:
 		for tile_index in range(24):
 			if base.tiles[tile_index]=="basic" and w.tiles[tile_index]==kind: converted=tile_index
 		check(converted>=0 and converted!=23 and converted!=index,kind+": actual tile placed only on a safe road")
-		var card: Control=scene.overlay.get_node_or_null("EventDiscoveryCard") if is_instance_valid(scene.overlay) else null
-		check(card!=null,kind+": the genuine event opens a discovery card, not a routine/story modal")
-		if card!=null:
-			check(card.get_node("EventDiscoveryTitle").text==str(Discovery.details(kind).title),kind+": correct named card appears")
-			check(card.get_node("EventDiscoveryIllustration").texture!=null and card.get_node("EventDiscoveryTile").texture!=null,kind+": illustration and actual tile art load")
-			check(card.get_node_or_null("EventDiscoveryClose")==null,kind+": no confirmation button")
-			var click:=InputEventMouseButton.new()
-			click.button_index=MOUSE_BUTTON_LEFT
-			click.pressed=true
-			card._gui_input(click)
-			await process_frame
-			await process_frame
-			check(not is_instance_valid(scene.overlay),kind+": single click dismisses card")
+		var reveal: Control=scene.get_node_or_null("TileRewardReveal")
+		check(reveal!=null,kind+": genuine event opens tile-only discovery reveal")
+		if reveal!=null:
+			check(reveal.get_node("RewardTile").texture==scene.texture("res://assets/map/tiles/%s.png" % kind),kind+": actual discovered tile is shown")
+			check(reveal.find_children("*","TextureRect",true,false).size()==1 and reveal.find_children("*","Label",true,false).is_empty(),kind+": only the tile appears without paper or illustration")
+			check(reveal.get_node_or_null("TileRewardShade")!=null,kind+": surroundings have a dark backdrop")
+			check(await wait_for(func(): return not is_instance_valid(scene.overlay)),kind+": tile floats then disappears without a click")
 		if converted>=0:
 			check(scene.buttons[converted].texture_normal==scene.texture(scene.tile_path(converted)),kind+": board displays transformed terrain")
 		scene.show_home(true)

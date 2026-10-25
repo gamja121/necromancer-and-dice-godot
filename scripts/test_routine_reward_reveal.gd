@@ -100,6 +100,36 @@ func normal_case(event_id: String, fail_first: bool=false) -> void:
 	await dispose(map)
 	session.reload_world()
 	check(session.world.snapshot()==saved,"received reward survives restart without replay or duplicate")
+func immediate_case(event_id: String, effect_name: String) -> void:
+	var map=await fixture(event_id,event_id)
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	var card: Control=map.overlay.get_node("RoutineEventCard")
+	var path: String=session.save_file_path
+	session.save_file_path="user://missing_routine_effect_%d/save.json" % OS.get_process_id()
+	card.get_node("RoutineAccept").pressed.emit()
+	check(session.world.snapshot()==before and not card.choosing,"failed immediate reward save restores the same choice")
+	check(map.get_node_or_null(effect_name)==null,"failed reward never plays a success effect")
+	session.save_file_path=path
+	card.get_node("RoutineAccept").pressed.emit()
+	check(session.world.pending_reward.is_empty(),"immediate "+event_id+" is saved on the original choice")
+	check(map.overlay.get_node_or_null("RoutineRewardMotion")==null and not card.visible,"non-dice reward creates no collectible card")
+	var effect: Control=map.get_node_or_null(effect_name)
+	check(effect!=null and effect.mouse_filter==Control.MOUSE_FILTER_STOP,"existing effect blocks input while it plays")
+	if effect_name=="FullHealEffect":
+		check(effect.find_children("*","TextureRect",true,false).size()==18,"recovery reuses all eighteen original full-screen green crosses")
+	else:
+		await create_timer(0.35).timeout
+		check(effect.get_node("RewardTile").get_global_rect().get_center().distance_to(Vector2(640,360))<0.1,"tile alone is centered on the screen")
+		check(effect.get_node("TileRewardShade").color.a>0.75 and effect.find_children("*","Label",true,false).is_empty(),"tile reveal darkens its surroundings and adds no caption/card")
+	var saved: Dictionary=session.world.snapshot().duplicate(true)
+	await click_collect()
+	check(session.world.snapshot()==saved,"click during immediate effect cannot award again")
+	check(await wait_for(func(): return not is_instance_valid(map.overlay)),"immediate reward clears itself without a collect click")
+	check(map.get_node_or_null(effect_name)==null,"completed immediate effect removes its layer")
+	await dispose(map)
+	session.reload_world()
+	check(session.world.snapshot()==saved,"immediate reward is durable once without replay")
+
 func interrupted_preview() -> void:
 	var map=await fixture("interrupted","abandoned_wagon")
 	var before: Dictionary=session.world.pending_reward.duplicate(true)
@@ -150,8 +180,8 @@ func run() -> void:
 	session=root.get_node("RunSession")
 	var old_path: String=session.save_file_path
 	await normal_case("abandoned_wagon",true)
-	await normal_case("smoke_camp")
-	await normal_case("broken_seal")
+	await immediate_case("smoke_camp","FullHealEffect")
+	await immediate_case("broken_seal","TileRewardReveal")
 	await interrupted_preview()
 	await interrupted_flight()
 	await overflow_case(true)

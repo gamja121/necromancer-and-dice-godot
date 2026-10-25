@@ -1126,29 +1126,17 @@ func show_first_discovery_card() -> void:
 	show_discovery_card("forest")
 
 func show_discovery_card(kind: String) -> void:
-	# All 5 place discoveries use one identical single-tap dismissal UI.
-	# The card appears ONLY after the new location and HOME hint are saved.
-	var details: Dictionary = Discovery.details(kind)
-	if details.is_empty(): return
-	var panel = modal()
-	var card = EventDiscoveryCard.new()
-	panel.add_child(card)
-	card.setup("발견",str(details.title),str(details.description),str(details.reward),
-		str(details.illustration),"res://assets/map/tiles/%s.png" % kind)
-	var dark_area = panel.get_child(0) as Control
-	if is_instance_valid(dark_area):
-		dark_area.gui_input.connect(func(event: InputEvent):
-			if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
-				card.dismiss()
-			elif event is InputEventScreenTouch and event.pressed:
-				card.dismiss())
-	card.closed.connect(func():
-		# The saved board now carries the new tile artwork, not a mockup.
-		var changed: Array[int] = presentation.new_tile_indices(kind)
-		close_overlay()
-		render()
-		presentation.show_discovery(changed)
-		status.text = "%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind])
+	# The unlock is already durable: show only its real tile, then reveal the changed board.
+	if Discovery.details(kind).is_empty(): return
+	var panel: Control=modal(false)
+	var changed: Array[int]=presentation.new_tile_indices(kind)
+	sound("reward_gain")
+	await presentation.tile_reward(texture("res://assets/map/tiles/%s.png" % kind))
+	if not is_inside_tree() or not is_instance_valid(panel) or overlay!=panel: return
+	close_overlay()
+	render()
+	presentation.show_discovery(changed)
+	status.text="%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind]
 
 ## Resuming a saved unopened routine card must not reroll the incident,
 ## spend the reward, or re-enter an old story after a process restart.
@@ -1170,7 +1158,8 @@ func show_routine_card() -> void:
 	card.setup_routine(entry,Routine.reward_image(str(pending.event_id),pending.get("offer",{})))
 	card.chosen.connect(func(choice: String):
 		if choice=="take":
-			show_routine_reward(card,entry,pending.get("offer",{}).duplicate(true))
+			if str(entry.effect)=="dice": show_routine_reward(card,entry,pending.get("offer",{}).duplicate(true))
+			else: finish_routine_effect(card,entry)
 			return
 		var outcome: Dictionary=session.complete_routine_choice(choice)
 		if not bool(outcome.get("ok",false)):
@@ -1200,6 +1189,28 @@ func show_routine_reward(card: Control, entry: Dictionary, offer: Dictionary) ->
 		await finish_routine_reward(reward_motion,entry,str(outcome.get("message",""))))
 	reward_motion.reveal()
 
+func finish_routine_effect(card: Control, entry: Dictionary) -> void:
+	# Recovery and tile icons are immediate effects, never cards waiting for a second click.
+	var outcome: Dictionary=session.complete_routine_choice("take")
+	if not bool(outcome.get("ok",false)):
+		card.allow_retry()
+		status.text=str(outcome.get("reason","저장 실패 · 다시 선택해 주세요"))
+		return
+	var panel: Control=overlay
+	card.hide()
+	var shade: ColorRect=panel.get_child(0) as ColorRect
+	if shade!=null: shade.color=Color.TRANSPARENT
+	if str(entry.effect)=="heal":
+		sound("recovery")
+		await presentation.full_heal()
+	else:
+		sound("cleanse")
+		await presentation.tile_reward(texture(Routine.reward_image("broken_seal")))
+	if not is_inside_tree() or not is_instance_valid(panel) or overlay!=panel: return
+	close_overlay()
+	render()
+	status.text=str(outcome.get("message",""))
+
 func show_routine_delivery_deck(active: bool) -> void:
 	if active:
 		if not is_instance_valid(deck_button): return
@@ -1217,17 +1228,14 @@ func show_routine_delivery_deck(active: bool) -> void:
 			routine_deck_state.clear()
 	_sync_map_chrome()
 
-func finish_routine_reward(reward_motion: Control, entry: Dictionary, message: String) -> void:
+func finish_routine_reward(reward_motion: Control, _entry: Dictionary, message: String) -> void:
 	if not is_instance_valid(reward_motion): return
-	var effect: String=str(entry.get("effect","dice"))
-	var target:=Vector2(640,490)
-	if effect=="dice":
-		show_routine_delivery_deck(true)
-		target=reward_motion.get_global_transform_with_canvas().affine_inverse()*(deck_button.get_global_transform_with_canvas()*(deck_button.size*0.5))
+	show_routine_delivery_deck(true)
+	var target: Vector2=reward_motion.get_global_transform_with_canvas().affine_inverse()*(deck_button.get_global_transform_with_canvas()*(deck_button.size*0.5))
 	await reward_motion.deliver(target)
 	if not is_instance_valid(reward_motion) or not is_inside_tree(): return
-	if effect=="dice": show_routine_delivery_deck(false)
-	sound({"dice":"reward_gain","heal":"recovery","cleanse":"cleanse"}.get(effect,"reward_gain"))
+	show_routine_delivery_deck(false)
+	sound("reward_gain")
 	close_overlay()
 	render()
 	status.text=message

@@ -164,6 +164,7 @@ func art(parent: Control, texture: Texture2D, pos: Vector2, dimensions: Vector2)
 
 func full_heal() -> void:
 	var layer = effect(true)
+	layer.name = "FullHealEffect"
 	var flash = ColorRect.new()
 	flash.size = layer.size
 	flash.color = Color(0.3,1.0,0.42,0.0)
@@ -186,7 +187,33 @@ func full_heal() -> void:
 		motion.tween_property(cross,"position",origin+Vector2(entry[5],-14),duration).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 		motion.tween_property(cross,"modulate:a",0.0,duration*0.38).set_delay(delay+duration*0.62)
 	await map.get_tree().create_timer(2.2).timeout
-	layer.free()
+	if is_instance_valid(layer): layer.free()
+
+func tile_reward(tile_texture: Texture2D) -> void:
+	var layer: Control=effect(true)
+	layer.name="TileRewardReveal"
+	var shade:=ColorRect.new()
+	shade.name="TileRewardShade"
+	shade.size=layer.size
+	shade.color=Color(0.01,0.008,0.004,0.0)
+	shade.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	layer.add_child(shade)
+	var dimensions:=Vector2(216,162)
+	var resting: Vector2=(layer.size-dimensions)*0.5
+	var tile: TextureRect=art(layer,tile_texture,resting+Vector2(0,16),dimensions)
+	tile.name="RewardTile"
+	tile.modulate.a=0.0
+	# Only the tile floats; no paper, captions, spin, scale change or collection button.
+	var tween: Tween=layer.create_tween()
+	tween.tween_property(shade,"color:a",0.80,0.18)
+	tween.parallel().tween_property(tile,"modulate:a",1.0,0.22)
+	tween.parallel().tween_property(tile,"position",resting,0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(0.65)
+	tween.tween_property(tile,"position:y",resting.y-16,0.32).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(tile,"modulate:a",0.0,0.32)
+	tween.parallel().tween_property(shade,"color:a",0.0,0.32)
+	await tween.finished
+	if is_instance_valid(layer): layer.free()
 
 func swamp_hit() -> void:
 	var layer = effect(true)

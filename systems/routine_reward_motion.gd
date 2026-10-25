@@ -52,18 +52,17 @@ func caption(parent: Control, value: String, pos: Vector2, dimensions: Vector2, 
 	node.size=dimensions
 	node.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	node.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
-	node.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	node.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	node.add_theme_font_size_override("font_size",points)
 	node.add_theme_color_override("font_color",ink)
 	parent.add_child(node)
 	return node
 
-func build(entry: Dictionary, reward_picture: String) -> void:
+func build(_entry: Dictionary, reward_picture: String) -> void:
 	name="RoutineRewardMotion"
 	size=Vector2(1280,720)
 	mouse_filter=Control.MOUSE_FILTER_STOP
-	effect=str(entry.get("effect","dice"))
+	effect="dice"
 	visual=Control.new()
 	visual.name="RoutineRewardCard"
 	visual.size=SIZE
@@ -98,15 +97,7 @@ func build(entry: Dictionary, reward_picture: String) -> void:
 	front.size=SIZE
 	front.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	visual.add_child(front)
-	if effect=="dice":
-		picture(front,reward_picture,Vector2.ZERO,SIZE)
-	else:
-		var sheet:=picture(front,Paper,Vector2.ZERO,SIZE)
-		sheet.stretch_mode=TextureRect.STRETCH_SCALE
-		caption(front,"회복" if effect=="heal" else "정화",Vector2(13,15),Vector2(130,29),17)
-		picture(front,"res://assets/battle/effects/heal-cross.png" if effect=="heal" else reward_picture,Vector2(38,50),Vector2(80,76))
-		caption(front,"+1 HP" if effect=="heal" else "−1",Vector2(15,120),Vector2(126,35),27,Color("c5e7b8"))
-		caption(front,str(entry.get("reward","")),Vector2(17,176),Vector2(122,43),12)
+	picture(front,reward_picture,Vector2.ZERO,SIZE)
 	front.hide()
 	hint=caption(self,"화면을 한 번 누르면 받습니다",Vector2(340,620),Vector2(600,50),18,Color("f7e4bd"))
 	hint.z_index=6
@@ -201,13 +192,13 @@ func deliver(target: Vector2) -> void:
 	halo.hide()
 	var start: Vector2=visual.position
 	var finish: Vector2=target-SIZE*0.5
-	var control: Vector2=start.lerp(finish,0.45)+Vector2(0,-155 if effect=="dice" else 75)
+	var control: Vector2=start.lerp(finish,0.45)+Vector2(0,-155)
 	var initial_scale: Vector2=visual.scale
 	motion=create_tween()
 	motion.tween_method(func(t: float):
 		visual.position=start*(1-t)*(1-t)+control*2*(1-t)*t+finish*t*t
 		visual.scale=initial_scale.lerp(Vector2.ONE*0.12,t)
-		visual.rotation_degrees=lerpf(0.0,10.0 if effect=="dice" else -5.0,t)
+		visual.rotation_degrees=lerpf(0.0,10.0,t)
 		visual.modulate.a=minf(1.0,(1.0-t)*4.0),0.0,1.0,0.80).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	await motion.finished
 	if not is_inside_tree(): return
@@ -216,17 +207,10 @@ func deliver(target: Vector2) -> void:
 	pulse.position=target
 	pulse.z_index=5
 	pulse.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	pulse.tint=Color("dfbd75") if effect=="dice" else (Color("80b38a") if effect=="heal" else Color("d6dcaa"))
+	pulse.tint=Color("dfbd75")
 	add_child(pulse)
-	var amount: Label
-	if effect!="dice":
-		amount=caption(self,"+1 HP" if effect=="heal" else "오염도 −1",target+Vector2(-95,-28),Vector2(190,40),24,pulse.tint)
-		amount.z_index=6
-	motion=create_tween().set_parallel(true)
+	motion=create_tween()
 	motion.tween_method(pulse.advance,0.0,1.0,0.34)
-	if amount!=null:
-		motion.tween_property(amount,"position:y",amount.position.y-25,0.34)
-		motion.tween_property(amount,"modulate:a",0.0,0.34).set_delay(0.10)
 	await motion.finished
 	phase="done"
 

@@ -21,6 +21,11 @@ func check(ok: bool, title: String) -> void:
 		failed += 1
 		printerr("FAIL discovery-arrival: ", title)
 
+func wait_for(predicate: Callable, limit: int=5000) -> bool:
+	var deadline: int=Time.get_ticks_msec()+limit
+	while not predicate.call() and Time.get_ticks_msec()<deadline: await process_frame
+	return bool(predicate.call())
+
 func cleanup() -> void:
 	for suffix in ["", ".tmp"]:
 		if FileAccess.file_exists(save_path + suffix):
@@ -69,7 +74,7 @@ func _run() -> void:
 	var receipt := "event:discovery:forest:card_shown"
 	map.show_tile(event_index)
 	check(not session.event_flag_is_set(receipt), "preview never creates a discovery receipt")
-	check(not (is_instance_valid(map.overlay) and map.overlay.get_node_or_null("EventDiscoveryCard") != null), "preview never opens discovery card")
+	check(not (map.get_node_or_null("TileRewardReveal") != null), "preview never opens discovery card")
 	if is_instance_valid(map.overlay):
 		map.close_overlay()
 	var before: Dictionary = world.snapshot().duplicate(true)
@@ -86,19 +91,13 @@ func _run() -> void:
 	for i in range(24):
 		if before.tiles[i]=="basic" and world.tiles[i]=="forest": new_hill_index=i
 	check(new_hill_index>=0 and new_hill_index!=event_index and new_hill_index!=23, "forest conversion picks protected safe empty cell")
-	var card: Control = map.overlay.get_node_or_null("EventDiscoveryCard") if is_instance_valid(map.overlay) else null
-	check(card != null, "first eligible genuine arrival opens actual discovery card")
-	if card != null:
-		check(card.get_node_or_null("EventDiscoveryTile") is TextureRect, "discovery shows real in-game forest board tile")
-		check(card.get_node_or_null("EventDiscoveryClose")==null,"there is no confirm button")
-		var click=InputEventMouseButton.new()
-		click.button_index=MOUSE_BUTTON_LEFT
-		click.pressed=true
-		card._gui_input(click)
-		await process_frame
-		await process_frame
-		check(not is_instance_valid(map.overlay),"one click dismisses popup and restores board")
-		check(map.buttons.size()==24 and new_hill_index>=0 and map.buttons[new_hill_index].texture_normal==map.texture(map.tile_path(new_hill_index)), "board redraw displays actual new forest art")
+	var reveal: Control=map.get_node_or_null("TileRewardReveal")
+	check(reveal!=null,"first genuine arrival shows the actual discovery tile")
+	if reveal!=null:
+		check(reveal.get_node_or_null("RewardTile") is TextureRect,"discovery shows real in-game forest board tile")
+		check(reveal.find_children("*","BaseButton",true,false).is_empty(),"there is no confirm button")
+		check(await wait_for(func(): return not is_instance_valid(map.overlay)),"tile automatically fades and restores board")
+		check(map.buttons.size()==24 and new_hill_index>=0 and map.buttons[new_hill_index].texture_normal==map.texture(map.tile_path(new_hill_index)),"board redraw displays actual new forest art")
 	# Unread first house notice and permanent route-editor unlock art.
 	map.show_home(true)
 	check(is_instance_valid(map.overlay) and map.overlay.find_child("UnlockNewBadge",true,false)!=null,"home interior announces the newly unlocked hill")
@@ -121,7 +120,7 @@ func _run() -> void:
 	root.add_child(second)
 	await process_frame
 	second.show_tile(event_index, true)
-	check(not (is_instance_valid(second.overlay) and second.overlay.get_node_or_null("EventDiscoveryCard") != null), "revisited event never duplicates card")
+	check(not (second.get_node_or_null("TileRewardReveal") != null), "revisited event never duplicates card")
 	if is_instance_valid(second.overlay):
 		second.close_overlay()
 	check(session.world.tiles.count("forest")==forest_before+1, "duplicate arrival grants no further hills")
@@ -181,5 +180,7 @@ func _run() -> void:
 	session.save_file_path = previous_path
 	session.world = null
 	cleanup()
+	var drain_end: int=Time.get_ticks_msec()+5000
+	while not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty() and Time.get_ticks_msec()<drain_end: await process_frame
 	print("DISCOVERY_ARRIVAL_INTEGRATION: %d passed, %d failed" % [passed, failed])
 	quit(0 if failed == 0 else 1)

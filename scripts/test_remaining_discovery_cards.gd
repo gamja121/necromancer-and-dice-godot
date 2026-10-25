@@ -22,6 +22,11 @@ func check(ok: bool, label: String) -> void:
 		fail_count+=1
 		printerr("FAIL remaining-discoveries: ",label)
 
+func wait_for(predicate: Callable, limit: int=5000) -> bool:
+	var deadline: int=Time.get_ticks_msec()+limit
+	while not predicate.call() and Time.get_ticks_msec()<deadline: await process_frame
+	return bool(predicate.call())
+
 func seed_eligibility(world,kind: String) -> void:
 	world.laps=1
 	match kind:
@@ -70,20 +75,14 @@ func case_for(session: Node,kind: String) -> void:
 	root.add_child(ui)
 	await process_frame
 	ui.show_discovery_card(kind)
-	var card: Control=ui.overlay.get_node_or_null("EventDiscoveryCard") if is_instance_valid(ui.overlay) else null
-	check(card!=null,kind+": original real map overlay displays a unique card")
-	if card!=null:
-		check(card.get_node_or_null("EventDiscoveryClose")==null,kind+": no confirm button")
-		check(card.get_node("EventDiscoveryTitle").text==str(Discovery.details(kind).title),kind+": correct location-specific title")
-		check(card.get_node("EventDiscoveryTile").texture!=null,kind+": correct actual tile artwork loaded")
-		check(card.get_node("EventDiscoveryIllustration").texture!=null,kind+": original game location illustration loaded")
-		var tap:=InputEventMouseButton.new()
-		tap.button_index=MOUSE_BUTTON_LEFT
-		tap.pressed=true
-		card._gui_input(tap)
-		await process_frame
-		await process_frame
-		check(not is_instance_valid(ui.overlay),kind+": one click dismisses without new reward")
+	var reveal: Control=ui.get_node_or_null("TileRewardReveal")
+	check(reveal!=null,kind+": real map displays only the actual discovery tile")
+	if reveal!=null:
+		check(reveal.find_children("*","BaseButton",true,false).is_empty(),kind+": tile has no confirm button")
+		check(reveal.find_children("*","Label",true,false).is_empty(),kind+": tile has no paper title or reward text")
+		check(reveal.get_node("RewardTile").texture==ui.texture("res://assets/map/tiles/%s.png" % kind),kind+": correct actual tile artwork loaded")
+		check(reveal.find_children("*","TextureRect",true,false).size()==1,kind+": no event illustration or collectible card is added")
+		check(await wait_for(func(): return not is_instance_valid(ui.overlay)),kind+": tile floats and fades automatically without another click")
 	check(ui.buttons[transformed].texture_normal==ui.texture(ui.tile_path(transformed)),kind+": actual transformed location visible on board")
 	var badge = ui.buttons[transformed].get_node_or_null("UnlockNewBadge")
 	check(badge!=null,kind+": transformed tile has NEW badge")
