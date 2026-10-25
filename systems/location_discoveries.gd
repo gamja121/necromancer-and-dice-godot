@@ -3,6 +3,7 @@ extends RefCounted
 ## offers places after a genuine, story-free generic event arrival.
 ## No extra RNG roll or unapproved discovery/routine percentages.
 const WORLD_TREE_MINIMUM = 14
+const ALTAR_MINIMUM = 20
 const ORDER = ["forest","rest","graveyard","unknown","altar"]
 const LOCATIONS = {
 	"forest":{
@@ -59,13 +60,14 @@ static func eligible(world,kind: String) -> bool:
 		"unknown":
 			return world.max_contamination_reached>=WORLD_TREE_MINIMUM
 		"altar":
-			return world.story_events.get("cultist_rumor_01",{}).get("status","unseen")!="unseen" or world.event_flags.get("event:cultist_rumor_01:seen",false)==true
+			return world.max_contamination_reached>=ALTAR_MINIMUM or world.story_events.get("cultist_rumor_01",{}).get("status","unseen")!="unseen" or world.event_flags.get("event:cultist_rumor_01:seen",false)==true
 	return false
 
 static func next_eligible(world) -> String:
 	# Prioritize the story location among qualified places. This ranking
 	# does not change the separate 60/40 routine/discovery draw.
 	if eligible(world,"unknown"): return "unknown"
+	if eligible(world,"altar"): return "altar"
 	for kind in ORDER:
 		if eligible(world,kind): return kind
 	return ""

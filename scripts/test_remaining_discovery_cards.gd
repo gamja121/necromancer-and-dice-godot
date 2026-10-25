@@ -32,7 +32,7 @@ func seed_eligibility(world,kind: String) -> void:
 		"unknown":
 			world.max_contamination_reached=14
 		"altar":
-			world.story_events["cultist_rumor_01"]={"status":"seen","choice":"","battle_result":""}
+			world.max_contamination_reached=20
 
 func case_for(session: Node,kind: String) -> void:
 	var path: String="user://test_new_discovery_%s_%d.json" % [kind,OS.get_process_id()]
@@ -155,6 +155,50 @@ func verify_earlier_world_tree(session: Node) -> void:
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(path+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
 
+func verify_earlier_altar(session: Node) -> void:
+	var path: String="user://test_early_altar_%d.json" % OS.get_process_id()
+	session.save_file_path=path
+	session.start_new_world()
+	var w=session.world
+	w.laps=1
+	w.event_flags["discovery:ever_injured"]=true
+	w.story_events["graveyard_child_ambush_01"]={"status":"seen","choice":"","battle_result":""}
+	w.max_contamination_reached=19
+	check(not Discovery.eligible(w,"altar"),"altar remains locked just below peak corruption 20 without a cultist rumor")
+	w.max_contamination_reached=20
+	w.contamination=0
+	check(Discovery.eligible(w,"altar"),"peak corruption 20 unlocks altar discovery without waiting for the corruption-40 cultist rumor")
+	check(Discovery.next_eligible(w)=="unknown","world tree retains first discovery priority when both story locations qualify")
+	w.event_flags[Discovery.unlock_flag("unknown")]=true
+	var before: Dictionary=w.snapshot().duplicate(true)
+	check(Discovery.next_eligible(w)=="altar","after the world tree the altar takes priority over optional extra places")
+	check(w.snapshot()==before,"altar candidate selection does not consume RNG or alter game state")
+	var index: int=w.tiles.find("event")
+	w.position=index
+	var result: Dictionary=session.discover_location_on_event(index,"altar")
+	check(bool(result.get("ok",false)) and w.tiles.count("altar")==1,"early altar converts a real road through the normal saved discovery transaction")
+	check(not w.event_flags.get("event:cultist_rumor_01:seen",false) and session.get_story_event("cultist_rumor_01").status=="unseen","discovering the altar never fabricates cultist story progress")
+	var altar_index: int=w.tiles.find("altar")
+	w.position=altar_index
+	w.contamination=50
+	check(not preload("res://systems/cultist_altar_entry.gd").can_enter(session,altar_index),"even at corruption 50 the main altar story still requires the genuine cultist quest")
+	w.contamination=0
+	check(session.save_world(),"early altar and purified corruption save with the existing format")
+	session.reload_world()
+	w=session.world
+	check(w.contamination==0 and w.max_contamination_reached==20 and w.tiles.count("altar")==1,"early altar survives purification and restart")
+	check(Discovery.is_unlocked(w,"altar") and not Discovery.eligible(w,"altar"),"early altar is unlocked permanently and cannot be discovered twice")
+	check(Discovery.next_eligible(w)=="forest","after both story places the original optional-location order resumes")
+	session.start_new_world()
+	w=session.world
+	w.story_events["cultist_rumor_01"]={"status":"seen","choice":"","battle_result":""}
+	check(Discovery.eligible(w,"altar"),"legacy cultist rumor state still qualifies with no peak-history field")
+	w.story_events.erase("cultist_rumor_01")
+	w.event_flags["event:cultist_rumor_01:seen"]=true
+	check(Discovery.eligible(w,"altar"),"legacy seen-flag saves retain altar eligibility")
+	for suffix in ["",".tmp"]:
+		if FileAccess.file_exists(path+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
+
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")
 	var own: bool=session==null
@@ -164,6 +208,7 @@ func _run() -> void:
 		root.add_child(session)
 	var old_path: String=session.save_file_path
 	verify_earlier_world_tree(session)
+	verify_earlier_altar(session)
 	for kind in ["rest","graveyard","unknown","altar"]:
 		await case_for(session,kind)
 	session.save_file_path=old_path
