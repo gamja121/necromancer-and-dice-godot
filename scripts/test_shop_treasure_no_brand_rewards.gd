@@ -24,7 +24,7 @@ func test_shops(session: Node) -> void:
 		session.start_new_world()
 		var world = session.world
 		var candidates: Array = EncounterGenerator.eligible_roster(world.definitions).filter(func(slug): return str(world.definitions[slug].grade)==grade)
-		check(candidates.size() >= 3,"%s grade has enough distinct merchant candidates" % grade)
+		check(candidates.size() >= 2,"%s grade has at least one different-species merchant candidate" % grade)
 		if candidates.is_empty(): continue
 		var donor: Dictionary = session.create_item("unit",{"slug":str(candidates[0])})
 		world.roster.append(donor)
@@ -35,6 +35,18 @@ func test_shops(session: Node) -> void:
 		var offers: Array = result.offers
 		var expected_count: int = 5 if grade=="hero" else (4 if grade=="advanced" else 3)
 		check(offers.size()==expected_count,"%s still gets %d offers" % [grade,expected_count])
+		# The six boss-only hero species cannot be used to pad shop offers.
+		# If a grade has fewer distinct species, surplus monster slots become dice.
+		var requested_monsters: int = 3 if grade=="hero" else (2 if grade=="advanced" else 1)
+		var expected_monsters: int = mini(requested_monsters,candidates.size()-1)
+		var monster_offers: Array = offers.filter(func(offer): return offer.kind=="unit")
+		var dice_offers: Array = offers.filter(func(offer): return offer.kind=="dice")
+		check(monster_offers.size()==expected_monsters,"%s offers every available distinct same-grade monster up to its monster slots" % grade)
+		check(dice_offers.size()==expected_count-expected_monsters,"%s fills missing monster slots with dice cards" % grade)
+		var distinct_dice: Dictionary = {}
+		for offer in dice_offers:
+			distinct_dice[str(offer.item.card_id)] = true
+		check(distinct_dice.size()==dice_offers.size(),"%s merchant dice controls do not repeat" % grade)
 		check(offers.all(func(offer): return offer.kind in ["unit","dice"]),"no %s merchant offer is a brand card" % grade)
 		var unit_ids: Array = []
 		var unit_slugs: Array = []

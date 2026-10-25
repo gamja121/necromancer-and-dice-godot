@@ -1032,14 +1032,17 @@ func shop_offers(index: int, unit_id: String) -> Dictionary:
 		var monster_slot: bool = i%2==(0 if grade=="hero" else 1)
 		if monster_slot:
 			var option: Dictionary = shop_monster_offer(unit,offered_slugs)
-			if option.is_empty():
+			if not option.is_empty():
+				offers.append(option)
+				continue
+			# Boss-only species stay excluded. When fewer same-grade species
+			# remain than monster slots, fill only the surplus with dice cards.
+			if offered_slugs.is_empty():
 				world.restore(before)
 				return {"ok":false,"reason":"교환할 마물 후보가 없습니다."}
-			offers.append(option)
-		else:
-			var choice = world.rng.randi_range(0,pool.size()-1)
-			offers.append({"kind":"dice","item":create_item("dice",pool[choice])})
-			pool.remove_at(choice)
+		var choice = world.rng.randi_range(0,pool.size()-1)
+		offers.append({"kind":"dice","item":create_item("dice",pool[choice])})
+		pool.remove_at(choice)
 	world.shop_trade.offers[unit_id] = offers
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"offers":offers.duplicate(true)}
