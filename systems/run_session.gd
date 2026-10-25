@@ -700,24 +700,22 @@ func open_treasure(index: int = -1) -> bool:
 	if world.rng.randf()<0.10:
 		world.pending_reward = {"id":visit_id,"kind":"mimic","index":index,"count":EncounterGenerator.mimic_count(world.contamination,world.laps+1)}
 		return persist_change(before)
-	var pool: Array = []
-	var unit_pool: Array = []
-	# New treasure rewards are strictly monster or dice cards; older pending
-	# transactions remain stored unchanged until claimed or discarded.
-	for slug in EncounterGenerator.eligible_roster(world.definitions):
-		var candidate: Dictionary = {"kind":"unit","source":{"slug":slug,"name":world.definitions[slug].name}}
-		unit_pool.append(candidate)
-		pool.append(candidate)
-	for card in Catalog.dice_cards(): pool.append({"kind":"dice","source":card})
-	for i in range(pool.size()-1,0,-1):
-		var j = world.rng.randi_range(0,i)
-		var swap = pool[i]
-		pool[i] = pool[j]
-		pool[j] = swap
-	var offers: Array = pool.slice(0,3)
-	# Monster cards are the new growth material: every chest must offer one.
-	if not unit_pool.is_empty() and not offers.any(func(offer): return offer.kind=="unit"):
-		offers[world.rng.randi_range(0,offers.size()-1)] = unit_pool[world.rng.randi_range(0,unit_pool.size()-1)]
+	# Exactly one monster and two distinct dice controls in every normal chest.
+	var unit_pool: Array=EncounterGenerator.eligible_roster(world.definitions)
+	var dice_pool: Array=Catalog.dice_cards()
+	if unit_pool.is_empty() or dice_pool.size()<2:
+		world.restore(before)
+		return false
+	var slug: String=str(unit_pool[world.rng.randi_range(0,unit_pool.size()-1)])
+	var offers: Array=[{"kind":"unit","source":{"slug":slug,"name":world.definitions[slug].name}}]
+	for _i in range(2):
+		var choice: int=world.rng.randi_range(0,dice_pool.size()-1)
+		offers.append({"kind":"dice","source":dice_pool.pop_at(choice)})
+	for i in range(offers.size()-1,0,-1):
+		var j: int=world.rng.randi_range(0,i)
+		var swap: Dictionary=offers[i]
+		offers[i]=offers[j]
+		offers[j]=swap
 	world.pending_reward = {"id":visit_id,"kind":"treasure","offers":offers,"selected":-1}
 	return persist_change(before)
 

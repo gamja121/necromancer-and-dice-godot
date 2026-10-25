@@ -3,6 +3,7 @@ extends RefCounted
 const RoutePlan = preload("res://systems/route_plan.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
+const EncounterGenerator = preload("res://systems/encounter_generator.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
@@ -416,6 +417,7 @@ func restore(saved: Dictionary) -> bool:
 			var definition: Dictionary = dice_pool[(selected_index+int(saved.get("move_serial",0)))%dice_pool.size()].duplicate(true)
 			definition.id = str(old_item.get("id","legacy-treasure-dice-%s" % str(pending_reward.get("id","old"))))
 			pending_reward.reward = {"kind":"dice","item":definition}
+		normalize_treasure_offers(int(saved.get("move_serial",0)))
 	# Captured enemy brands must survive JSON round-trips unchanged.
 	# JSON converts dice face integers to floats; a visually identical face
 	# may otherwise fail the type-sensitive match during future combat.
@@ -533,3 +535,32 @@ func restore(saved: Dictionary) -> bool:
 	rng.state = int(saved.rng_state)
 	Rules.normalize_doom_name([roster,graveyard_corpses,pending_reward,active_encounter],definitions)
 	return true
+
+## Upgrade only unchosen treasure offers, without consuming RNG or item IDs.
+## A selected/prepared prize remains identical at its original slot.
+func normalize_treasure_offers(saved_move_serial: int) -> void:
+	var offers: Array=pending_reward.get("offers",[])
+	if offers.size()!=3: return
+	var selected: int=int(pending_reward.get("selected",-1))
+	var unit_slot: int=-1
+	if selected>=0 and selected<3 and offers[selected].get("kind","")=="unit": unit_slot=selected
+	if unit_slot<0:
+		for i in range(3):
+			if offers[i].get("kind","")=="unit": unit_slot=i; break
+	if unit_slot<0:
+		unit_slot=1 if selected==0 else 0
+		var roster: Array=EncounterGenerator.eligible_roster(definitions)
+		if roster.is_empty(): return
+		var slug: String=str(roster[posmod(saved_move_serial+unit_slot,roster.size())])
+		offers[unit_slot]={"kind":"unit","source":{"slug":slug,"name":definitions[slug].name}}
+	var dice_pool: Array=Catalog.dice_cards()
+	var used: Array=[]
+	for offer in offers:
+		if offer.get("kind","")=="dice": used.append(str(offer.get("source",{}).get("card_id","")))
+	for i in range(3):
+		if i==unit_slot or offers[i].get("kind","")=="dice": continue
+		var dice_index: int=posmod(saved_move_serial+i,dice_pool.size())
+		while str(dice_pool[dice_index].card_id) in used: dice_index=(dice_index+1)%dice_pool.size()
+		var source: Dictionary=dice_pool[dice_index].duplicate(true)
+		offers[i]={"kind":"dice","source":source}
+		used.append(str(source.card_id))

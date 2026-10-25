@@ -49,6 +49,7 @@ func _run() -> void:
 			break
 	world.position=gem
 	check(session.open_treasure(gem) and world.pending_reward.kind=="treasure","real three-offer transaction created and saved")
+	check(world.pending_reward.offers.filter(func(offer): return offer.kind=="unit").size()==1 and world.pending_reward.offers.filter(func(offer): return offer.kind=="dice").size()==2,"visible chest transaction contains one monster and two dice controls")
 	var map: Control=MapScene.instantiate()
 	root.add_child(map)
 	var ready: bool=await await_ready(func(): return is_treasure(map))
