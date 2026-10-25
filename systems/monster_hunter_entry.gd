@@ -44,6 +44,9 @@ static func can_enter(session, index: int) -> bool:
 	if w.event_flags.get(COMPLETE_FLAG,false)==true: return false
 	if w.event_flags.get(CULTIST_CLUE_FLAG,false)==true: return false
 	var state: Dictionary=session.get_story_event(EVENT_ID)
+	# A generic event may visit the sanctuary only after its tile exists.
+	# Preserve already-seen legacy scenes, including saved generic-event beats.
+	if state.status=="unseen" and not w.tiles.has("unknown"): return false
 	if state.status not in ["unseen","seen"]: return false
 	if state.choice!="" or state.battle_result!="": return false
 	# Fail closed for contradictory seen flags instead of silently repairing

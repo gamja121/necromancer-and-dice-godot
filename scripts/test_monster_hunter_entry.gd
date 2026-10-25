@@ -212,6 +212,108 @@ func test_failed_write() -> void:
 	check(s.get_story_event(Hunter.EVENT_ID).status=="seen","retry survives restart")
 	s.free()
 
+func remove_tree(s) -> void:
+	for i in range(s.world.tiles.size()):
+		if s.world.tiles[i]=="unknown": s.world.tiles[i]="basic"
+
+func prepared_hunter(suffix: String):
+	var s=fresh(suffix)
+	resolve_graveyard(s,true)
+	finish_rumor(s,true)
+	finish_commander(s)
+	return s
+
+func test_waits_for_visible_world_tree() -> void:
+	var s=prepared_hunter("tree_order")
+	remove_tree(s)
+	var index: int=s.world.tiles.find("event")
+	s.world.position=index
+	var before: Dictionary=s.world.snapshot().duplicate(true)
+	check(not Hunter.can_enter(s,index),"new hunter waits until a world-tree tile is actually on the board")
+	check(not Hunter.begin(s,index),"generic event cannot start world-tree narration before the tile appears")
+	check(s.world.snapshot()==before,"waiting for the world tree does not mutate story, map, receipts or RNG")
+	# An unlock flag alone cannot make an absent visual location exist.
+	s.world.event_flags["event:discovery:unknown:unlocked"]=true
+	check(not Hunter.can_enter(s,index),"an unlock flag without a visible world-tree tile is insufficient")
+	s.free()
+
+func test_legacy_seen_without_world_tree() -> void:
+	var s=prepared_hunter("legacy_seen_order")
+	remove_tree(s)
+	var index: int=s.world.tiles.find("event")
+	s.world.position=index
+	var before: Dictionary=s.world.snapshot().duplicate(true)
+	s.world.story_events[Hunter.EVENT_ID]={"status":"seen","choice":"","battle_result":""}
+	s.world.event_flags[Hunter.SEEN_FLAG]=true
+	s.world.contamination=0
+	check(s.persist_change(before),"legacy generic-event scene checkpoint saved without a world-tree tile")
+	check(Hunter.can_enter(s,index) and Hunter.begin(s,index),"already-seen legacy scene remains playable without a tree and below threshold")
+	check(Hunter.advance(s,index,0),"legacy scene advances instead of getting stuck behind the new first-entry gate")
+	s.reload_world()
+	check(Hunter.current_beat(s)==1 and Hunter.can_enter(s,index),"legacy mid-scene beat survives reload with no world-tree tile")
+	for beat in range(1,preload("res://systems/monster_hunter_beats.gd").count()):
+		check(Hunter.advance(s,index,beat),"legacy hunter continues beat "+str(beat))
+	check(s.get_story_event(Hunter.EVENT_ID).status=="complete" and s.event_flag_is_set(Hunter.CULTIST_CLUE_FLAG),"legacy story can finish and grant its real clue once")
+	check(not s.world.tiles.has("unknown"),"resuming legacy progress never fabricates a tile or discovery")
+	s.free()
+
+func test_world_tree_discovery_dispatch() -> void:
+	var s=prepared_hunter("real_tree_discovery")
+	remove_tree(s)
+	# Only the world tree remains in the fixture's eligible discovery queue.
+	for kind in ["forest","rest","graveyard"]:
+		s.world.event_flags["event:discovery:%s:unlocked" % kind]=true
+	var index: int=s.world.tiles.find("event")
+	s.world.position=index
+	var canonical=root.get_node("RunSession")
+	var old_world=canonical.world
+	var old_path: String=canonical.save_file_path
+	var old_encounter: Dictionary=canonical.encounter
+	var old_notice: String=canonical.notice
+	canonical.world=s.world
+	canonical.save_file_path=s.save_file_path
+	canonical.encounter={}
+	var map=load("res://map.tscn").instantiate()
+	root.add_child(map)
+	for _frame in range(3): await process_frame
+	check(not is_instance_valid(map.overlay),"loading an unseen hunter without a tree does not start its story")
+	var candidate:=RandomNumberGenerator.new()
+	var expected_rng: int=0
+	for seed in range(1,500):
+		candidate.seed=seed
+		if candidate.randf()>=0.60:
+			s.world.rng.seed=seed
+			expected_rng=candidate.state
+			break
+	map.show_tile(index,true)
+	for _frame in range(3): await process_frame
+	check(s.world.tiles.has("unknown") and s.event_flag_is_set("event:discovery:unknown:unlocked"),"actual generic-event dispatch can discover and place the world tree before the hunter")
+	check(s.get_story_event(Hunter.EVENT_ID).status=="unseen","world-tree discovery does not consume the hunter story on the same dispatch")
+	check(is_instance_valid(map.overlay) and map.overlay.find_child("EventDiscoveryCard",true,false)!=null,"the player sees the existing world-tree discovery card first")
+	check(s.world.rng.state==expected_rng,"world-tree-first order preserves the existing single 60/40 draw")
+	map.close_overlay()
+	map.render()
+	var tree_index: int=s.world.tiles.find("unknown")
+	check(tree_index>=0 and map.buttons[tree_index].texture_normal==map.texture(map.tile_path(tree_index)),"redrawn board uses the actual world-tree tile artwork")
+	s.world.position=tree_index
+	map.show_tile(tree_index,true)
+	for _frame in range(3): await process_frame
+	check(s.get_story_event(Hunter.EVENT_ID).status=="seen" and is_instance_valid(map.overlay),"the existing hunter book opens after the world tree is available")
+	map.close_overlay()
+	# Allow the real map warmup to finish before tearing down this short fixture.
+	var warmup=map.get_node("BattleResources")
+	var deadline: int=Time.get_ticks_msec()+5000
+	while (not warmup.pending.is_empty() or not warmup.requested.is_empty()) and Time.get_ticks_msec()<deadline:
+		await process_frame
+	check(warmup.pending.is_empty() and warmup.requested.is_empty(),"map fixture finishes asynchronous resource warmup before cleanup")
+	map.queue_free()
+	for _frame in range(3): await process_frame
+	canonical.world=old_world
+	canonical.save_file_path=old_path
+	canonical.encounter=old_encounter
+	canonical.notice=old_notice
+	s.free()
+
 func test_art_ui() -> void:
 	check(Hunter.EVENT_ID=="monster_hunter_encounter_01","canonical hunter event identity")
 	check(Hunter.FIRST_BEAT.id=="arrival","source opening beat identity")
@@ -243,6 +345,9 @@ func _run() -> void:
 	test_abandoned_route()
 	test_failclosed_flags()
 	test_failed_write()
+	test_waits_for_visible_world_tree()
+	test_legacy_seen_without_world_tree()
+	await test_world_tree_discovery_dispatch()
 	test_art_ui()
 	for path in paths: clear(path)
 	print("MONSTER_HUNTER_ENTRY_REGRESSION: %d passed, %d failed" % [passed,failed])
