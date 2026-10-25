@@ -99,7 +99,7 @@ func _run() -> void:
 	var visit_button: Button=null
 	for child in map.overlay.get_children():
 		if child is Button and child.text=="기도": visit_button=child
-	check(visit_button!=null and not visit_button.disabled,"used world tree remains accessible to inspect saved prayer results")
+	check(visit_button!=null and visit_button.disabled,"spent world tree entry falls on the location painting instead of remaining as a result button")
 	map.close_overlay()
 	map.show_exploration_actions(index)
 	panel = map.overlay

@@ -73,7 +73,7 @@ func verify_return(map: Control, old_id: int, index: int, kind: String, caption:
 	if kind=="inheritance": map.show_home(true)
 	else: map.show_location(index)
 	await create_timer(0.35).timeout
-	check(falling(map.overlay)==0,kind+": rebuilding the same visit does not replay its fall")
+	check(falling(map.overlay)==0 and button_at(map.overlay,caption)==null,kind+": rebuilding the same visit never resurrects its used button")
 
 func prophecy() -> void:
 	var map=await new_map("prophecy","fortune")
@@ -96,7 +96,8 @@ func prophecy() -> void:
 	detail.close_button.pressed.emit()
 	await verify_return(map,old_id,index,"prophecy","예언")
 	# Keep the existing saved-result view without replaying the entry peel.
-	button_at(map.overlay,"예언").pressed.emit()
+	map.close_overlay()
+	map.show_place_actions(index)
 	await settle()
 	check(map.overlay.dice.disabled and falling(map.overlay)==0,"prophecy: saved result can still be inspected without rolling or falling again")
 	map.close_overlay()
@@ -116,8 +117,8 @@ func prophecy() -> void:
 	root.add_child(map)
 	await settle()
 	map.show_location(index)
-	await create_timer(0.35).timeout
-	check(falling(map.overlay)==0 and map.pending_location_papers.is_empty(),"reload: historical receipts do not manufacture a new return animation")
+	await create_timer(1.1).timeout
+	check(button_at(map.overlay,"예언")==null and map.pending_location_papers.is_empty(),"reload: spent saved visits finish removing their paper on the actual painting")
 	await dispose(map)
 
 func inheritance(success: bool) -> void:
@@ -165,6 +166,10 @@ func rest(success: bool) -> void:
 		check(await wait_for(func(): return paper_lifetime.get_ref()==null),"rest: actual button falls away")
 		check(map.overlay==background and background.get_node_or_null("RestHealAction")==null,"rest: the painting stays open and no replacement heal button is created")
 		check(await wait_for(func(): return not button_at(background,"맵으로 나가기").disabled),"rest: exit is restored after recovery feedback")
+		map.close_overlay()
+		map.show_location(index)
+		await settle()
+		check(button_at(map.overlay,"전체 회복")==null,"rest: reopening does not resurrect the consumed heal button")
 	else:
 		check(not paper.get_meta("spent_paper_falling",false) and session.world.snapshot()==saved,"rest: failed save does not drop the button or heal units")
 		check(map.overlay==background and not paper.disabled,"rest: failed action leaves its original button available")
@@ -184,6 +189,68 @@ func cancel_without_use() -> void:
 	check(falling(map.overlay)==0 and map.pending_location_papers.is_empty(),"cancel: no successful receipt means no scheduled paper")
 	await dispose(map)
 
+func spent_backgrounds() -> void:
+	for spec in [["home","inheritance","낙인 계승"],["home","patrol","순찰경로"],["altar","ritual","의식"],["unknown","purify","기도"],["graveyard","grave-extract","시체 파헤치기"],["rest","heal","전체 회복"]]:
+		var kind: String=spec[0]
+		var receipt_kind: String=spec[1]
+		var caption: String=spec[2]
+		var map=await new_map("spent_"+receipt_kind,kind)
+		var index: int=session.world.position
+		if kind!="home": session.world.tiles[index]=kind
+		var receipt: String=session.place_visit_id(receipt_kind,index)
+		session.world.reward_receipts.append(receipt)
+		check(session.save_world(),receipt_kind+": spent visit is already saved before background reconstruction")
+		var before: Dictionary=session.world.snapshot().duplicate(true)
+		if kind=="home": map.show_home(true)
+		else: map.show_location(index)
+		var background: Control=map.overlay
+		var paper:=button_at(background,caption)
+		check(paper!=null and paper.disabled and background.get_node_or_null("LocationSceneImage")!=null,receipt_kind+": existing spent save starts with actual disabled paper on its painting")
+		check(await wait_for(func(): return is_instance_valid(paper) and paper.get_meta("spent_paper_falling",false)),receipt_kind+": no transient success queue is required to fall")
+		var lifetime: WeakRef=weakref(paper)
+		check(await wait_for(func(): return lifetime.get_ref()==null),receipt_kind+": original used paper is removed")
+		map.close_overlay()
+		if kind=="home": map.show_home(true)
+		else: map.show_location(index)
+		await settle()
+		check(button_at(map.overlay,caption)==null and falling(map.overlay)==0,receipt_kind+": same visit rebuild has no resurrected button")
+		check(session.world.snapshot()==before,receipt_kind+": removal does not change save, reward or RNG")
+		# A genuinely new visit gets its fresh usable entry.
+		map.close_overlay()
+		session.world.move_serial+=1
+		if kind=="home": map.show_home(true)
+		else: map.show_location(index)
+		await settle()
+		check(button_at(map.overlay,caption)!=null and falling(map.overlay)==0,receipt_kind+": new visit restores its original paper")
+		await dispose(map)
+	# A repeatable shop and unused but ineligible actions must not peel.
+	var map=await new_map("shop","village")
+	var index: int=session.world.position
+	session.world.tiles[index]="village"
+	map.show_location(index)
+	await create_timer(0.35).timeout
+	check(button_at(map.overlay,"마물 상점")!=null and falling(map.overlay)==0,"repeatable shop entry stays in place")
+	await dispose(map)
+
+func hill_departure() -> void:
+	var map=await new_map("hill","forest")
+	var index: int=session.world.position
+	session.world.tiles[index]="forest"
+	session.world.tiles[(index+1)%24]="basic"
+	var receipt: String=session.place_visit_id("hill-route",index)
+	var serial: int=session.world.move_serial
+	map.show_exploration_actions(index)
+	var detail: Control=map.overlay
+	detail.select_hill_step(1)
+	detail.confirm_hill_route()
+	check(session.world.move_serial==serial+1 and receipt in session.world.reward_receipts,"hill: successful departure saves the pre-move receipt before serial advances")
+	check(is_instance_valid(map.overlay) and map.overlay.get_node_or_null("LocationSceneImage")!=null,"hill: departure returns to its actual background painting")
+	var paper: Button=map.overlay.get_node("LocationAction_hill-route")
+	check(await wait_for(func(): return is_instance_valid(paper) and paper.get_meta("spent_paper_falling",false)),"hill: actual entry paper falls using exact pre-move receipt")
+	check(map.stage.get_node_or_null("HillUsedParchmentStage")==null,"hill: no floating duplicate paper over the board")
+	check(await wait_for(func(): return not map.moving and session.world.pending_move.is_empty()),"hill: normal saved hero movement completes after paper falls")
+	await dispose(map)
+
 func run() -> void:
 	session=root.get_node("RunSession")
 	var prior: String=session.save_file_path
@@ -193,6 +260,8 @@ func run() -> void:
 	await rest(true)
 	await rest(false)
 	await cancel_without_use()
+	await spent_backgrounds()
+	await hill_departure()
 	var deadline:=Time.get_ticks_msec()+5000
 	while not Loads.PendingLoads.active.is_empty() and Time.get_ticks_msec()<deadline: await process_frame
 	await settle()
