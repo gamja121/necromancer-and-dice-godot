@@ -65,23 +65,30 @@ func setup(category: String, heading: String, description: String, reward: Strin
 	var template = (CUSTOM_BASE if ResourceLoader.exists(CUSTOM_BASE) else BASE_SVG) if show_reward else ROUTINE_BASE
 	_picture(template, Vector2.ZERO, size, TextureRect.STRETCH_SCALE).name="EventDiscoveryBase"
 	var art = illustration if ResourceLoader.exists(illustration) else DEFAULT_ART
-	var art_rect: Rect2=Rect2(34,113,384,259) if show_reward else Rect2(45,112,362,259)
-	var visual = _picture(art,art_rect.position,art_rect.size,TextureRect.STRETCH_KEEP_ASPECT_COVERED)
+	# Routine illustrations are complete square illuminated manuscripts, frame included.
+	# Show their full artwork above the existing live title/description instead of
+	# cropping their gold-blue border into the former wide landscape aperture.
+	var framed_routine: bool = not show_reward and art.begins_with("res://assets/map/events/routine_")
+	var art_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(452,452)) if framed_routine else (Rect2(34,113,384,259) if show_reward else Rect2(45,112,362,259))
+	var visual = _picture(art,art_rect.position,art_rect.size,TextureRect.STRETCH_KEEP_ASPECT_CENTERED if framed_routine else TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 	visual.name = "EventDiscoveryIllustration"
-	# Thin on-top outline keeps the crop inside the parchment card's art window.
-	var outline := Panel.new()
-	outline.position = visual.position
-	outline.size = visual.size
-	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var border_style := StyleBoxFlat.new()
-	border_style.bg_color = Color.TRANSPARENT
-	border_style.set_border_width_all(3 if show_reward else 1)
-	border_style.border_color = Color("#281c11") if show_reward else Color("#5a3d23")
-	outline.add_theme_stylebox_override("panel", border_style)
-	add_child(outline)
-	_label(category, Vector2(104, 44), Vector2(246, 42), 22, true).name = "EventDiscoveryCategory"
-	_label(heading, Vector2(50, 400), Vector2(352, 40), 25, true).name = "EventDiscoveryTitle"
-	_label(description,Vector2(54,459) if show_reward else Vector2(42,459),Vector2(344,47) if show_reward else Vector2(368,64),17 if show_reward else 16,true).name="EventDiscoveryDescription"
+	if not framed_routine:
+		# Discovery art still needs its original thin landscape-aperture outline.
+		var outline := Panel.new()
+		outline.position = visual.position
+		outline.size = visual.size
+		outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var border_style := StyleBoxFlat.new()
+		border_style.bg_color = Color.TRANSPARENT
+		border_style.set_border_width_all(3 if show_reward else 1)
+		border_style.border_color = Color("#281c11") if show_reward else Color("#5a3d23")
+		outline.add_theme_stylebox_override("panel", border_style)
+		add_child(outline)
+	var category_label: Label = _label(category, Vector2(104, 44), Vector2(246, 42), 22, true)
+	category_label.name = "EventDiscoveryCategory"
+	if framed_routine: category_label.hide()
+	_label(heading, Vector2(50,456) if framed_routine else Vector2(50,400), Vector2(352,40),25,true).name = "EventDiscoveryTitle"
+	_label(description,Vector2(42,501) if framed_routine else (Vector2(54,459) if show_reward else Vector2(42,459)),Vector2(368,58) if framed_routine else (Vector2(344,47) if show_reward else Vector2(368,64)),17 if show_reward else 16,true).name="EventDiscoveryDescription"
 	if show_reward:
 		_picture(tile_image, Vector2(47,524), Vector2(58,58), TextureRect.STRETCH_KEEP_ASPECT_CENTERED).name="EventDiscoveryTile"
 		_label(reward, Vector2(135,529), Vector2(264,50),20).name="EventDiscoveryReward"
