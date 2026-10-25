@@ -2,6 +2,7 @@ extends RefCounted
 ## Original narrative entries always take priority; this registry only
 ## offers places after a genuine, story-free generic event arrival.
 ## No extra RNG roll or unapproved discovery/routine percentages.
+const WORLD_TREE_MINIMUM = 14
 const ORDER = ["forest","rest","graveyard","unknown","altar"]
 const LOCATIONS = {
 	"forest":{
@@ -56,12 +57,15 @@ static func eligible(world,kind: String) -> bool:
 			# an additional discoverable cemetery, after the child plot begins.
 			return world.laps>=1 and (not world.graveyard_corpses.is_empty() or world.story_events.get("graveyard_child_ambush_01",{}).get("status","unseen")!="unseen")
 		"unknown":
-			return world.max_contamination_reached>=20
+			return world.max_contamination_reached>=WORLD_TREE_MINIMUM
 		"altar":
 			return world.story_events.get("cultist_rumor_01",{}).get("status","unseen")!="unseen" or world.event_flags.get("event:cultist_rumor_01:seen",false)==true
 	return false
 
 static func next_eligible(world) -> String:
+	# Prioritize the story location among qualified places. This ranking
+	# does not change the separate 60/40 routine/discovery draw.
+	if eligible(world,"unknown"): return "unknown"
 	for kind in ORDER:
 		if eligible(world,kind): return kind
 	return ""

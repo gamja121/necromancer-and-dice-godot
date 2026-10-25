@@ -30,7 +30,7 @@ func seed_eligibility(world,kind: String) -> void:
 		"graveyard":
 			world.story_events["graveyard_child_ambush_01"]={"status":"seen","choice":"","battle_result":""}
 		"unknown":
-			world.max_contamination_reached=20
+			world.max_contamination_reached=14
 		"altar":
 			world.story_events["cultist_rumor_01"]={"status":"seen","choice":"","battle_result":""}
 
@@ -125,6 +125,36 @@ func case_for(session: Node,kind: String) -> void:
 		if FileAccess.file_exists(path+suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
 
+func verify_earlier_world_tree(session: Node) -> void:
+	var path: String="user://test_early_world_tree_%d.json" % OS.get_process_id()
+	session.save_file_path=path
+	session.start_new_world()
+	var w=session.world
+	w.laps=1
+	w.event_flags["discovery:ever_injured"]=true
+	w.story_events["graveyard_child_ambush_01"]={"status":"seen","choice":"","battle_result":""}
+	w.max_contamination_reached=7
+	check(not Discovery.eligible(w,"unknown"),"world tree is not added in the opening corruption band")
+	w.max_contamination_reached=13
+	check(not Discovery.eligible(w,"unknown"),"world-tree discovery stays locked just below peak corruption 14")
+	check(Discovery.next_eligible(w)=="forest","below the tree threshold other locations retain their original order")
+	w.max_contamination_reached=14
+	w.contamination=0
+	check(Discovery.eligible(w,"unknown"),"peak corruption 14 enables the world tree one basic lap before the old 20 gate")
+	check(Discovery.eligible(w,"forest") and Discovery.eligible(w,"rest") and Discovery.eligible(w,"graveyard"),"priority fixture has all earlier optional places eligible together")
+	var before: Dictionary=w.snapshot().duplicate(true)
+	check(Discovery.next_eligible(w)=="unknown","world tree wins a discovery selection even with all optional places still waiting")
+	check(w.snapshot()==before,"eligibility and priority checks do not consume RNG, rewards or change the board")
+	check(session.save_world(),"earlier threshold history saves through the existing world format")
+	session.reload_world()
+	w=session.world
+	check(w.contamination==0 and w.max_contamination_reached==14 and Discovery.eligible(w,"unknown"),"purification and restart keep the earned world-tree eligibility")
+	w.event_flags[Discovery.unlock_flag("unknown")]=true
+	check(not Discovery.eligible(w,"unknown"),"an existing world-tree unlock is never awarded twice")
+	check(Discovery.next_eligible(w)=="forest","after the world tree the original remaining discovery order resumes")
+	for suffix in ["",".tmp"]:
+		if FileAccess.file_exists(path+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
+
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")
 	var own: bool=session==null
@@ -133,6 +163,7 @@ func _run() -> void:
 		session.name="RunSession"
 		root.add_child(session)
 	var old_path: String=session.save_file_path
+	verify_earlier_world_tree(session)
 	for kind in ["rest","graveyard","unknown","altar"]:
 		await case_for(session,kind)
 	session.save_file_path=old_path

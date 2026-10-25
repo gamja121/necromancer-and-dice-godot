@@ -43,7 +43,7 @@ func supply_documented_history(w, kind: String) -> void:
 			w.event_flags["event:graveyard_child_ambush_01:abandoned"]=true
 		"unknown":
 			# Current corruption may be purified; the peak is durable.
-			w.max_contamination_reached=20
+			w.max_contamination_reached=14
 		"altar":
 			w.story_events["cultist_rumor_01"]={"status":"seen","choice":"","battle_result":""}
 			w.event_flags["event:cultist_rumor_01:seen"]=true
@@ -66,7 +66,7 @@ func _run() -> void:
 	var index: int = w.tiles.find("event")
 	var order: Array=["forest","rest","graveyard","unknown","altar"]
 	check(index>=0 and w.tiles.size()==24,"original 24-tile map contains a real event tile")
-	check(Discovery.ORDER==order,"all 5 cards are registered in the intended progression order")
+	check(Discovery.ORDER==order,"all 5 cards retain their registry and map-generation order")
 	var seed: int=discovery_seed()
 	check(seed>0,"genuine production 40-percent discovery RNG branch is reachable")
 	for kind in order:
