@@ -14,6 +14,7 @@ Godot 4.7.2, headless, isolated APPDATA/LOCALAPPDATA (no interactive game window
 - `scripts/test_game_language.gd`: 88 passed, 0 failed. Covers persistence, both pickers, return to Korean, native source-string preservation, formatted messages, 18 card variants, combat captions, authored scenes from eight main events, every monster name ribbon and custom names.
 - `scripts/test_layered_unit_cards.gd`: 0 failures.
 - `scripts/test_inheritance_parchment_readability.gd`: 33 passed, 0 failed.
+- After integrating main through 407cf25: language checks remain 88/0; latest unit-info layout in English passes 44/0 using the existing layout regression with screenshot capture skipped in headless mode.
 - Import/parse and whitespace checks: clean.
 - Headless layout measurements do not replace an interactive visual review. The user will run the game themselves.
 
