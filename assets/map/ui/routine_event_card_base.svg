@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="560" viewBox="0 0 450 560">
+<defs>
+  <linearGradient id="paper" x2="0" y2="1"><stop stop-color="#e8bf82"/><stop offset=".55" stop-color="#d9a968"/><stop offset="1" stop-color="#c69a5a"/></linearGradient>
+  <linearGradient id="body" x2="0" y2="1"><stop stop-color="#eed0a0"/><stop offset="1" stop-color="#dfb782"/></linearGradient>
+  <pattern id="grain" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="4" cy="9" r=".45" fill="#604427" opacity=".35"/><path d="M9 4l4 2M15 17l3-1M1 20l2-3" stroke="#816343" stroke-width=".6" opacity=".30"/></pattern>
+</defs>
+<rect x="5" y="5" width="440" height="550" rx="16" fill="#140f0a"/>
+<rect x="9" y="8" width="432" height="544" rx="15" fill="url(#paper)"/>
+<rect x="9" y="8" width="432" height="544" rx="15" fill="url(#grain)"/>
+<g fill="none" stroke="#332417" stroke-width="2.1">
+<path d="M25 22H425V538H25Z"/><path d="M31 28H419V532H31"/>
+<path d="M25 103H425 M25 380H425"/>
+<path d="M39 38l17-14 M411 38l-17-14 M39 522l17 14 M411 522l-17 14"/>
+</g>
+<path d="M31 110H419V375H31Z" fill="#746955" stroke="#211912" stroke-width="2"/>
+<rect x="31" y="381" width="388" height="150" fill="url(#body)"/>
+<path d="M26 22h36M388 22h36M26 537h36M388 537h36" stroke="#291a10" stroke-width="3"/>
+<g fill="none" stroke="#332417" stroke-width="1.7">
+ <path d="M89 60h100l7-5 7 5 M361 60H261l-7-5-7 5"/>
+ <path d="M102 463h103l6-5 6 5 M348 463H245l-6-5-6 5"/>
+ <path d="M225 14l17 22-17-7-17 7z M225 16v32 M217 25l8 8 8-8"/>
+</g>
+<g opacity=".25" fill="none" stroke="#64472d" stroke-width="1">
+<path d="M25 198l9-35 M415 319l10-23 M35 398l13 24 M413 487l-15-9 M48 514l-12 18 M342 32l-9 14"/>
+<path d="M20 184l13 7 M433 435l-21-8 M38 511l-10 10 M369 543l16-8"/>
+</g>
+</svg>

@@ -77,9 +77,10 @@ func verify_card(event_id: String, receive: bool) -> void:
 	var entry: Dictionary=Routine.details(event_id)
 	check(card.get_node("EventDiscoveryTitle").text==str(entry.title),event_id+": event title matches the existing card format")
 	check(card.get_node("EventDiscoveryDescription").text==str(entry.description),event_id+": event text matches the existing card format")
-	check(card.get_node("EventDiscoveryIllustration").texture!=null and card.get_node("EventDiscoveryTile").texture!=null,event_id+": actual illustration and reward tile art display")
+	check(card.get_node("EventDiscoveryIllustration").texture!=null and card.get_node_or_null("EventDiscoveryTile")==null and card.get_node_or_null("EventDiscoveryReward")==null,event_id+": illustration stays while reward icon and label are absent")
 	check(card.get_node_or_null("EventDiscoveryClose")==null,event_id+": no old confirmation button")
-	check(card.get_node_or_null("RoutineAccept")!=null and card.get_node_or_null("RoutineDecline")!=null,event_id+": both original-style choices are present")
+	check(card.get_node_or_null("RoutineAccept")!=null and card.get_node_or_null("RoutineDecline")!=null,event_id+": both side choices are present")
+	check(card.get_node("RoutineAccept").position.x>card.size.x and card.get_node("RoutineDecline").position.x>card.size.x and card.get_node("RoutineAccept").position.y<card.get_node("RoutineDecline").position.y,event_id+": choices are vertically separated to the right of the card")
 	var read_before: Dictionary=session.world.pending_reward.duplicate(true)
 	var tap:=InputEventMouseButton.new()
 	tap.button_index=MOUSE_BUTTON_LEFT
