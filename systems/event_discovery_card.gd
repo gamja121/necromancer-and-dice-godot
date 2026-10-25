@@ -23,7 +23,7 @@ func _gui_input(event: InputEvent) -> void:
 const DEFAULT_ART = "res://assets/map/events/forest.jpg"
 const CUSTOM_ART = "res://" + "assets/map/events/" + "discovery_hill.png" # Optional HD art: fallback until installed
 const BASE_SVG = "res://assets/map/ui/event_discovery_card_base.svg"
-const ROUTINE_BASE = "res://assets/map/ui/routine_event_card_base.svg"
+const ROUTINE_BASE = "res://assets/map/ui/routine_event_card_base_v2.png"
 const CUSTOM_BASE = "res://" + "assets/map/ui/" + "discovery_card_base.png" # Optional approved template
 const TILE_ART = "res://assets/map/tiles/forest.png"
 
@@ -64,7 +64,8 @@ func setup(category: String, heading: String, description: String, reward: Strin
 	var template = (CUSTOM_BASE if ResourceLoader.exists(CUSTOM_BASE) else BASE_SVG) if show_reward else ROUTINE_BASE
 	_picture(template, Vector2.ZERO, size, TextureRect.STRETCH_SCALE).name="EventDiscoveryBase"
 	var art = illustration if ResourceLoader.exists(illustration) else DEFAULT_ART
-	var visual = _picture(art, Vector2(34, 113), Vector2(384, 259), TextureRect.STRETCH_KEEP_ASPECT_COVERED)
+	var art_rect: Rect2=Rect2(34,113,384,259) if show_reward else Rect2(45,112,362,259)
+	var visual = _picture(art,art_rect.position,art_rect.size,TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 	visual.name = "EventDiscoveryIllustration"
 	# Thin on-top outline keeps the crop inside the parchment card's art window.
 	var outline := Panel.new()
@@ -73,13 +74,13 @@ func setup(category: String, heading: String, description: String, reward: Strin
 	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var border_style := StyleBoxFlat.new()
 	border_style.bg_color = Color.TRANSPARENT
-	border_style.set_border_width_all(3)
-	border_style.border_color = Color("#281c11")
+	border_style.set_border_width_all(3 if show_reward else 1)
+	border_style.border_color = Color("#281c11") if show_reward else Color("#5a3d23")
 	outline.add_theme_stylebox_override("panel", border_style)
 	add_child(outline)
 	_label(category, Vector2(104, 44), Vector2(246, 42), 22, true).name = "EventDiscoveryCategory"
 	_label(heading, Vector2(50, 400), Vector2(352, 40), 25, true).name = "EventDiscoveryTitle"
-	_label(description, Vector2(54, 459), Vector2(344, 47), 17, true).name = "EventDiscoveryDescription"
+	_label(description,Vector2(54,459) if show_reward else Vector2(42,459),Vector2(344,47) if show_reward else Vector2(368,64),17 if show_reward else 16,true).name="EventDiscoveryDescription"
 	if show_reward:
 		_picture(tile_image, Vector2(47,524), Vector2(58,58), TextureRect.STRETCH_KEEP_ASPECT_CENTERED).name="EventDiscoveryTile"
 		_label(reward, Vector2(135,529), Vector2(264,50),20).name="EventDiscoveryReward"

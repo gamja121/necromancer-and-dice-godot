@@ -35,7 +35,7 @@ func run() -> void:
 		await create_timer(0.36).timeout
 		check(card.position.is_equal_approx(Vector2(268,80)) and card.size==Vector2(452,560),event_id+": shortened card and side choices form a centered composition")
 		check(card.get_node_or_null("EventDiscoveryReward")==null and card.get_node_or_null("EventDiscoveryTile")==null,event_id+": no reward label or reward icon is created")
-		check(card.get_node("EventDiscoveryBase").texture.resource_path.ends_with("routine_event_card_base.svg"),event_id+": parchment itself has no green reward strip")
+		check(card.get_node("EventDiscoveryBase").texture.resource_path.ends_with("routine_event_card_base_v2.png"),event_id+": new painted parchment has no green reward strip")
 		check(not card.get_node("EventDiscoveryDismissHint").visible,event_id+": no bottom dismissal text")
 		var accept: Button=card.get_node("RoutineAccept")
 		var decline: Button=card.get_node("RoutineDecline")

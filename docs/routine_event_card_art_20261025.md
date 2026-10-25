@@ -1,0 +1,13 @@
+# 일반 사건 카드 원화 v2 — 2026-10-25
+
+사용자 요청으로 일반 사건 카드 배경을 내장 image_gen 이미지 생성 도구로 새로 제작했다. CLI/API fallback은 사용하지 않았다. 바랜 종이, 어두운 가죽 가장자리와 절제한 청동 장식으로 기존 판타지 원화와 맞췄다. 하단 보상 영역과 오른쪽 선택지 구조는 이전 요청을 유지한다.
+
+게임 원화: `assets/map/ui/routine_event_card_base_v2.png` (1122×1402 RGBA, 실제 외부 알파 0..255). 생성 원본을 변형하지 않고 복사했다. 이전 SVG는 보존한다. 런타임 카드 452×560에서 새 테두리에 맞춰 삽화는 (45,112,362,259), 설명은 (42,459,368,64), 16pt로 맞췄다. 제목/내용은 이미지에 굽지 않아 한글·영문과 6종 사건을 공유한다. 발견 카드는 기존 원화를 유지한다.
+
+검증: headless import 오류 0, 관련 6종 입력/한국어·영어/발견 UI 검사 86 통과·0 실패. 별도 임시 APPDATA에서 Windows 실제 그래픽 드라이버로 1280×720 게임 화면을 렌더·캡처하여 그림이 장식과 맞고 설명 끝이 고립되지 않는 것을 확인했다. 원정 저장·보상·선택 로직은 변경하지 않았다.
+
+## 실제 사용한 생성 프롬프트
+
+```text
+Use case: stylized-concept. Asset type: production-ready reusable 2D RPG event card BACKPLATE, a single portrait card with genuinely transparent pixels outside its silhouette. Make a beautiful, finely hand-painted antique parchment card for a Korean dark medieval necromancer board game. Portrait aspect about 4:5, ideally 1024x1280. Flat straight-on orthographic UI asset, no perspective, no tabletop scene, no mockup. The card nearly fills the canvas with only about 1 percent transparent margin. Rich dark umber leather edge, weathered ivory vellum, subtle paper fibres, thin aged bronze engraved trim and restrained medieval corner filigree, a tiny discreet ornamental diamond crest at the top. Premium illustrated strategy-game UI; dignified, warm, tactile, readable, not cartoon or flat vector. IMPORTANT LAYOUT normalized to a 452 by 560 runtime card: header area x=50..402 y=32..92 is EMPTY pale parchment for a live category label; a single large EMPTY rectangular illustration aperture x=34..418 y=113..372, surrounded OUTSIDE that rectangle by a narrow beautiful bronze/ink picture frame. Fill the aperture with completely plain neutral dark warm parchment, NOT an actual scene; a separate live illustration will be placed exactly over this rectangle by the game. Bottom x=42..410 y=394..521 is an EMPTY light vellum text area, softly textured, spacious and unruled for a live title and two lines of description. Keep all ornament OUTSIDE these usable text and picture rectangles. Fine realistic edge wear and graceful framing instead of thick black boxes. Palette: faded ivory and warm tan paper, dark walnut edges, softly oxidized muted bronze. No green reward strip, no icons or slots at bottom, no buttons, no text, no lettering, no numerals, no handwriting, no runes that look like writing, no characters, no landscape scene inside, no glow, no jewels, no oversized skull, no watermark. Preserve alpha transparency outside card; interior paper stays opaque.
+```
