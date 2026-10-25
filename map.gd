@@ -1,4 +1,5 @@
 extends Control
+const RewardCatalog = preload("res://systems/reward_catalog.gd")
 const MapPresentation = preload("res://systems/map_presentation.gd")
 const MapShuffleGather = preload("res://systems/map_shuffle_gather.gd")
 const MapGearShift = preload("res://systems/map_gear_shift.gd")
@@ -638,7 +639,7 @@ func render() -> void:
 	var deck_feedback: ButtonEffectsModule = deck_button.get_node("ButtonEffectsModule")
 	deck_feedback.use_hover_rotation = false
 	deck_feedback.hover_scale = Vector2(1.025,1.025)
-	dice_count_label = label_at(stage,"주사위 카드 %d/5" % world.dice_cards.size(),Vector2(1120,684),Vector2(150,26),12)
+	dice_count_label = label_at(stage,"주사위 카드 %d/%d" % [world.dice_cards.size(),RewardCatalog.DICE_CAPACITY],Vector2(1120,684),Vector2(150,26),12)
 	dice_count_label.z_index = 51
 	map_chrome.append_array([dice,status,hud,restart_button,book,roster_count,deck_button,dice_count_label])
 	map_audio = AudioSettings.new()
@@ -886,7 +887,7 @@ func roll_move(instance_id: String = "") -> void:
 		moving = false
 		dice.disabled = false
 		return
-	dice_count_label.text = "주사위 카드 %d/5" % world.dice_cards.size()
+	dice_count_label.text = "주사위 카드 %d/%d" % [world.dice_cards.size(),RewardCatalog.DICE_CAPACITY]
 	status.text = "주사위를 굴리는 중…"+(" · "+str(result.label) if not str(result.label).is_empty() else "")
 	# The selected contamination frame is a real collision wall for the
 	# Cosmetic shared die: same rest position on map, battle, and places.

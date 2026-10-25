@@ -79,7 +79,7 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	if kind=="unit":
 		for i in range(10): items.append(make_unit(i))
 	else:
-		for i in range(5):
+		for i in range(10):
 			items.append({"id":"dice-%d" % i,"image":"1","label":"주사위 %d" % i})
 	var new_item: Dictionary = make_unit(11) if kind=="unit" else {"id":"dice-new","image":"1","label":"신규 주사위"}
 	var fake = FakeSession.new()
@@ -96,7 +96,7 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	if kind=="unit":
 		check(panel.title_label==null and panel.get_node_or_null("OverflowTitle")==null,"approved monster exchange has no decorative title")
 	else:
-		check(panel.title_label.text.contains("5/5"),"dice overflow still shows its actual capacity")
+		check(panel.title_label.text.contains("10/10"),"dice overflow still shows its actual capacity")
 	if kind=="unit":
 		check(panel.is_monster_swap and background is NinePatchRect and background.size==Vector2(1142,528),"monster swap uses the actual reusable game frame")
 		check(panel.get_node_or_null("OverflowExchangeArrow")!=null and panel.get_node_or_null("OverflowNewMonsterPaper")!=null,"approved minimal swap has one parchment card and a clear exchange arrow")

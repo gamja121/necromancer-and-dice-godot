@@ -208,7 +208,7 @@ func render_graveyard() -> void:
 		action_button=button(content,"시체 파헤치기",Vector2(504,313),Vector2(272,64),dig_graveyard)
 		action_button.name="GraveyardDigConfirm"
 		action_button.disabled=used or pending or busy
-		action_button.tooltip_text="방문당 1회 · 무작위 주사위 제어 카드 1장 · 보유 한도 5장"
+		action_button.tooltip_text="방문당 1회 · 무작위 주사위 제어 카드 1장 · 보유 한도 %d장" % Catalog.DICE_CAPACITY
 		var paper: StyleBoxTexture=StyleBoxTexture.new()
 		paper.texture=load("res://assets/map/ui/parchment_button_variant_04.png")
 		for state in ["normal","hover","pressed","focus","disabled"]:

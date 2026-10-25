@@ -115,15 +115,15 @@ func overflow_case() -> void:
 	var index: int=setup_event("wounded_soldier")
 	for i in range(Catalog.DICE_CAPACITY):
 		session.world.dice_cards.append(session.create_item("dice",Catalog.dice_cards()[i]))
-	check(session.save_world(),"5/5 dice-card fixture saved")
+	check(session.save_world(),"10/10 dice-card fixture saved")
 	var result: Dictionary=session.begin_story_free_event(index)
 	check(bool(result.get("ok",false)) and str(result.get("event_id",""))=="wounded_soldier","real dice routine drawn with full card inventory")
 	var receipt: String=str(session.world.pending_reward.id)
 	var choice: Dictionary=session.complete_routine_choice("take")
-	check(bool(choice.get("ok",false)) and bool(choice.get("overflow",false)),"5/5 enters existing reward replacement workflow")
-	check(session.world.pending_reward.get("phase","")=="overflow" and session.world.dice_cards.size()==5,"new card waits rather than exceeding 5/5")
+	check(bool(choice.get("ok",false)) and bool(choice.get("overflow",false)),"10/10 enters existing reward replacement workflow")
+	check(session.world.pending_reward.get("phase","")=="overflow" and session.world.dice_cards.size()==Catalog.DICE_CAPACITY,"new card waits rather than exceeding 10/10")
 	session.reload_world()
-	check(session.world.pending_reward.get("phase","")=="overflow" and session.world.dice_cards.size()==5,"overflow choice survives restart")
+	check(session.world.pending_reward.get("phase","")=="overflow" and session.world.dice_cards.size()==Catalog.DICE_CAPACITY,"overflow choice survives restart")
 	var map=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
@@ -131,7 +131,7 @@ func overflow_case() -> void:
 	check(is_instance_valid(map.overlay) and map.overlay.name!="RoutineEventCard" and map.overlay.has_method("finish"),"real map reopens existing RewardOverflow after restart")
 	var reject: Dictionary=session.claim_reward("__new__")
 	check(bool(reject.get("ok",false)) and not bool(reject.get("kept",true)),"player can decline extra card using existing overflow")
-	check(session.world.pending_reward.is_empty() and session.world.dice_cards.size()==5 and receipt in session.world.reward_receipts,"decline clears reward once and keeps previous cards")
+	check(session.world.pending_reward.is_empty() and session.world.dice_cards.size()==Catalog.DICE_CAPACITY and receipt in session.world.reward_receipts,"decline clears reward once and keeps previous cards")
 	map.queue_free()
 	await process_frame
 	session.reload_world()

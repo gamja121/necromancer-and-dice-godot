@@ -1,7 +1,7 @@
 extends RefCounted
 
 const UNIT_CAPACITY = 10
-const DICE_CAPACITY = 5
+const DICE_CAPACITY = 10
 
 static func dice_cards() -> Array:
 	var result: Array = []

@@ -209,7 +209,7 @@ func begin_story_free_event(index: int) -> Dictionary:
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"type":"routine","event_id":event_id}
 
-## One explicit routine choice resolves atomically; 5/5 dice uses the
+## One explicit routine choice resolves atomically; a full dice hand uses the
 ## ORIGINAL RewardOverflow and claim_reward replace/decline flow.
 func complete_routine_choice(choice: String) -> Dictionary:
 	if world==null or not world.run_result.is_empty(): return {"ok":false}
@@ -231,7 +231,7 @@ func complete_routine_choice(choice: String) -> Dictionary:
 					if not persist_change(before): return {"ok":false,"reason":notice}
 					return {"ok":true,"overflow":true,"message":"카드 보관함이 가득 찼습니다."}
 				world.dice_cards.append(item)
-				message = "%s 획득 · 주사위 카드 %d/5" % [str(item.label),world.dice_cards.size()]
+				message = "%s 획득 · 주사위 카드 %d/%d" % [str(item.label),world.dice_cards.size(),Catalog.DICE_CAPACITY]
 			"heal":
 				for unit in world.roster:
 					unit.current_hp = mini(int(unit.max_hp),int(unit.current_hp)+1)
@@ -773,7 +773,13 @@ func claim_reward(discard_id: String = "") -> Dictionary:
 	if capacity>0 and items.size()>=capacity:
 		if discard_id.is_empty(): return {"ok":false,"overflow":true}
 		if discard_id!="__new__" and not items.any(func(item): return item.id==discard_id): return {"ok":false}
-	elif not discard_id.is_empty(): return {"ok":false}
+	elif not discard_id.is_empty():
+		# A legacy 5-card overflow can now have free slots. Never discard an owned
+		# card unnecessarily; keep explicit refusal and reject unknown IDs.
+		if reward.kind!="dice": return {"ok":false}
+		if discard_id!="__new__":
+			if not items.any(func(item): return str(item.id)==discard_id): return {"ok":false}
+			discard_id=""
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var kept = discard_id!="__new__"
 	if kept:

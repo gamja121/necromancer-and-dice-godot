@@ -1,4 +1,5 @@
 extends Control
+const RewardCatalog = preload("res://systems/reward_catalog.gd")
 
 signal finished
 signal entry_summon_finished
@@ -340,7 +341,7 @@ void fragment() {
 			count.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 			count.add_theme_font_size_override("font_size",12)
 			count.add_theme_color_override("font_color",Color("f1d9aa"))
-			count.text="%d/5" % session.world.dice_cards.size()
+			count.text="%d/%d" % [session.world.dice_cards.size(),RewardCatalog.DICE_CAPACITY]
 			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			dice_cards_button.add_child(count)
 	brand_reference_button = button(layer,"낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
@@ -987,7 +988,7 @@ func _process(_delta: float) -> void:
 	if is_instance_valid(brand_reference_button):
 		brand_reference_button.disabled = not can_open_brand_reference()
 	if map_mode and session!=null and session.world!=null:
-		var deck_count: String = "%d/5" % session.world.dice_cards.size()
+		var deck_count: String = "%d/%d" % [session.world.dice_cards.size(),RewardCatalog.DICE_CAPACITY]
 		if is_instance_valid(external_dice_deck_count_label):
 			external_dice_deck_count_label.text = "주사위 카드 "+deck_count
 		if is_instance_valid(dice_cards_button):

@@ -2,6 +2,7 @@ extends "res://systems/reward_ui.gd"
 signal resolved(outcome: Dictionary)
 var session
 var selected: String = ""
+var dice_room_available: bool = false
 var status: Label
 var confirm: Button
 var choices: Dictionary = {}
@@ -66,23 +67,28 @@ func setup(run_session) -> void:
 	var reward: Dictionary = pending_reward
 	var items: Array = session.world.roster if reward.kind=="unit" else session.world.dice_cards
 	var capacity: int = Catalog.UNIT_CAPACITY if reward.kind=="unit" else Catalog.DICE_CAPACITY
+	dice_room_available=reward.kind=="dice" and items.size()<capacity
 	title_label = label_at(self,("마물 보관함 %d/%d" if reward.kind=="unit" else "주사위 카드더미 %d/%d") % [items.size(),capacity],Vector2(150,217) if is_capture_overflow else Vector2(300,142),Vector2(980,36) if is_capture_overflow else Vector2(680,36),24)
 	title_label.name = "OverflowTitle"
 	if is_capture_overflow: title_label.add_theme_color_override("font_color",Color("3a281c"))
 	status = label_at(self,"새 마물을 받으려면 버릴 마물 카드 1장을 선택하세요." if is_capture_overflow else "새 보상을 받으려면 버릴 카드 1장을 선택하세요.",Vector2(150,261) if is_capture_overflow else Vector2(300,188),Vector2(980,30) if is_capture_overflow else Vector2(680,35),13)
 	status.name = "OverflowStatus"
+	if dice_room_available: status.text="보관함에 빈자리가 있습니다. 새 카드를 받거나 획득을 포기하세요."
 	status.add_theme_color_override("font_color",Color("5f4733") if is_capture_overflow else Color("cfb88e"))
 
 	var row = scroll_row(Vector2(155,305) if is_capture_overflow else Vector2(295,244),Vector2(970,172) if is_capture_overflow else Vector2(690,260))
 	row.add_theme_constant_override("separation",3 if is_capture_overflow else 8)
+	if dice_room_available:
+		row.get_parent().position=Vector2(585,244)
+		row.get_parent().size=Vector2(110,260)
 	card_scroll = row.get_parent() as ScrollContainer
 	card_scroll.name = "OverflowCardScroll"
 	card_scroll.follow_focus = true
-	var candidates: Array = items.duplicate(true)
+	var candidates: Array = [] if dice_room_available else items.duplicate(true)
 	candidates.append(reward.item)
 	for index in range(candidates.size()):
 		var item: Dictionary = candidates[index]
-		var key: String = "__new__" if index==candidates.size()-1 else str(item.id)
+		var key: String = ("__claim__" if dice_room_available else "__new__") if index==candidates.size()-1 else str(item.id)
 		var box = Control.new()
 		box.name = "OverflowCandidate_%d" % index
 		box.custom_minimum_size = Vector2(85,162) if is_capture_overflow else Vector2(110,230)
@@ -114,7 +120,7 @@ func setup(run_session) -> void:
 			caption.add_theme_color_override("font_color",Color("3a281c"))
 			caption.autowrap_mode = TextServer.AUTOWRAP_OFF
 			caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		if key=="__new__":
+		if key in ["__new__","__claim__"]:
 			var badge = Panel.new()
 			badge.name = "NewRewardBadge"
 			badge.position = Vector2(46,0) if is_capture_overflow else Vector2(65,3)
@@ -144,6 +150,14 @@ func setup(run_session) -> void:
 	confirm.add_theme_color_override("font_disabled_color",Color("a28f72"))
 	confirm.disabled = true
 	confirm.modulate.a = 0.45
+	if dice_room_available:
+		confirm.text="선택한 보상 받기"
+		confirm.position=Vector2(650,544)
+		confirm.size=Vector2(220,42)
+		decline_button=button(self,"획득하지 않기",Vector2(390,544),Vector2(220,42),func():
+			selected="__new__"
+			finish())
+		select_card("__claim__")
 
 ## Approved minimal layout (2026-10-24):
 ## no header, one large new monster, existing roster in a 5 x 2 grid,
@@ -331,7 +345,7 @@ func select_card(key: String) -> void:
 		option.z_index = 4 if chosen else 0
 		option.modulate = Color.WHITE
 		option.get_node("OverflowSelectedOutline").visible = chosen
-	status.text = "%s 버리기 선택됨" % choices[key].tooltip_text
+	status.text = "선택한 보상 받기" if dice_room_available else "%s 버리기 선택됨" % choices[key].tooltip_text
 	confirm.disabled = false
 	confirm.modulate.a = 1.0
 
@@ -349,8 +363,9 @@ func finish() -> void:
 	if confirm.disabled: return
 	confirm.disabled = true
 	confirm.modulate.a = 0.45
-	var outcome: Dictionary = session.claim_reward(selected)
+	var outcome: Dictionary = session.claim_reward("" if selected=="__claim__" else selected)
 	if not outcome.get("ok",false):
+		if dice_room_available: select_card("__claim__")
 		status.text = "저장 실패 · 다시 선택해 주세요"
 		status.visible = true
 		confirm.disabled = false

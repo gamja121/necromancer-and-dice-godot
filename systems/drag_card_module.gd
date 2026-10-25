@@ -4,6 +4,8 @@ signal activated
 @export var use_threshold: float = 34.0
 var card: BaseButton
 var home: Vector2
+var home_z: int = 0
+var drag_origin: Vector2
 var start: Vector2
 var pointer = -2
 var displacement = Vector2.ZERO
@@ -18,6 +20,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_NONE
 	home = card.position
+	home_z = card.z_index
 	set_process(false)
 
 func point_in_parent(point: Vector2) -> Vector2:
@@ -36,8 +39,10 @@ func begin(id: int, point: Vector2, local_mouse: bool) -> void:
 	if settling != null and settling.is_valid(): settling.kill()
 	start = card.get_parent().get_global_transform_with_canvas().affine_inverse()*(get_global_transform_with_canvas()*point) if local_mouse else point_in_parent(point)
 	pointer = id
+	drag_origin = card.position
 	displacement = Vector2.ZERO
-	card.z_index = 20
+	card.move_to_front()
+	card.z_index = 200
 	card.grab_focus()
 	set_process(true)
 
@@ -66,7 +71,7 @@ func _input(event: InputEvent) -> void:
 
 func move_pointer(point: Vector2) -> void:
 	displacement = point_in_parent(point)-start
-	card.position = home+Vector2(0,clampf(displacement.y,-110,0))
+	card.position = drag_origin+Vector2(0,clampf(displacement.y,-110,0))
 	card.self_modulate = Color(1.15,1.1,0.85) if displacement.y <= -use_threshold else Color.WHITE
 
 func release(point: Vector2) -> void:
@@ -85,7 +90,8 @@ func restore() -> void:
 	if settling != null and settling.is_valid(): settling.kill()
 	settling = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	settling.tween_property(card,"position",home,0.14)
-	card.z_index = 0
+	card.z_index = home_z
+	if card.get_parent().has_method("restore_card_order"): card.get_parent().restore_card_order()
 
 func cancel() -> void:
 	pointer = -2

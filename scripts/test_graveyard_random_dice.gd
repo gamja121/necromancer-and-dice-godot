@@ -52,14 +52,14 @@ func basic_rewards(session: Node) -> void:
 func full_deck(session: Node) -> void:
 	var index: int = open_cemetery(session)
 	var world = session.world
-	for card in CATALOG.dice_cards().slice(0,5):
+	for card in CATALOG.dice_cards().slice(0,CATALOG.DICE_CAPACITY):
 		world.dice_cards.append(session.create_item("dice",card))
-	check(world.dice_cards.size()==5,"fixture begins with full dice hand")
+	check(world.dice_cards.size()==CATALOG.DICE_CAPACITY,"fixture begins with full dice hand")
 	var original_ids: Array = world.dice_cards.map(func(card): return str(card.id))
 	var outcome: Dictionary = session.dig_graveyard(index)
 	check(outcome.get("ok",false) and outcome.get("overflow",false),"full hand queues card replacement rather than losing prize")
 	check(world.pending_reward.get("kind","")=="grave-dig" and world.pending_reward.reward.kind=="dice","pending reward holds one exact rolled dice card")
-	check(world.dice_cards.size()==5 and not session.place_visit_id("grave-extract",index) in world.reward_receipts,"full hand is not changed or marked collected prematurely")
+	check(world.dice_cards.size()==CATALOG.DICE_CAPACITY and not session.place_visit_id("grave-extract",index) in world.reward_receipts,"full hand is not changed or marked collected prematurely")
 	var found_id: String = str(world.pending_reward.reward.item.id)
 	session.reload_world()
 	world = session.world
@@ -68,13 +68,13 @@ func full_deck(session: Node) -> void:
 	var discard: String = str(world.dice_cards[0].id)
 	var resolved: Dictionary = session.claim_reward(discard)
 	check(resolved.get("ok",false) and resolved.get("kept",false),"existing overflow claim replaces selected old card")
-	check(world.dice_cards.size()==5 and world.dice_cards.any(func(card): return str(card.id)==found_id) and not world.dice_cards.any(func(card): return str(card.id)==discard),"replacement preserves five-card capacity with new find")
+	check(world.dice_cards.size()==CATALOG.DICE_CAPACITY and world.dice_cards.any(func(card): return str(card.id)==found_id) and not world.dice_cards.any(func(card): return str(card.id)==discard),"replacement preserves ten-card capacity with new find")
 	check(world.pending_reward.is_empty() and session.place_visit_id("grave-extract",index) in world.reward_receipts,"claim closes pending transaction and records visit")
 	session.reload_world()
-	check(session.world.dice_cards.size()==5 and session.world.dice_cards.any(func(card): return str(card.id)==found_id),"replaced card persists after reload")
+	check(session.world.dice_cards.size()==CATALOG.DICE_CAPACITY and session.world.dice_cards.any(func(card): return str(card.id)==found_id),"replaced card persists after reload")
 	index = open_cemetery(session)
 	world = session.world
-	for card in CATALOG.dice_cards().slice(0,5): world.dice_cards.append(session.create_item("dice",card))
+	for card in CATALOG.dice_cards().slice(0,CATALOG.DICE_CAPACITY): world.dice_cards.append(session.create_item("dice",card))
 	outcome = session.dig_graveyard(index)
 	check(outcome.get("overflow",false),"second full hand opens identical reward resolution path")
 	var ids_before: Array = world.dice_cards.map(func(card): return str(card.id))

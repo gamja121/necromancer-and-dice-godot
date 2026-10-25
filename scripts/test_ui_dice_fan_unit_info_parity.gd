@@ -1,5 +1,5 @@
 extends SceneTree
-## Stage 5C: 5-card bottom-right source fan, drag/permission, unit-info original art.
+## Bottom right-to-left 10-card hand, input and unchanged unit-info regression.
 const DiceHand=preload("res://systems/dice_control_hand.gd")
 const UnitInfo=preload("res://systems/unit_info.gd")
 const BattleRules=preload("res://systems/battlefield_rules.gd")
@@ -14,61 +14,107 @@ func check(ok: bool,label: String) -> void:
 	else:
 		failed+=1
 		printerr("FAIL ui-dice-fan: ",label)
+func wait_open(hand: Control) -> void:
+	var deadline: int=Time.get_ticks_msec()+3000
+	while hand.opening and Time.get_ticks_msec()<deadline: await process_frame
+	check(not hand.opening,"hand finishes opening within deadline")
+
 func _run() -> void:
+	preload("res://systems/audio_settings.gd").apply_saved()
 	var context: Dictionary={"previous_roll":0,"previous_card":"","ui_surface_height":720}
 	var items: Array=[]
-	for i in range(5):
-		items.append({"id":"test-dice-%d" % i,"card_id":"fixed-%d" % (i+1),"image":str(i+1),"label":"눈금 %d" % (i+1)})
-	var hand=DiceHand.new()
-	root.add_child(hand)
-	hand.setup(items,context,true)
-	await create_timer(1.0).timeout
-	check(hand.battle_mode and hand.battle_backdrop!=null,"battle overlay is transparent and dismissible")
-	check(hand.options.size()==5,"all five cards laid out")
-	check(hand.options[0].position.x>hand.options[1].position.x and hand.options[4].position.x<hand.options[2].position.x,"source overlapping 5-card fan stretches toward left")
-	check(absf(hand.options[0].rotation_degrees-10.0)<0.1 and absf(hand.options[2].rotation_degrees)<0.1 and absf(hand.options[4].rotation_degrees+10.0)<0.1,"source 10/5/0/-5/-10 angles kept")
-	check(hand.options[0].position.x>995 and hand.options[4].position.x>610,"fan is anchored to original bottom-right deck")
-	check(hand.options.all(func(card): return card.position.y>=430 and card.position.y<550),"card bases stay in lower 40% of 720px battlefield")
-	check(hand.options.all(func(card): return not card.get_child(0).visible),"battle card labels hidden; original artwork remains")
-	check(hand.options.all(func(card): return card.get_child(1) is Control),"cards retain original upward drag controllers")
-	check(hand.options.all(func(card): return not card.disabled),"all five normal fixed-face cards available")
-	var chosen_ids: Array[String]=[]
-	hand.chosen.connect(func(id: String): chosen_ids.append(id))
-	hand.choose("test-dice-2")
-	await create_timer(0.3).timeout
-	check(chosen_ids.size()==1 and chosen_ids[0]=="test-dice-2","confirmed card identity emitted once without changing rules")
-	hand.queue_free()
-	await process_frame
-	# Empty deck should still open/close gracefully.
-	var empty=DiceHand.new()
-	root.add_child(empty)
-	empty.setup([],context,true)
-	await process_frame
-	check(empty.options.is_empty() and empty.battle_backdrop!=null,"empty deck has backdrop but no fake cards")
-	empty.queue_free()
+	for i in range(10):
+		items.append({"id":"test-dice-%d" % i,"card_id":"fixed-%d" % ((i%6)+1),"image":str((i%6)+1),"label":"눈금 %d" % ((i%6)+1)})
+	for spec in [[false,720,0],[false,720,1],[false,720,5],[false,720,10],[true,720,10],[true,530,10]]:
+		var hand=DiceHand.new()
+		root.add_child(hand)
+		var count: int=spec[2]
+		var height: int=spec[1]
+		var current_context=context.duplicate()
+		current_context.ui_surface_height=height
+		hand.setup(items.slice(0,count),current_context,spec[0])
+		await wait_open(hand)
+		check(hand.battle_backdrop!=null and hand.battle_backdrop.size.y==height,"map and battle use correctly bounded dismissible backdrop")
+		check(hand.options.size()==count,"all %d owned cards are shown" % count)
+		for i in range(count):
+			var option: TextureButton=hand.options[i]
+			check(option.size.is_equal_approx(Vector2(136,218)) and option.z_index>0,"card %d retains artwork size and positive stacking (%s, z=%d)" % [i,option.size,option.z_index])
+			check(option.position.y>=height-240 and option.position.y<=height-200,"card %d sits along bottom" % i)
+			if i>0: check(option.position.x<hand.options[i-1].position.x-20,"card %d has a distinct selectable strip to the left" % i)
+			check(option.get_node_or_null("DiceCardDrag")!=null and not option.disabled,"card %d remains usable" % i)
+		if count>0:
+			var last: TextureButton=hand.options[-1]
+			var drag=last.get_node("DiceCardDrag")
+			var home: Vector2=drag.home
+			var base_z: int=drag.home_z
+			hand.focus_card(last,true)
+			check(last.position.y==home.y-26 and last.z_index==100,"hover reveals the complete leftmost card")
+			hand.focus_card(last,false)
+			check(last.position==home and last.z_index==base_z,"hover release restores hand stacking")
+			var center: Vector2=last.size*0.5
+			var start_point: Vector2=drag.get_global_transform_with_canvas()*center
+			drag.begin(-1,center,true)
+			drag.release(start_point-Vector2(0,15))
+			await create_timer(0.2).timeout
+			check(last.position.distance_to(home)<0.1 and last.z_index==base_z and not hand.choosing,"short drag restores original position and stacking")
+		var chosen_ids: Array[String]=[]
+		var closed: Array[bool]=[]
+		hand.chosen.connect(func(id: String): chosen_ids.append(id))
+		hand.closed.connect(func(): closed.append(true))
+		if count==10:
+			var index: int=9 if bool(spec[0]) else 6
+			if bool(spec[0]):
+				var option: TextureButton=hand.options[index]
+				var drag=option.get_node("DiceCardDrag")
+				var center: Vector2=option.size*0.5
+				var point: Vector2=drag.get_global_transform_with_canvas()*center
+				drag.begin(-1,center,true)
+				drag.release(point-Vector2(0,45))
+			else:
+				# Exercise the native overlapping Control hit path on the seventh card.
+				var option: TextureButton=hand.options[index]
+				var point: Vector2=option.get_global_transform_with_canvas()*Vector2(110,80)
+				var move=InputEventMouseMotion.new()
+				move.position=point
+				move.global_position=point
+				root.push_input(move,true)
+				await process_frame
+				for pressed in [true,false]:
+					var click=InputEventMouseButton.new()
+					click.button_index=MOUSE_BUTTON_LEFT
+					click.pressed=pressed
+					click.position=point
+					click.global_position=point
+					root.push_input(click,true)
+					await process_frame
+			await create_timer(0.25).timeout
+			check(chosen_ids==["test-dice-%d" % index],"seventh/tenth card activation emits correct ID once")
+			hand.choose("test-dice-0")
+			check(chosen_ids.size()==1,"selection cannot consume a second card")
+		else:
+			hand.close_hand()
+			await create_timer(0.7).timeout
+			check(closed.size()==1,"empty or partial hand closes once")
+		hand.queue_free()
+		await process_frame
+	var immediate=DiceHand.new()
+	root.add_child(immediate)
+	var immediate_closed: Array[bool]=[]
+	immediate.closed.connect(func(): immediate_closed.append(true))
+	immediate.setup(items,context,false)
+	immediate.close_hand()
+	await create_timer(1.9).timeout
+	check(immediate_closed.size()==1,"closing during ten-card opening completes without a stuck tween")
+	immediate.queue_free()
 	await process_frame
 	var invalid=DiceHand.new()
 	root.add_child(invalid)
-	var unusable: Array=[{"id":"echo-test","card_id":"echo","image":"echo","label":"효과 재발동"}]
-	invalid.setup(unusable,context,true)
-	await create_timer(0.65).timeout
-	check(invalid.options.size()==1 and invalid.options[0].disabled,"echo unavailable without previously used control card")
-	var blocked: Array[String]=[]
-	invalid.chosen.connect(func(id: String): blocked.append(id))
+	invalid.setup([{"id":"echo-test","card_id":"echo","image":"echo","label":"효과 재발동"}],context,true)
+	await wait_open(invalid)
+	check(invalid.options[0].disabled,"echo unavailable without previous card")
 	invalid.choose("echo-test")
-	check(blocked.is_empty() and not invalid.choosing,"disabled option cannot be consumed")
+	check(not invalid.choosing,"disabled option cannot be consumed")
 	invalid.queue_free()
-	await process_frame
-	# Check embedded battlefield positioning: 530px tall battle region.
-	var compact=DiceHand.new()
-	root.add_child(compact)
-	var small_context=context.duplicate()
-	small_context.ui_surface_height=530
-	compact.setup(items,small_context,true)
-	await create_timer(0.85).timeout
-	check(compact.options.size()==5 and compact.options[0].position.y<375,"embedded battle fan respects 530px height")
-	check(compact.battle_backdrop.size.y==530,"embedded overlay does not block map UI outside battle viewport")
-	compact.queue_free()
 	await process_frame
 	var definitions: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
 	var rules=BattleRules.new(definitions,705)
