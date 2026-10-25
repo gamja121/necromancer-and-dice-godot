@@ -90,6 +90,9 @@ const EVENT_IMAGES = {"home":"home","village":"village","graveyard":"graveyard",
 var session
 var dice_animation = DiceAnimation.new()
 var world
+# Presentation-only, scoped to this map instance and the exact saved visit.
+var pending_location_papers: Dictionary = {}
+var played_location_papers: Dictionary = {}
 var stage: Control
 var buttons: Array = []
 var hero: TextureRect
@@ -1676,10 +1679,12 @@ func show_home(interior: bool = false) -> void:
 		var allowed: Dictionary = session.home_action_allowed()
 		var action = location_button(panel,"낙인 계승",TILE_EVENT_INHERITANCE_RECT.position,TILE_EVENT_INHERITANCE_RECT.size,show_home_inheritance,3)
 		action.disabled = not allowed.ok
+		apply_pending_location_paper(panel,action,MapState.HOME,"inheritance")
 		var patrol = location_button(panel,"순찰경로",TILE_EVENT_PATROL_RECT.position,TILE_EVENT_PATROL_RECT.size,func():
 			close_overlay()
 			show_exploration_actions(MapState.HOME))
 		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
+		apply_pending_location_paper(panel,patrol,MapState.HOME,"patrol")
 		if session.event_flag_is_set("ui:unlock:graveyard:home_pending") or Discovery.ORDER.any(func(kind): return session.event_flag_is_set(Discovery.home_flag(kind))):
 			UnlockNoticeBadge.attach(patrol,"NEW")
 		if not allowed.ok:
@@ -1776,13 +1781,59 @@ func move_from_hill(index: int, steps: int) -> void:
 		previous=tile_index
 	await resume_map_move(true)
 
+## A successful functional action schedules its ENTRY paper, never a copy
+## over the result screen. Visual state is not written into the world save.
+func queue_used_location_paper(index: int, receipt_kind: String) -> bool:
+	if session==null or session.world==null: return false
+	var receipt: String=session.place_visit_id(receipt_kind,index)
+	if not receipt in session.world.reward_receipts or played_location_papers.has(receipt): return false
+	pending_location_papers[receipt]=weakref(session.world)
+	return true
+
+func apply_pending_location_paper(panel: Control, paper: Button, index: int, receipt_kind: String) -> void:
+	var receipt: String=session.place_visit_id(receipt_kind,index)
+	if not pending_location_papers.has(receipt) or played_location_papers.has(receipt): return
+	if not receipt in session.world.reward_receipts: return
+	var saved_world: WeakRef=pending_location_papers[receipt]
+	if saved_world.get_ref()!=session.world:
+		pending_location_papers.erase(receipt)
+		return
+	# The panel's entrance tween must never compete with the paper peel.
+	paper.set_meta("ui_custom_open_motion",true)
+	paper.set_meta("spent_paper_receipt",receipt)
+	paper.disabled=true
+	call_deferred("_start_pending_location_paper",weakref(panel),weakref(paper),index,receipt_kind,receipt)
+
+func _start_pending_location_paper(panel_ref: WeakRef, paper_ref: WeakRef, index: int, receipt_kind: String, receipt: String) -> void:
+	var panel: Control=panel_ref.get_ref() as Control
+	if not is_instance_valid(panel) or overlay!=panel: return
+	var entrance=panel.get_node_or_null("PanelEffectsModule")
+	var delay: float=float(entrance.open_duration)+0.03 if entrance!=null else 0.03
+	await get_tree().create_timer(delay).timeout
+	panel=panel_ref.get_ref() as Control
+	var paper: Button=paper_ref.get_ref() as Button
+	if not is_instance_valid(panel) or not is_instance_valid(paper) or overlay!=panel: return
+	entrance=panel.get_node_or_null("PanelEffectsModule")
+	if entrance!=null and entrance.closing: return
+	if not pending_location_papers.has(receipt) or played_location_papers.has(receipt): return
+	if session.place_visit_id(receipt_kind,index)!=receipt or not receipt in session.world.reward_receipts: return
+	var saved_world: WeakRef=pending_location_papers[receipt]
+	if saved_world.get_ref()!=session.world:
+		pending_location_papers.erase(receipt)
+		return
+	pending_location_papers.erase(receipt)
+	played_location_papers[receipt]=true
+	await UsedParchmentFall.play(paper)
+
 ## Use the existing parchment_button_variant bitmap and the same position
 ## as the original location action; no replacement button illustration.
-## Functional pages replace the entry page, so a visual-only copy peels away
-## after the persisted action succeeds. Game state is never modified here.
+## Detached hill departure retains its original one-off visual paper. Other
+## callers only queue the actual entry button for their return to location art.
 func animate_used_location_paper(panel: Control, index: int, receipt_kind: String, allow_detached: bool = false) -> void:
 	if not is_instance_valid(panel) or not panel.is_inside_tree(): return
-	if not allow_detached and overlay!=panel: return
+	if not allow_detached:
+		if overlay==panel: queue_used_location_paper(index,receipt_kind)
+		return
 	var choices: Dictionary = {
 		"ritual":{"label":"의식","variant":2},
 		"prophecy":{"label":"예언","variant":4},
@@ -2629,13 +2680,14 @@ func show_location(index: int) -> void:
 			status.text = result.reason
 			if not result.ok: return
 			exit.disabled = true
-			# Animate the ACTUAL existing RestHealAction, not a newly created paper.
-			await UsedParchmentFall.play(heal)
+			# Resolve after construction: a lambda captures an unassigned heal as null.
+			var used_button: Button=panel.get_node_or_null("RestHealAction") as Button
+			UsedParchmentFall.play(used_button)
 			sound("recovery")
 			await presentation.full_heal()
-			close_overlay()
-			show_location(index))
+			if is_instance_valid(exit): exit.disabled=false)
 		heal.name = "RestHealAction"
+		heal.set_meta("ui_custom_open_motion",true)
 		if session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
 			UnlockNoticeBadge.attach(heal,"NEW")
 		heal.disabled = not allowed.ok
@@ -2652,6 +2704,7 @@ func show_location(index: int) -> void:
 		var key = "ritual" if type=="altar" else "prophecy"
 		# Keep one-time actions locked inside their own panels; allow past results to be viewed.
 		if type=="altar": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
+		if type!="village": apply_pending_location_paper(panel,action,index,key)
 	elif type in ["unknown","graveyard","forest"]:
 		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"이동 위치 선택"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]
@@ -2663,6 +2716,7 @@ func show_location(index: int) -> void:
 			UnlockNoticeBadge.attach(action,"NEW")
 		# Reopen a spent world tree to inspect the saved prayer result; only its die is disabled.
 		if type=="graveyard": action.disabled = session.place_visit_id("grave-extract",index) in world.reward_receipts or str(world.pending_reward.get("kind",""))=="grave-dig"
+		apply_pending_location_paper(panel,action,index,{"unknown":"purify","graveyard":"grave-extract","forest":"hill-route"}[type])
 
 func use_warp(index: int) -> void:
 	if moving: return

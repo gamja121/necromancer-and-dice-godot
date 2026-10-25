@@ -371,7 +371,7 @@ func confirm() -> void:
 	# Reuse the source parchment bitmap; do not interfere with the separate
 	# sacrificial-card dissolve already owned by this functional screen.
 	if is_instance_valid(map_scene):
-		map_scene.animate_used_location_paper(self,session.MapState.HOME,"inheritance")
+		map_scene.queue_used_location_paper(session.MapState.HOME,"inheritance")
 	Sound.cue(self,"inheritance_complete")
 	inherited_brand = result.brand.duplicate(true)
 	notice = ""
