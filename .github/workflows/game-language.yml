@@ -1,0 +1,29 @@
+name: Game Language
+on:
+  push:
+    branches: [main]
+    paths: ["systems/**", "data/localization/**", "title.gd", "title.tscn", "project.godot", "export_presets.cfg", "scripts/test_game_language.gd", ".github/workflows/game-language.yml"]
+  pull_request:
+    paths: ["systems/**", "data/localization/**", "title.gd", "title.tscn", "project.godot", "export_presets.cfg", "scripts/test_game_language.gd", ".github/workflows/game-language.yml"]
+permissions:
+  contents: read
+jobs:
+  language:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and verify language preferences and English UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+          timeout 90s godot --headless --path . --script res://scripts/test_game_language.gd 2>&1 | tee language.log
+          grep -E '^GAME_LANGUAGE: [0-9]+ passed, 0 failed$' language.log
+          if grep -E 'SCRIPT ERROR|Parse Error|^FAIL|ERROR:|leaked at exit' language.log; then exit 1; fi
+          git diff --check

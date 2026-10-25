@@ -18,6 +18,7 @@ var sfx_toggle: Button
 var advanced_button: Button
 var advanced_content: VBoxContainer
 var output_label: Label
+var language_picker: OptionButton
 var volume_slider: HSlider
 
 ## Godot's "Default" device tracks the host OS's preferred speakers/headset.
@@ -159,6 +160,21 @@ func setup(parent: Control) -> void:
 	style_action(close_button,true)
 	var rule = HSeparator.new()
 	column.add_child(rule)
+	var language_row := HBoxContainer.new()
+	language_row.name = "LanguageRow"
+	language_row.custom_minimum_size = Vector2(0,38)
+	column.add_child(language_row)
+	var language_label := Label.new()
+	language_label.text = "언어"
+	language_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	language_label.add_theme_font_size_override("font_size",13)
+	language_row.add_child(language_label)
+	language_picker = OptionButton.new()
+	language_picker.name = "LanguagePicker"
+	language_picker.custom_minimum_size = Vector2(116,30)
+	language_row.add_child(language_picker)
+	style_action(language_picker)
+	get_node("/root/GameLanguage").setup_picker(language_picker)
 	music_toggle = add_toggle_row(column,"배경음악","Music")
 	sfx_toggle = add_toggle_row(column,"효과음","SFX")
 
@@ -251,4 +267,3 @@ func save_settings(_legacy_output_name: String = "", save_path: String = "") -> 
 	for category in ["Music","SFX"]:
 		settings.set_value("audio",category.to_lower()+"_enabled",not AudioServer.is_bus_mute(AudioServer.get_bus_index(category)))
 	settings.save(target)
-

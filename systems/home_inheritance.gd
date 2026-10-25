@@ -165,6 +165,8 @@ func append_brands(brands: Array, show_curse: bool = true) -> void:
 		var name_label := Label.new()
 		name_label.text=brand_name
 		name_label.name="InheritanceBrandName"
+		name_label.custom_minimum_size.x=70
+		name_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		name_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		name_label.add_theme_font_size_override("font_size",19)
 		name_label.add_theme_color_override("font_color",Color("39251c"))

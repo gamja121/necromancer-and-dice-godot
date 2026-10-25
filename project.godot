@@ -6,9 +6,13 @@ run/main_scene="res://title.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
+GameLanguage="*res://systems/game_language.gd"
 RunSession="*res://systems/run_session.gd"
 UiTypography="*res://systems/ui_typography.gd"
 GameAudio="*res://systems/game_audio.gd"
+
+[internationalization]
+locale/fallback="ko"
 
 [display]
 window/size/mode.windows=3

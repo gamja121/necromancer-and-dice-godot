@@ -337,3 +337,7 @@ func _has_speech() -> bool:
 func _exit_tree() -> void:
 	Sound.stop(self)
 	if animation != null and animation.is_valid(): animation.kill()
+
+func _notification(what: int) -> void:
+	if what==NOTIFICATION_TRANSLATION_CHANGED and is_inside_tree() and is_instance_valid(typewriter):
+		call_deferred("arrange_actions")

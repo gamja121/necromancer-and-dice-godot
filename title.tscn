@@ -344,10 +344,20 @@ text = "종료"
 [node name="OptionsDialog" type="AcceptDialog" parent="TitleUI"]
 visible = false
 title = "게임 설정"
-size = Vector2i(410, 265)
+size = Vector2i(410, 310)
 
 [node name="OptionsContent" type="VBoxContainer" parent="TitleUI/OptionsDialog"]
-custom_minimum_size = Vector2(360, 165)
+custom_minimum_size = Vector2(360, 210)
+
+[node name="LanguageRow" type="HBoxContainer" parent="TitleUI/OptionsDialog/OptionsContent"]
+custom_minimum_size = Vector2(0, 38)
+
+[node name="Caption" type="Label" parent="TitleUI/OptionsDialog/OptionsContent/LanguageRow"]
+size_flags_horizontal = 3
+text = "언어"
+
+[node name="Language" type="OptionButton" parent="TitleUI/OptionsDialog/OptionsContent/LanguageRow"]
+custom_minimum_size = Vector2(160, 32)
 
 [node name="VolumeLabel" type="Label" parent="TitleUI/OptionsDialog/OptionsContent"]
 text = "전체 음량"

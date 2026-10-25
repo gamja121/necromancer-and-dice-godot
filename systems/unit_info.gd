@@ -234,6 +234,7 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	artwork(left,"res://assets/battle/ui/unit-info-window-no-portrait.png",Vector2.ZERO,left.size)
 	name_label = label_at(left,current_name,Vector2(90.18,2.84),Vector2(277,43.12),22)
 	name_label.name = "UnitDisplayName"
+	if u.has("nickname"): name_label.auto_translate_mode=Node.AUTO_TRANSLATE_MODE_DISABLED
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -520,7 +521,9 @@ func apply_rename_result(result: Dictionary) -> void:
 			rename_error.text = str(result.get("reason","저장에 실패했습니다."))
 		return
 	current_name = str(result.get("name",current_name))
-	if is_instance_valid(name_label): name_label.text = current_name
+	if is_instance_valid(name_label):
+		name_label.auto_translate_mode=Node.AUTO_TRANSLATE_MODE_DISABLED
+		name_label.text = current_name
 	cancel_rename()
 
 func close() -> void:

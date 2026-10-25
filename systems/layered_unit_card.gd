@@ -3,6 +3,23 @@ extends RefCounted
 ## Gameplay and TextureButton inputs stay unchanged. Character pose/size can vary.
 ## Each layer is an independent TextureRect so portrait zoom never enlarges the UI.
 
+class NameCaption extends Label:
+	func _notification(what: int) -> void:
+		if what==NOTIFICATION_TRANSLATION_CHANGED and is_inside_tree(): call_deferred("fit_name")
+	func fit_name() -> void:
+		var points: int=int(get_meta("name_base_points",get_theme_font_size("font_size")))
+		var shown := text if auto_translate_mode==Node.AUTO_TRANSLATE_MODE_DISABLED else tr(text)
+		var font := get_theme_font("font")
+		while points>8 and font.get_string_size(shown,HORIZONTAL_ALIGNMENT_LEFT,-1,points).x>size.x:
+			points-=1
+		add_theme_font_size_override("font_size",points)
+static var canonical_names: Dictionary = {}
+static func is_custom_name(slug: String, title: String) -> bool:
+	if canonical_names.is_empty():
+		var data=JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json"))
+		for key in data.units: canonical_names[str(key)]=str(data.units[key].name)
+	return canonical_names.has(slug) and title!=str(canonical_names[slug])
+
 const UnitInfo = preload("res://systems/unit_info.gd")
 const ROOT := "res://assets/cards/layered/"
 const BACKGROUND := ROOT + "base_skeleton.webp"
@@ -180,9 +197,14 @@ static func install(card: TextureButton, slug: String, title: String, selected: 
 	# Exact source proportions are preserved by setting actor.size from texture size.
 	actor.stretch_mode = TextureRect.STRETCH_SCALE
 	_art(card, BANNER_NAME, load(NAMEPLATE))
-	var caption := Label.new()
+	var caption := NameCaption.new()
 	caption.name = TEXT_NAME
 	caption.text = title
+	caption.clip_text=true
+	caption.set_meta("ui_font_preserve",true)
+	if is_custom_name(slug,title):
+		caption.auto_translate_mode=Node.AUTO_TRANSLATE_MODE_DISABLED
+		card.auto_translate_mode=Node.AUTO_TRANSLATE_MODE_DISABLED
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caption.add_theme_color_override("font_color", Color("24160e"))
@@ -296,7 +318,8 @@ static func relayout(card: TextureButton) -> void:
 	ribbon.size = Vector2(extent.x * 1.11, extent.y * 0.175)
 	caption.position = ribbon.position + Vector2(ribbon.size.x * 0.10, ribbon.size.y * 0.17)
 	caption.size = Vector2(ribbon.size.x * 0.80, ribbon.size.y * 0.63)
-	caption.add_theme_font_size_override("font_size", maxi(8, int(extent.y * 0.077)))
+	caption.set_meta("name_base_points",maxi(8,int(extent.y*0.077)))
+	caption.fit_name()
 	# Center the whole brand group inside the card's bottom information panel.
 	# Cap icon size to keep three engraved brands equally spaced and fully in bounds.
 	var brand_row := card.get_node_or_null(BRAND_ROW_NAME) as Control

@@ -56,5 +56,14 @@ func _process(delta: float) -> void:
 	remainder -= float(step)
 	label.visible_characters = mini(total,maxi(0,label.visible_characters) + step)
 	if label.visible_characters >= total:
+		label.visible_characters = -1
 		cursor += 1
 		if cursor >= entries.size(): set_process(false)
+
+# A locale switch during narration must not leave a longer translation cut off.
+func _notification(what: int) -> void:
+	if what==NOTIFICATION_TRANSLATION_CHANGED and is_inside_tree():
+		for label in entries:
+			if is_instance_valid(label): label.visible_characters=-1
+		cursor=entries.size()
+		set_process(false)

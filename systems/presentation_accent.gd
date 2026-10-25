@@ -77,10 +77,10 @@ func _draw_link(t: float) -> void:
 		draw_polyline(curve,Color(tint,envelope(t)*0.55),1.2,true)
 	if not caption.is_empty():
 		var font := get_theme_default_font()
-		var width := font.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,18).x
+		var width := font.get_string_size(tr(caption),HORIZONTAL_ALIGNMENT_LEFT,-1,18).x
 		var p := caption_rect.position+Vector2((caption_rect.size.x-width)*0.5,23.0-3.0*smoothstep(0.0,0.3,t))
-		draw_string_outline(font,p,caption,HORIZONTAL_ALIGNMENT_LEFT,-1,18,3,Color(0.08,0.06,0.04,envelope(t)*0.8))
-		draw_string(font,p,caption,HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color(tint,envelope(t)))
+		draw_string_outline(font,p,tr(caption),HORIZONTAL_ALIGNMENT_LEFT,-1,18,3,Color(0.08,0.06,0.04,envelope(t)*0.8))
+		draw_string(font,p,tr(caption),HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color(tint,envelope(t)))
 
 func _draw_silk(t: float) -> void:
 	if anchors.size()<2: return

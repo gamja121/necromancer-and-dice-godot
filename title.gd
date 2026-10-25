@@ -24,6 +24,7 @@ const OVERSCAN := Vector2(120.0, 70.0)
 @onready var volume_slider: HSlider = $TitleUI/OptionsDialog/OptionsContent/Volume
 @onready var music_enabled: CheckButton = $TitleUI/OptionsDialog/OptionsContent/MusicEnabled
 @onready var sfx_enabled: CheckButton = $TitleUI/OptionsDialog/OptionsContent/SfxEnabled
+@onready var language_picker: OptionButton = $TitleUI/OptionsDialog/OptionsContent/LanguageRow/Language
 @onready var title_music: AudioStreamPlayer = $TitleBgm
 
 var pointer_normalized := Vector2.ZERO
@@ -46,6 +47,7 @@ func _ready() -> void:
 	exit_button.pressed.connect(_exit_game)
 	options_button.pressed.connect(_show_options)
 	_sync_audio_controls()
+	get_node("/root/GameLanguage").setup_picker(language_picker)
 	volume_slider.value_changed.connect(_update_volume)
 	music_enabled.toggled.connect(_set_music_enabled)
 	sfx_enabled.toggled.connect(_set_sfx_enabled)

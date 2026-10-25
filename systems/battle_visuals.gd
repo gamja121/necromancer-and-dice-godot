@@ -292,7 +292,7 @@ func _draw() -> void:
 		if not unit.poison.is_empty(): badges += "독 "
 		if unit.get("shields",0)>0: badges += "보호 %d" % unit.shields
 		if not badges.is_empty():
-			draw_string(scene.get_theme_default_font(),Vector2(scene.unit_x(unit)-28,scene.bars[id].position.y+31),badges,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("dfedce"))
+			draw_string(scene.get_theme_default_font(),Vector2(scene.unit_x(unit)-28,scene.bars[id].position.y+31),tr(badges),HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("dfedce"))
 	for particle in particles:
 		var t: float = particle.age/particle.life
 		var p: Vector2 = particle.origin+particle.velocity*particle.age+Vector2(0,45*particle.age*particle.age)

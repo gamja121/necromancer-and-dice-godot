@@ -172,6 +172,21 @@ func label(parent: Control, kind: String) -> Control:
 	if not config.has(kind): return null
 	var cell: Array = config[kind]
 	var width = 78.0 if kind=="critical" else (130.0 if kind=="miss" else 98.0)
+	if TranslationServer.get_locale().get_slice("_",0)=="en":
+		var caption := Label.new()
+		caption.text={"miss":"MISS","critical":"CRITICAL","poison":"POISON","immune":"IMMUNE"}.get(kind,kind.to_upper())
+		caption.auto_translate_mode=Node.AUTO_TRANSLATE_MODE_DISABLED
+		caption.size=Vector2(width,30)
+		caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		caption.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+		caption.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		caption.add_theme_font_size_override("font_size",17 if kind=="critical" else 20)
+		caption.add_theme_color_override("font_color",Color("f9cc63") if kind=="critical" else Color("e9e0cd"))
+		caption.add_theme_color_override("font_outline_color",Color("23150d"))
+		caption.add_theme_constant_override("outline_size",5)
+		caption.z_index=13
+		parent.add_child(caption)
+		return caption
 	var node = sprite(parent,crop("combat-labels-sheet.jpg" if metadata.labels.has(kind) else "status-labels-sheet.jpg",cell),"label",Vector2(width,width*float(cell[3])/cell[2]))
 	node.z_index = 13
 	return node

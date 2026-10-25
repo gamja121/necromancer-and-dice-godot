@@ -128,7 +128,7 @@ func _draw_ten_slot_hud() -> void:
 		draw_rect(highlight,Color(1.0,0.88,0.65,0.13))
 	draw_texture_rect(frame,Rect2(Vector2.ZERO,size),false)
 	var font: Font = get_theme_default_font()
-	var title: String = "오염도"
+	var title: String = tr("오염도")
 	var title_size: int = 31
 	var center_x: float = 332.0*scale.x
 	var tw: float = font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x
@@ -151,4 +151,7 @@ func _draw_legacy_safe_hud() -> void:
 		var x: float = meter.position.x+meter.size.x*i/10.0
 		draw_line(Vector2(x,meter.position.y),Vector2(x,meter.end.y),Color("100c09aa"),1.0)
 	var font: Font = get_theme_default_font()
-	draw_string(font,size*Vector2(0.28,0.49),"오염도",HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("39251c"))
+	draw_string(font,size*Vector2(0.28,0.49),tr("오염도"),HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("39251c"))
+
+func _notification(what: int) -> void:
+	if what==NOTIFICATION_TRANSLATION_CHANGED: queue_redraw()

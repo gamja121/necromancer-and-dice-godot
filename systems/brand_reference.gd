@@ -124,6 +124,9 @@ func setup(rules) -> void:
 			unit_button.name="UnitName"
 			unit_button.text=("아군 · " if team=="ally" else "적군 · ")+str(u.name)
 			unit_button.custom_minimum_size=Vector2(FIRST_COL,ROW_HEIGHT)
+			unit_button.clip_text=true
+			unit_button.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+			unit_button.tooltip_text=str(u.name)
 			var portrait_path="res://assets/battle/ui/info-portraits/%s.png" % str(u.slug)
 			if ResourceLoader.exists(portrait_path):
 				unit_button.icon=load(portrait_path)
@@ -235,9 +238,9 @@ func describe(u: Dictionary, marks: Array, face: int = 0) -> void:
 		if face==0:
 			lines.append("%s · 축복 [%s] / 저주 [%s]" % [definition.name,", ".join(mark.bless.map(func(n): return str(n))),", ".join(mark.curse.map(func(n): return str(n)))])
 		elif mode=="curse" and face in mark.curse:
-			lines.append("%s %s · %s" % [CURSE_GLYPH,definition.name,definition.penalty])
+			lines.append("%s %s · %s" % [tr(CURSE_GLYPH),definition.name,definition.penalty])
 		elif mode=="blessing" and face in mark.bless:
-			lines.append("%s %s · %s" % [BLESSING_GLYPH,definition.name,definition.blessing])
+			lines.append("%s %s · %s" % [tr(BLESSING_GLYPH),definition.name,definition.blessing])
 	if lines.size()==1: lines.append("낙인 없음" if face==0 else "발동 없음")
 	selected_unit_id=str(u.id)
 	selected_face=face

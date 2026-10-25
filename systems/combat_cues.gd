@@ -369,8 +369,8 @@ func _draw() -> void:
 		var unit: Dictionary = scene.visuals.states[mark.id]
 		var y: float = scene.bars[mark.id].position.y-24.0*mark.captions.size()
 		for caption in mark.captions:
-			var width = font.get_string_size(caption.text,HORIZONTAL_ALIGNMENT_LEFT,-1,11).x+12.0
+			var width = font.get_string_size(tr(caption.text),HORIZONTAL_ALIGNMENT_LEFT,-1,11).x+12.0
 			var pos = Vector2(scene.unit_x(unit)-width/2.0,y)
 			draw_style_box(pill(Color("17100fee"),caption.color.darkened(0.3),10,6),Rect2(pos,Vector2(width,21)))
-			draw_string(font,pos+Vector2(6,15),caption.text,HORIZONTAL_ALIGNMENT_LEFT,-1,11,caption.color)
+			draw_string(font,pos+Vector2(6,15),tr(caption.text),HORIZONTAL_ALIGNMENT_LEFT,-1,11,caption.color)
 			y += 24.0
