@@ -52,7 +52,11 @@ func add_caption(bounds: Rect2, sample: Rect2, value: String, ink: Color) -> voi
 	label.add_theme_color_override("font_color",ink)
 	label.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	label.set_meta("ui_font_preserve",true)
-	label.add_theme_font_override("font",preload("res://assets/fonts/NanumBarunGothic.ttf"))
+	# Use the already-initialized UI typography autoload instead of preloading a font during script parsing.
+	# Missing imported font resources should not prevent headless startup or Web builds.
+	var caption_font: Font = UiTypography.heading_font
+	if caption_font != null:
+		label.add_theme_font_override("font",caption_font)
 	add_child(label)
 	pieces.append({"patch":patch,"label":label,"bounds":bounds})
 
