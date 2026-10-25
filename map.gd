@@ -38,6 +38,7 @@ const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
+const RoutineRewardMotion = preload("res://systems/routine_reward_motion.gd")
 const UsedParchmentFall = preload("res://systems/used_parchment_fall.gd")
 # Story illustrations keep the existing 16:9 source layout, independently of location scenes.
 const TILE_EVENT_SCENE_RECT = Rect2(243.2,136.8,793.6,446.4)
@@ -94,6 +95,8 @@ var world
 # Presentation-only, scoped to this map instance and the exact saved visit.
 var pending_location_papers: Dictionary = {}
 var played_location_papers: Dictionary = {}
+var routine_deck_delivery: bool=false
+var routine_deck_state: Dictionary={}
 var stage: Control
 var buttons: Array = []
 var hero: TextureRect
@@ -249,6 +252,11 @@ func _sync_map_chrome() -> void:
 	# Other location art and buttons still block clicks through the painting.
 	if is_instance_valid(dice):
 		dice.mouse_filter = Control.MOUSE_FILTER_STOP if foreground_die else Control.MOUSE_FILTER_IGNORE
+	if routine_deck_delivery and is_instance_valid(deck_button):
+		deck_button.show()
+		deck_button.z_index=210
+		deck_button.disabled=true
+		deck_button.mouse_filter=Control.MOUSE_FILTER_IGNORE
 
 func _ready() -> void:
 	DisplayServer.window_set_title("Necromancer and Dice")
@@ -978,6 +986,7 @@ func modal(dim_board: bool = true) -> Control:
 	return node
 
 func close_overlay(play_book_close: bool = true) -> void:
+	if routine_deck_delivery: show_routine_delivery_deck(false)
 	if is_instance_valid(book_button) and (not is_instance_valid(book_lock) or not book_lock.locked): book_button.texture_normal = texture("res://assets/map/ui/map-book-closed.png")
 	if is_instance_valid(deck_button): deck_button.texture_normal = texture("res://assets/map/ui/map-card-deck.png")
 	if is_instance_valid(overlay):
@@ -1160,32 +1169,108 @@ func show_routine_card() -> void:
 	panel.add_child(card)
 	card.setup_routine(entry,Routine.reward_image(str(pending.event_id),pending.get("offer",{})))
 	card.chosen.connect(func(choice: String):
-		var outcome: Dictionary = session.complete_routine_choice(choice)
+		if choice=="take":
+			show_routine_reward(card,entry,pending.get("offer",{}).duplicate(true))
+			return
+		var outcome: Dictionary=session.complete_routine_choice(choice)
 		if not bool(outcome.get("ok",false)):
 			card.allow_retry()
-			status.text = str(outcome.get("reason","사건 결과를 저장하지 못했습니다. 다시 선택하세요."))
+			status.text=str(outcome.get("reason","사건 결과를 저장하지 못했습니다. 다시 선택하세요."))
 			return
 		close_overlay()
 		render()
-		if bool(outcome.get("overflow",false)):
-			show_routine_overflow()
-		else:
-			if choice=="take":
-				var result_cue: String={"dice":"reward_gain","heal":"recovery","cleanse":"cleanse"}.get(str(entry.get("effect","")),"reward_gain")
-				sound(result_cue)
-			status.text = str(outcome.get("message","루틴 사건 완료")))
+		status.text=str(outcome.get("message","루틴 사건 완료")))
 
-func show_routine_overflow() -> void:
-	if world.pending_reward.get("kind","")!="routine" or world.pending_reward.get("phase","")!="overflow":
-		return
-	var popup = RewardOverflow.new()
-	stage.add_child(popup)
-	overlay = popup
+func show_routine_reward(card: Control, entry: Dictionary, offer: Dictionary) -> void:
+	card.get_node("RoutineAccept").hide()
+	card.get_node("RoutineDecline").hide()
+	if is_instance_valid(card.reveal_tween) and card.reveal_tween.is_running(): await card.reveal_tween.finished
+	if not is_instance_valid(card) or not is_instance_valid(overlay): return
+	var reward_motion=RoutineRewardMotion.new()
+	overlay.add_child(reward_motion)
+	reward_motion.setup(card,entry,Routine.reward_image(str(world.pending_reward.event_id),offer))
+	reward_motion.collect_requested.connect(func():
+		var outcome: Dictionary=session.complete_routine_choice("take")
+		if not bool(outcome.get("ok",false)):
+			reward_motion.allow_retry(str(outcome.get("reason","저장 실패 · 다시 선택해 주세요")))
+			return
+		if bool(outcome.get("overflow",false)):
+			show_routine_overflow(reward_motion)
+			return
+		await finish_routine_reward(reward_motion,entry,str(outcome.get("message",""))))
+	reward_motion.reveal()
+
+func show_routine_delivery_deck(active: bool) -> void:
+	if active:
+		if not is_instance_valid(deck_button): return
+		if routine_deck_state.is_empty():
+			routine_deck_state={"node":weakref(deck_button),"z":deck_button.z_index,"disabled":deck_button.disabled,"mouse":deck_button.mouse_filter}
+		routine_deck_delivery=true
+	else:
+		routine_deck_delivery=false
+		if not routine_deck_state.is_empty():
+			var previous: TextureButton=routine_deck_state.node.get_ref() as TextureButton
+			if is_instance_valid(previous):
+				previous.z_index=int(routine_deck_state.z)
+				previous.disabled=bool(routine_deck_state.disabled)
+				previous.mouse_filter=int(routine_deck_state.mouse)
+			routine_deck_state.clear()
+	_sync_map_chrome()
+
+func finish_routine_reward(reward_motion: Control, entry: Dictionary, message: String) -> void:
+	if not is_instance_valid(reward_motion): return
+	var effect: String=str(entry.get("effect","dice"))
+	var target:=Vector2(640,490)
+	if effect=="dice":
+		show_routine_delivery_deck(true)
+		target=reward_motion.get_global_transform_with_canvas().affine_inverse()*(deck_button.get_global_transform_with_canvas()*(deck_button.size*0.5))
+	await reward_motion.deliver(target)
+	if not is_instance_valid(reward_motion) or not is_inside_tree(): return
+	if effect=="dice": show_routine_delivery_deck(false)
+	sound({"dice":"reward_gain","heal":"recovery","cleanse":"cleanse"}.get(effect,"reward_gain"))
+	close_overlay()
+	render()
+	status.text=message
+
+func show_routine_overflow(reward_motion: Control = null) -> void:
+	if world.pending_reward.get("kind","")!="routine" or world.pending_reward.get("phase","")!="overflow": return
+	var pending: Dictionary=world.pending_reward.duplicate(true)
+	var entry: Dictionary=Routine.details(str(pending.event_id))
+	var picture: String=Routine.reward_image(str(pending.event_id),pending.reward.item)
+	var popup=RewardOverflow.new()
+	popup.name="RoutineRewardOverflow"
+	if is_instance_valid(reward_motion):
+		reward_motion.phase="overflow"
+		reward_motion.hide()
+		overlay.add_child(popup)
+	else:
+		stage.add_child(popup)
+		overlay=popup
 	popup.resolved.connect(func(outcome: Dictionary):
-		close_overlay()
-		render()
-		if bool(outcome.get("ok",false)) and bool(outcome.get("kept",false)): sound("reward_gain")
-		status.text = "주사위 제어 카드 획득" if bool(outcome.get("kept",false)) else "새 카드 획득을 포기했습니다.")
+		var incoming: Control=popup.choices.get("__new__",popup.choices.get("__claim__"))
+		var source_rect:=Rect2(Vector2(562,223),Vector2(156,234))
+		if is_instance_valid(incoming):
+			var candidate_rect:=Rect2(stage.get_global_transform_with_canvas().affine_inverse()*incoming.get_global_transform_with_canvas()*Vector2.ZERO,incoming.size)
+			var scroll_rect:=Rect2(stage.get_global_transform_with_canvas().affine_inverse()*popup.card_scroll.get_global_transform_with_canvas()*Vector2.ZERO,popup.card_scroll.size)
+			if scroll_rect.encloses(candidate_rect) and Rect2(Vector2.ZERO,Vector2(1280,720)).encloses(candidate_rect): source_rect=candidate_rect
+		popup.hide()
+		if bool(outcome.get("kept",false)):
+			var delivery: Control=reward_motion
+			if not is_instance_valid(delivery):
+				var host:=Control.new()
+				host.size=Vector2(1280,720)
+				host.z_index=80
+				stage.add_child(host)
+				overlay=host
+				delivery=RoutineRewardMotion.new()
+				host.add_child(delivery)
+				delivery.setup_direct(entry,picture,source_rect)
+			else: delivery.show()
+			await finish_routine_reward(delivery,entry,"주사위 제어 카드 획득")
+		else:
+			close_overlay()
+			render()
+			status.text="새 카드 획득을 포기했습니다.")
 	popup.setup(session)
 
 func show_roster() -> void:

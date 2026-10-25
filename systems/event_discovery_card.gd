@@ -29,13 +29,14 @@ const TILE_ART = "res://assets/map/tiles/forest.png"
 
 func _label(text_value: String, pos: Vector2, dimensions: Vector2, points: int, title: bool = false) -> Label:
 	var result := Label.new()
+	# Enable wrapping before width, so imported/native font minimums cannot enlarge the label.
+	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result.text = text_value
 	result.position = pos
 	result.size = dimensions
 	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if title else HORIZONTAL_ALIGNMENT_LEFT
 	result.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	result.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result.add_theme_font_override("font", preload("res://assets/fonts/nanum_gothic_regular.ttf"))
 	result.add_theme_font_size_override("font_size", points)
 	result.add_theme_color_override("font_color", Color("#291d14"))
