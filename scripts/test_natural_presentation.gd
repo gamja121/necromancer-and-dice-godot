@@ -101,17 +101,13 @@ func run() -> void:
 	world.tiles[new_hill] = "forest"
 	session.save_world()
 	map.show_discovery_card("forest")
-	# Discovery rewards now show the actual tile and close automatically;
-	# the old parchment card and its manual dismiss callback were retired.
-	var tile_reveal:Control=map.find_child("TileRewardReveal",true,false) as Control
-	var reward_tile:TextureRect=tile_reveal.find_child("RewardTile",true,false) as TextureRect if tile_reveal!=null else null
-	check(tile_reveal!=null and reward_tile!=null and reward_tile.texture==map.texture("res://assets/map/tiles/forest.png"),"discovery reveals the actual forest tile before the board accent")
-	await create_timer(0.15).timeout
+	var discovery_card:Control=map.find_child("EventDiscoveryCard",true,false) as Control
+	var reward_tile:TextureRect=discovery_card.get_node_or_null("EventDiscoveryTile") as TextureRect if discovery_card!=null else null
+	check(discovery_card!=null and reward_tile!=null and reward_tile.texture==map.texture("res://assets/map/tiles/forest.png"),"discovery card explains the forest before the board accent")
+	await create_timer(0.35).timeout
 	await capture("04_discovery")
-	var discovery_deadline: int=Time.get_ticks_msec()+3000
-	while (is_instance_valid(tile_reveal) or is_instance_valid(map.overlay)) and Time.get_ticks_msec()<discovery_deadline:
-		await process_frame
-	check(not is_instance_valid(tile_reveal) and not is_instance_valid(map.overlay),"tile-only discovery finishes and closes without a manual dismiss")
+	if discovery_card!=null: discovery_card.dismiss()
+	check(not is_instance_valid(map.overlay),"one tap closes the ordinary discovery card")
 	await process_frame
 	cue = map.stage.get_node_or_null("PresentationAccent_discovery")
 	check(is_instance_valid(cue) and cue.anchors.size()==1 and cue.anchors[0].is_equal_approx(map.center(new_hill)),"completed tile reveal points to the new location, not an existing forest")

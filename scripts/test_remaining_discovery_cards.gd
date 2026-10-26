@@ -75,14 +75,16 @@ func case_for(session: Node,kind: String) -> void:
 	root.add_child(ui)
 	await process_frame
 	ui.show_discovery_card(kind)
-	var reveal: Control=ui.get_node_or_null("TileRewardReveal")
-	check(reveal!=null,kind+": real map displays only the actual discovery tile")
+	var reveal: Control=ui.find_child("EventDiscoveryCard",true,false) as Control
+	check(reveal!=null,kind+": real map displays the ordinary discovery card")
 	if reveal!=null:
-		check(reveal.find_children("*","BaseButton",true,false).is_empty(),kind+": tile has no confirm button")
-		check(reveal.find_children("*","Label",true,false).is_empty(),kind+": tile has no paper title or reward text")
-		check(reveal.get_node("RewardTile").texture==ui.texture("res://assets/map/tiles/%s.png" % kind),kind+": correct actual tile artwork loaded")
-		check(reveal.find_children("*","TextureRect",true,false).size()==1,kind+": no event illustration or collectible card is added")
-		check(await wait_for(func(): return not is_instance_valid(ui.overlay)),kind+": tile floats and fades automatically without another click")
+		var entry: Dictionary=Discovery.details(kind)
+		check(reveal.find_children("*","BaseButton",true,false).is_empty(),kind+": discovery closes by tapping without a confirm button")
+		check(reveal.get_node("EventDiscoveryTitle").text==str(entry.title) and reveal.get_node("EventDiscoveryDescription").text==str(entry.description),kind+": actual title and explanation remain readable")
+		check(reveal.get_node("EventDiscoveryTile").texture==ui.texture("res://assets/map/tiles/%s.png" % kind),kind+": correct actual tile artwork loaded")
+		check(reveal.get_node("EventDiscoveryIllustration").texture.resource_path==str(entry.illustration),kind+": event scene artwork accompanies the discovered tile")
+		reveal.dismiss()
+		check(await wait_for(func(): return not is_instance_valid(ui.overlay)),kind+": tapping discovery returns to the changed board")
 	check(ui.buttons[transformed].texture_normal==ui.texture(ui.tile_path(transformed)),kind+": actual transformed location visible on board")
 	var badge = ui.buttons[transformed].get_node_or_null("UnlockNewBadge")
 	check(badge!=null,kind+": transformed tile has NEW badge")

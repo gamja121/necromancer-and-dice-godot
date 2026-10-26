@@ -85,9 +85,10 @@ func verify_card(event_id: String, receive: bool) -> void:
 	check(card.get_node("EventDiscoveryIllustration").texture!=null and card.get_node_or_null("EventDiscoveryTile")==null and card.get_node_or_null("EventDiscoveryReward")==null,event_id+": illustration stays while reward icon and label are absent")
 	var illustration: TextureRect=card.get_node("EventDiscoveryIllustration") as TextureRect
 	check(str(illustration.texture.resource_path)==str(entry.illustration),event_id+": dedicated approved manuscript artwork is actually loaded")
-	check(illustration.size==Vector2(452,452) and illustration.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,event_id+": full square artwork and outer frame are visible without cropping")
+	check(Rect2(Vector2(45,112),Vector2(362,259)).encloses(Rect2(illustration.position,illustration.size)) and illustration.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,event_id+": full manuscript fits inside the ordinary card art aperture")
 	check(card.get_node("EventDiscoveryTitle").position.y>=illustration.position.y+illustration.size.y,event_id+": live title does not cover the original manuscript frame")
-	check(not card.get_node("EventDiscoveryCategory").visible,event_id+": no generic event label obscures the illustrated top border")
+	check(card.get_node("EventDiscoveryCategory").visible and card.get_node("EventDiscoveryCategory").text=="일반 사건",event_id+": ordinary event heading remains visible above the illustration")
+	check(card.get_node("EventDiscoveryDescription").position.y+card.get_node("EventDiscoveryDescription").size.y<=card.size.y,event_id+": description stays on the parchment")
 	check(card.get_node_or_null("EventDiscoveryClose")==null,event_id+": no old confirmation button")
 	check(card.get_node_or_null("RoutineAccept")!=null and card.get_node_or_null("RoutineDecline")!=null,event_id+": both side choices are present")
 	check(card.get_node("RoutineAccept").position.x>card.size.x and card.get_node("RoutineDecline").position.x>card.size.x and card.get_node("RoutineAccept").position.y<card.get_node("RoutineDecline").position.y,event_id+": choices are vertically separated to the right of the card")

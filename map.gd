@@ -1126,17 +1126,29 @@ func show_first_discovery_card() -> void:
 	show_discovery_card("forest")
 
 func show_discovery_card(kind: String) -> void:
-	# The unlock is already durable: show only its real tile, then reveal the changed board.
-	if Discovery.details(kind).is_empty(): return
-	var panel: Control=modal(false)
+	# The unlock is already durable. Explain the discovery before returning to the changed board.
+	var entry: Dictionary=Discovery.details(kind)
+	if entry.is_empty(): return
+	var panel: Control=modal()
 	var changed: Array[int]=presentation.new_tile_indices(kind)
-	sound("reward_gain")
-	await presentation.tile_reward(texture("res://assets/map/tiles/%s.png" % kind))
-	if not is_inside_tree() or not is_instance_valid(panel) or overlay!=panel: return
-	close_overlay()
-	render()
-	presentation.show_discovery(changed)
-	status.text="%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind]
+	var card=EventDiscoveryCard.new()
+	panel.add_child(card)
+	card.setup("발견",str(entry.title),str(entry.description),str(entry.reward),
+		str(entry.illustration),"res://assets/map/tiles/%s.png" % kind)
+	card.closed.connect(func():
+		if not is_inside_tree() or not is_instance_valid(panel) or overlay!=panel: return
+		close_overlay()
+		render()
+		presentation.show_discovery(changed)
+		status.text="%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind],CONNECT_ONE_SHOT)
+	var dismiss_on_input=func(event: InputEvent):
+		if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
+			card.dismiss()
+		elif event is InputEventScreenTouch and event.pressed:
+			card.dismiss()
+	panel.gui_input.connect(dismiss_on_input)
+	for child in panel.get_children():
+		if child is Control and child.get_meta("ui_backdrop",false): child.gui_input.connect(dismiss_on_input)
 
 ## Resuming a saved unopened routine card must not reroll the incident,
 ## spend the reward, or re-enter an old story after a process restart.
