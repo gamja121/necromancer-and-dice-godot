@@ -1,0 +1,33 @@
+extends SceneTree
+const Policy = preload("res://systems/hero_facing_policy.gd")
+
+var passed := 0
+var failed := 0
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func expect_pose(delta: Vector2, expected_name: String, expected_flip: bool, case_name: String) -> void:
+	var result: Dictionary = Policy.for_travel(delta)
+	check(str(result.get("pose", "")) == expected_name and bool(result.get("flip_h", not expected_flip)) == expected_flip, case_name)
+
+func check(condition: bool, case_name: String) -> void:
+	if condition:
+		passed += 1
+		print("PASS hero-facing: ",case_name)
+	else:
+		failed += 1
+		printerr("FAIL hero-facing: ",case_name)
+
+func run() -> void:
+	expect_pose(Vector2(128,0),"side",false,"right travel uses right-facing side art")
+	expect_pose(Vector2(-128,0),"side",true,"left travel horizontally mirrors side art")
+	expect_pose(Vector2(0,-90),"back",false,"upward travel uses rear view")
+	expect_pose(Vector2(0,90),"front",false,"downward travel uses front view")
+	expect_pose(Vector2(179,-21),"side",false,"top-left corner follows next rightward leg")
+	expect_pose(Vector2(-192,100),"side",true,"bottom-right corner follows leftward leg")
+	expect_pose(Vector2(0,0),"front",false,"no travel defaults to front view")
+	var landed: Dictionary = Policy.for_arrival()
+	check(landed.pose == "front" and landed.flip_h == false,"every landing resets to unmirrored front")
+	print("HERO_FACING: %d passed, %d failed" % [passed,failed])
+	quit(0 if failed == 0 else 1)
