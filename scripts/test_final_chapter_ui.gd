@@ -197,5 +197,9 @@ func _run() -> void:
 	s.save_file_path = original_path
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(scratch+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
+	# Release this isolated run's active ending/book cues before SceneTree exit.
+	var sound_service: Node = root.get_node_or_null("GameAudio")
+	if sound_service != null: sound_service.queue_free()
+	await create_timer(0.10).timeout
 	print("FINAL_CHAPTER_UI: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
