@@ -1,0 +1,45 @@
+name: Village Rumor Actual GUI Screenshots
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/capture_village_rumor.gd'
+      - '.github/workflows/capture-village-rumor.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  village-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import existing game assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee village-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' village-import.log; then exit 1; fi
+      - name: Capture actual Godot GUI village story scenes
+        shell: bash
+        env:
+          VILLAGE_CAPTURE_DIR: ${{ runner.temp }}/village-actual-screens
+        run: |
+          set -euo pipefail
+          mkdir -p "$VILLAGE_CAPTURE_DIR"
+          xvfb-run -a -s "-screen 0 1600x900x24" timeout 180s godot --audio-driver Dummy --path . --script res://scripts/capture_village_rumor.gd 2>&1 | tee village-capture.log
+          grep -E 'VILLAGE_GUI_CAPTURE: 4 captured, 0 failed' village-capture.log
+      - name: Upload rendered PNG evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: village-rumor-actual-gui-screenshots
+          path: |
+            ${{ runner.temp }}/village-actual-screens/*.png
+            village-capture.log
+          if-no-files-found: warn
+          retention-days: 14
