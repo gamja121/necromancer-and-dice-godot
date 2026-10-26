@@ -2,8 +2,21 @@ extends "res://scripts/test_p4_full_source_story_chain.gd"
 ## Exercise the production story chain while checking the approved book bounds.
 ## Optional native captures and final-story handoff are written only to user args.
 const MainBook = preload("res://systems/main_story_book.gd")
+## Independent acceptance list: each approved scene must reach the real book.
+## The already integrated cemetery and final dragon retain their own artwork.
+const MANUSCRIPT_BASES = {
+	"마을 소문":"manuscript_village_base.png",
+	"기사단장":"manuscript_commander_base.png",
+	"마물 사냥꾼":"manuscript_hunter_base.png",
+	"광신도 소문":"manuscript_cultist_rumor_base.png",
+	"광신도의 의식":"manuscript_altar_base.png",
+	"마물의 왕 부활 의식":"manuscript_portal_base.png",
+	"마물의 왕 추적":"manuscript_hunt_base.png"
+}
 var book_views := 0
 var titles: Dictionary = {}
+var manuscript_families: Dictionary = {}
+var manuscript_foreground_families: Dictionary = {}
 var visual_failures: Dictionary = {}
 var output := ""
 var export_story := ""
@@ -17,6 +30,8 @@ func _initialize() -> void:
 func check(ok: bool, description: String) -> void:
 	if description.begins_with("all PID-isolated full-chain save files removed"):
 		super.check(book_views>30 and titles.size()>=8,"production book is used through all eight main events and their branches")
+		super.check(manuscript_families.size()==7,"all seven approved manuscript backgrounds reach their actual saved story chapters")
+		super.check(manuscript_foreground_families.size()==7,"all seven manuscript chapters reveal their new foreground during actual story actions")
 		super.check(visual_failures.is_empty(),"book/page/art dimensions, page text and plain choices remain within approved bounds")
 	super.check(ok,description)
 
@@ -38,10 +53,13 @@ func inspect_book(panel: Control) -> void:
 	_visual_check(panel.art.size==Vector2(360,202.5) and panel.art.clip_contents,"all story illustrations share the approved clipped size")
 	var prose: Array[Label]=[]
 	var buttons: Array[Button]=[]
+	var chapter_title := ""
 	for child in panel.get_children():
 		if child is Label and child.has_meta("book_copy_role") and not child.has_meta("book_skip"):
 			_visual_check(Rect2(690,124,490,475).encloses(Rect2(child.position,child.size)),"book text remains on the right page: "+str(child.get_meta("book_copy_role")))
-			if child.get_meta("book_copy_role")=="title": titles[child.text]=true
+			if child.get_meta("book_copy_role")=="title":
+				titles[child.text]=true
+				chapter_title=child.text
 			if child.get_meta("book_copy_role") in ["narration","speech"]: prose.append(child)
 		if child is Button:
 			buttons.append(child)
@@ -50,6 +68,26 @@ func inspect_book(panel: Control) -> void:
 	for label in prose:
 		for action in buttons:
 			_visual_check(not Rect2(label.position,label.size).intersects(Rect2(action.position,action.size)),"story copy does not overlap choice: "+action.text)
+	inspect_manuscript_art(panel,chapter_title)
+
+func inspect_manuscript_art(panel: Control, chapter_title: String) -> void:
+	if not MANUSCRIPT_BASES.has(chapter_title): return
+	var expected_base: String="res://assets/map/events/"+str(MANUSCRIPT_BASES[chapter_title])
+	var found_base := false
+	var found_foreground := false
+	# Inspect the live illustration subtree on every production action, not
+	# only arrival: base-only arrivals are valid, later layers must also occur.
+	for child in panel.art.find_children("*","TextureRect",true,false):
+		if not child is TextureRect or child.texture==null: continue
+		var resource_path: String=child.texture.resource_path
+		_visual_check(resource_path.begins_with("res://assets/map/events/manuscript_"),"approved manuscript chapter never displays old event art: "+chapter_title+" / "+resource_path)
+		if resource_path==expected_base:
+			found_base=true
+		elif resource_path.begins_with("res://assets/map/events/manuscript_"):
+			found_foreground=true
+	_visual_check(found_base,"actual chapter renders its own approved background: "+chapter_title)
+	if found_base: manuscript_families[expected_base]=true
+	if found_base and found_foreground: manuscript_foreground_families[expected_base]=true
 
 func press_story_action(action: Button) -> void:
 	if action!=null: inspect_book(action.get_parent())

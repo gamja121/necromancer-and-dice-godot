@@ -107,7 +107,7 @@ func original_contract() -> void:
 	check(Beats.beat(2,"weakened").id=="revival","source third scene now available for correct branch")
 	check(Beats.beat(3).id=="destination","fourth destination clue available after third scene")
 	check(Beats.beat(-1).is_empty(),"invalid beat rejected")
-	check(Beats.BASE_ART=="res://assets/map/events/monster-hunter-worldtree-base.webp","original world-tree illustration")
+	check(Beats.BASE_ART=="res://assets/map/events/manuscript_hunt_base.png","original world-tree illustration")
 	check(Hunt.BASE_ART==Beats.BASE_ART,"hunt entry uses original world-tree art")
 	check(Hunt.FIRST_BEAT==Beats.beat(0),"entry and scene data match")
 	check(ResourceLoader.exists(Beats.BASE_ART),"original background can be loaded")

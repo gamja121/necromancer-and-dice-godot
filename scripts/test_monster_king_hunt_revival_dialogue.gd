@@ -111,7 +111,7 @@ func source_contract() -> void:
 	check(Beats.beat(2,"invalid").is_empty(),"invalid revival mode cannot present a story")
 	check(Beats.beat(3,"weakened").id=="destination","next destination data available but gated by progress")
 	check(Beats.visual_art("portrait")==Beats.PORTRAIT_ART,"source portrait asset mapping")
-	check(Beats.PORTRAIT_ART=="res://assets/map/events/monster-hunter-pen-clean.webp","reuses unmodified original hunter portrait")
+	check(Beats.PORTRAIT_ART=="res://assets/map/events/manuscript_hunt_scene.png","reuses unmodified original hunter portrait")
 	check(Beats.visual_art("scene")==Beats.SCENE_ART,"original corrupted scene artwork unchanged")
 	check(Beats.visual_art("destination").is_empty(),"next destination scene has no visual unlock")
 	check(ResourceLoader.exists(Beats.PORTRAIT_ART),"hunter portrait resource loads")

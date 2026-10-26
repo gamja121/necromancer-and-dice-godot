@@ -18,7 +18,10 @@ static func play(portrait: TextureRect, player_reply: bool, animate: bool) -> vo
 	# runtime asset wiring. Suppress just its generic 6 px modal slide.
 	portrait.set_meta("ui_custom_open_motion",true)
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	portrait.flip_h = not player_reply
+	# Approved manuscript actors already face the intended side. The player
+	# cutout comes from the right of the rumor painting and moves to the left.
+	var aligned: bool = portrait.texture != null and portrait.texture.resource_path.get_file().begins_with("manuscript_")
+	portrait.flip_h = player_reply if aligned else not player_reply
 	portrait.pivot_offset = Vector2(portrait.size.x/2.0,portrait.size.y)
 	if not animate:
 		portrait.modulate.a = 1.0

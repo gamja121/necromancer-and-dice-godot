@@ -2,7 +2,7 @@ extends SceneTree
 ## Book geometry and reveal safety; the full chain checks actual gameplay callbacks.
 const MAP=preload("res://map.tscn")
 const Book=preload("res://systems/main_story_book.gd")
-const ART="res://assets/map/events/knight-commander-village-day.webp"
+const ART="res://assets/map/events/manuscript_commander_base.png"
 var passed:=0
 var failed:=0
 func _initialize() -> void: call_deferred("_run")
@@ -78,4 +78,6 @@ func _run() -> void:
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(scratch+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
 	print("STORY_EVENT_LAYOUT: %d passed, %d failed" % [passed,failed])
+	# Let the audio service observe the freed book/map and drain stopped voices.
+	await create_timer(0.10).timeout
 	quit(0 if failed==0 else 1)

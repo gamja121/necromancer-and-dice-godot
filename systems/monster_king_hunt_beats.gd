@@ -1,9 +1,9 @@
 extends RefCounted
 ## P1-05K-5: fifth original location scene. Completion unlocks the final
 ## battle quest flag, but the actual king battle is a later system.
-const BASE_ART = "res://assets/map/events/monster-hunter-worldtree-base.webp"
-const SCENE_ART = "res://assets/map/events/monster-hunter-corrupted-beast-scene.webp"
-const PORTRAIT_ART = "res://assets/map/events/monster-hunter-pen-clean.webp"
+const BASE_ART = "res://assets/map/events/manuscript_hunt_base.png"
+const SCENE_ART = "res://assets/map/events/manuscript_hunt_scene.png"
+const PORTRAIT_ART = "res://assets/map/events/manuscript_hunt_scene.png"
 const FIRST_BEAT = {
 	"id":"arrival",
 	"effect":"세계수의 뿌리 부근. 의식이 끝난 뒤에도 검은 흔적이 땅을 타고 뻗어 있다.",

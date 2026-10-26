@@ -4,6 +4,8 @@ on:
     paths:
       - 'map.gd'
       - 'systems/main_story_book.gd'
+      - 'systems/main_story_manuscript_art.gd'
+      - 'assets/map/events/manuscript_*.png'
       - 'systems/story_book_*.gd'
       - 'systems/final_chapter_screen.gd'
       - 'assets/map/ui/story_book_*.png'
@@ -16,6 +18,8 @@ on:
     paths:
       - 'map.gd'
       - 'systems/main_story_book.gd'
+      - 'systems/main_story_manuscript_art.gd'
+      - 'assets/map/events/manuscript_*.png'
       - 'systems/story_book_*.gd'
       - 'systems/final_chapter_screen.gd'
       - 'assets/map/ui/story_book_*.png'

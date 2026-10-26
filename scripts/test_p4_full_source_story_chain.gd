@@ -2,8 +2,8 @@ extends SceneTree
 ## P4-02D: one fresh world per route, with no forged/pre-completed story
 ## states. Actual Map scenes, source event buttons and full battle flow
 ## establish all story/quest receipts in sequence. Only route approach is
-## shortened by test-only positioning at HOME and swapping one ordinary tile
-## ahead of a genuine 1-6 die, as in previous P4 integration tests.
+## shortened by test-only positioning at HOME, staging a missing physical
+## world-tree tile and swapping a location ahead of a genuine 1-6 die.
 ## Rescued victory completes the portal-to-king route. Portal defeat MUST
 ## stop with the actual terminal game-over screen; a dead expedition cannot
 ## acknowledge a story modal or progress into king hunt. Abandoned stays locked.
@@ -116,9 +116,17 @@ func prepare_dice_target(session: Node, kind: String, label: String) -> int:
 			break
 	if candidate<0: return -1
 	var source_index: int=world.tiles.find(kind)
-	# Optional forest, world tree and altar stones are still locked on this
-	# synthetic one-lap board. Production permits their story at event tiles.
-	if source_index<0 and kind in ["forest","unknown","altar"]:
+	# The October 25 world-tree order fix requires its physical stone before
+	# an unseen hunter scene, including a wildcard-event encounter. Stage
+	# only that location using the existing safe-road conversion; never forge
+	# hunter/commander/discovery receipts or weaken the production entry gate.
+	# Actual discovery dispatch and its prerequisites are covered separately
+	# by test_monster_hunter_entry; this fixture verifies the full story UI.
+	if source_index<0 and kind=="unknown":
+		source_index=world.reveal_discovered_location("unknown")
+		check(source_index>=0 and world.tiles.has("unknown"),label+": physical world tree staged without pre-completing a story")
+	# Forest and altar story arrivals still support canonical event tiles.
+	if source_index<0 and kind in ["forest","altar"]:
 		source_index=world.tiles.find("event")
 	if source_index<0: return -1
 	if source_index!=candidate:
@@ -447,5 +455,11 @@ func _run() -> void:
 	if created: session.queue_free()
 	for path in paths: clear_save(path)
 	check(paths.all(func(path): return not FileAccess.file_exists(path)),"all PID-isolated full-chain save files removed; normal player save not touched")
+	# The SceneTree is about to terminate; drain the optional book/UI audio
+	# players after their owners have closed instead of leaving queued audio
+	# destruction to the engine's exit-time resource cleanup.
+	var audio: Node=root.get_node_or_null("GameAudio")
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
 	print("P4_FULL_SOURCE_STORY_CHAIN: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

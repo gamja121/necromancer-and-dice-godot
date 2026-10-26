@@ -82,5 +82,8 @@ func _run() -> void:
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(save+suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(save+suffix))
+	# This isolated process owns its audio service; release playing cues first.
+	root.get_node("GameAudio").queue_free()
+	await create_timer(0.10).timeout
 	print("STORY_TYPEWRITER: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed == 0 else 1)

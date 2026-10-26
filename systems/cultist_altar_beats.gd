@@ -2,9 +2,9 @@ extends RefCounted
 ## P1-05I-3: original three altar beats; explicit fight/pass choice is saved.
 ## Summon art is displayed after choosing fight; battle outcome follow-up stays separate.
 
-const BASE = "res://assets/map/events/cultist-altar-night-base.webp"
-const RITUAL = "res://assets/map/events/cultist-altar-ritual-layer.webp"
-const SUMMON = "res://assets/map/events/cultist-altar-summon-layer.webp"
+const BASE = "res://assets/map/events/manuscript_altar_base.png"
+const RITUAL = "res://assets/map/events/manuscript_altar_ritual.png"
+const SUMMON = "res://assets/map/events/manuscript_altar_summon.png"
 const SUMMON_EFFECT = "당신의 개입을 알아챈 광신도들이 의식을 비틀어 마물들을 불러낸다."
 const PASS_EFFECT = "지금은 충돌을 피한다. 하지만 제단에서 보았던 의식과 문양은 분명히 기억해 둔다."
 const FIGHT_WON_EFFECT = "소환된 마물들을 쓰러뜨렸다. 흐트러진 의식 도구 사이에서 다음 의식 장소를 가리키는 흔적을 발견했다."

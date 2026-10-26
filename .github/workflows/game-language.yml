@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 160s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
           timeout 90s godot --headless --path . --script res://scripts/test_game_language.gd 2>&1 | tee language.log
           grep -E '^GAME_LANGUAGE: [0-9]+ passed, 0 failed$' language.log

@@ -42,7 +42,7 @@ func _run() -> void:
 	check(wall.has_area() and wall.position.x>=hud.position.x and wall.end.x<=hud.position.x+hud.size.x,"die wall covers the compact stone frame")
 	check(wall.position.y>hud.position.y and wall.end.y<=hud.position.y+hud.size.y,"wall excludes the high crow/transparent upper pixels")
 	var src: String=FileAccess.get_file_as_string("res://systems/contamination_hud.gd")
-	check(src.find("title_size: int = 31")!=-1 and src.find("title: String = \"오염도\"")!=-1,"only the contamination title is enlarged")
+	check(src.find("title_size: int = 31")!=-1 and src.find("title: String = tr(\"오염도\")")!=-1,"contamination title retains its approved size and localized text")
 	check(src.find("value_text:")==-1 and src.find("%d / 100")==-1 and src.find("caption =")==-1,"all numeric and stage labels removed from active/fallback paint")
 	hud.set_value(12,true)
 	var steps: PackedFloat32Array=hud.segment_fractions(hud.display_value)

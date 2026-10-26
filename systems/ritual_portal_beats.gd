@@ -2,10 +2,10 @@ extends RefCounted
 ## P1-05J-6: five source portal beats and the two canonical revival endings.
 ## Monster king hunting scenes are a separate next story stage.
 
-const BASE_ART = "res://assets/map/events/ritual-portal-ruins-base.webp"
-const ENERGY_ART = "res://assets/map/events/ritual-portal-energy-layer.webp"
-const CULTISTS_ART = "res://assets/map/events/ritual-portal-cultists-layer.webp"
-const OMEN_ART = "res://assets/map/events/ritual-portal-omen-layer.webp"
+const BASE_ART = "res://assets/map/events/manuscript_portal_base.png"
+const ENERGY_ART = "res://assets/map/events/manuscript_portal_energy.png"
+const CULTISTS_ART = "res://assets/map/events/manuscript_portal_cultists.png"
+const OMEN_ART = "res://assets/map/events/manuscript_portal_omen.png"
 const BEATS = [
 	{"id":"arrival","effect":"제단에서 이어진 흔적을 따라가자 숲 깊은 폐허에서 거대한 전이문을 발견한다.","dialogue":"","speaker":"","visual":"base"},
 	{"id":"portal_reveal","effect":"제단에서 보았던 문양과 같은 빛이 석문 전체를 타고 흐르며 전이문이 거세게 요동친다.","dialogue":"","speaker":"","visual":"energy"},

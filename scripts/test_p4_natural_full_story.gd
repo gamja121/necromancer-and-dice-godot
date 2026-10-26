@@ -366,5 +366,8 @@ func _run() -> void:
 		session.queue_free()
 	clear_path()
 	check(not FileAccess.file_exists(path), "temporary full natural story save removed; normal player data untouched")
+	# Finish this isolated process only after queued UI audio has been freed.
+	root.get_node("GameAudio").queue_free()
+	await create_timer(0.10).timeout
 	print("P4_NATURAL_LONG_TRAVEL: %d passed, %d failed" % [passed, failed])
 	quit(0 if failed == 0 else 1)

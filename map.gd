@@ -2035,7 +2035,12 @@ func show_village_rumor_beat(index: int, event_id: String) -> void:
 	var panel=story_modal()
 	var artwork=image(panel,VillageRumorEntry.SCENE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(artwork)
+	# The approved still supplies one villager group for whisper/turn.
+	# Draw that resource once when an authored beat requests both poses.
+	var visible_layers: Dictionary = {}
 	for layer in beat.layers:
+		if visible_layers.has(str(layer)): continue
+		visible_layers[str(layer)] = true
 		image(panel,str(layer),Vector2(243.2,136.8),Vector2(793.6,446.4))
 	shared_story_frame(panel)
 	var heading=label_at(panel,"사건 · 마을",Vector2(352,84),Vector2(575,42),24)

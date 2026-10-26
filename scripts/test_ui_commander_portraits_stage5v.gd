@@ -111,7 +111,7 @@ func _run() -> void:
 			var intended: String=str(beat.portrait)
 			check(art.texture==map.texture(intended) and art.texture.resource_path==intended,"beat %d retains original recovered WebP resource" % i)
 			check(art.stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED and art.mouse_filter==Control.MOUSE_FILTER_IGNORE,"beat %d portrait stays aspect-correct, click-through" % i)
-			check(art.flip_h==not is_player,"beat %d only commander is horizontally mirrored" % i)
+			check(art.flip_h==is_player,"beat %d approved commander keeps direction and player moves to the opposite side" % i)
 			check(art.get_meta("ui_custom_open_motion",false),"beat %d disables competing generic portrait motion only" % i)
 			check(art.size.distance_to(expected.size)<0.02 and art.pivot_offset.distance_to(Vector2(art.size.x/2.0,art.size.y))<0.02,"beat %d source footprint and foot pivot" % i)
 			if animated:
@@ -147,7 +147,7 @@ func _run() -> void:
 	check(COMMANDER.current_beat(session)==BEATS.count()-1,"reconnected game maintains same story choice point")
 	map.show_knight_commander_beat(village)
 	var final_portrait=portrait(map,false)
-	check(is_instance_valid(final_portrait) and final_portrait.flip_h and final_portrait.position.distance_to(map.StoryBook.layer_bounds(BEATS.COMMANDER,commander_bounds).position)<0.2,"saved final beat restores static mirrored commander")
+	check(is_instance_valid(final_portrait) and not final_portrait.flip_h and final_portrait.position.distance_to(map.StoryBook.layer_bounds(BEATS.COMMANDER,commander_bounds).position)<0.2,"saved final beat restores static correctly oriented manuscript commander")
 	check(session.get_story_event(COMMANDER.EVENT_ID).status=="seen","opening artwork alone does not finish story or activate quest")
 	map.close_overlay()
 	map.queue_free()
@@ -157,4 +157,6 @@ func _run() -> void:
 	clean()
 	check(not FileAccess.file_exists(save),"temporary isolated save removed, player save untouched")
 	print("UI_COMMANDER_PORTRAITS_STAGE5V: %d passed, %d failed" % [passed,failed])
+	# Drain stopped book audio after the queued scene has been freed.
+	await create_timer(0.10).timeout
 	quit(0 if failed==0 else 1)

@@ -4,6 +4,7 @@ extends SceneTree
 ## Run: godot --headless --path . --script res://scripts/test_p5_changed_visual_runtime.gd
 const MAP_SCENE = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
+const STATE = preload("res://systems/map_state.gd")
 const GRAVE = preload("res://systems/story_event_entry.gd")
 const RUMOR = preload("res://systems/village_rumor_entry.gd")
 const RUMOR_BEATS = preload("res://systems/village_rumor_beats.gd")
@@ -14,10 +15,10 @@ const BEATS = preload("res://systems/knight_commander_beats.gd")
 const CHANGED = [
 	"res://assets/map/events/fortune-teller.jpg",
 	"res://assets/map/events/home-interior.jpg",
-	"res://assets/map/events/knight-commander-upperbody-hd.webp",
-	"res://assets/map/events/necromancer-upperbody-hd.webp"
+	"res://assets/map/events/manuscript_commander_actor.png",
+	"res://assets/map/events/manuscript_village_necromancer.png"
 ]
-const COMMANDER_ART = "res://assets/map/events/knight-commander-village-day.webp"
+const COMMANDER_ART = "res://assets/map/events/manuscript_commander_base.png"
 
 class Victory:
 	extends RefCounted
@@ -99,12 +100,22 @@ func _run() -> void:
 	var previous_path: String = s.save_file_path
 	s.save_file_path = save_path
 	s.start_new_world()
+	var target_contamination: int = int(GATE.MINIMUMS[COMMANDER.EVENT_ID])
+	check(target_contamination >= int(GATE.MINIMUMS[GRAVE.EVENT_ID])
+		and target_contamination >= int(GATE.MINIMUMS[RUMOR.RESCUED_ID]),
+		"test starts at a contamination value satisfying all three source story gates")
 	# The source graveyard is intentionally locked for the whole first lap.
 	# Use the actual first home shuffle to stage this story-art regression.
+	# Apply the story gates BEFORE generating the board: a late increase to
+	# 20 makes the first story save reveal a boss at slot 23, which could
+	# otherwise replace the randomly assigned graveyard between begin/choose.
+	s.world.contamination = maxi(0,target_contamination-STATE.LAP_CONTAMINATION_GAIN)
 	s.world.lap_ready=true
 	s.world.leave_home()
 	check(s.world.laps==1 and s.world.tiles.count("graveyard")==1,
 		"changed story art tested on first graveyard-unlocked board")
+	check(s.world.contamination==target_contamination and s.world.tiles[STATE.BOSS_TILE_INDEX]=="boss",
+		"story-art board reserves the stage boss before recording story tile indices")
 	var map: Control = MAP_SCENE.instantiate()
 	root.add_child(map)
 	current_scene = map
@@ -128,16 +139,6 @@ func _run() -> void:
 	var village_idx: int = s.world.tiles.find("village")
 	check(grave_idx >= 0 and village_idx >= 0, "story target tiles exist")
 	if grave_idx >= 0 and village_idx >= 0:
-		# Each story's first discovery uses its actual contamination gate.
-		# The previous artwork fixture stopped at first-lap +7 and then
-		# attempted graveyard (>=10), village rumor (>=15), and commander
-		# (>=20) without meeting any threshold, causing 40 false failures.
-		# This changes only the isolated test world, never production rules.
-		var target_contamination: int = int(GATE.MINIMUMS[COMMANDER.EVENT_ID])
-		check(target_contamination >= int(GATE.MINIMUMS[GRAVE.EVENT_ID])
-			and target_contamination >= int(GATE.MINIMUMS[RUMOR.RESCUED_ID]),
-			"test starts at a contamination value satisfying all three source story gates")
-		s.world.contamination = target_contamination
 		s.world.position = grave_idx
 		check(GRAVE.begin(s, grave_idx), "real graveyard child story discovery")
 		check(GRAVE.choose(s, grave_idx, "protect_child"), "real rescue choice saved")
@@ -183,6 +184,9 @@ func _run() -> void:
 		root.remove_child(s)
 		s.queue_free()
 	clean(save_path)
+	# Stop the optional book/UI cues before the isolated SceneTree exits.
+	root.get_node("GameAudio").queue_free()
+	await create_timer(0.10).timeout
 	print("P5_03B_VISUAL_RUNTIME: %d passed, %d failed, 4 changed illustrations checked; PC/user visual approval remains REQUIRED" % [passed, failures])
 	if failures > 0:
 		quit(1)
