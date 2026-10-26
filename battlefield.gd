@@ -83,6 +83,8 @@ void fragment() {
 """
 var busy = false
 var paused = false
+# Double the battle baseline while preserving the relative speed buttons.
+var battle_tempo: float = 2.0
 var speed_index = 0
 var speed_values = [1.5,2.25,3.0]
 var audio: AudioStreamPlayer
@@ -492,7 +494,7 @@ func wait_presentation(seconds: float, minimum: float = 0.0) -> void:
 	var remaining = maxf(minimum,seconds/minf(speed_values[speed_index],1.2))
 	while remaining>0:
 		await get_tree().process_frame
-		if not paused: remaining -= get_process_delta_time()
+		if not paused: remaining -= get_process_delta_time()*battle_tempo
 
 func render_units(values: Array) -> void:
 	for u in values:
@@ -626,7 +628,7 @@ func wait_time(seconds: float) -> void:
 	var remaining = seconds
 	while remaining > 0:
 		await get_tree().process_frame
-		if not paused: remaining -= get_process_delta_time()*speed_values[speed_index]
+		if not paused: remaining -= get_process_delta_time()*speed_values[speed_index]*battle_tempo
 
 func animate_unit(id: String, motion: String) -> void:
 	var u = rules.find_id(id)

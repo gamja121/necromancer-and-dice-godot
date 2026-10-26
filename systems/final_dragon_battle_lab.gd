@@ -47,6 +47,8 @@ func reset_fixture() -> void:
   remove_child(scene)
   scene.queue_free()
  scene=BATTLE.instantiate()
+ # This motion editor keeps its explicit 0.5/1/2 playback scale.
+ scene.battle_tempo=1.0
  scene.selection=["skeleton-spear","skeleton-archer","ghoul","plague-doctor"]
  add_child(scene)
  move_child(scene,0)

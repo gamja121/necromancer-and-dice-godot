@@ -138,6 +138,7 @@ func clear_entry_summon() -> void:
 
 func _process(delta: float) -> void:
 	if scene == null: return
+	delta *= scene.battle_tempo
 	var dt: float = 0.0 if scene.paused or presentation_hold else delta*scene.speed_values[scene.speed_index]
 	clock += dt
 	if not scene.paused and not presentation_hold: idle_clock += delta

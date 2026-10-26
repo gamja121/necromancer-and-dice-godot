@@ -60,7 +60,7 @@ func play_failed_capture(battle_scene, failed_cards: Array) -> void:
 	while remaining>0.0:
 		await get_tree().process_frame
 		if not scene.paused:
-			remaining -= get_process_delta_time()*scene.speed_values[scene.speed_index]
+			remaining -= get_process_delta_time()*scene.speed_values[scene.speed_index]*scene.battle_tempo
 		var t = clampf(1.0-remaining/0.65,0.0,1.0)
 		for soul in souls:
 			if is_instance_valid(soul.card):
@@ -73,7 +73,7 @@ func play_failed_capture(battle_scene, failed_cards: Array) -> void:
 
 func _process(delta: float) -> void:
 	if scene == null: return
-	if not scene.paused: elapsed += delta*scene.speed_values[scene.speed_index]
+	if not scene.paused: elapsed += delta*scene.speed_values[scene.speed_index]*scene.battle_tempo
 	queue_redraw()
 
 func _draw() -> void:
@@ -183,7 +183,7 @@ func play(battle_scene, fallen: Array) -> void:
 		var remaining = 0.65
 		while remaining>0:
 			await get_tree().process_frame
-			if not scene.paused: remaining -= get_process_delta_time()*scene.speed_values[scene.speed_index]
+			if not scene.paused: remaining -= get_process_delta_time()*scene.speed_values[scene.speed_index]*scene.battle_tempo
 			var t = clampf(1-remaining/0.65,0,1)
 			for soul in souls:
 				soul.focus.material.set_shader_parameter("dissolve",t)
@@ -195,7 +195,7 @@ func play(battle_scene, fallen: Array) -> void:
 		var remaining_fade = 0.18
 		while remaining_fade>0:
 			await get_tree().process_frame
-			if not scene.paused: remaining_fade -= get_process_delta_time()*scene.speed_values[scene.speed_index]
+			if not scene.paused: remaining_fade -= get_process_delta_time()*scene.speed_values[scene.speed_index]*scene.battle_tempo
 			modulate.a = maxf(0,remaining_fade/0.18)
 	for u in ordinary:
 		if u.is_summon:

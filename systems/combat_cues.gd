@@ -74,6 +74,7 @@ func step(value: String, color: Color) -> void:
 
 func _process(delta: float) -> void:
 	if scene==null: return
+	delta *= scene.battle_tempo
 	if not scene.paused and not scene.visuals.presentation_hold: clock += delta
 	if not dice_result.is_empty():
 		var t = clampf((clock-dice_result.started)/DICE_TIME,0,1)
@@ -207,7 +208,7 @@ func play_brands(units: Array) -> void:
 		step(caption+str(unit.name),effect_color)
 		# Brief, readable full-body feedback. The distinct chest effects below
 		# carry the actual blessing/curse shape rather than a faint dark veil.
-		var tween = create_tween()
+		var tween = create_tween().set_speed_scale(scene.battle_tempo)
 		tween.tween_property(sprite,"modulate",effect_color,0.055)
 		tween.tween_property(sprite,"modulate",base_modulate,0.14)
 		await scene.wait_presentation(brand_body_interval,minimum_body_time)
@@ -258,7 +259,7 @@ func _pulse_matching_brands(unit: Dictionary) -> void:
 		dot.scale = Vector2(0.65, 0.65)
 		dot.pivot_offset = dot.size * 0.5
 		indicator.add_child(dot)
-		var flash := create_tween().set_parallel(true)
+		var flash := create_tween().set_speed_scale(scene.battle_tempo).set_parallel(true)
 		flash.tween_property(dot, "modulate:a", 1.0, 0.065)
 		flash.tween_property(dot, "scale", Vector2(1.22, 1.22), 0.095).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		if brand_cue_interval >= 0.1:
@@ -266,7 +267,7 @@ func _pulse_matching_brands(unit: Dictionary) -> void:
 		await scene.wait_presentation(brand_cue_interval,0.045 if brand_cue_interval < 0.1 else 0.075)
 		if not is_inside_tree(): return
 	if is_instance_valid(indicator):
-		var fade := create_tween()
+		var fade := create_tween().set_speed_scale(scene.battle_tempo)
 		fade.tween_property(indicator, "modulate:a", 0.0, 0.16)
 		fade.tween_callback(indicator.queue_free)
 
@@ -277,7 +278,7 @@ func _pulse_unit_card(unit_id: String, blessed: bool) -> void:
 	var card: Control = scene.cards[unit_id]
 	if not is_instance_valid(card): return
 	var base_scale: Vector2 = card.scale
-	var tween := create_tween()
+	var tween := create_tween().set_speed_scale(scene.battle_tempo)
 	tween.tween_property(card, "scale", base_scale * (1.045 if blessed else 1.025), 0.075).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(card, "scale", base_scale, 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
