@@ -5,6 +5,7 @@ signal leave_to_map
 signal hill_route_chosen(steps: int)
 const PrayerEffect = preload("res://systems/world_tree_prayer_effect.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
+const PatrolRouteEditor = preload("res://systems/patrol_route_editor.gd")
 const UnlockNoticeBadge = preload("res://systems/unlock_notice_badge.gd")
 const ROUTE_RESERVE_ART = "res://assets/map/ui/patrol-route-frame.webp"
 const ROUTE_CURRENT_ART = "res://assets/map/ui/patrol-route-current-frame.webp"
@@ -41,6 +42,8 @@ var route_plus_buttons: Dictionary = {}
 var route_minus_buttons: Dictionary = {}
 var route_count_labels: Dictionary = {}
 var route_unlock_button: Button
+var route_editor: Control
+var route_feedback: String=""
 var selected_route_slot: int = 0
 # UI-only slot order; the existing save format still stores per-kind counts.
 var route_slot_layout: Array[String] = []
@@ -58,6 +61,24 @@ func setup(map_scene, tile_index: int) -> void:
 	# The action layer uses the same 980x406 painting and 1024x450 nine-patch
 	# as the location screen; action-specific controls are layered above it.
 	map.location_scene_image(self,"res://assets/map/events/%s.jpg" % background)
+	if type=="home":
+		plan=session.world.patrol_plan.duplicate(true) if RoutePlan.is_new(session.world.patrol_plan) else RoutePlan.default_plan()
+		if not plan.selection.has("forest"): plan.selection["forest"]=0
+		initialize_route_slot_layout()
+		route_editor=PatrolRouteEditor.new()
+		add_child(route_editor)
+		route_editor.setup(self)
+		content=route_editor
+		status=route_editor.status_label
+		close_button=route_editor.back_button
+		action_button=route_editor.confirm_button
+		route_reset_button=route_editor.reset_button
+		route_plus_buttons=route_editor.plus_buttons
+		route_minus_buttons=route_editor.minus_buttons
+		route_count_labels=route_editor.count_labels
+		route_unlock_button=route_editor.unlock_button
+		map.refresh_shared_die_input()
+		return
 	label_at(self,{"unknown":"세계수 · 정화 기도","graveyard":"공동묘지 · 시체 파헤치기","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
 	close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)
@@ -110,28 +131,6 @@ func setup(map_scene, tile_index: int) -> void:
 		action_button=button(self,"이동 확정",Vector2(525,478),Vector2(230,44),confirm_hill_route)
 		action_button.disabled=true
 		render_hill_choices()
-	else:
-		plan=session.world.patrol_plan.duplicate(true) if RoutePlan.is_new(session.world.patrol_plan) else RoutePlan.default_plan()
-		# An existing run saved before hill editing has only monster/rest keys.
-		if not plan.selection.has("forest"): plan.selection["forest"]=0
-		initialize_route_slot_layout()
-		close_button.text="← 돌아가기"
-		close_button.position=Vector2(430,561)
-		close_button.size=Vector2(128,36)
-		# Keep the selection status BELOW the +/- click targets; the
-		# former y=515 label obscured quantity buttons on smaller screens.
-		status.position=Vector2(145,606)
-		status.size=Vector2(722,41)
-		status.add_theme_font_size_override("font_size",13)
-		action_button=button(self,"경로 확정",Vector2(614,561),Vector2(160,36),confirm_route)
-		action_button.name="PatrolRouteConfirm"
-		style_patrol_button(action_button)
-		route_reset_button=button(self,"기본값",Vector2(245,561),Vector2(148,36),reset_route)
-		route_reset_button.name="PatrolRouteReset"
-		style_patrol_button(route_reset_button)
-		close_button.name="PatrolRouteClose"
-		style_patrol_button(close_button,true)
-		render_route()
 	map.refresh_shared_die_input()
 
 # These two *exact* source PNGs are already in the Godot repository but
@@ -152,7 +151,8 @@ func style_patrol_button(control: Button, is_exit: bool = false) -> void:
 	control.add_theme_font_size_override("font_size",13)
 
 func reset_route() -> void:
-	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
+	if type!="home" or session.patrol_edit_locked(): return
+	route_feedback=""
 	# Reset selection only. The user's earned unlock is irreversible.
 	var unlocked: bool=bool(session.world.patrol_plan.get("rest_unlocked",false))
 	plan=RoutePlan.default_plan()
@@ -329,7 +329,7 @@ func choose_route_slot(slot: int) -> void:
 	render_route()
 
 func set_route_slot_kind(kind: String) -> void:
-	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
+	if type!="home" or session.patrol_edit_locked(): return
 	if kind!="basic" and not kind in RoutePlan.CHOICES: return
 	if kind=="rest" and not bool(plan.get("rest_unlocked",false)): return
 	if kind=="forest" and not Discovery.is_unlocked(session.world,"forest"): return
@@ -338,126 +338,21 @@ func set_route_slot_kind(kind: String) -> void:
 	var next: Dictionary=plan.duplicate(true)
 	if old_kind!="basic": next.selection[old_kind]=int(next.selection.get(old_kind,0))-1
 	if kind!="basic": next.selection[kind]=int(next.selection.get(kind,0))+1
-	if not RoutePlan.valid(next): return
+	if not RoutePlan.valid(next) or not bool(session.world.patrol_preview(next).valid): return
 	plan=next
+	route_feedback=""
 	route_slot_layout[selected_route_slot]=kind
 	render_route()
 
 func render_route() -> void:
-	clear_content()
-	current_options=[]
-	reserve_options=[]
-	route_plus_buttons.clear()
-	route_minus_buttons.clear()
-	route_count_labels.clear()
-	route_unlock_button=null
-	var used: bool=session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts
-	var total: int=RoutePlan.total_selected(plan)
-	var remaining: int=RoutePlan.available(plan)
-	var rest_unlocked: bool=bool(plan.get("rest_unlocked",false))
-	var hill_unlocked: bool=Discovery.is_unlocked(session.world,"forest")
-	if ResourceLoader.exists(ROUTE_RESERVE_ART):
-		var parchment=art(content,ROUTE_RESERVE_ART,Vector2(74,92),Vector2(829,541))
-		parchment.stretch_mode=TextureRect.STRETCH_SCALE
-	if ResourceLoader.exists(ROUTE_CURRENT_ART):
-		var sidebar=art(content,ROUTE_CURRENT_ART,Vector2(925,65),Vector2(284,590))
-		sidebar.stretch_mode=TextureRect.STRETCH_SCALE
-	var heading=label_at(content,"다음 바퀴 · 추가 타일",Vector2(170,136),Vector2(680,43),24)
-	heading.add_theme_color_override("font_color",Color("392519"))
-	var guide=label_at(content,"칸을 눌러 추가할 종류를 고르세요 · 실제 타일 위치는 자동 배치됩니다.",Vector2(170,187),Vector2(710,30),14)
-	guide.add_theme_color_override("font_color",Color("67432b"))
-	var count_label=label_at(content,"추가 편성 %d / %d칸 · 남은 길 %d칸" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining],Vector2(170,228),Vector2(700,35),19)
-	count_label.add_theme_color_override("font_color",Color("392519"))
-	for i in range(RoutePlan.OPTIONAL_CAPACITY):
-		var kind: String=route_slot_kind(i)
-		var x: float=150.0+float(i)*121.0
-		var chosen: int=i
-		var tile_button=button(content,"%d" % (i+1),Vector2(x,307),Vector2(96,97),func(): choose_route_slot(chosen))
-		tile_button.name="SelectedPatrolSlot%d" % i
-		tile_button.disabled=used
-		tile_button.add_theme_font_size_override("font_size",13)
-		var box_style=StyleBoxFlat.new()
-		box_style.bg_color=Color("f1d9aa") if i==selected_route_slot else Color("d6c3a3")
-		box_style.border_color=Color("b37d38") if i==selected_route_slot else Color("8c7455")
-		box_style.set_border_width_all(3 if i==selected_route_slot else 1)
-		box_style.set_corner_radius_all(6)
-		tile_button.add_theme_stylebox_override("normal",box_style)
-		tile_button.add_theme_stylebox_override("disabled",box_style)
-		var tile=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(x+12,327),Vector2(72,61))
-		tile.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		tile.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tile.modulate=Color.WHITE if kind!="basic" else Color(0.75,0.74,0.72)
-		var caption=label_at(content,{"basic":"빈 길","monster":"마물","rest":"숙영","forest":"언덕"}.get(kind,kind),Vector2(x-2,410),Vector2(100,24),14)
-		caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		caption.add_theme_color_override("font_color",Color("49301e"))
-	var choice_heading=label_at(content,"%d번 칸 변경" % (selected_route_slot+1),Vector2(169,450),Vector2(250,31),19)
-	choice_heading.add_theme_color_override("font_color",Color("392519"))
-	var choices: Array=["basic","monster","rest"]
-	if hill_unlocked: choices.append("forest")
-	for i in range(choices.size()):
-		var kind: String=str(choices[i])
-		var x: float=145.0+float(i)*176.0
-		var caption: String=("숙영 해금" if kind=="rest" and not rest_unlocked else {"basic":"빈 길","monster":"일반 마물","rest":"숙영","forest":"언덕"}[kind])
-		var selected_kind: String=kind
-		var choice=button(content,caption,Vector2(x,493),Vector2(158,48),func():
-			if selected_kind=="rest" and not bool(plan.get("rest_unlocked",false)): unlock_rest()
-			else: set_route_slot_kind(selected_kind))
-		choice.name="PatrolChoice_"+kind
-		choice.disabled=used or (kind=="rest" and not rest_unlocked and not bool(session.rest_unlock_allowed().get("ok",false))) or (kind=="forest" and not hill_unlocked)
-		if kind=="rest" and rest_unlocked and session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
-			UnlockNoticeBadge.attach(choice,"NEW")
-		if kind=="forest" and session.event_flag_is_set(Discovery.home_flag("forest")):
-			UnlockNoticeBadge.attach(choice,"NEW")
-		var current: bool=route_slot_kind(selected_route_slot)==kind
-		var choice_style=StyleBoxFlat.new()
-		choice_style.bg_color=Color("d8b578") if current else Color("e4d2b6")
-		choice_style.border_color=Color("9d703e")
-		choice_style.set_border_width_all(2 if current else 1)
-		choice_style.set_corner_radius_all(5)
-		choice.add_theme_stylebox_override("normal",choice_style)
-		choice.add_theme_stylebox_override("disabled",choice_style)
-	var help=label_at(content,"숙영 전체 최대 3칸 · 언덕은 발견 후 선택 가능",Vector2(170,269),Vector2(650,25),13)
-	help.add_theme_color_override("font_color",Color("684b36"))
-	var sidebar_title=label_at(content,"고정 경로",Vector2(950,155),Vector2(240,37),21)
-	sidebar_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	sidebar_title.add_theme_color_override("font_color",Color("382416"))
-	for i in range(5):
-		var entries: Array=[
-			{"label":"일반 마물","value":"5칸 자동"},
-			{"label":"사건","value":"1칸 고정"},
-			{"label":"보호 길","value":"2칸 고정"},
-			{"label":"숙영","value":"%d / 3칸" % (int(plan.selection.get("rest",0))+(1 if bool(plan.get("rest_discovered",false)) else 0))},
-			{"label":"늪지대","value":"시작 0칸"}
-		]
-		var row: Dictionary=entries[i]
-		var first=label_at(content,str(row.label),Vector2(950,215+i*58),Vector2(230,23),14)
-		first.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		first.add_theme_color_override("font_color",Color("63442e"))
-		var value=label_at(content,str(row.value),Vector2(950,237+i*58),Vector2(230,28),17)
-		value.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		value.add_theme_color_override("font_color",Color("382719"))
-	var discovery_row: int=0
-	for kind in Discovery.ORDER:
-		if not session.event_flag_is_set(Discovery.unlock_flag(kind)): continue
-		var y: float=510.0+float(discovery_row)*30.0
-		var tile_preview=art(content,"res://assets/map/tiles/%s.png" % kind,Vector2(956,y),Vector2(39,29))
-		tile_preview.name="HomeUnlockedForestTile" if kind=="forest" else "HomeUnlockedTile_%s" % kind
-		tile_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var tile_text=label_at(content,"%s 타일 해금" % MapState.NAMES[kind],Vector2(1000,y+1),Vector2(195,27),15)
-		tile_text.name="HomeForestUnlockedLabel" if kind=="forest" else "HomeUnlockLabel_%s" % kind
-		tile_text.add_theme_color_override("font_color",Color("5c341f"))
-		if session.event_flag_is_set(Discovery.home_flag(kind)):
-			UnlockNoticeBadge.attach(tile_preview,"NEW")
-		discovery_row+=1
-	action_button.disabled=used
-	route_reset_button.disabled=used
-	status.text="이번 방문 편성 확정 · 다음 집 방문에서 다시 선택 가능" if used else "추가 %d/%d칸 선택 · %d칸 남음" % [total,RoutePlan.OPTIONAL_CAPACITY,remaining]
+	if is_instance_valid(route_editor): route_editor.refresh()
 
 func unlock_rest() -> void:
 	if type!="home" or bool(session.world.patrol_plan.get("rest_unlocked",false)): return
 	var result: Dictionary=session.unlock_rest_tile()
 	if not bool(result.get("ok",false)):
-		status.text=str(result.get("reason","해금에 실패했습니다."))
+		route_feedback=str(result.get("reason","해금에 실패했습니다."))
+		render_route()
 		return
 	# Keep any unconfirmed monster selections when the unlock is saved,
 	# then let the player choose up to 3 rest tiles normally.
@@ -465,20 +360,31 @@ func unlock_rest() -> void:
 		plan=RoutePlan.default_plan()
 	plan["rest_unlocked"]=true
 	plan["rest_discovered"]=bool(session.world.patrol_plan.get("rest_discovered",false))
-	# Preserve the current six-slot preview after the unlock.
+	# Preserve unconfirmed quantities after the permanent unlock.
+	route_feedback=str(result.reason)
 	render_route()
-	status.text=str(result.reason)
 
 func adjust_route_tile(kind: String, difference: int) -> void:
-	if type!="home" or session.place_visit_id("patrol",session.MapState.HOME) in session.world.reward_receipts: return
-	if not kind in RoutePlan.CHOICES: return
-	plan=RoutePlan.adjust(plan,kind,difference)
+	if type!="home" or session.patrol_edit_locked(): return
+	if not kind in RoutePlan.CHOICES or difference not in [-1,1]: return
+	if difference>0 and kind=="forest" and not Discovery.is_unlocked(session.world,"forest"): return
+	if difference>0 and kind=="rest" and not bool(plan.get("rest_unlocked",false)): return
+	var next: Dictionary=RoutePlan.adjust(plan,kind,difference)
+	var preview: Dictionary=session.world.patrol_preview(next)
+	if next==plan or (difference>0 and not bool(preview.valid)):
+		route_feedback=str(preview.reason) if not bool(preview.valid) else "수량 제한을 확인하세요."
+		render_route()
+		return
+	plan=next
+	route_feedback=""
+	initialize_route_slot_layout()
 	render_route()
 
 func confirm_route() -> void:
-	var result=session.confirm_patrol(plan)
-	status.text=result.reason
-	if result.ok:
+	var result: Dictionary=session.confirm_patrol(plan)
+	route_feedback=str(result.reason)
+	render_route()
+	if bool(result.ok):
 		map.queue_used_location_paper(session.MapState.HOME,"patrol")
 		if is_inside_tree(): closed.emit()
 

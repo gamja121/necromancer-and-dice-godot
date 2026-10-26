@@ -122,37 +122,90 @@ func mark_boss_defeated(stage: int) -> void:
 	if stage in [20,40,60,80]:
 		event_flags[BossStages.stage_flag(stage)]=true
 
+func _boss_available_at(level: int) -> bool:
+	if FinalDragonProgress.cleared(self): return false
+	var stage: int=BossStages.current_stage(level)
+	if stage==0 or BossStages.defeated(event_flags,stage): return false
+	if stage==BOSS_CONTAMINATION: return FinalBossStoryGate.ready(self)
+	return BossStages.valid(definitions,boss_assignments)
+
+## Shared pure count budget; earned places precede optional picks.
+func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dictionary:
+	var counts: Dictionary=COUNTS.duplicate()
+	var modern: bool=RoutePlan.is_new(plan)
+	if not modern:
+		var deltas: Dictionary=RoutePlan.deltas(plan)
+		for kind in deltas: counts[kind]=maxi(0,int(counts.get(kind,0))+int(deltas[kind]))
+		var occupied: int=0
+		for kind in counts:
+			if kind!="basic": occupied+=int(counts[kind])
+		counts.basic=maxi(0,21-occupied)
+	var cemeteries: int=1 if completed_laps>=1 else 0
+	counts.basic+=int(counts.graveyard)-cemeteries
+	counts.graveyard=cemeteries
+	var swamps: int=maxi(int(counts.swamp),required_swamp_count(level))
+	counts.basic-=swamps-int(counts.swamp)
+	counts.swamp=swamps
+	var reserved: int=maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-swamps)
+	var discoveries: int=0
+	for kind in Discovery.ORDER:
+		if event_flags.get(Discovery.unlock_flag(kind),false)==true: discoveries+=1
+	var requested_conversion: int=2 if level>=80 else (1 if level>=40 else 0)
+	if not modern:
+		# Reclaim legacy optional quantities only when earned places/automatic tiles need room.
+		var deficit: int=maxi(0,discoveries+reserved+requested_conversion-int(counts.basic))
+		for kind in ["monster","rest","forest"]:
+			var floor_count: int=RoutePlan.AUTO_MONSTERS if kind=="monster" else 0
+			var reclaimed: int=mini(deficit,maxi(0,int(counts[kind])-floor_count))
+			counts[kind]-=reclaimed
+			counts.basic+=reclaimed
+			deficit-=reclaimed
+	for kind in Discovery.ORDER:
+		if event_flags.get(Discovery.unlock_flag(kind),false)==true:
+			counts.basic-=1
+			counts[kind]+=1
+	var conversion: int=mini(requested_conversion,maxi(0,int(counts.basic)-reserved))
+	counts.basic-=conversion
+	counts.monster+=conversion
+	var capacity: int=mini(RoutePlan.OPTIONAL_CAPACITY,maxi(0,int(counts.basic)-reserved))
+	var selected: int=RoutePlan.total_selected(plan) if modern else 0
+	if modern:
+		# Keep unsafe stored intent, but never drop earned places from generated boards.
+		var room: int=capacity
+		for kind in RoutePlan.CHOICES:
+			var applied: int=mini(room,maxi(0,int(plan.selection.get(kind,0))))
+			counts.basic-=applied
+			counts[kind]+=applied
+			room-=applied
+	var has_boss: bool=_boss_available_at(level)
+	if has_boss: counts.monster-=1
+	var complete: Dictionary={}
+	for kind in NAMES: complete[kind]=int(counts.get(kind,0))
+	complete["fortune-teller-camp"]=1
+	complete.village=1
+	complete.home=1
+	complete.boss=1 if has_boss else 0
+	return {"pool":counts,"counts":complete,"capacity":capacity if modern else RoutePlan.OPTIONAL_CAPACITY,"selected":selected,"boss":has_boss}
+
+## Forecast the next actual HOME exit without RNG, save or serial changes.
+func patrol_preview(plan: Dictionary) -> Dictionary:
+	var level: int=mini(100,contamination+(LAP_CONTAMINATION_GAIN if lap_ready else 0))
+	var completed: int=laps+(1 if lap_ready else 0)
+	var structural: bool=RoutePlan.valid(plan)
+	var source: Dictionary=plan if structural else RoutePlan.default_plan()
+	var manifest: Dictionary=_patrol_manifest(source,level,completed)
+	var selected: int=int(manifest.selected)
+	var capacity: int=int(manifest.capacity)
+	var valid: bool=structural and selected<=capacity
+	var reason: String=""
+	if not structural: reason="순찰경로의 해금 상태와 수량 제한을 확인하세요."
+	elif selected>capacity: reason="발견한 장소와 고정 타일을 유지하려면 추가 타일을 %d칸 이하로 줄여주세요." % capacity
+	return {"capacity":capacity,"selected":selected,"remaining":capacity-selected,"contamination":level,"counts":manifest.counts,"valid":valid,"reason":reason}
+
 func generate() -> void:
 	map_serial += 1
-	var counts = COUNTS.duplicate()
-	var deltas = RoutePlan.deltas(patrol_plan)
-	for type in deltas: counts[type] += int(deltas[type])
-	# The cemetery is guaranteed to arrive ONLY on the newly shuffled map
-	# after the first completed lap (leave_home increments laps before generate).
-	# Normalize legacy patrol plans too; tombs never reappear on lap zero.
-	var unlocked_graveyards: int = 1 if laps>=1 else 0
-	counts.basic += int(counts.graveyard)-unlocked_graveyards
-	counts.graveyard = unlocked_graveyards
-	var requested_conversion = 2 if contamination>=80 else (1 if contamination>=40 else 0)
-	# Two roads belong to 15/30 swamp corruption; never use those slots for
-	# patrol monsters/rests or higher-contamination extra monster stones.
-	var conversion = mini(requested_conversion,maxi(0,int(counts.basic)-RoutePlan.RESERVED_SWAMP_ROADS))
-	counts.basic -= conversion
-	counts.monster += conversion
-	# Use only the two protected roads for the new automatically corrupted
-	# marsh tiles. Legacy route plans already contain two swamps; never add
-	# duplicates, and keep the total number of board slots unchanged.
-	var added_swamps: int = mini(maxi(0,required_swamp_count(contamination)-int(counts.swamp)),maxi(0,int(counts.basic)))
-	counts.basic -= added_swamps
-	counts.swamp += added_swamps
-	# Every genuinely discovered EXTRA place (including the hill)
-	# persists through HOME reshuffles without consuming reserved swamp roads.
-	# Optional places, including the hill, appear only after their discovery flags.
-	for kind in Discovery.ORDER:
-		if event_flags.get(Discovery.unlock_flag(kind),false)==true and int(counts.basic)>maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-int(counts.swamp)):
-			counts.basic -= 1
-			counts[kind] += 1
-	if boss_available(): counts.monster -= 1
+	var manifest: Dictionary=_patrol_manifest(patrol_plan,contamination,laps)
+	var counts: Dictionary=manifest.pool
 	var pool: Array = []
 	for key in counts:
 		for i in range(counts[key]): pool.append(key)
@@ -166,7 +219,7 @@ func generate() -> void:
 		if i==0: tiles.append("fortune-teller-camp")
 		elif i==8: tiles.append("village")
 		elif i==HOME: tiles.append("home")
-		elif i==BOSS_TILE_INDEX and boss_available(): tiles.append("boss")
+		elif i==BOSS_TILE_INDEX and bool(manifest.boss): tiles.append("boss")
 		else: tiles.append(pool.pop_back())
 	cleared = []
 	scout = {"scouted":false,"intel":[]}

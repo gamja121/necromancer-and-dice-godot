@@ -1214,12 +1214,19 @@ func unlock_rest_tile() -> Dictionary:
 		return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"숙영 해금 완료! 숙영은 최대 3칸까지 추가할 수 있습니다."}
 
+func patrol_edit_locked() -> bool:
+	if world==null: return true
+	var visit: String=place_visit_id("patrol",MapState.HOME)
+	return visit in world.reward_receipts and bool(world.patrol_preview(world.patrol_plan).valid)
+
 func confirm_patrol(plan: Dictionary) -> Dictionary:
 	var allowed = place_allowed(MapState.HOME,"home")
 	if not allowed.ok: return allowed
 	var visit = place_visit_id("patrol",MapState.HOME)
-	if visit in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 순찰경로는 확정했습니다."}
+	if patrol_edit_locked(): return {"ok":false,"reason":"이번 방문의 순찰경로는 확정했습니다."}
 	if not RoutePlan.valid(plan): return {"ok":false,"reason":"추가 6칸 제한과 타일별 해금·수량 제한을 확인하세요."}
+	var preview: Dictionary=world.patrol_preview(plan)
+	if not bool(preview.valid): return {"ok":false,"reason":str(preview.reason)}
 	# Being drawn in the route editor is not authority to unlock a tile.
 	# Never let a forged payload place hill stones before their real event.
 	if RoutePlan.is_new(plan) and int(plan.selection.get("forest",0))>0 and not Discovery.is_unlocked(world,"forest"):
@@ -1232,7 +1239,7 @@ func confirm_patrol(plan: Dictionary) -> Dictionary:
 	world.patrol_plan = plan.duplicate(true)
 	if RoutePlan.is_new(world.patrol_plan) and not world.patrol_plan.selection.has("forest"):
 		world.patrol_plan.selection["forest"]=0
-	world.reward_receipts.append(visit)
+	if not visit in world.reward_receipts: world.reward_receipts.append(visit)
 	# The unlock remains permanent; acknowledging its NEW home highlight is
 	# part of the same successful patrol-confirm transaction.
 	for kind in Discovery.ORDER:
@@ -1277,6 +1284,10 @@ func warp_from(index: int) -> Dictionary:
 
 func leave_home() -> bool:
 	if not place_allowed(MapState.HOME,"home").ok: return false
+	var preview: Dictionary=world.patrol_preview(world.patrol_plan)
+	if not bool(preview.valid):
+		notice=str(preview.reason)
+		return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.position = MapState.HOME
 	world.leave_home()

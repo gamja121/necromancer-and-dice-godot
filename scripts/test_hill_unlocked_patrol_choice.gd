@@ -22,13 +22,12 @@ func check(condition: bool, name: String) -> void:
 		printerr("FAIL hill-edit: ",name)
 
 func select_kind(route: Control, slot: int, kind: String) -> void:
-	var slot_button: Button = route.content.get_node_or_null("SelectedPatrolSlot%d" % slot)
-	check(slot_button!=null and not slot_button.disabled,"slot %d is selectable" % slot)
-	if slot_button==null or slot_button.disabled: return
-	slot_button.pressed.emit()
-	var choice: Button = route.content.get_node_or_null("PatrolChoice_"+kind)
-	check(choice!=null and not choice.disabled,kind+" choice is enabled")
-	if choice!=null and not choice.disabled: choice.pressed.emit()
+	var remove: bool=kind=="basic"
+	var selected_kind: String=("forest" if slot==0 else "monster") if remove else kind
+	var controls: Dictionary=route.route_minus_buttons if remove else route.route_plus_buttons
+	var control: Button=controls.get(selected_kind) as Button
+	check(control!=null and not control.disabled,selected_kind+" quantity control is enabled")
+	if control!=null and not control.disabled: control.pressed.emit()
 
 func _run() -> void:
 	var session = root.get_node_or_null("RunSession")
@@ -54,7 +53,7 @@ func _run() -> void:
 	var before = RouteUI.new()
 	map.stage.add_child(before)
 	before.setup(map,State.HOME)
-	check(before.content.get_node_or_null("PatrolChoice_forest")==null,"hill picker hidden before real unlock")
+	check(before.route_plus_buttons.has("forest") and before.route_plus_buttons.forest.disabled,"hill station cannot add an unearned place")
 	before.queue_free()
 	await process_frame
 
@@ -72,22 +71,22 @@ func _run() -> void:
 	var route=RouteUI.new()
 	map.stage.add_child(route)
 	route.setup(map,State.HOME)
-	var forest_choice: Button=route.content.get_node_or_null("PatrolChoice_forest")
+	var forest_choice: Button=route.route_plus_buttons.get("forest") as Button
 	check(forest_choice!=null and not forest_choice.disabled,"forest choice becomes selectable after discovery")
-	check(forest_choice!=null and forest_choice.get_node_or_null("UnlockNewBadge")!=null,"new forest choice shows its unread marker")
+	check(forest_choice!=null and route.route_editor.station_badges.forest.visible,"new forest choice shows its unread marker")
 	check(route.find_child("HomeUnlockedForestTile",true,false)!=null,"existing unlocked tile announcement remains")
 	select_kind(route,0,"forest")
 	check(int(route.plan.selection.forest)==1 and Plan.available(route.plan)==5,"one forest selection uses one optional slot")
-	check(route.route_slot_kind(0)=="forest","selected slot records the forest choice")
-	var forest_art: bool=route.content.get_children().any(func(node):
-		return node is TextureRect and node.position.is_equal_approx(Vector2(162,327)) and node.texture!=null and node.texture.resource_path.ends_with("forest.png"))
+	check(str(route.route_count_labels.forest.text).contains("1"),"hill count updates beside real controls")
+	var forest_art: bool=route.find_children("*","TextureRect",true,false).any(func(node):
+		return node.texture!=null and node.texture.resource_path.ends_with("forest.png"))
 	check(forest_art,"selected slot uses real hill art")
 	select_kind(route,0,"basic")
 	check(int(route.plan.selection.forest)==0 and Plan.available(route.plan)==6,"choosing empty road removes the optional hill")
 	select_kind(route,0,"forest")
 	# Six fixed selection slots share the same monster/rest/hill capacity.
 	for i in range(1,6): select_kind(route,i,"monster")
-	check(Plan.available(route.plan)==0 and Plan.total_selected(route.plan)==6 and route.content.get_node_or_null("SelectedPatrolSlot6")==null,"six optional choices cannot exceed capacity")
+	check(Plan.available(route.plan)==0 and Plan.total_selected(route.plan)==6 and route.route_plus_buttons.monster.disabled,"six optional choices cannot exceed capacity")
 	select_kind(route,5,"basic")
 	check(Plan.available(route.plan)==1,"removing a monster frees one choice")
 	var saved_plan: Dictionary=route.plan.duplicate(true)

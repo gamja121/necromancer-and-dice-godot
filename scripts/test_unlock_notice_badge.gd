@@ -45,10 +45,10 @@ func _run() -> void:
 	var panel := ExplorationActions.new()
 	root.add_child(panel)
 	panel.setup(map,MapState.HOME)
-	var rest_choice: Button = panel.find_child("PatrolChoice_rest",true,false) as Button
-	check(rest_choice != null and rest_choice.get_node_or_null("UnlockNewBadge") != null, "home patrol rest choice shows NEW after legitimate unlock")
+	var rest_choice: Button = panel.route_plus_buttons.get("rest") as Button
+	check(rest_choice != null and panel.route_editor.station_badges.rest.visible, "home patrol rest choice shows NEW after legitimate unlock")
 	if rest_choice != null:
-		var rest_badge: Control = rest_choice.get_node_or_null("UnlockNewBadge") as Control
+		var rest_badge: Control = panel.route_editor.station_badges.rest as Control
 		check(not rest_choice.disabled and rest_badge != null and rest_badge.mouse_filter == Control.MOUSE_FILTER_IGNORE, "unlocked rest choice is interactive and NEW badge does not intercept clicks")
 	panel.queue_free()
 	await process_frame

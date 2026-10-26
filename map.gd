@@ -1779,8 +1779,9 @@ func show_home(interior: bool = false) -> void:
 			close_overlay()
 			show_exploration_actions(MapState.HOME))
 		patrol.name="LocationAction_patrol"
-		patrol.disabled = session.place_visit_id("patrol",MapState.HOME) in world.reward_receipts
-		apply_pending_location_paper(panel,patrol,MapState.HOME,"patrol")
+		patrol.disabled = session.patrol_edit_locked()
+		# An unsafe older plan may be repaired even when this visit already has a receipt.
+		if session.patrol_edit_locked(): apply_pending_location_paper(panel,patrol,MapState.HOME,"patrol")
 		if session.event_flag_is_set("ui:unlock:graveyard:home_pending") or Discovery.ORDER.any(func(kind): return session.event_flag_is_set(Discovery.home_flag(kind))):
 			UnlockNoticeBadge.attach(patrol,"NEW")
 		if not allowed.ok:
