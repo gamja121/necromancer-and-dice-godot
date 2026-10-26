@@ -94,9 +94,7 @@ const HERO_TOKEN_SIZE = Vector2(94.0,120.0)
 const HERO_BASE_ABOVE_TILE_CENTER = 33.6
 const HERO_BASE_INSET = 5.0
 const HERO_LEGACY_ART = "res://assets/map/hero/necromancer-hero.png"
-const HERO_FRONT_ART = "res://assets/map/hero/necromancer-hero-front.png"
-const HERO_SIDE_ART = "res://assets/map/hero/necromancer-hero-side.png"
-const HERO_BACK_ART = "res://assets/map/hero/necromancer-hero-back.png"
+const HERO_OPTIONAL_ART_PREFIX = "assets/map/hero/necromancer-hero-"
 const EVENT_IMAGES = {"home":"home","village":"village","graveyard":"graveyard","altar":"altar","unknown":"world-tree","forest":"forest","rest":"camp","fortune-teller-camp":"fortune-teller"}
 var session
 var dice_animation = DiceAnimation.new()
@@ -704,11 +702,9 @@ func render() -> void:
 func set_hero_pose(pose: Dictionary) -> void:
 	if not is_instance_valid(hero): return
 	var facing: String = str(pose.get("pose","front"))
-	var intended: String = HERO_FRONT_ART
-	match facing:
-		"side": intended = HERO_SIDE_ART
-		"back": intended = HERO_BACK_ART
-		_: intended = HERO_FRONT_ART
+	# Generate an optional direction-specific path at runtime.
+	# Guard scripts must not treat absent optional art as missing required resources.
+	var intended: String = "res://" + HERO_OPTIONAL_ART_PREFIX + facing + ".png"
 	var selected: String = intended if ResourceLoader.exists(intended) else HERO_LEGACY_ART
 	if selected != hero_art_path:
 		hero.texture = texture(selected)
