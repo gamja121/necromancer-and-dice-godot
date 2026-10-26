@@ -111,12 +111,22 @@ func run() -> void:
 			stage.play_motion(motion)
 			stage.advance(PRESENTATION.duration(motion) * 0.5)
 	check(stage.snapshot().cache_high_water <= PRESENTATION.CACHE_LIMIT and stage.snapshot().resident_upper_bytes <= 32 * 1024 * 1024, "repeated clips stay below 32 MiB frame residency bound")
+	# Clip-clock advancement does not advance audio wall time. Let the
+	# final 2.3-second death cue finish before tearing down this fixture.
+	var audio: Node=root.get_node_or_null("GameAudio")
+	var audio_deadline: int=Time.get_ticks_msec()+3500
+	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<audio_deadline:
+		await process_frame
+	check(audio==null or audio.voices.is_empty(), "queued audio finishes before fixture teardown")
 	stage.stop()
 	check(stage.snapshot().cached_frames == 0 and stage.dragon.texture == null and not stage.is_processing(), "stop releases all dragon frames and stops clock")
 	var after_save := FileAccess.get_file_as_bytes(save_path) if not save_path.is_empty() and FileAccess.file_exists(save_path) else PackedByteArray()
 	check(before_save == after_save, "presentation leaves personal save bytes unchanged")
 	stage.queue_free()
 	await process_frame
+	# Release the isolated service before exit-time resource checks run.
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
 	print("FINAL_DRAGON_ASSETS: %d frames, %.1f MiB decoded in total, bounded runtime cache" % [28, bytes / 1048576.0])
 	print("FINAL_DRAGON_TESTS: %d passed, %d failed" % [passed, failed])
 	quit(0 if failed == 0 else 1)

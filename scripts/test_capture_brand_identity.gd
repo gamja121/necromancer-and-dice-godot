@@ -30,19 +30,63 @@ func normalized_brands(data: Dictionary) -> Array:
 		result.append(brand)
 	return result
 
-## UI-visible rows, not just the underlying brand dictionaries.
-## A mismatch in UnitInfo formatting must fail even if a save test passes.
+## Independent expected identity after the approved same-type display grouping.
+## Preserve repeated faces as repeated values; an omitted ×N must still fail.
+func expected_face_rows(unit: Dictionary) -> Array:
+	var grouped: Dictionary={}
+	for brand in normalized_brands(unit):
+		var kind: String=str(brand.get("type",""))
+		if not grouped.has(kind): grouped[kind]={"bless":[],"curse":[]}
+		for polarity in ["bless","curse"]:
+			grouped[kind][polarity].append_array(brand.get(polarity,[]))
+	var result: Array=[]
+	for polarity in ["bless","curse"]:
+		for kind in grouped:
+			var faces: Array=grouped[kind][polarity].duplicate()
+			faces.sort()
+			if polarity=="curse" and faces.is_empty(): continue
+			result.append({"type":str(kind),"polarity":polarity,"faces":faces})
+	return result
+
+## Decode actual visible numeric columns, including the approved ×N notation.
+## Invalid/missing labels use an impossible face so exact identity checks fail.
+func visible_faces(label: Label) -> Array:
+	if label==null or not label.is_visible_in_tree() or label.size.x<=0.0 or label.size.y<=0.0:
+		return [-1]
+	var result: Array=[]
+	if label.text.is_empty(): return result
+	for token in label.text.split(","):
+		var parts: PackedStringArray=token.strip_edges().split("×")
+		if parts.size()<1 or parts.size()>2 or not parts[0].is_valid_int(): return [-1]
+		var face: int=int(parts[0])
+		if face<1 or face>6: return [-1]
+		var count: int=1
+		if parts.size()==2:
+			if not parts[1].is_valid_int(): return [-1]
+			count=int(parts[1])
+		if count<1 or count>128: return [-1]
+		for i in range(count): result.append(face)
+	result.sort()
+	return result
+
+## Read real grouped row widgets recursively, not removed flat-label wording.
+## A mismatch in displayed faces must fail even when save dictionaries match.
 func rendered_face_rows(unit: Dictionary, battle) -> Array:
 	var view=UnitInfo.new()
 	root.add_child(view)
 	view.setup(unit,battle)
+	for i in range(4): await process_frame
 	var rows: Array=[]
-	for child in view.effects.get_children():
-		if child is Label:
-			var line: String=str(child.text)
-			if line.begins_with("축복 [") or line.begins_with("저주 ["):
-				rows.append(line)
+	var pending: Array=view.effects.get_children()
+	while not pending.is_empty():
+		var child: Node=pending.pop_front()
+		pending.append_array(child.get_children())
+		var key: String=str(child.name)
+		if not child is HBoxContainer or not (key.begins_with("Brand_") or key.begins_with("Curse_")): continue
+		var face_label: Label=child.get_node_or_null("RowFaces") as Label
+		rows.append({"type":key.substr(6),"polarity":"bless" if key.begins_with("Brand_") else "curse","faces":visible_faces(face_label)})
 	view.queue_free()
+	await process_frame
 	return rows
 
 func clear_save() -> void:
@@ -99,9 +143,11 @@ func _run() -> void:
 	var battle=Battle.new(world.definitions,7)
 	battle.start(session.encounter.allies,session.encounter.enemies)
 	check(normalized_brands(battle.find_id(str(origin.id)))==normalized_brands(origin),"battle uses original enemy's exact dice faces")
-	var battle_face_rows: Array=rendered_face_rows(battle.find_id(str(origin.id)),battle)
+	var battle_face_rows: Array=await rendered_face_rows(battle.find_id(str(origin.id)),battle)
+	var expected_rows: Array=expected_face_rows(origin)
 	check(not battle_face_rows.is_empty(),"enemy information screen actually displays brand dice faces")
-	check(battle_face_rows.size()==normalized_brands(origin).size()*2,"enemy information screen lists all blessing and curse rows")
+	check(battle_face_rows.size()==expected_rows.size(),"enemy information screen lists every grouped blessing and nonempty curse row")
+	check(battle_face_rows==expected_rows,"enemy information screen preserves every brand type, face and duplicate-face stack")
 	for enemy in battle.units:
 		if enemy.team=="enemy":
 			enemy.hp=0
@@ -189,7 +235,7 @@ func _run() -> void:
 	var recruited_battle=Battle.new(world.definitions,27)
 	var foe=Battle.new(world.definitions,29).individual("skeleton-archer","display-test-foe")
 	recruited_battle.start([recruited],[foe])
-	var owned_face_rows: Array=rendered_face_rows(recruited_battle.find_id(str(recruited.id)),recruited_battle)
+	var owned_face_rows: Array=await rendered_face_rows(recruited_battle.find_id(str(recruited.id)),recruited_battle)
 	check(owned_face_rows==battle_face_rows,"actual enemy and captured owned-unit info screens show identical brand types and dice face rows")
 	var receipt_count: int=world.reward_receipts.size()
 	session.reload_world()
