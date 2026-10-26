@@ -1,5 +1,12 @@
 # Necromancer and Dice
 
+## Scenario collaboration rule — 2026-10-27 (user-confirmed)
+
+- **Read [docs/SCENARIO_MASTER.md](docs/SCENARIO_MASTER.md) BEFORE any story, NPC, demo, ending, time-loop, boss-identity or event-branch authoring.** It contains **public-repository developer spoilers**; do not paste the reveal into the Steam demo, in-game text, store marketing, or automatically generated public previews.
+- The game's narrative goal is **TRPG-style conditional branches, changing consequences and NO single mandatory ending**. The current story chain and hardcoded final clear are implementation snapshots, not a requirement to force every route to the same outcome.
+- Current narrative truths include **final dragon = the monster king's original body; the protagonist carries the king's sealed soul and AWAKENS as the original self (not possession)**. The cultists **do not recognize the spirit-like protagonist as the king**. Under one principal future route, some cultists rewind time through a wormhole after the boss, the protagonist selects one monster to retain, the old events stop repeating, and the world develops different branches. World destruction and human opposition are possible main-story developments, **not a guaranteed ending**.
+- Separate **implemented behavior, confirmed current design, proposals, and open questions**. Do not implement or disclose spoilers, change saves, or claim finished branching based on this documentation update. The newest explicit user decisions supersede older linear-story assumptions elsewhere in this file.
+
 - Godot 4.7.2 Standard, GDScript, Compatibility renderer. Windows Native / PowerShell.
 - This is the single active Godot project. D:\Workspace\Games\necromancer-and-dice is reference/archive storage, not a second active checkout.
 - Before changes, inspect git status and preserve unrelated user changes. Use a feature branch for substantial changes.
