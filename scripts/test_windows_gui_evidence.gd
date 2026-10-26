@@ -189,7 +189,7 @@ func _run() -> void:
 		map.show_graveyard_child_beat(grave_index, 0)
 		check(visible_button(map.overlay, "계속"), "graveyard first scene: Continue button visible")
 		await capture_settled_art(map,
-			"res://assets/map/events/graveyard-child-base-v3.webp",
+			preload("res://systems/graveyard_story_beats.gd").BASE_ART,
 			"graveyard child scene", "12_graveyard_child_story_native_windows.png")
 		map.show_graveyard_child_beat(grave_index, 3)
 		check(visible_button(map.overlay, "아이를 구한다")

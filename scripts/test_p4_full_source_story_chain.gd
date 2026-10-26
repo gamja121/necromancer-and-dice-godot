@@ -455,5 +455,11 @@ func _run() -> void:
 	if created: session.queue_free()
 	for path in paths: clear_save(path)
 	check(paths.all(func(path): return not FileAccess.file_exists(path)),"all PID-isolated full-chain save files removed; normal player save not touched")
+	# The SceneTree is about to terminate; drain the optional book/UI audio
+	# players after their owners have closed instead of leaving queued audio
+	# destruction to the engine's exit-time resource cleanup.
+	var audio: Node=root.get_node_or_null("GameAudio")
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
 	print("P4_FULL_SOURCE_STORY_CHAIN: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

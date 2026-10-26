@@ -196,6 +196,25 @@ func actual_graveyard_rescue(session: Node) -> bool:
 func incidental_overlay(session: Node, map: Control, label: String) -> bool:
 	var world=session.world
 	if not is_instance_valid(map.overlay): return true
+	# A routine is a saved player choice, so closing its outer modal cannot
+	# consume the visit: reload correctly reopens it. Use the real decline
+	# control to finish this incidental event without collecting a reward.
+	if world.pending_reward.get("kind","")=="routine":
+		var decline: Button=map.overlay.find_child("RoutineDecline",true,false) as Button
+		check(decline!=null and not decline.disabled,"incident "+label+": saved routine offers its original decline choice")
+		if decline==null or decline.disabled: return false
+		var rng_before: int=world.rng.state
+		decline.pressed.emit()
+		var resolved: bool=await until_ready(func(): return world.pending_reward.is_empty() and not is_instance_valid(map.overlay),10000)
+		check(resolved,"incident "+label+": real routine decline consumes the saved visit before restart")
+		check(world.rng.state==rng_before,"incident "+label+": declining the existing routine never rerolls the event")
+		return resolved
+	# Location discovery is now an automatic tile reveal, not a dismissible
+	# parchment card. Let its actual presentation finish before another roll.
+	if map.get_node_or_null("TileRewardReveal")!=null:
+		var revealed: bool=await until_ready(func(): return map.get_node_or_null("TileRewardReveal")==null and not is_instance_valid(map.overlay),10000)
+		check(revealed and world.pending_reward.is_empty(),"incident "+label+": real discovered tile finishes its automatic reveal")
+		return revealed
 	# The game also allows closing an unconfirmed normal-encounter deck
 	# without having chosen owned units: no battle result is granted.
 	if is_deck(map):
@@ -338,5 +357,8 @@ func _run() -> void:
 	if created: session.queue_free()
 	clear_path()
 	check(not FileAccess.file_exists(path),"disposable natural-run save removed; normal player save untouched")
+	# Finish this isolated process only after queued UI audio has been freed.
+	root.get_node("GameAudio").queue_free()
+	await create_timer(0.10).timeout
 	print("P4_NATURAL_STORY_ARRIVAL: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

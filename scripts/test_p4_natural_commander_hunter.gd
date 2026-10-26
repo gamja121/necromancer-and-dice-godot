@@ -158,5 +158,8 @@ func _run() -> void:
 		session.queue_free()
 	clear_path()
 	check(not FileAccess.file_exists(path), "only isolated natural-story save deleted; player save remains untouched")
+	# Finish this isolated process only after queued UI audio has been freed.
+	root.get_node("GameAudio").queue_free()
+	await create_timer(0.10).timeout
 	print("P4_NATURAL_COMMANDER_HUNTER: %d passed, %d failed" % [passed, failed])
 	quit(0 if failed == 0 else 1)

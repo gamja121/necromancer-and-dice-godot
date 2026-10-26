@@ -64,7 +64,22 @@ func check_species(scene, unit: Dictionary) -> void:
 	check(is_instance_valid(scene.detail), slug + ": card information UI opens")
 	if is_instance_valid(scene.detail):
 		check(scene.detail.unit_id == id and scene.detail.portrait.texture != null and scene.detail.portrait.texture.resource_path == portrait_path, slug + ": correct portrait appears in actual information UI")
-		check(scene.detail.effects.get_child_count() >= 3, slug + ": legion/passive/brand information is constructed")
+		# The approved effects panel omits inactive sections. Summoned species
+		# without brands/passives may correctly show only the explicit empty state.
+		var effect_rows: Array=scene.detail.effects.get_children()
+		var has_effects: bool=effect_rows.any(func(row): return str(row.name).begins_with("Brand_") or str(row.name).begins_with("Passive_") or str(row.name) in ["ActiveLegionEffects","ProphecyEffects","StatsChanged","BloomInfo"])
+		var empty_state: bool=scene.detail.effects.get_node_or_null("EffectSection_효과없음")!=null
+		# An empty fallback is valid only when the inspected combatant has no
+		# known displayed effects. Query actual activation, since an opposing
+		# element legion can suppress a nominally enabled allied legion.
+		var active_legion: bool=false
+		for legion in scene.rules.legions[str(unit.team)].active:
+			if scene.rules.active(str(unit.team),str(legion)):
+				active_legion=true
+				break
+		var changed_stats: bool=unit.base_hp!=unit.max_hp or unit.base_attack!=unit.attack or unit.base_speed!=unit.speed
+		var known_effects: bool=not unit.brands.is_empty() or not str(unit.passive).is_empty() or active_legion or changed_stats
+		check(has_effects!=empty_state and (not empty_state or not known_effects), slug + ": information shows active effects or a valid no-effects state for its actual unit data")
 		scene.close_detail()
 
 func check_motion_frame(scene, unit: Dictionary, motion: String) -> void:
