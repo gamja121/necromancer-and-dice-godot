@@ -121,7 +121,7 @@ const DEFINITIONS = {
 					"title":"아이 구조 성공",
 					"narration":"구울이 쓰러지자 아이는 당신을 바라본다. 그러나 안도하기보다 겁에 질린 표정으로 뒷걸음치더니, 묘비 사이로 달아나 버린다.",
 					"dialogue":"아이: ……!",
-					"background":"res://assets/map/events/graveyard-child-base-v3.webp",
+					"background":"res://assets/map/events/graveyard_manuscript_base.webp",
 					"overlay":"",
 					"retry":false
 				}
@@ -137,8 +137,8 @@ const DEFINITIONS = {
 					"title":"아이 구조 실패",
 					"narration":"구울을 막지 못했습니다. 아이를 구하지 못했으며, 아직 구조를 완료한 것은 아닙니다.",
 					"dialogue":"남은 마물로 다시 도전할 수 있습니다.",
-					"background":"res://assets/map/events/graveyard-child-base-v3.webp",
-					"overlay":"res://assets/map/events/graveyard-child-ghoul-event-v3.webp",
+					"background":"res://assets/map/events/graveyard_manuscript_base.webp",
+					"overlay":"res://assets/map/events/graveyard_manuscript_ghoul.webp",
 					"retry":true
 				}
 			}

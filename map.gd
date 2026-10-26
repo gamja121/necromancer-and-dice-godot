@@ -2568,6 +2568,39 @@ func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
 	show_graveyard_child_beat(index,3 if state.status == "active" and state.choice == "protect_child" else maxi(0,StoryEventEntry.current_beat(session)))
 
+# Keep graveyard art in independent painterly layers. The frightened child
+# follows the opening background's board-drop; the ghoul animates separately.
+# The original story-book, save/choice callbacks and source images stay intact.
+func _add_graveyard_child(artwork: TextureRect) -> void:
+	var child := TextureRect.new()
+	child.name = "GraveyardChildSprite"
+	child.texture = texture(GraveyardStoryBeats.CHILD_ART)
+	child.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	child.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	child.position = StoryBook.ART_RECT.size * Vector2(0.095,0.247)
+	child.size = StoryBook.ART_RECT.size * Vector2(0.31,0.748)
+	child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	artwork.add_child(child)
+
+func _add_graveyard_ghoul(panel: Control, entering: bool) -> void:
+	# Preserve the approved Stage 5T entrance and idle motion footprint.
+	var ghoul_frame := TextureRect.new()
+	ghoul_frame.name = "StoryCharacterLayer"
+	var ghoul_bounds := Rect2(StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position,StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size)
+	ghoul_frame.position = ghoul_bounds.position
+	ghoul_frame.size = ghoul_bounds.size
+	ghoul_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.art.add_child(ghoul_frame)
+	var ghoul_art = image(ghoul_frame,GraveyardStoryBeats.GHOUL_ART,Vector2.ZERO,ghoul_frame.size)
+	ghoul_art.name = "GhoulSprite"
+	GraveyardGhoulMotion.play(ghoul_art,entering)
+
+func _add_graveyard_frame(panel: Control) -> void:
+	# Always draw after the moving characters; the decorative center stays clear.
+	var frame = image(panel,GraveyardStoryBeats.FRAME_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	frame.name = "GraveyardManuscriptFrame"
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	if index != world.position or session.get_story_event(StoryEventEntry.EVENT_ID).status == "complete": return
 	var beat: Dictionary = GraveyardStoryBeats.beat(beat_index)
@@ -2575,22 +2608,13 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 	var panel=story_modal()
 	var artwork = image(panel,GraveyardStoryBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	artwork.name="StorySceneImage"
+	_add_graveyard_child(artwork)
 	if beat_index == 0:
 		InkSceneReveal.play(artwork)
 		GraveyardStoryEntryMotion.play_board_drop(artwork)
 	if beat.ghoul:
-		# The stationary direct-child frame receives the common modal entrance.
-		# Animate only its nested image to avoid competing position tweens.
-		var ghoul_frame = TextureRect.new()
-		ghoul_frame.name = "StoryCharacterLayer"
-		var ghoul_bounds := Rect2(StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.position,StoryBook.ART_RECT.size * GRAVEYARD_GHOUL_FRACTIONS.size)
-		ghoul_frame.position = ghoul_bounds.position
-		ghoul_frame.size = ghoul_bounds.size
-		ghoul_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.art.add_child(ghoul_frame)
-		var ghoul_art = image(ghoul_frame,GraveyardStoryBeats.GHOUL_ART,Vector2.ZERO,ghoul_frame.size)
-		ghoul_art.name = "GhoulSprite"
-		GraveyardGhoulMotion.play(ghoul_art,beat_index == 1)
+		_add_graveyard_ghoul(panel,beat_index == 1)
+	_add_graveyard_frame(panel)
 	var heading = label_at(panel,"습격받는 아이",Vector2(352,84),Vector2(575,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
@@ -2682,9 +2706,17 @@ func show_story_battle_result(event_id: String) -> void:
 	world = session.world
 	var panel=story_modal()
 	var art = image(panel,str(view.background),Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var is_graveyard: bool = event_id == StoryEventEntry.EVENT_ID
+	if is_graveyard:
+		_add_graveyard_child(art)
 	InkSceneReveal.play(art)
 	if not str(view.overlay).is_empty():
-		image(panel,str(view.overlay),Vector2(243.2,136.8),Vector2(793.6,446.4))
+		if is_graveyard:
+			_add_graveyard_ghoul(panel,false)
+		else:
+			image(panel,str(view.overlay),Vector2(243.2,136.8),Vector2(793.6,446.4))
+	if is_graveyard:
+		_add_graveyard_frame(panel)
 	shared_story_frame(panel)
 	var heading = label_at(panel,str(view.title),Vector2(360,84),Vector2(568,42),24)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

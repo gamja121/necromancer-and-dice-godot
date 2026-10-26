@@ -2,8 +2,10 @@ extends RefCounted
 ## P1-03B: four canonical beats from the frozen HTML reference.
 ## The artwork for the ghoul is layered on top of the base scene.
 
-const BASE_ART = "res://assets/map/events/graveyard-child-base-v3.webp"
-const GHOUL_ART = "res://assets/map/events/graveyard-child-ghoul-event-v3.webp"
+const BASE_ART = "res://assets/map/events/graveyard_manuscript_base.webp"
+const CHILD_ART = "res://assets/map/events/graveyard_manuscript_child.webp"
+const GHOUL_ART = "res://assets/map/events/graveyard_manuscript_ghoul.webp"
+const FRAME_ART = "res://assets/map/events/graveyard_manuscript_frame.webp"
 const BEATS = [
 	{"id":"discovery","effect":"공동묘지 안쪽에서 길을 잃은 듯한 아이를 발견했다.","dialogue":"","ghoul":false,"choice":false},
 	{"id":"threat","effect":"아이는 자꾸 뒤를 돌아본다. 묘비 사이에서 마른 돌 긁는 소리가 들린다.","dialogue":"","ghoul":true,"choice":false},

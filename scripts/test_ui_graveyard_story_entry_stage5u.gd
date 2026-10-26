@@ -84,7 +84,12 @@ func _run() -> void:
 		var expected: Vector2=Vector2.ZERO
 		var dimensions: Vector2=Vector2(360,202.5)
 		var entry_position: Vector2=expected + dimensions*Vector2(-0.048,-0.19)
-		check(art.texture != null and art.texture.resource_path==BEATS.BASE_ART,"user original child WebP remains unmodified")
+		check(art.texture != null and art.texture.resource_path==BEATS.BASE_ART,"approved 16:9 manuscript graveyard background displayed")
+		var child: TextureRect=art.get_node_or_null("GraveyardChildSprite") as TextureRect
+		var border: TextureRect=map.overlay.find_child("GraveyardManuscriptFrame",true,false) as TextureRect
+		check(child!=null and child.texture!=null and child.texture.resource_path==BEATS.CHILD_ART,"approved transparent child follows original story-board entrance")
+		check(border!=null and border.texture!=null and border.texture.resource_path==BEATS.FRAME_ART and border.get_parent()==map.overlay.art,"uncropped golden-blue 16:9 manuscript frame overlays the scene")
+		check(child!=null and child.mouse_filter==Control.MOUSE_FILTER_IGNORE and border!=null and border.mouse_filter==Control.MOUSE_FILTER_IGNORE,"painted layers do not intercept story choices")
 		check(art.get_meta("ui_custom_open_motion",false),"board image opts out of conflicting generic 6px entrance")
 		check(art.position.distance_to(entry_position)<0.1,"CSS initial -4.8% / -19% position is applied")
 		check(near_number(art.rotation_degrees,-7,0.01) and near_number(art.scale.x,0.94,0.01),"board art initially tilted -7 degrees and scaled to 94%")
