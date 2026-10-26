@@ -289,11 +289,10 @@ func test_world_tree_discovery_dispatch() -> void:
 	for _frame in range(3): await process_frame
 	check(s.world.tiles.has("unknown") and s.event_flag_is_set("event:discovery:unknown:unlocked"),"actual generic-event dispatch can discover and place the world tree before the hunter")
 	check(s.get_story_event(Hunter.EVENT_ID).status=="unseen","world-tree discovery does not consume the hunter story on the same dispatch")
-	# The approved tile-only reward replaced discovery cards on October 25.
-	# Verify the actual world-tree tile presentation before the hunter book.
-	var tile_reveal:Control=map.find_child("TileRewardReveal",true,false) as Control
-	var reward_tile:TextureRect=tile_reveal.find_child("RewardTile",true,false) as TextureRect if tile_reveal!=null else null
-	check(is_instance_valid(map.overlay) and tile_reveal!=null and tile_reveal.visible and reward_tile!=null and reward_tile.texture==map.texture("res://assets/map/tiles/unknown.png") and map.overlay.find_child("EventDiscoveryCard",true,false)==null,"the player sees the actual world-tree tile reward before the hunter story")
+	# The ordinary discovery card explains the world tree before the hunter book.
+	var discovery_card:Control=map.find_child("EventDiscoveryCard",true,false) as Control
+	var reward_tile:TextureRect=discovery_card.get_node_or_null("EventDiscoveryTile") as TextureRect if discovery_card!=null else null
+	check(is_instance_valid(map.overlay) and discovery_card!=null and discovery_card.visible and reward_tile!=null and reward_tile.texture==map.texture("res://assets/map/tiles/unknown.png") and discovery_card.get_node("EventDiscoveryTitle").text=="세계수 발견","the player sees the actual world-tree discovery card before the hunter story")
 	check(s.world.rng.state==expected_rng,"world-tree-first order preserves the existing single 60/40 draw")
 	map.close_overlay()
 	map.render()

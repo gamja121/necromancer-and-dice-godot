@@ -209,11 +209,13 @@ func incidental_overlay(session: Node, map: Control, label: String) -> bool:
 		check(resolved,"incident "+label+": real routine decline consumes the saved visit before restart")
 		check(world.rng.state==rng_before,"incident "+label+": declining the existing routine never rerolls the event")
 		return resolved
-	# Location discovery is now an automatic tile reveal, not a dismissible
-	# parchment card. Let its actual presentation finish before another roll.
-	if map.get_node_or_null("TileRewardReveal")!=null:
-		var revealed: bool=await until_ready(func(): return map.get_node_or_null("TileRewardReveal")==null and not is_instance_valid(map.overlay),10000)
-		check(revealed and world.pending_reward.is_empty(),"incident "+label+": real discovered tile finishes its automatic reveal")
+	# Dismiss the actual ordinary discovery card before the next natural roll.
+	var discovery_card:Control=map.find_child("EventDiscoveryCard",true,false) as Control
+	if discovery_card!=null:
+		var rng_before: int=world.rng.state
+		discovery_card.dismiss()
+		var revealed: bool=await until_ready(func(): return not is_instance_valid(map.overlay),2000)
+		check(revealed and world.pending_reward.is_empty() and world.rng.state==rng_before,"incident "+label+": discovery dismissal does not change saved reward or RNG")
 		return revealed
 	# The game also allows closing an unconfirmed normal-encounter deck
 	# without having chosen owned units: no battle result is granted.

@@ -74,7 +74,7 @@ func _run() -> void:
 	var receipt := "event:discovery:forest:card_shown"
 	map.show_tile(event_index)
 	check(not session.event_flag_is_set(receipt), "preview never creates a discovery receipt")
-	check(not (map.get_node_or_null("TileRewardReveal") != null), "preview never opens discovery card")
+	check(not (map.find_child("EventDiscoveryCard",true,false) != null), "preview never opens discovery card")
 	if is_instance_valid(map.overlay):
 		map.close_overlay()
 	var before: Dictionary = world.snapshot().duplicate(true)
@@ -91,12 +91,14 @@ func _run() -> void:
 	for i in range(24):
 		if before.tiles[i]=="basic" and world.tiles[i]=="forest": new_hill_index=i
 	check(new_hill_index>=0 and new_hill_index!=event_index and new_hill_index!=23, "forest conversion picks protected safe empty cell")
-	var reveal: Control=map.get_node_or_null("TileRewardReveal")
-	check(reveal!=null,"first genuine arrival shows the actual discovery tile")
+	var reveal: Control=map.find_child("EventDiscoveryCard",true,false)
+	check(reveal!=null,"first genuine arrival shows the ordinary discovery event card")
 	if reveal!=null:
-		check(reveal.get_node_or_null("RewardTile") is TextureRect,"discovery shows real in-game forest board tile")
+		check(reveal.get_node_or_null("EventDiscoveryTile") is TextureRect,"discovery shows real in-game forest board tile")
 		check(reveal.find_children("*","BaseButton",true,false).is_empty(),"there is no confirm button")
-		check(await wait_for(func(): return not is_instance_valid(map.overlay)),"tile automatically fades and restores board")
+		check(reveal.get_node("EventDiscoveryTitle").text=="언덕 발견" and not reveal.get_node("EventDiscoveryDescription").text.is_empty(),"discovery explains the event in live text")
+		reveal.dismiss()
+		check(await wait_for(func(): return not is_instance_valid(map.overlay)),"one tap closes the discovery card and restores board")
 		check(map.buttons.size()==24 and new_hill_index>=0 and map.buttons[new_hill_index].texture_normal==map.texture(map.tile_path(new_hill_index)),"board redraw displays actual new forest art")
 	# Unread first house notice and permanent route-editor unlock art.
 	map.show_home(true)
@@ -120,7 +122,7 @@ func _run() -> void:
 	root.add_child(second)
 	await process_frame
 	second.show_tile(event_index, true)
-	check(not (second.get_node_or_null("TileRewardReveal") != null), "revisited event never duplicates card")
+	check(not (second.find_child("EventDiscoveryCard",true,false) != null), "revisited event never duplicates card")
 	if is_instance_valid(second.overlay):
 		second.close_overlay()
 	check(session.world.tiles.count("forest")==forest_before+1, "duplicate arrival grants no further hills")

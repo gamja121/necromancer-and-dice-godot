@@ -10,7 +10,7 @@ func _gui_input(_event: InputEvent) -> void:
 	pass
 
 func setup_routine(entry: Dictionary, reward_picture: String) -> void:
-	super.setup("루틴 사건",str(entry.title),str(entry.description),
+	super.setup("일반 사건",str(entry.title),str(entry.description),
 		str(entry.reward),str(entry.illustration),reward_picture,false)
 	name = "RoutineEventCard"
 	get_node("EventDiscoveryDismissHint").hide()

@@ -106,13 +106,15 @@ func _run() -> void:
 		for tile_index in range(24):
 			if base.tiles[tile_index]=="basic" and w.tiles[tile_index]==kind: converted=tile_index
 		check(converted>=0 and converted!=23 and converted!=index,kind+": actual tile placed only on a safe road")
-		var reveal: Control=scene.get_node_or_null("TileRewardReveal")
-		check(reveal!=null,kind+": genuine event opens tile-only discovery reveal")
+		var reveal: Control=scene.find_child("EventDiscoveryCard",true,false) as Control
+		check(reveal!=null,kind+": genuine event opens the ordinary discovery card")
 		if reveal!=null:
-			check(reveal.get_node("RewardTile").texture==scene.texture("res://assets/map/tiles/%s.png" % kind),kind+": actual discovered tile is shown")
-			check(reveal.find_children("*","TextureRect",true,false).size()==1 and reveal.find_children("*","Label",true,false).is_empty(),kind+": only the tile appears without paper or illustration")
-			check(reveal.get_node_or_null("TileRewardShade")!=null,kind+": surroundings have a dark backdrop")
-			check(await wait_for(func(): return not is_instance_valid(scene.overlay)),kind+": tile floats then disappears without a click")
+			var details: Dictionary=Discovery.details(kind)
+			check(reveal.get_node("EventDiscoveryTile").texture==scene.texture("res://assets/map/tiles/%s.png" % kind),kind+": actual discovered tile is shown")
+			check(reveal.get_node("EventDiscoveryTitle").text==str(details.title) and reveal.get_node("EventDiscoveryDescription").text==str(details.description),kind+": discovery has the actual title and explanation")
+			check(scene.overlay.get_child(0) is ColorRect,kind+": ordinary event retains its dark backdrop")
+			reveal.dismiss()
+			check(await wait_for(func(): return not is_instance_valid(scene.overlay)),kind+": one tap returns to the changed board")
 		if converted>=0:
 			check(scene.buttons[converted].texture_normal==scene.texture(scene.tile_path(converted)),kind+": board displays transformed terrain")
 		scene.show_home(true)
