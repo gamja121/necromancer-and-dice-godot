@@ -1,8 +1,8 @@
 extends RefCounted
 ## P1-05H: six canonical village cultist rumor beats from HTML-final.
 ## The tracking quest is activated only when the player confirms the last beat.
-const BASE = "res://assets/map/events/rumor-village-base.webp"
-const PROCESSION = "res://assets/map/events/cultist-rumor-procession.webp"
+const BASE = "res://assets/map/events/manuscript_cultist_rumor_base.png"
+const PROCESSION = "res://assets/map/events/manuscript_cultist_procession.png"
 const BEATS = [
 	{"id":"arrival","effect":"밤이 깊은 마을. 평소보다 일찍 문을 닫은 집들 사이로 인기척이 드물다.","dialogue":"","speaker":"","visual":"base"},
 	{"id":"procession","effect":"골목 너머로 두건을 쓴 인간들이 오염된 마물의 사체와 정체를 알 수 없는 짐을 옮기고 있다.","dialogue":"","speaker":"","visual":"procession"},

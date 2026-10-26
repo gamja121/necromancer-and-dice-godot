@@ -9,7 +9,7 @@ const ABANDONED_ID = "rumor_abandoned_child_01"
 const GRAVEYARD_ID = "graveyard_child_ambush_01"
 const RESCUED_FLAG = "event:graveyard_child_ambush_01:rescued"
 const ABANDONED_FLAG = "event:graveyard_child_ambush_01:abandoned"
-const SCENE_ART = "res://assets/map/events/rumor-village-base.webp"
+const SCENE_ART = "res://assets/map/events/manuscript_village_base.png"
 const INTRO = {
 	RESCUED_ID:"마을에 들어서자 곳곳에서 낮은 목소리의 수군거림이 들린다.",
 	ABANDONED_ID:"마을 어귀에 들어서자, 어두운 이야기들이 낮게 흘러다닌다."

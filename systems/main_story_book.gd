@@ -2,6 +2,7 @@ extends Control
 ## Production story shell. RunSession and the existing map callbacks own progress.
 signal opened
 signal closed
+const ManuscriptArt = preload("res://systems/main_story_manuscript_art.gd")
 const Sound = preload("res://systems/game_audio.gd")
 const Surface = preload("res://systems/story_book_surface.gd")
 const InkChoice = preload("res://systems/story_book_ink_choice.gd")
@@ -171,6 +172,9 @@ static func is_source_art_rect(at: Vector2, dimensions: Vector2) -> bool:
 	return SOURCE_ART.grow(0.5).encloses(Rect2(at,dimensions))
 
 static func layer_bounds(path: String, original: Rect2) -> Rect2:
+	if path.get_file().begins_with("manuscript_"):
+		var mirrored_player: bool = path.ends_with("manuscript_village_necromancer.png") and not original.is_equal_approx(SOURCE_ART)
+		return ManuscriptArt.layer_bounds(path,ART_RECT.size,mirrored_player)
 	match path.get_file():
 		"rumor-villagers-whisper.webp", "rumor-villagers-turn.webp": return Rect2(53,12.5,152.05,190)
 		"rumor-necromancer.webp": return Rect2(206,12.5,152.05,190)
@@ -186,6 +190,9 @@ func add_source_image(path: String, original: Rect2, source_texture: Texture2D) 
 	var image := TextureRect.new()
 	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	image.texture = source_texture
+	if path.get_file().begins_with("manuscript_"):
+		# Detailed manuscript paintings are reduced to the small book picture.
+		image.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var bounds := layer_bounds(path,original)
 	image.position = bounds.position
 	image.size = bounds.size

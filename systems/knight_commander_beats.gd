@@ -1,8 +1,8 @@
 extends RefCounted
 ## P1-05D: canonical seven beats from reference/html-final/v2-map-practice.js.
 ## The player reply uses the existing protagonist portrait (no new image).
-const COMMANDER = "res://assets/map/events/knight-commander-upperbody-hd.webp"
-const PLAYER = "res://assets/map/events/necromancer-upperbody-hd.webp"
+const COMMANDER = "res://assets/map/events/manuscript_commander_actor.png"
+const PLAYER = "res://assets/map/events/manuscript_village_necromancer.png"
 const BEATS = [
 	{"id":"arrival","effect":"길목에서 무장한 기사가 당신을 기다리고 있었다.","dialogue":"여기 있었구만.","speaker":"기사단장","portrait":COMMANDER},
 	{"id":"confirm","effect":"기사단장은 당신을 한동안 말없이 훑어본다.","dialogue":"공동묘지에서 아이를 구한 게 당신인가?","speaker":"기사단장","portrait":COMMANDER},

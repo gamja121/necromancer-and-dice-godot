@@ -15,8 +15,8 @@ const ABANDONED_FLAG = "event:graveyard_child_ambush_01:abandoned"
 const RUMOR_ID = "rumor_saved_child_01"
 const RUMOR_SEEN_FLAG = "event:rumor_saved_child_01:seen"
 const RUMOR_COMPLETE_FLAG = "event:rumor_saved_child_01:complete"
-const ART = "res://assets/map/events/knight-commander-village-day.webp"
-const PORTRAIT = "res://assets/map/events/knight-commander-upperbody-hd.webp"
+const ART = "res://assets/map/events/manuscript_commander_base.png"
+const PORTRAIT = "res://assets/map/events/manuscript_commander_actor.png"
 const FIRST_BEAT = {"id":"arrival","effect":"길목에서 무장한 기사가 당신을 기다리고 있었다.","dialogue":"여기 있었구만.","speaker":"기사단장"}
 
 static func can_enter(session, index: int) -> bool:

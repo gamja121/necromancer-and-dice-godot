@@ -17,7 +17,7 @@ const RITUAL_TRACKING_FLAG = "quest:ritual_site_tracking:active"
 const BATTLE_WON_FLAG = "battle:cultist_altar_encounter_01:won"
 const BATTLE_LOST_FLAG = "battle:cultist_altar_encounter_01:lost"
 const RESULT_PENDING_FLAG = "story:cultist_altar_encounter_01:result_pending"
-const BASE_ART = "res://assets/map/events/cultist-altar-night-base.webp"
+const BASE_ART = "res://assets/map/events/manuscript_altar_base.png"
 const FIRST_BEAT = {
 	"id":"arrival",
 	"effect":"밤의 제단. 평소라면 비어 있어야 할 장소에 촛불과 의식 도구가 놓여 있다.",

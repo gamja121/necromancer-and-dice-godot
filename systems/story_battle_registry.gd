@@ -30,8 +30,8 @@ const DEFINITIONS = {
 					"title":"마물의 왕 부활 저지전 · 승리",
 					"narration":"광신도들의 마지막 저지전에서 승리했다. 의식의 결과와 왕의 행방을 확인해야 한다.",
 					"dialogue":"마물의 왕 부활 결과는 다음 장면에서 확정됩니다.",
-					"background":"res://assets/map/events/ritual-portal-ruins-base.webp",
-					"overlay":"res://assets/map/events/ritual-portal-omen-layer.webp",
+					"background":"res://assets/map/events/manuscript_portal_base.png",
+					"overlay":"res://assets/map/events/manuscript_portal_omen.png",
 					"retry":false
 				}
 			},
@@ -46,8 +46,8 @@ const DEFINITIONS = {
 					"title":"마물의 왕 부활 저지전 · 패배",
 					"narration":"광신도들의 마지막 저지전에서 패배했다. 의식의 결과와 왕의 행방을 확인해야 한다.",
 					"dialogue":"마물의 왕 부활 결과는 다음 장면에서 확정됩니다.",
-					"background":"res://assets/map/events/ritual-portal-ruins-base.webp",
-					"overlay":"res://assets/map/events/ritual-portal-omen-layer.webp",
+					"background":"res://assets/map/events/manuscript_portal_base.png",
+					"overlay":"res://assets/map/events/manuscript_portal_omen.png",
 					"retry":false
 				}
 			}
@@ -74,8 +74,8 @@ const DEFINITIONS = {
 					"title":"광신도 소환 마물 격퇴",
 					"narration":"소환된 마물들을 쓰러뜨렸다. 흐트러진 의식 도구 사이에서 다음 의식 장소를 가리키는 흔적을 발견했다.",
 					"dialogue":"의식 추적 정보 확정은 다음 장면에서 진행됩니다.",
-					"background":"res://assets/map/events/cultist-altar-night-base.webp",
-					"overlay":"res://assets/map/events/cultist-altar-summon-layer.webp",
+					"background":"res://assets/map/events/manuscript_altar_base.png",
+					"overlay":"res://assets/map/events/manuscript_altar_summon.png",
 					"retry":false
 				}
 			},
@@ -90,8 +90,8 @@ const DEFINITIONS = {
 					"title":"광신도 제단 전투 패배",
 					"narration":"소환된 마물들에게 밀려 물러났지만, 광신도들이 준비하던 부활 의식의 흔적은 확인했다.",
 					"dialogue":"의식 추적 정보 확정은 다음 장면에서 진행됩니다.",
-					"background":"res://assets/map/events/cultist-altar-night-base.webp",
-					"overlay":"res://assets/map/events/cultist-altar-summon-layer.webp",
+					"background":"res://assets/map/events/manuscript_altar_base.png",
+					"overlay":"res://assets/map/events/manuscript_altar_summon.png",
 					"retry":true
 				}
 			}

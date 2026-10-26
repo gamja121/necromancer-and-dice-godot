@@ -2,10 +2,10 @@ extends RefCounted
 ## P1-05F: 11 canonical monster-hunter beats from HTML final.
 ## Complete hunter quest, human-involvement clue and story ONLY after a
 ## deliberate final acknowledgement, not on displaying the last beat.
-const BASE = "res://assets/map/events/monster-hunter-worldtree-base.webp"
-const SCENE = "res://assets/map/events/monster-hunter-corrupted-beast-scene.webp"
-const HUNTER = "res://assets/map/events/monster-hunter-pen-clean.webp"
-const PLAYER = "res://assets/map/events/necromancer-upperbody-hd.webp"
+const BASE = "res://assets/map/events/manuscript_hunter_base.png"
+const SCENE = "res://assets/map/events/manuscript_hunter_scene.png"
+const HUNTER = "res://assets/map/events/manuscript_hunter_scene.png"
+const PLAYER = "res://assets/map/events/manuscript_village_necromancer.png"
 const BEATS = [
 	{"id":"arrival","effect":"세계수 성역 안쪽. 오래된 성역 사이로 불길한 오염의 흔적이 이어져 있다.","dialogue":"","speaker":"","visual":"base"},
 	{"id":"warning_reveal","effect":"다음 순간, 오염된 마물의 사체를 조사하던 노인이 당신의 기척을 알아챈다.","dialogue":"","speaker":"","visual":"scene"},

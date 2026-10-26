@@ -14,9 +14,9 @@ const RECOGNITION_FLAG = "story:knight_commander:recognizes_player"
 const QUEST_ACTIVE_FLAG = "quest:contamination_hunter_01:active"
 const QUEST_COMPLETE_FLAG = "quest:contamination_hunter_01:complete"
 const CULTIST_CLUE_FLAG = "story:cultist:human_involvement_clue"
-const BASE_ART = "res://assets/map/events/monster-hunter-worldtree-base.webp"
-const SCENE_ART = "res://assets/map/events/monster-hunter-corrupted-beast-scene.webp"
-const PORTRAIT_ART = "res://assets/map/events/monster-hunter-pen-clean.webp"
+const BASE_ART = "res://assets/map/events/manuscript_hunter_base.png"
+const SCENE_ART = "res://assets/map/events/manuscript_hunter_scene.png"
+const PORTRAIT_ART = "res://assets/map/events/manuscript_hunter_scene.png"
 const FIRST_BEAT = {
 	"id":"arrival",
 	"effect":"세계수 성역 안쪽. 오래된 성역 사이로 불길한 오염의 흔적이 이어져 있다.",

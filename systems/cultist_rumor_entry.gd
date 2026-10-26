@@ -14,8 +14,8 @@ const HUNTER_QUEST_COMPLETE_FLAG = "quest:contamination_hunter_01:complete"
 const HUMAN_CLUE_FLAG = "story:cultist:human_involvement_clue"
 const TRACKING_FLAG = "quest:cultist_tracking_01:active"
 const KING_RUMOR_FLAG = "story:monster_king:revival_rumor"
-const BASE_ART = "res://assets/map/events/rumor-village-base.webp"
-const PROCESSION_ART = "res://assets/map/events/cultist-rumor-procession.webp"
+const BASE_ART = "res://assets/map/events/manuscript_cultist_rumor_base.png"
+const PROCESSION_ART = "res://assets/map/events/manuscript_cultist_procession.png"
 const FIRST_BEAT = {
 	"id":"arrival",
 	"effect":"밤이 깊은 마을. 평소보다 일찍 문을 닫은 집들 사이로 인기척이 드물다.",

@@ -86,7 +86,7 @@ func original_contract() -> void:
 	check(Beats.layer_for("energy")==Beats.ENERGY_ART,"second scene selects energy layer")
 	check(Beats.layer_for("cultists")==Beats.CULTISTS_ART,"third original cultist layer available for later checkpoint")
 	check(Beats.layer_for("omen")==Beats.OMEN_ART,"source omen layer enabled only in fourth beat")
-	check(Beats.ENERGY_ART=="res://assets/map/events/ritual-portal-energy-layer.webp","original Godot energy art used")
+	check(Beats.ENERGY_ART=="res://assets/map/events/manuscript_portal_energy.png","original Godot energy art used")
 	check(ResourceLoader.exists(Beats.ENERGY_ART),"energy layer artwork resource exists")
 	check(ResourceLoader.exists(Beats.BASE_ART),"first scene background remains present")
 	check(Registry.valid_definition(Registry.definition(Portal.EVENT_ID)),"battle registered but gated by committed intervention")

@@ -75,6 +75,9 @@ func _run()->void:
 	session.save_file_path=previous
 	if created:session.queue_free()
 	print("UI_KING_HUNT_STAGE5Z: %d passed, %d failed"%[passed,failed])
+	# Drain stopped book audio after the queued scene has been freed.
+	root.get_node("GameAudio").queue_free()
+	await create_timer(0.10).timeout
 	quit(0 if failed==0 else 1)
 
 func verify_route(session:Node,mode:String)->void:

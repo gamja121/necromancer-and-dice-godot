@@ -81,7 +81,7 @@ func source_and_visual_contract() -> void:
 	check(Beats.beat(4).id=="intervene","fifth original intervention now available")
 	check(Beats.beat(5).is_empty(),"sixth scene not introduced")
 	check(Beats.beat(-1).is_empty(),"negative scene unavailable")
-	check(Beats.OMEN_ART=="res://assets/map/events/ritual-portal-omen-layer.webp","original omen overlay path")
+	check(Beats.OMEN_ART=="res://assets/map/events/manuscript_portal_omen.png","original omen overlay path")
 	check(Beats.layer_for("omen")==Beats.OMEN_ART,"fourth scene selects omen layer")
 	check(Beats.layer_for("cultists")==Beats.CULTISTS_ART,"third scene keeps cultist layer")
 	check(Beats.layer_for("energy")==Beats.ENERGY_ART,"second scene keeps energy layer")

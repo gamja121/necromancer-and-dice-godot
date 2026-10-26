@@ -101,7 +101,7 @@ func original_contract() -> void:
 	check(Beats.beat(3).id=="omen","fourth canonical omen introduced without changing arrival")
 	check(Beats.beat(4).id=="intervene","fifth intervention now exists after original arrival")
 	check(Beats.beat(5).is_empty(),"no sixth portal story")
-	check(Beats.BASE_ART=="res://assets/map/events/ritual-portal-ruins-base.webp","original ruin art path reused")
+	check(Beats.BASE_ART=="res://assets/map/events/manuscript_portal_base.png","original ruin art path reused")
 	check(Portal.BASE_ART==Beats.BASE_ART,"UI entry uses same original art")
 	check(Portal.FIRST_BEAT==Beats.beat(0),"entry and canonical scene data match")
 	check(ResourceLoader.exists(Beats.BASE_ART),"existing art resource loads")

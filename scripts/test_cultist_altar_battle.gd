@@ -66,7 +66,7 @@ func fixture(suffix: String,on_event_tile: bool=false):
 	return s
 
 func art_and_contract() -> void:
-	check(Beats.SUMMON=="res://assets/map/events/cultist-altar-summon-layer.webp","original summon layer path")
+	check(Beats.SUMMON=="res://assets/map/events/manuscript_altar_summon.png","original summon layer path")
 	check(Beats.SUMMON_EFFECT=="당신의 개입을 알아챈 광신도들이 의식을 비틀어 마물들을 불러낸다.","original summoning narration unchanged")
 	check(ResourceLoader.exists(Beats.SUMMON),"original summon layer exists")
 	var spec: Dictionary=Registry.definition(Altar.EVENT_ID)

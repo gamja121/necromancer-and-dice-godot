@@ -2,10 +2,10 @@ extends RefCounted
 ## P1-05B: exact narrative sequence and layer composition of HTML-final rumors.
 const RUMOR_SAVED_CHILD = "rumor_saved_child_01"
 const RUMOR_ABANDONED_CHILD = "rumor_abandoned_child_01"
-const BASE = "res://assets/map/events/rumor-village-base.webp"
-const WHISPER = "res://assets/map/events/rumor-villagers-whisper.webp"
-const TURN = "res://assets/map/events/rumor-villagers-turn.webp"
-const NECROMANCER = "res://assets/map/events/rumor-necromancer.webp"
+const BASE = "res://assets/map/events/manuscript_village_base.png"
+const WHISPER = "res://assets/map/events/manuscript_village_villagers.png"
+const TURN = "res://assets/map/events/manuscript_village_villagers.png"
+const NECROMANCER = "res://assets/map/events/manuscript_village_necromancer.png"
 
 const BEATS = {
 	RUMOR_SAVED_CHILD: [

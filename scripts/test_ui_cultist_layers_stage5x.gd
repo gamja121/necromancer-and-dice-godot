@@ -128,8 +128,9 @@ func _run()->void:
 	check(altar_bounds.size.distance_to(scene.size*Vector2(0.60,0.64))<0.01,"altar ritual/summon 60% of source event image")
 	check(approximately(MOTION.RUMOR_SECONDS,0.50,0.001) and approximately(MOTION.ALTAR_SECONDS,0.48,0.001),"web .50s/.48s story layer reveal durations")
 	# Source CSS fractions stay canonical; only the rendered story rectangle moves left.
-	rumor_bounds=map.StoryBook.layer_bounds("res://assets/map/events/cultist-rumor-procession.webp",rumor_bounds)
-	altar_bounds=map.StoryBook.layer_bounds("res://assets/map/events/cultist-altar-ritual-layer.webp",altar_bounds)
+	rumor_bounds=map.StoryBook.layer_bounds(CULTIST_BEATS.PROCESSION,rumor_bounds)
+	altar_bounds=map.StoryBook.layer_bounds(ALTAR_BEATS.RITUAL,altar_bounds)
+	var summon_bounds:Rect2=map.StoryBook.layer_bounds(ALTAR_BEATS.SUMMON,MOTION.source_rect(scene,true))
 	var receipts:Array=session.world.reward_receipts.duplicate()
 
 	for i in range(CULTIST_BEATS.count()):
@@ -199,9 +200,9 @@ func _run()->void:
 	check(summoned!=null and layer(map,"CultistRitualLayer")==null,"fight scene swaps ritual for summon, never both")
 	if summoned!=null:
 		check(summoned.texture==map.texture(ALTAR_BEATS.SUMMON),"summon uses unaltered source art")
-		check(summoned.position.distance_to(altar_bounds.position+summoned.size*MOTION.START_OFFSET_FRACTION)<0.15 and approximately(summoned.modulate.a,0,0.01),"fight declaration shows source .48s summon reveal")
+		check(summoned.position.distance_to(summon_bounds.position+summoned.size*MOTION.START_OFFSET_FRACTION)<0.15 and approximately(summoned.modulate.a,0,0.01),"fight declaration shows source .48s summon reveal")
 		await create_timer(0.59).timeout
-		check(summoned.position.distance_to(altar_bounds.position)<0.8 and approximately(summoned.modulate.a,1,0.02),"summon settles at correct safe event geometry")
+		check(summoned.position.distance_to(summon_bounds.position)<0.8 and approximately(summoned.modulate.a,1,0.02),"summon settles at its registered safe event geometry")
 	check(button(map,"출전 마물 선택") and button(map,"선택 변경"),"fight preserves existing deck-selection and reconsider controls")
 	check(session.world.snapshot()==fighting_snapshot and session.encounter.is_empty(),"summon animation does not auto-start battle")
 	map.close_overlay()
@@ -236,4 +237,6 @@ func _run()->void:
 	clear_save()
 	check(not FileAccess.file_exists(scratch),"temporary test save removed; personal save preserved")
 	print("UI_CULTIST_LAYERS_STAGE5X: %d passed, %d failed"%[passed,failed])
+	# Drain stopped book audio after the queued scene has been freed.
+	await create_timer(0.10).timeout
 	quit(0 if failed==0 else 1)

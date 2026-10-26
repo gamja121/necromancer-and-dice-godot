@@ -289,7 +289,11 @@ func test_world_tree_discovery_dispatch() -> void:
 	for _frame in range(3): await process_frame
 	check(s.world.tiles.has("unknown") and s.event_flag_is_set("event:discovery:unknown:unlocked"),"actual generic-event dispatch can discover and place the world tree before the hunter")
 	check(s.get_story_event(Hunter.EVENT_ID).status=="unseen","world-tree discovery does not consume the hunter story on the same dispatch")
-	check(is_instance_valid(map.overlay) and map.overlay.find_child("EventDiscoveryCard",true,false)!=null,"the player sees the existing world-tree discovery card first")
+	# The approved tile-only reward replaced discovery cards on October 25.
+	# Verify the actual world-tree tile presentation before the hunter book.
+	var tile_reveal:Control=map.find_child("TileRewardReveal",true,false) as Control
+	var reward_tile:TextureRect=tile_reveal.find_child("RewardTile",true,false) as TextureRect if tile_reveal!=null else null
+	check(is_instance_valid(map.overlay) and tile_reveal!=null and tile_reveal.visible and reward_tile!=null and reward_tile.texture==map.texture("res://assets/map/tiles/unknown.png") and map.overlay.find_child("EventDiscoveryCard",true,false)==null,"the player sees the actual world-tree tile reward before the hunter story")
 	check(s.world.rng.state==expected_rng,"world-tree-first order preserves the existing single 60/40 draw")
 	map.close_overlay()
 	map.render()
@@ -350,5 +354,8 @@ func _run() -> void:
 	await test_world_tree_discovery_dispatch()
 	test_art_ui()
 	for path in paths: clear(path)
+	# Free the isolated audio service and flush queued voice cleanup before exit.
+	root.get_node("GameAudio").queue_free()
+	await create_timer(0.10).timeout
 	print("MONSTER_HUNTER_ENTRY_REGRESSION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
