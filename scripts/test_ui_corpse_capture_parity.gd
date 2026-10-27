@@ -7,6 +7,14 @@ class CaptureSceneStub extends RefCounted:
 	var message: Label=Label.new()
 	var dice: TextureButton=TextureButton.new()
 	var sprites: Dictionary={}
+	var layer: Control
+	var paused: bool = false
+	var speed_values: Array = [1.5,2.0,3.0]
+	var speed_index: int = 0
+	var battle_tempo: float = 2.0
+	var sound_calls: Array = []
+	func sound(id: String) -> void: sound_calls.append(id)
+	func uses_map_tile_dock() -> bool: return false
 func _initialize() -> void:
 	call_deferred("_run")
 func check(ok: bool, label: String) -> void:
@@ -52,6 +60,7 @@ func _run() -> void:
 		check(card_a.get_node_or_null("CaptureSelectedOutline")==null and card_b.get_node_or_null("CaptureSelectedOutline")==null,"green capture-selection borders are absent")
 		panel.choices=[{"card":card_a,"target":TextureButton.new(),"arrow":arrow_a,"index":0},{"card":card_b,"target":TextureButton.new(),"arrow":arrow_b,"index":1}]
 		panel.scene=CaptureSceneStub.new()
+		panel.scene.layer=panel
 		panel.session=session
 		session.world.pending_reward={"kind":"capture","selected":0,"corpses":[{"name":"구울","target":3},{"name":"늑대","target":5}],"attempts":2,"locked":false}
 		panel.refresh()
@@ -82,6 +91,15 @@ func _run() -> void:
 		check(near(card_b.scale.x,1.15) and near(card_a.scale.x,1.0) and arrow_b.visible and not arrow_a.visible,"enlargement and arrow follow saved selected index")
 		check(panel.capture_info_status.text.contains("대상 고정") and panel.capture_info_status.text.contains("늑대"),"locked selection and chosen target displayed")
 		check(card_a.disabled and card_b.disabled,"locked capture candidates cannot be changed")
+		# Saved success cleanup: the arrow and other candidates disappear
+		# before the kept monster can begin its inventory flight.
+		var world_before_visual: String=JSON.stringify(session.world.snapshot())
+		await panel.clear_unclaimed_capture_cards(card_b)
+		check(not card_a.visible and card_b.visible,"unused enemy disappears before selected card collection")
+		check(not arrow_a.visible and not arrow_b.visible and arrow_b.modulate.a<0.01,"selector arrow shrinks and fades out")
+		check(near(arrow_b.scale.x,0.68) and card_a.material is ShaderMaterial,"existing failed-capture dissolve is reused for unclaimed card")
+		check(panel.scene.sound_calls.is_empty(),"quick candidate cleanup does not replay permanent-death sound")
+		check(JSON.stringify(session.world.snapshot())==world_before_visual,"presentation cleanup never changes capture rewards or save")
 		panel.queue_free()
 		await process_frame
 	session.world.pending_reward={}

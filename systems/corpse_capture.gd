@@ -6,6 +6,10 @@ const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
 # Selection uses a larger card and the original arrow, never a green frame.
 const SELECTED_CAPTURE_SCALE: float = 1.15
+const CAPTURE_ARROW_EXIT_SECONDS: float = 0.10
+const CAPTURE_OTHER_CARD_DISSOLVE_SECONDS: float = 0.45
+const CAPTURE_SUCCESS_REVEAL_SECONDS: float = 0.12
+const CAPTURE_FINISH_HOLD_SECONDS: float = 0.18
 var scene
 var session
 var choices: Array = []
@@ -106,7 +110,7 @@ func setup(battle_scene) -> void:
 		arrow.pivot_offset = arrow.size*0.5
 		arrow.z_index = 8 # Stay visible above the enlarged selected card.
 		place_choice_node(arrow,choice_parent)
-		choices.append({"card":option,"target":target,"arrow":arrow,"index":index})
+		choices.append({"card":option,"target":target,"arrow":arrow,"caption":caption,"index":index})
 	refresh()
 	if pending.phase in ["success","failed"]: call_deferred("resume_result")
 
@@ -188,6 +192,43 @@ func select_corpse(index: int) -> void:
 func wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 
+# Selection remains reversible while the player still has capture dice to roll.
+# Only a SAVED terminal outcome may start removing visual candidates.
+func fade_capture_arrows() -> Tween:
+	var exit_tween: Tween = null
+	for choice in choices:
+		var arrow: Control = choice.arrow
+		if not is_instance_valid(arrow): continue
+		arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if not arrow.visible: continue
+		if exit_tween == null: exit_tween = create_tween().set_parallel(true)
+		arrow.pivot_offset = arrow.size * 0.5
+		exit_tween.tween_property(arrow,"scale",Vector2.ONE*0.68,CAPTURE_ARROW_EXIT_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		exit_tween.tween_property(arrow,"modulate:a",0.0,CAPTURE_ARROW_EXIT_SECONDS)
+	return exit_tween
+
+# On successful capture, fade the selector while every UNCHOSEN enemy card
+# rapidly reuses the existing failed-soul dissolve and ash (without its
+# permanent-death SFX). Finish this before the chosen card flies to the book.
+func clear_unclaimed_capture_cards(chosen_card: TextureButton) -> void:
+	var arrow_exit: Tween = fade_capture_arrows()
+	var unclaimed: Array = []
+	for choice in choices:
+		if is_instance_valid(choice.target): choice.target.disabled = true
+		var caption: Control = choice.get("caption",null) as Control
+		if is_instance_valid(caption): caption.hide()
+		var candidate: TextureButton = choice.card
+		if is_instance_valid(candidate) and candidate != chosen_card:
+			unclaimed.append(candidate)
+	if not unclaimed.is_empty():
+		var vanish := PermanentDeath.new()
+		(scene.detail_parent if scene.uses_map_tile_dock() else scene.layer).add_child(vanish)
+		await vanish.play_failed_capture(scene,unclaimed,CAPTURE_OTHER_CARD_DISSOLVE_SECONDS,false)
+		vanish.queue_free()
+	if arrow_exit != null and arrow_exit.is_running(): await arrow_exit.finished
+	for choice in choices:
+		if is_instance_valid(choice.arrow): choice.arrow.hide()
+
 func roll() -> void:
 	if busy: return
 	if session.world.pending_reward.phase=="success":
@@ -217,7 +258,7 @@ func roll() -> void:
 		scene.sound("dice-land")
 	await scene.cues.play_dice_result(int(result.face))
 	if result.success:
-		await wait(0.42)
+		await wait(CAPTURE_SUCCESS_REVEAL_SECONDS)
 		await complete_success()
 	elif session.world.pending_reward.phase=="failed":
 		await complete_failure()
@@ -256,6 +297,9 @@ func complete_success() -> void:
 		selected_card.show()
 		scene.message.text = "획득 저장 실패 · 주사위를 눌러 다시 저장하세요"
 		return
+	# The reward has been stored (or deliberately discarded) before
+	# removing alternate cards. A failed save keeps all choices retryable.
+	await clear_unclaimed_capture_cards(selected_card)
 	if outcome.kept:
 		Sound.cue(scene,"capture_success")
 		if scene.uses_map_tile_dock() and is_instance_valid(scene.map_owner) and is_instance_valid(scene.map_owner.book_button):
@@ -298,7 +342,7 @@ func complete_success() -> void:
 		discard.tween_property(selected_card,"modulate:a",0.0,0.18)
 		await discard.finished
 	session.notice += " · "+(corpse.name+" 획득" if outcome.kept else "신규 마물 카드 버림")
-	await wait(0.65)
+	await wait(CAPTURE_FINISH_HOLD_SECONDS)
 	scene.busy = false
 	scene.return_to_map()
 
@@ -307,7 +351,7 @@ func complete_failure() -> void:
 	scene.busy = true
 	scene.dice.disabled = true
 	scene.message.text = "영혼 수확 실패 · 시도 횟수를 모두 사용했습니다"
-	await wait(0.9)
+	await wait(0.18)
 	if not session.dismiss_failed_capture():
 		busy = false
 		scene.busy = false
@@ -321,10 +365,14 @@ func complete_failure() -> void:
 	var failed_cards: Array = []
 	for choice in choices:
 		if is_instance_valid(choice.card): failed_cards.append(choice.card)
+	var arrow_exit: Tween = fade_capture_arrows()
 	var effect = PermanentDeath.new()
 	(scene.detail_parent if scene.uses_map_tile_dock() else scene.layer).add_child(effect)
 	await effect.play_failed_capture(scene,failed_cards)
 	effect.queue_free()
+	if arrow_exit != null and arrow_exit.is_running(): await arrow_exit.finished
+	for choice in choices:
+		if is_instance_valid(choice.arrow): choice.arrow.hide()
 	session.notice += " · 영혼 수확 실패"
 	scene.busy = false
 	scene.return_to_map()
