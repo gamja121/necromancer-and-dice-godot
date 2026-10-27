@@ -895,18 +895,19 @@ func _tile_arrival_glow(index: int) -> void:
 	pulse.tween_property(outline, "modulate:a", 0.0, 0.21)
 	pulse.tween_callback(outline.queue_free)
 
-func animate_hero_step(index: int) -> void:
+func animate_hero_step(index: int, is_final_step: bool = false) -> void:
 	hero_shadow_in_step = true
 	var start: Vector2 = hero.position
 	var target: Vector2 = hero_position(index)
-	set_hero_pose(HeroFacingPolicy.for_travel(target-start))
+	var travel_delta: Vector2 = target - start
+	set_hero_pose(HeroFacingPolicy.for_travel(travel_delta))
 	var motion: Tween = create_tween()
 	motion.tween_method(_pose_hero_step.bind(start, target), 0.0, 1.0, HERO_STEP_DURATION).set_trans(Tween.TRANS_LINEAR)
 	await motion.finished
 	hero.position = target
 	hero.scale = Vector2.ONE
-	# Face the player for every landing, including intermediate roll steps.
-	set_hero_pose(HeroFacingPolicy.for_arrival())
+	# Keep the travel-facing sprite across intermediate tiles; face front only at the final destination.
+	set_hero_pose(HeroFacingPolicy.for_step_arrival(travel_delta, is_final_step))
 	hero_shadow_in_step = false
 	if is_instance_valid(hero_shadow):
 		hero_shadow.position = target + hero_shadow_offset()
@@ -934,13 +935,11 @@ func roll_move(instance_id: String = "") -> void:
 	# The selected contamination frame is a real collision wall for the
 	# Cosmetic shared die: same rest position on map, battle, and places.
 	await roll_shared_die(int(result.face))
-	var previous = int(result.origin)
-	for raw_index in result.path:
-		var index = int(raw_index)
+	for step_idx in range(result.path.size()):
+		var index: int = int(result.path[step_idx])
 		sound("move")
-		await animate_hero_step(index)
+		await animate_hero_step(index, step_idx == result.path.size() - 1)
 		highlight(index)
-		previous = index
 	await resume_map_move(true)
 
 func resume_map_move(play_arrival_sound: bool = false) -> void:
@@ -1933,13 +1932,11 @@ func move_from_hill(index: int, steps: int) -> void:
 	await get_tree().create_timer(float(entrance.open_duration)+0.03 if entrance!=null else 0.03).timeout
 	await play_used_location_paper(hill_background,paper,receipt)
 	close_overlay()
-	var previous: int=index
-	for raw_index in result.path:
-		var tile_index: int=int(raw_index)
+	for step_idx in range(result.path.size()):
+		var tile_index: int=int(result.path[step_idx])
 		sound("move")
-		await animate_hero_step(tile_index)
+		await animate_hero_step(tile_index, step_idx == result.path.size() - 1)
 		highlight(tile_index)
-		previous=tile_index
 	await resume_map_move(true)
 
 ## Only successful visit receipts consume a location's original entry paper.
@@ -2908,6 +2905,7 @@ func use_warp(index: int) -> void:
 	hero.position = hero_position(index)
 	status.text = "%d번 워프 → %d번 워프" % [index+1,int(result.destination)+1]
 	await presentation.warp(hero,hero_position(int(result.destination)))
+	set_hero_pose(HeroFacingPolicy.for_arrival())
 	highlight(world.position)
 	status.text = "%d번 워프로 이동 완료" % (world.position+1)
 	dice.disabled = false
