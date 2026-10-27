@@ -63,6 +63,23 @@ func _run() -> void:
 	w.generate()
 	check(w.tiles.size()==24 and w.tiles.count("rare-monster")==1 and w.tiles.count("monster")==4,"second lap replaces one regular stone, keeping five fights and 24 board cells")
 	check(w._patrol_manifest(w.patrol_plan,w.contamination,1).counts["rare-monster"]==1,"home patrol forecast includes rare stone on lap two")
+	# Every threshold upgrades combat quality, not combat quantity. Tiles
+	# remain visually truthful, and previews use the same stage quota.
+	var last_count: int=0
+	for level in [0,19,20,29,30,39,40,60,80]:
+		w.contamination=level
+		w.generate()
+		var rare_count: int=w.tiles.count("rare-monster")
+		var boss_count: int=w.tiles.count("boss")
+		var expected: int=MapState.rare_stone_target(level,w.laps)
+		check(rare_count==expected,"corruption %d creates %d rare stones" % [level,expected])
+		check(rare_count>=last_count,"rare encounters never decrease as contamination rises to %d" % level)
+		check(w.tiles.count("monster")+rare_count+boss_count==5,"corruption %d retains exactly five automatic monster/boss stones" % level)
+		check(w.tiles.size()==24 and w.tiles.count("event")==2,"corruption %d never increases tile or story-event budget" % level)
+		check(int(w._patrol_manifest(w.patrol_plan,level,w.laps).counts["rare-monster"])==rare_count,"corruption %d patrol preview matches real rare stones" % level)
+		last_count=rare_count
+	w.contamination=0
+	w.generate()
 	for grade in ["normal","rare"]:
 		for level in [0,20,40,60,80]:
 			var kind: String="monster" if grade=="normal" else "rare-monster"
@@ -97,6 +114,37 @@ func _run() -> void:
 	check(session.world.snapshot()==migrated_snapshot,"legacy conversion saved once without repeated mutation")
 	var fight_rare: int=session.world.tiles.find("rare-monster")
 	await fight_to_win(session,fight_rare)
+	# Old high-contamination boards may still have the former single rare
+	# stone; load must upgrade to four while preserving RNG and map serial.
+	session.start_new_world()
+	w=session.world
+	w.laps=2
+	w.contamination=40
+	w.generate()
+	for index in range(w.tiles.size()):
+		if w.tiles[index]=="rare-monster" and w.tiles.count("rare-monster")>1: w.tiles[index]="monster"
+	check(w.tiles.count("rare-monster")==1,"legacy corruption-40 fixture retains just one rare stone")
+	var old_state: int=w.rng.state
+	var old_serial: int=w.map_serial
+	check(session.save_world(),"persist pre-upgrade corruption-40 board")
+	session.reload_world()
+	w=session.world
+	check(w.tiles.count("rare-monster")==4 and w.tiles.count("monster")==0,"old corruption-40 board upgrades only unused normal monsters to four rare")
+	check(w.rng.state==old_state and w.map_serial==old_serial,"high-corruption restoration preserves RNG and board serial")
+	# A threshold reached in the middle of a lap should upgrade eligible
+	# cards in the same successful save without touching map/dice RNG.
+	session.start_new_world()
+	w=session.world
+	w.laps=2
+	w.contamination=19
+	w.generate()
+	var before_raise: Dictionary=w.snapshot().duplicate(true)
+	var unchanged_serial: int=w.map_serial
+	var unchanged_rng: int=w.rng.state
+	w.contamination=20
+	check(session.persist_change(before_raise),"mid-lap crossing corruption 20 saves rare-stone upgrade")
+	check(w.tiles.count("rare-monster")==2,"crossing corruption 20 upgrades an unused normal encounter")
+	check(w.map_serial==unchanged_serial and w.rng.state==unchanged_rng,"mid-lap rare upgrade never reshuffles or consumes RNG")
 	# Independent disposable normal encounter; its cleared art stays green.
 	session.start_new_world()
 	w=session.world

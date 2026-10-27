@@ -647,6 +647,9 @@ func persist_change(before: Dictionary) -> bool:
 	# Safe repair touches eligible basic roads only, never RNG or story tiles.
 	if world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
 		world.reveal_swamps_for_contamination()
+	# Rising corruption upgrades safe unvisited monster stones immediately.
+	# Saved/scouted/in-progress encounters keep their existing identities.
+	world.restore_missing_rare_stone()
 	if save_world(): return true
 	world.restore(before)
 	encounter = world.active_encounter.duplicate(true)
