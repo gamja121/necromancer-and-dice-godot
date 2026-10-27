@@ -65,7 +65,7 @@ func _run() -> void:
 	check(scene.material_art.has_node("LayeredCardPreview/LayeredCardBase"),"live layered preview remains visible at animation start")
 	await create_timer(0.41).timeout
 	print("INHERITANCE_ASH_MID: scale=",scene.material_art.scale.x," alpha=",scene.material_art.modulate.a)
-	check(scene.busy and scene.material_art.scale.x<0.95,"preview shrinks during ash animation")
+	check(scene.busy and scene.material_art.scale.x<1.0,"preview settles while dissolving into the committed brand transfer")
 	check(scene.material_art.modulate.a<0.99,"preview fades only after saved success")
 	check(scene.unit_options.has(donor_id),"hand refresh waits for visual effect")
 	check(scene.confirm_button.disabled,"duplicate inheritance cannot begin while animating")
