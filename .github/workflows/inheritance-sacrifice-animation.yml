@@ -5,6 +5,7 @@ on:
       - "systems/home_inheritance.gd"
       - "systems/inheritance_sacrifice_effect.gd"
       - "scripts/test_inheritance_sacrifice_effect.gd"
+      - "scripts/test_inheritance_brand_transfer.gd"
       - ".github/workflows/inheritance-sacrifice-animation.yml"
   push:
     branches:
@@ -13,6 +14,7 @@ on:
       - "systems/home_inheritance.gd"
       - "systems/inheritance_sacrifice_effect.gd"
       - "scripts/test_inheritance_sacrifice_effect.gd"
+      - "scripts/test_inheritance_brand_transfer.gd"
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,6 +41,13 @@ jobs:
           timeout 130s godot --headless --path . --script res://scripts/test_inheritance_sacrifice_effect.gd 2>&1 | tee sacrifice.log
           grep -E '^INHERITANCE_SACRIFICE_EFFECT: [0-9]+ passed, 0 failed' sacrifice.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL inheritance-ash:' sacrifice.log; then exit 1; fi
+      - name: Committed brand source, filtered faces and appended receiver slot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s godot --headless --path . --script res://scripts/test_inheritance_brand_transfer.gd 2>&1 | tee transfer.log
+          grep -E '^INHERITANCE_BRAND_TRANSFER: [0-9]+ passed, 0 failed$' transfer.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Failed loading resource|ERROR:|ObjectDB.*leaked|^FAIL inheritance-transfer:' transfer.log; then exit 1; fi
       - name: Unchanged existing inheritance and card UI
         shell: bash
         run: |

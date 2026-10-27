@@ -214,5 +214,14 @@ func _run() -> void:
 		scene.queue_free()
 	await process_frame
 	await process_frame
+	# Scene teardown can emit ui_cancel through the shared audio service.
+	# Let those voices and the stopped deck stream leave the audio mixer.
+	var audio:Node=root.get_node_or_null("GameAudio")
+	var audio_deadline:int=Time.get_ticks_msec()+5000
+	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<audio_deadline:
+		await process_frame
+	check(audio==null or audio.voices.is_empty(),"test audio drains after scenes close")
+	if audio!=null: audio.queue_free()
+	await create_timer(0.20).timeout
 	print("CARD_SCREEN_REGRESSION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

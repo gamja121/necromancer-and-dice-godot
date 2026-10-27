@@ -359,6 +359,8 @@ func confirm() -> void:
 	busy = true
 	render_selection()
 	var consumed_id: String = material_id
+	var donor_before: Dictionary = session.owned_unit(consumed_id).duplicate(true)
+	var receiver_before: Dictionary = session.owned_unit(receiver_id).duplicate(true)
 	# Persist the real inheritance BEFORE starting any animation. A failed
 	# transaction leaves both cards exactly where they were.
 	var result = session.inherit_at_home(receiver_id,consumed_id)
@@ -378,8 +380,11 @@ func confirm() -> void:
 	# The screen stays locked and both original card nodes stay visible until
 	# the sacrificial dissolve has finished; don't re-render prematurely.
 	var source_card: Control = unit_options.get(consumed_id,null) as Control
-	await SacrificeEffect.play(material_art,source_card)
-	if not is_inside_tree(): return
+	var presented: bool = await SacrificeEffect.play(self,material_art,source_card,receiver_art,{
+		"donor":donor_before,"receiver_before":receiver_before,
+		"receiver":result.receiver,"brand":result.brand,
+		"definitions":session.world.definitions})
+	if not presented or not is_inside_tree() or is_queued_for_deletion(): return
 	material_id = ""
 	render_hand()
 	# render_hand/render_selection clears the donor's picture. Reset its
@@ -389,10 +394,6 @@ func confirm() -> void:
 	material_art.modulate = Color.WHITE
 	busy = false
 	render_selection()
-	Sound.cue(self,"book_stamp")
-	var flash = create_tween()
-	receiver_art.modulate = Color(1.3,1.15,0.85)
-	flash.tween_property(receiver_art,"modulate",Color.WHITE,0.28)
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and not busy:
