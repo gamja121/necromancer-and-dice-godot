@@ -42,7 +42,7 @@ func _run() -> void:
 			var expected_boss: bool = level>=20 and level<State.BOSS_CONTAMINATION
 			check(world.boss_available()==expected_boss and (world.tiles[State.BOSS_TILE_INDEX]=="boss")==expected_boss,
 				"boss slot obeys staged thresholds and final story lock at contamination %d" % level)
-			check(world.tiles.count("monster")+world.tiles.count("rare-monster") >= (4 if expected_boss else 5) and world.tiles.count("rare-monster")==1, "existing automatic encounters survive, including one grade-matched rare stone")
+			check(world.tiles.count("monster")+world.tiles.count("rare-monster") >= (4 if expected_boss else 5) and world.tiles.count("rare-monster")==State.rare_stone_target(level,world.laps), "automatic monster count survives while rare-stone quota escalates by contamination")
 			check(world.tiles.count("event") == 2 and world.tiles.count("warp") == 2,
 				"story event and warp tiles unaffected")
 	var old_plan: Dictionary = {"current": Plan.CURRENT.duplicate(), "reserve": Plan.RESERVE.duplicate()}
