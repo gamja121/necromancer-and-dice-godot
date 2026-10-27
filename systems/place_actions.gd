@@ -356,33 +356,11 @@ func perform_ritual() -> void:
 # remain part of the ORIGINAL full-screen artwork, never spawned as new props.
 # All coordinates target the actual 1280x720 embedded location artwork.
 func setup_fortune_result() -> void:
-	# Transparent hand-inked parchment artwork replaces the generic box.
-	# Keep its 4:1 aspect ratio, transparent edges and original UI depth.
-	fortune_notice_strip=art(self,FORTUNE_STRIP_PATH,Vector2(340,423),Vector2(600,150))
+	var shared:Dictionary=preload("res://systems/location_notice_strip.gd").build(self,status)
+	fortune_notice_strip=shared.strip
 	fortune_notice_strip.name="FortuneNoticeStrip"
-	fortune_notice_strip.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	fortune_notice_strip.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	fortune_notice_strip.z_index=2
-	# Keep both lines inside the parchment's central cream-colored area.
-	# Old location painting, original crystal and table remain untouched.
-	status.position=Vector2(394,465)
-	status.size=Vector2(492,30)
-	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
-	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	status.add_theme_font_size_override("font_size",20)
-	status.add_theme_color_override("font_color",Color("48301d"))
-	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	status.z_index=3
-	fortune_result=label_at(self,"",Vector2(393,500),Vector2(494,24),14)
+	fortune_result=shared.detail
 	fortune_result.name="FortuneProphecyOutcome"
-	fortune_result.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	fortune_result.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
-	fortune_result.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	fortune_result.add_theme_color_override("font_color",Color("5b412d"))
-	fortune_result.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	fortune_result.z_index=3
-	fortune_result.visible=false
 
 func show_fortune_result() -> void:
 	if not is_instance_valid(fortune_result): return

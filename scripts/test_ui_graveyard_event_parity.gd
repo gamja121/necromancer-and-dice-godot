@@ -22,6 +22,10 @@ func has_button(parent: Control, title: String) -> bool:
 	for node in parent.get_children():
 		if node is Button and node.text==title and node.visible: return true
 	return false
+func wait_for(predicate: Callable, limit: int=5000) -> bool:
+	var deadline: int=Time.get_ticks_msec()+limit
+	while not predicate.call() and Time.get_ticks_msec()<deadline: await process_frame
+	return bool(predicate.call())
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")
 	if session==null:
@@ -61,10 +65,10 @@ func _run() -> void:
 	check(has_button(map.overlay,"공동묘지 기능"),"graveyard location remains accessible during story")
 	map.close_overlay()
 	session.world.graveyard_corpses=[]
-	var extraction=ExtractionUI.new()
-	map.add_child(extraction)
-	extraction.setup(map,grave)
+	map.show_location(grave)
+	var extraction: Control=map.overlay
 	await process_frame
+	check(extraction.get_script()==ExtractionUI,"cemetery location opens the actual digging screen directly")
 	check(extraction.content.get_node_or_null("GraveyardDigFrame")==null and extraction.content.get_node_or_null("GraveyardNoticeStrip")!=null,"cemetery now uses the original painting and approved hand-drawn parchment instead of the old dark panel")
 	check(extraction.content.get_node_or_null("GraveyardDigConfirm")!=null,"digging has a visible explicit confirmation")
 	check(extraction.action_button!=null and not extraction.action_button.disabled,"digging is available with zero allied corpses")
@@ -72,15 +76,23 @@ func _run() -> void:
 	extraction.action_button.pressed.emit()
 	await process_frame
 	check(session.world.dice_cards.size()==before_cards+1 and not session.world.snapshot().has("brand_cards") and not session.world.snapshot().has("legacy_brand_cards"),"digging grants one dice card and no brand cards")
-	check(extraction.content.get_node_or_null("GraveyardFoundDiceCard")!=null,"found dice card appears in digging screen")
-	check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"digging receipt committed")
-	check(extraction.action_button==null and extraction.content.get_node_or_null("GraveyardDigConfirm")==null,"spent digging action disappears when the actual found card is displayed")
+	check(session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"digging receipt commits before visual reveal")
+	check(extraction.busy and extraction.graveyard_phase=="revealing","actual soil and card motion locks repeat actions")
 	var committed: Dictionary=session.world.snapshot().duplicate(true)
+	check(await wait_for(func(): return not extraction.busy and extraction.graveyard_phase=="ready"),"saved card reveal completes before collection is offered")
+	check(extraction.find_child("GraveyardFoundDiceCard",true,false)!=null,"original dice card appears inside the reveal motion")
+	check(extraction.action_button!=null and extraction.action_button.name=="GraveyardCollectConfirm" and extraction.action_button.text=="챙기고 나가기","revealed card retains an explicit collect primary action")
+	check(session.world.snapshot()==committed,"soil and card presentation does not change the committed reward")
 	session.reload_world()
 	check(session.world.snapshot()==committed,"graveyard digging persists without duplicate rewards")
-	extraction.queue_free()
+	var audio: Node=root.get_node_or_null("GameAudio")
+	check(await wait_for(func(): return audio==null or audio.voices.is_empty()),"graveyard presentation audio finishes before teardown")
 	map.queue_free()
 	await process_frame
+	var loads=preload("res://systems/battle_resources.gd")
+	check(await wait_for(func(): return loads.PendingLoads.active.is_empty()),"exited story and digging resources drain before shutdown")
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
 	session.save_file_path=saved_path
 	for suffix in ["",".tmp"]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
