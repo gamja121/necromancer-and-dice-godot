@@ -15,7 +15,7 @@ func check(ok: bool, msg: String) -> void:
 		failed += 1
 		printerr("FAIL location-button-stack: ", msg)
 func find_button(panel: Control, name: String) -> Button:
-	for node in panel.get_children():
+	for node in panel.find_children("*","Button",true,false):
 		if node is Button and node.text == name: return node
 	return null
 func inspect(map: Control, labels: Array[String]) -> void:
@@ -38,7 +38,9 @@ func snap(tag: String) -> void:
 	var png: Image = root.get_texture().get_image()
 	check(not png.is_empty() and png.get_size() == Vector2i(1280,720),"Godot rendered full frame "+tag)
 	if png.is_empty(): return
-	var path: String=ProjectSettings.globalize_path("res://location_original_buttons_%s.webp" % tag)
+	var capture_root:String=OS.get_environment("GRAVEYARD_CAPTURE_DIR")
+	if capture_root.is_empty(): capture_root=ProjectSettings.globalize_path("res://")
+	var path:String=capture_root.path_join("location_original_buttons_%s.webp"%tag)
 	var err: Error=png.save_webp(path,false,0.89)
 	check(err==OK and FileAccess.get_file_as_bytes(path).size()>45000,"native screenshot saved "+tag)
 func _run() -> void:
@@ -91,6 +93,13 @@ func _run() -> void:
 	map.close_overlay()
 	map.queue_free()
 	await process_frame
+	var cleanup_deadline:int=Time.get_ticks_msec()+5000
+	while not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty() and Time.get_ticks_msec()<cleanup_deadline: await process_frame
+	var audio:Node=root.get_node_or_null("GameAudio")
+	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<cleanup_deadline: await process_frame
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
+	session.world=null
 	session.save_file_path=previous
 	if owned: session.queue_free()
 	for ext in ["",".tmp"]:

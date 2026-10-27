@@ -38,7 +38,7 @@ func get_art(panel: Control) -> TextureRect:
 	return null
 
 func get_button(panel: Control, text_value: String) -> Button:
-	for node in panel.get_children():
+	for node in panel.find_children("*","Button",true,false):
 		if node is Button and node.text == text_value:
 			return node
 	return null
@@ -51,7 +51,10 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	if not is_instance_valid(map.overlay): return
 	var panel: Control = map.overlay
 	var backdrop = get_backdrop(panel)
-	check(backdrop != null and is_zero_approx(backdrop.color.a), tag + " source has transparent event backdrop")
+	if tag.begins_with("graveyard"):
+		check(backdrop != null and backdrop.color.a>0.7, tag + " single action screen preserves its dim backdrop")
+	else:
+		check(backdrop != null and is_zero_approx(backdrop.color.a), tag + " source has transparent event backdrop")
 	check(backdrop != null and backdrop.mouse_filter == Control.MOUSE_FILTER_STOP, tag + " transparent overlay still blocks map clicks")
 	var art = get_art(panel)
 	check(same_rect(art,map.LOCATION_EVENT_SCENE_RECT), tag + " location painting uses battle's 980x406 viewport")
@@ -164,11 +167,16 @@ func _run() -> void:
 		map.show_location(idx)
 		var button = get_button(map.overlay,str(target.button))
 		check(button != null, tile_name + " retains its function button")
-		if button != null: button.pressed.emit()
+		if tile_name=="graveyard":
+			check(map.overlay.get_script()==preload("res://systems/exploration_actions.gd") and map.overlay.graveyard_phase=="idle","graveyard already exposes the single functional screen without spending its reward")
+		elif button != null: button.pressed.emit()
 		var scene_name: String = str(map.EVENT_IMAGES[tile_name])
 		check_action_frame(map,map.overlay,tile_name + " function",scene_name)
 		var function_back: Button=map.overlay.get("close_button") as Button
-		check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")
+		if tile_name=="graveyard":
+			check(function_back!=null and function_back.text=="맵으로 나가기" and same_rect(function_back,map.TILE_EVENT_EXIT_RECT),"graveyard function exits from the common tile slot")
+		else:
+			check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")
 		map.close_overlay()
 		map.show_location(idx)
 		check_frame(map,tile_name + " return","전체 회복" if tile_name == "rest" else str(target.button),map.TILE_EVENT_ACTION_RECT)
@@ -212,6 +220,13 @@ func _run() -> void:
 	check(session.world.rng.state == before_rng and session.world.reward_receipts == before_receipts, "location art and button positioning never roll or award anything")
 	map.queue_free()
 	await process_frame
+	var cleanup_deadline:int=Time.get_ticks_msec()+5000
+	while not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty() and Time.get_ticks_msec()<cleanup_deadline: await process_frame
+	var audio:Node=root.get_node_or_null("GameAudio")
+	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<cleanup_deadline: await process_frame
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
+	session.world=null
 	session.save_file_path = original_save
 	if created: session.queue_free()
 	cleanup()

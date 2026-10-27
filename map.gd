@@ -1416,6 +1416,67 @@ func animate_reward_to_inventory(kind: String, source: TextureButton) -> void:
 	receive.tween_property(target,"scale",Vector2.ONE,0.16)
 	await receive.finished
 
+func _clear_detached_graveyard_overlay(owner_ref:WeakRef) -> void:
+	if not is_inside_tree() or is_queued_for_deletion(): return
+	var owner:Control=owner_ref.get_ref() as Control
+	# A newly opened modal owns its own chrome; do not reset that view.
+	if is_instance_valid(overlay) and overlay!=owner: return
+	if is_instance_valid(overlay) and overlay.is_inside_tree(): return
+	# Chrome helpers inspect the overlay type, so clear the detached owner first.
+	overlay=null
+	show_routine_delivery_deck(false)
+	if is_instance_valid(deck_button):
+		deck_button.scale=Vector2.ONE
+		deck_button.texture_normal=texture("res://assets/map/ui/map-card-deck.png")
+	_sync_map_chrome()
+
+func deliver_graveyard_reward(owner:Control,motion:Control,count_before:int) -> bool:
+	if not is_instance_valid(owner) or overlay!=owner or not is_instance_valid(motion): return false
+	if not is_instance_valid(deck_button): return false
+	var owner_ref:WeakRef=weakref(owner)
+	show_routine_delivery_deck(true)
+	var destination:TextureButton=deck_button
+	var target:Vector2=stage.get_global_transform_with_canvas().affine_inverse()*(destination.get_global_transform_with_canvas()*(destination.size*0.5))
+	var fade:Tween=owner.create_tween()
+	fade.tween_property(owner,"modulate:a",0.0,0.22)
+	var opening:Tween=create_tween()
+	opening.tween_interval(0.56)
+	opening.tween_callback(func():
+		if is_instance_valid(destination) and is_instance_valid(owner) and overlay==owner:
+			destination.texture_normal=texture("res://assets/map/ui/map-card-deck-open.png"))
+	motion.z_index=220
+	var delivered:bool=await motion.deliver(target,stage)
+	if not delivered or not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion() or overlay!=owner:
+		if opening.is_valid(): opening.kill()
+		if not is_queued_for_deletion(): call_deferred("_clear_detached_graveyard_overlay",owner_ref)
+		return false
+	sound("reward_gain")
+	destination.pivot_offset=destination.size*0.5
+	destination.texture_normal=texture("res://assets/map/ui/map-card-deck-open.png")
+	var increased:bool=world.dice_cards.size()>count_before
+	var tag:Label=label_at(stage,"+1" if increased else "교체 완료",target+Vector2(-72,-76),Vector2(144,36),26 if increased else 18)
+	tag.name="GraveyardDeliveryCount"
+	tag.z_index=240
+	tag.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var settle:Tween=create_tween().set_parallel(true)
+	settle.tween_property(destination,"scale",Vector2.ONE*1.11,0.12)
+	settle.tween_property(destination,"scale",Vector2.ONE,0.22).set_delay(0.12)
+	settle.tween_property(tag,"position",tag.position+Vector2(0,-18),0.40)
+	settle.tween_property(tag,"modulate:a",0.0,0.28).set_delay(0.12)
+	var settle_tree:SceneTree=get_tree()
+	while settle.is_valid() and settle.is_running() and is_inside_tree() and not is_queued_for_deletion() and is_instance_valid(owner) and owner.is_inside_tree() and not owner.is_queued_for_deletion() and overlay==owner:
+		await settle_tree.process_frame
+	if settle.is_valid() and settle.is_running(): settle.kill()
+	if is_instance_valid(tag): tag.queue_free()
+	if not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion() or overlay!=owner:
+		if not is_queued_for_deletion(): call_deferred("_clear_detached_graveyard_overlay",owner_ref)
+		return false
+	if is_instance_valid(destination):
+		destination.scale=Vector2.ONE
+		destination.texture_normal=texture("res://assets/map/ui/map-card-deck.png")
+	# Keep the receiving deck visible until the owning panel closes normally.
+	return true
+
 func confirm_new_run() -> void:
 	if moving or is_instance_valid(overlay): return
 	var panel = modal()
@@ -2853,6 +2914,9 @@ func show_location(index: int) -> void:
 				if world.tiles[button_index]!=type: continue
 				var marker = buttons[button_index].get_node_or_null("UnlockNewBadge")
 				if is_instance_valid(marker): marker.hide()
+	if type=="graveyard":
+		show_exploration_actions(index)
+		return
 	var panel = modal(false)
 	var scene_art = location_scene_image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type])
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
