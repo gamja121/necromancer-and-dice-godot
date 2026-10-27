@@ -285,6 +285,7 @@ func graveyard_rescue(session: Node, label: String) -> bool:
 	check(session.story_battle_result_pending(CHILD.EVENT_ID) and not session.event_flag_is_set("event:graveyard_child_ambush_01:abandoned"),label+":child victory awaits user result acknowledgement")
 	for i in range(3): await process_frame
 	press_story_action(ui_button(map,"맵으로"))
+	check(await until_ready(func(): return not is_instance_valid(map.overlay),7000),label+":child rescue epilogue closes to the live map")
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),label+":child actual result acknowledgement records saved rescue")
 	check(not session.event_flag_is_set(COMMANDER.QUEST_ACTIVE_FLAG),label+":child victory alone cannot skip first village rumor")
 	await close_and_reload(session,map,label+":child")
