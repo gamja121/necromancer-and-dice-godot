@@ -74,7 +74,8 @@ func _run() -> void:
 		var expected: int=MapState.rare_stone_target(level,w.laps)
 		check(rare_count==expected,"corruption %d creates %d rare stones" % [level,expected])
 		check(rare_count>=last_count,"rare encounters never decrease as contamination rises to %d" % level)
-		check(w.tiles.count("monster")+rare_count+boss_count==5,"corruption %d retains exactly five automatic monster/boss stones" % level)
+		var expected_total: int=5+(2 if level>=80 else (1 if level>=40 else 0))
+		check(w.tiles.count("monster")+rare_count+boss_count==expected_total,"corruption %d preserves %d original and contamination-bonus combat/boss stones" % [level,expected_total])
 		check(w.tiles.size()==24 and w.tiles.count("event")==2,"corruption %d never increases tile or story-event budget" % level)
 		check(int(w._patrol_manifest(w.patrol_plan,level,w.laps).counts["rare-monster"])==rare_count,"corruption %d patrol preview matches real rare stones" % level)
 		last_count=rare_count
@@ -129,7 +130,7 @@ func _run() -> void:
 	check(session.save_world(),"persist pre-upgrade corruption-40 board")
 	session.reload_world()
 	w=session.world
-	check(w.tiles.count("rare-monster")==4 and w.tiles.count("monster")==0,"old corruption-40 board upgrades only unused normal monsters to four rare")
+	check(w.tiles.count("rare-monster")==4 and w.tiles.count("monster")==1,"old corruption-40 board upgrades unused normal monsters to four rare, retaining the bonus ordinary stone")
 	check(w.rng.state==old_state and w.map_serial==old_serial,"high-corruption restoration preserves RNG and board serial")
 	# A threshold reached in the middle of a lap should upgrade eligible
 	# cards in the same successful save without touching map/dice RNG.
