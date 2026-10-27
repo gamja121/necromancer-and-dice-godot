@@ -1,0 +1,58 @@
+name: Reward Selection Emphasis (Godot)
+on:
+  pull_request:
+    paths:
+      - "systems/corpse_capture.gd"
+      - "systems/treasure_reward.gd"
+      - "systems/reward_overflow.gd"
+      - "scripts/test_ui_corpse_capture_parity.gd"
+      - "scripts/test_ui_treasure_reward_parity.gd"
+      - "scripts/test_ui_deck_overflow_parity.gd"
+      - ".github/workflows/reward-selection-emphasis.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/corpse_capture.gd"
+      - "systems/treasure_reward.gd"
+      - "systems/reward_overflow.gd"
+      - "scripts/test_ui_corpse_capture_parity.gd"
+      - "scripts/test_ui_treasure_reward_parity.gd"
+      - "scripts/test_ui_deck_overflow_parity.gd"
+      - ".github/workflows/reward-selection-emphasis.yml"
+permissions:
+  contents: read
+concurrency:
+  group: reward-selection-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  reward-selection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot scripts and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Verify border-free enlarged selection on capture, treasure and overflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          for entry in \
+            "test_ui_corpse_capture_parity:UI_CAPTURE_PARITY" \
+            "test_ui_treasure_reward_parity:UI_TREASURE_REWARD_PARITY" \
+            "test_ui_deck_overflow_parity:UI_DECK_OVERFLOW_PARITY"; do
+            test_name="${entry%%:*}"
+            heading="${entry#*:}"
+            timeout 300s godot --headless --path . --script "res://scripts/${test_name}.gd" 2>&1 | tee "${test_name}.log"
+            grep -E "^${heading}: [0-9]+ passed, 0 failed$" "${test_name}.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR|^FAIL' "${test_name}.log"; then exit 1; fi
+          done
+      - name: Whitespace guard
+        run: git diff --check

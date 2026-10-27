@@ -4,6 +4,8 @@ const Overflow = preload("res://systems/reward_overflow.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
+# Selection uses a larger card and the original arrow, never a green frame.
+const SELECTED_CAPTURE_SCALE: float = 1.15
 var scene
 var session
 var choices: Array = []
@@ -76,7 +78,7 @@ func setup(battle_scene) -> void:
 		option.pressed.connect(func(): select_corpse(index))
 		choice_parent.add_child(option)
 		place_choice_node(option,choice_parent)
-		add_selection_outline(option)
+		option.pivot_offset = option.size * 0.5
 		AltarUpgradeBadge.sync(option,unit)
 		# The battle death pose starts at RGB 0.4 / alpha 0.35. Once it is
 		# offered as a reward, bring back its silhouette without changing the
@@ -102,6 +104,7 @@ func setup(battle_scene) -> void:
 		var arrow = scene.image(choice_parent,"res://assets/cards/corpse-selection-arrow.png",arrow_pos,Vector2(34,34))
 		arrow.rotation = PI
 		arrow.pivot_offset = arrow.size*0.5
+		arrow.z_index = 8 # Stay visible above the enlarged selected card.
 		place_choice_node(arrow,choice_parent)
 		choices.append({"card":option,"target":target,"arrow":arrow,"index":index})
 	refresh()
@@ -146,10 +149,7 @@ func build_capture_header() -> void:
 	capture_info_status.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	capture_info_panel.add_child(capture_info_status)
 
-# A distinct green outline remains readable on dimmed cards and is independent
-# of the original art's own border and of the brand/altar badge children.
-# Applies only while choosing a defeated enemy after victory; the dead
-# battle rendering remains untouched until this capture panel is opened.
+# During capture, restore defeated bodies to their readable full-opacity state.
 func improve_corpse_visibility(unit: Dictionary) -> void:
 	var sprite: TextureRect = scene.sprites.get(str(unit.id))
 	if sprite == null: return
@@ -162,30 +162,16 @@ func improve_corpse_visibility(unit: Dictionary) -> void:
 		# Clear any unfinished cinematic attack focus from the last round.
 		appearance.set_shader_parameter("dim",0.0)
 
-func add_selection_outline(card: TextureButton) -> void:
-	var outline=Panel.new()
-	outline.name="CaptureSelectedOutline"
-	outline.position=Vector2(1,1)
-	outline.size=card.size-Vector2(2,2)
-	outline.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var border=StyleBoxFlat.new()
-	border.bg_color=Color.TRANSPARENT
-	border.border_color=Color("76e58a")
-	border.set_border_width_all(3)
-	border.set_corner_radius_all(3)
-	outline.add_theme_stylebox_override("panel",border)
-	outline.visible=false
-	card.add_child(outline)
-
 func refresh() -> void:
 	var pending: Dictionary = session.world.pending_reward
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
 	for choice in choices:
 		var selected = int(pending.selected)==choice.index
 		choice.card.modulate = Color.WHITE if selected else Color(1,1,1,0.97)
+		choice.card.pivot_offset = choice.card.size * 0.5
+		choice.card.scale = Vector2.ONE * (SELECTED_CAPTURE_SCALE if selected else 1.0)
+		choice.card.z_index = 6 if selected else 0
 		choice.arrow.visible = selected
-		var outline=choice.card.get_node_or_null("CaptureSelectedOutline")
-		if outline!=null: outline.visible=selected
 		choice.card.disabled = busy or pending.locked
 		choice.target.disabled = busy or pending.locked
 	scene.message.text = "%s · 주사위 %d 이상 · 남은 시도 %d%s" % [corpse.name,int(corpse.target),int(pending.attempts)," · 대상 고정" if pending.locked else " · 시체를 선택하세요"]

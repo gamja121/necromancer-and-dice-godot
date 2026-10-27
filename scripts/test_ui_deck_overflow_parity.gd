@@ -113,14 +113,14 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	var first_id: String=str(items[0].id)
 	panel.select_card(first_id)
 	check(panel.selected==first_id and not panel.confirm.disabled,"existing card choice allows deliberate confirmation for "+kind)
-	check(panel.choices[first_id].get_node("OverflowSelectedOutline").visible,"selected existing card is visibly highlighted for "+kind)
+	check(panel.choices[first_id].get_node_or_null("OverflowSelectedOutline")==null and near(panel.choices[first_id].scale.x,1.12) and panel.choices[first_id].z_index==8,"chosen exchange candidate enlarges without selection border for "+kind)
 	if kind=="unit":
 		check(panel.confirm.text=="선택한 마물과 교체" and panel.selection_detail.text.contains("체력 10/10") and panel.selection_detail.visible,"only a picked monster reveals the concise permanent-removal detail")
 	else:
 		check(near(panel.choices[first_id].position.y,7.0),"dice still lift the selected card")
 	check(fake.discarded.is_empty() and JSON.stringify(fake.world)==original,"mere UI selection never spends or saves a reward for "+kind)
 	panel.select_card("__new__")
-	check(panel.selected=="__new__" and not panel.choices[first_id].get_node("OverflowSelectedOutline").visible,"incoming reward may be refused for "+kind)
+	check(panel.selected=="__new__" and near(panel.choices[first_id].scale.x,1.0),"deselected candidate returns to original size for "+kind)
 	if kind=="unit":
 		check(panel.decline_button.text=="포기 확정" and panel.confirm.disabled,"new-monster refusal is armed and requires its own second tap")
 	fake.fail_next = true
@@ -155,7 +155,7 @@ func test_monster_exchange_accept() -> void:
 	panel.setup(fake)
 	await process_frame
 	panel.select_card(str(items[3].id))
-	check(panel.confirm.text=="선택한 마물과 교체" and panel.choices[str(items[3].id)].get_node("OverflowSelectedOutline").visible,"only the chosen outgoing monster is visually identified")
+	check(panel.confirm.text=="선택한 마물과 교체" and near(panel.choices[str(items[3].id)].scale.x,1.12) and panel.choices[str(items[3].id)].get_node_or_null("OverflowSelectedOutline")==null,"chosen outgoing monster enlarges without a border")
 	check(JSON.stringify(fake.world)==original and fake.discarded.is_empty(),"selection leaves permanent roster unchanged")
 	panel.confirm.pressed.emit()
 	check(panel.monster_commit_pending and fake.discarded.is_empty() and not panel.confirm.disabled,"confirm click defers game-state change and keeps the press animation enabled")
