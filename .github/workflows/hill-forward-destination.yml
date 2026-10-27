@@ -8,6 +8,10 @@ on:
       - "map.gd"
       - "systems/run_session.gd"
       - "systems/exploration_actions.gd"
+      - "systems/hill_route_picker.gd"
+      - "systems/location_notice_strip.gd"
+      - "scripts/test_hill_route_picker.gd"
+      - "scripts/test_hill_route_picker_capture.gd"
       - "scripts/test_hill_forward_choice.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
       - "scripts/test_ui_location_layout_stage5s.gd"
@@ -17,6 +21,10 @@ on:
       - "map.gd"
       - "systems/run_session.gd"
       - "systems/exploration_actions.gd"
+      - "systems/hill_route_picker.gd"
+      - "systems/location_notice_strip.gd"
+      - "scripts/test_hill_route_picker.gd"
+      - "scripts/test_hill_route_picker_capture.gd"
       - "scripts/test_hill_forward_choice.gd"
       - "scripts/test_p4_map_move_location_integration.gd"
       - "scripts/test_ui_location_layout_stage5s.gd"
@@ -43,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 170s godot --headless --path . --editor --quit 2>&1 | tee hill-import.log
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee hill-import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' hill-import.log; then exit 1; fi
       - name: Six forward choices actual UI and save-boundary scenarios
         shell: bash
@@ -52,6 +60,30 @@ jobs:
           timeout 220s godot --headless --path . --script res://scripts/test_hill_forward_choice.gd 2>&1 | tee hill-forward.log
           grep -E '^HILL_FORWARD_CHOICE: [0-9]+ passed, 0 failed$' hill-forward.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL hill-forward:' hill-forward.log; then exit 1; fi
+      - name: Approved route picker state, original art and save rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_hill_route_picker.gd 2>&1 | tee hill-picker.log
+          grep -E '^HILL_ROUTE_PICKER: [0-9]+ passed, 0 failed$' hill-picker.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL hill-picker:' hill-picker.log; then exit 1; fi
+      - name: Actual graphical hill choice, flag and HOME boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --fixed-fps 30 --script res://scripts/test_hill_route_picker_capture.gd 2>&1 | tee hill-capture.log
+          grep -E '^HILL_ROUTE_CAPTURE: [0-9]+ passed, 0 failed$' hill-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL hill-capture:' hill-capture.log; then exit 1; fi
+          test -s hill_route_01_choose.png
+          test -s hill_route_02_selected.png
+          test -s hill_route_03_home_limit.png
+      - name: Upload actual hill UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hill-route-picker-native
+          path: hill_route_*.png
+          if-no-files-found: warn
       - name: Regression actual map travel across the seven location families
         shell: bash
         run: |

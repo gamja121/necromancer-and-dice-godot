@@ -1,5 +1,6 @@
 extends "res://systems/reward_ui.gd"
 const Sound = preload("res://systems/game_audio.gd")
+const HillRoutePicker=preload("res://systems/hill_route_picker.gd")
 const GraveyardMotion=preload("res://systems/graveyard_reward_motion.gd")
 const LocationNoticeStrip=preload("res://systems/location_notice_strip.gd")
 signal closed
@@ -53,6 +54,9 @@ var route_feedback: String=""
 var selected_route_slot: int = 0
 # UI-only slot order; the existing save format still stores per-kind counts.
 var route_slot_layout: Array[String] = []
+var hill_picker:Control
+var hill_notice:Label
+var hill_detail:Label
 var hill_selected_steps: int = 0
 var hill_choice_buttons: Array = []
 
@@ -85,11 +89,12 @@ func setup(map_scene, tile_index: int) -> void:
 		route_unlock_button=route_editor.unlock_button
 		map.refresh_shared_die_input()
 		return
-	if type!="graveyard":
+	if type not in ["graveyard","forest"]:
 		label_at(self,{"unknown":"세계수 · 정화 기도","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
 		close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 	else:
-		label_at(self,"공동묘지",Vector2(179,156),Vector2(230,36),23)
+		var location_title:Label=label_at(self,"공동묘지" if type=="graveyard" else "언덕",Vector2(179,156),Vector2(230,36),23)
+		if type=="forest": location_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	content=Control.new()
@@ -111,8 +116,7 @@ func setup(map_scene, tile_index: int) -> void:
 			graveyard_phase="ready"
 		render_graveyard()
 	elif type=="forest":
-		action_button=button(self,"이동 확정",Vector2(525,478),Vector2(230,44),confirm_hill_route)
-		action_button.disabled=true
+		status.hide()
 		render_hill_choices()
 	map.refresh_shared_die_input()
 
@@ -296,13 +300,13 @@ func _finish_graveyard_overflow(outcome:Dictionary,popup:Control) -> void:
 		render_graveyard()
 
 func _exit_tree() -> void:
-	if type!="graveyard": return
-	if is_instance_valid(graveyard_motion):
+	if type not in ["graveyard","forest"]: return
+	if type=="graveyard" and is_instance_valid(graveyard_motion):
 		graveyard_motion.cancel()
 		if not graveyard_motion.is_queued_for_deletion(): graveyard_motion.queue_free()
 	if is_instance_valid(map) and not map.is_queued_for_deletion():
 		# Never reorder stage children while an owner/map subtree is exiting.
-		map.call_deferred("_clear_detached_graveyard_overlay",weakref(self))
+		map.call_deferred("_clear_detached_location_overlay",weakref(self))
 
 ## Six forward routes are displayed; crossing the fixed HOME tile is
 ## forbidden by the same path-stop rule as normal die movement.
@@ -312,50 +316,100 @@ func hill_max_steps() -> int:
 			return steps
 	return 6
 
+func _hill_allowed() -> Dictionary:
+	var allowed:Dictionary=session.place_allowed(index,"forest")
+	if not bool(allowed.get("ok",false)): return allowed
+	if session.world.position!=index:
+		return {"ok":false,"reason":"현재 언덕에 있을 때만 이동을 선택할 수 있습니다."}
+	if session.place_visit_id("hill-route",index) in session.world.reward_receipts:
+		return {"ok":false,"reason":"이번 언덕 방문의 이동은 이미 사용했습니다."}
+	return {"ok":true}
+
+func _set_hill_notice(message:String,detail:String="") -> void:
+	if is_instance_valid(status): status.text=message
+	if is_instance_valid(hill_notice): hill_notice.text=message
+	if is_instance_valid(hill_detail):
+		hill_detail.text=detail
+		hill_detail.visible=not detail.is_empty()
+
 func render_hill_choices() -> void:
 	clear_content()
-	hill_choice_buttons.clear()
 	hill_selected_steps=0
+	var allowed:Dictionary=_hill_allowed()
+	var shared:Dictionary=LocationNoticeStrip.build(content)
+	shared.strip.name="HillNoticeStrip"
+	hill_notice=shared.text
+	hill_notice.name="HillNoticeText"
+	hill_detail=shared.detail
+	hill_detail.name="HillNoticeDetail"
+	action_button=map.location_button(content,"여기로 이동",map.TILE_EVENT_ACTION_RECT.position,map.TILE_EVENT_ACTION_RECT.size,confirm_hill_route,4)
+	action_button.name="LocationAction_hill-route"
 	action_button.disabled=true
-	status.text="현재 %d번 언덕 · 앞으로 이동할 1~6칸을 선택하세요. 집을 넘을 수 없습니다." % (index+1)
-	var heading=label_at(content,"목적지 선택 · 주사위와 카드 소모 없음",Vector2(268,118),Vector2(740,40),22)
-	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var max_steps: int=hill_max_steps()
-	for steps in range(1,7):
-		var destination: int=(index+steps)%24
-		var allowed: bool=steps<=max_steps
-		var caption: String="+%d칸 → %d번 · %s" % [steps,destination+1,MapState.NAMES[session.world.tiles[destination]]]
-		if not allowed: caption+=" (집 통과 불가)"
-		var chosen_step: int=steps
-		var row: int=(steps-1)/2
-		var column: int=(steps-1)%2
-		var option: Button=button(content,caption,Vector2(232+column*420,190+row*85),Vector2(400,66),func(): select_hill_step(chosen_step))
-		option.name="HillStep%d" % steps
-		# Show the destination tile art next to each distance, not text alone.
-		var preview: TextureRect=art(option,"res://assets/map/tiles/%s.png" % session.world.tiles[destination],Vector2(8,5),Vector2(66,56))
-		preview.name="HillDestinationPreview"
-		preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		preview.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		option.tooltip_text="앞으로 %d칸 이동 · %s" % [steps,MapState.NAMES[session.world.tiles[destination]]]
-		option.disabled=not allowed
-		option.add_theme_font_size_override("font_size",19)
-		hill_choice_buttons.append(option)
+	if session.event_flag_is_set("ui:unlock:forest:action_pending"):
+		UnlockNoticeBadge.attach(action_button,"NEW")
+	close_button=map.location_button(content,"맵으로 나가기",map.TILE_EVENT_EXIT_RECT.position,map.TILE_EVENT_EXIT_RECT.size,_leave_hill,4)
+	close_button.name="HillExitToMap"
+	hill_picker=HillRoutePicker.new()
+	content.add_child(hill_picker)
+	hill_picker.setup(session.world.tiles,index,hill_max_steps(),bool(allowed.ok),"현재" if session.world.position==index else "언덕")
+	hill_picker.step_selected.connect(select_hill_step)
+	hill_choice_buttons=hill_picker.choice_buttons
+	if bool(allowed.ok): _set_hill_notice("어디로 향하시겠습니까?","주사위 · 카드 소모 없음")
+	else: _set_hill_notice(str(allowed.reason))
+	if session.place_visit_id("hill-route",index) in session.world.reward_receipts:
+		map.apply_pending_location_paper(self,action_button,index,"hill-route")
 
-func select_hill_step(steps: int) -> void:
+func _leave_hill() -> void:
+	if busy: return
+	map.highlight(session.world.position)
+	leave_to_map.emit()
+
+func select_hill_step(steps:int) -> void:
 	if busy or steps<1 or steps>hill_max_steps(): return
+	var allowed:Dictionary=_hill_allowed()
+	if not bool(allowed.ok):
+		show_hill_error(str(allowed.reason))
+		return
 	hill_selected_steps=steps
-	for i in range(hill_choice_buttons.size()):
-		var control: Button=hill_choice_buttons[i]
-		control.add_theme_color_override("font_color",Color("e5c17f") if i+1==steps else Color("f2dfb5"))
-	map.highlight((index+steps)%24)
+	hill_picker.set_selection(steps)
+	var destination:int=(index+steps)%24
+	map.highlight(destination)
 	action_button.disabled=false
-	status.text="%d칸 앞 · %d번 %s 선택 · 이동 확정을 누르면 실제로 이동합니다." % [steps,(index+steps)%24+1,MapState.NAMES[session.world.tiles[(index+steps)%24]]]
+	_set_hill_notice("%d칸 앞 · %d번 %s"%[steps,destination+1,MapState.NAMES[session.world.tiles[destination]]],"이동 확정을 누르면 이동합니다")
+
+func show_hill_error(reason:String) -> void:
+	busy=false
+	var allowed:Dictionary=_hill_allowed()
+	hill_picker.set_available(bool(allowed.ok))
+	hill_picker.set_locked(false)
+	close_button.disabled=false
+	if is_instance_valid(action_button): action_button.disabled=not bool(allowed.ok) or hill_selected_steps<1
+	_set_hill_notice(reason,"다시 시도하거나 맵으로 나갈 수 있습니다." if bool(allowed.ok) else "")
+
+func show_hill_departure(steps:int) -> void:
+	busy=true
+	hill_selected_steps=steps
+	hill_picker.set_locked(true)
+	hill_picker.set_available(true)
+	hill_picker.set_selection(steps)
+	close_button.disabled=true
+	action_button.disabled=true
+	var destination:int=(index+steps)%24
+	_set_hill_notice("%d칸 앞 · %d번 %s"%[steps,destination+1,MapState.NAMES[session.world.tiles[destination]]],"선택한 길을 따라 출발합니다")
 
 func confirm_hill_route() -> void:
 	if busy or hill_selected_steps<1: return
+	var allowed:Dictionary=_hill_allowed()
+	if not bool(allowed.ok):
+		show_hill_error(str(allowed.reason))
+		return
 	busy=true
 	action_button.disabled=true
 	close_button.disabled=true
+	hill_picker.set_locked(true)
+	map.acknowledge_discovery_action("forest")
+	var marker:Control=action_button.get_node_or_null("UnlockNewBadge")
+	if is_instance_valid(marker) and not session.event_flag_is_set("ui:unlock:forest:action_pending"): marker.hide()
 	hill_route_chosen.emit(hill_selected_steps)
 
 

@@ -1416,7 +1416,7 @@ func animate_reward_to_inventory(kind: String, source: TextureButton) -> void:
 	receive.tween_property(target,"scale",Vector2.ONE,0.16)
 	await receive.finished
 
-func _clear_detached_graveyard_overlay(owner_ref:WeakRef) -> void:
+func _clear_detached_location_overlay(owner_ref:WeakRef) -> void:
 	if not is_inside_tree() or is_queued_for_deletion(): return
 	var owner:Control=owner_ref.get_ref() as Control
 	# A newly opened modal owns its own chrome; do not reset that view.
@@ -1424,6 +1424,7 @@ func _clear_detached_graveyard_overlay(owner_ref:WeakRef) -> void:
 	if is_instance_valid(overlay) and overlay.is_inside_tree(): return
 	# Chrome helpers inspect the overlay type, so clear the detached owner first.
 	overlay=null
+	if not moving and world!=null: highlight(world.position)
 	show_routine_delivery_deck(false)
 	if is_instance_valid(deck_button):
 		deck_button.scale=Vector2.ONE
@@ -1448,7 +1449,7 @@ func deliver_graveyard_reward(owner:Control,motion:Control,count_before:int) -> 
 	var delivered:bool=await motion.deliver(target,stage)
 	if not delivered or not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion() or overlay!=owner:
 		if opening.is_valid(): opening.kill()
-		if not is_queued_for_deletion(): call_deferred("_clear_detached_graveyard_overlay",owner_ref)
+		if not is_queued_for_deletion(): call_deferred("_clear_detached_location_overlay",owner_ref)
 		return false
 	sound("reward_gain")
 	destination.pivot_offset=destination.size*0.5
@@ -1469,7 +1470,7 @@ func deliver_graveyard_reward(owner:Control,motion:Control,count_before:int) -> 
 	if settle.is_valid() and settle.is_running(): settle.kill()
 	if is_instance_valid(tag): tag.queue_free()
 	if not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion() or overlay!=owner:
-		if not is_queued_for_deletion(): call_deferred("_clear_detached_graveyard_overlay",owner_ref)
+		if not is_queued_for_deletion(): call_deferred("_clear_detached_location_overlay",owner_ref)
 		return false
 	if is_instance_valid(destination):
 		destination.scale=Vector2.ONE
@@ -1965,42 +1966,49 @@ func show_exploration_actions(index: int) -> void:
 		dismiss_overlay(func():
 			world = session.world
 			render()
-			status.text = "공동묘지 탐색을 마치고 맵으로 돌아왔습니다."))
-	panel.hill_route_chosen.connect(func(steps: int):
-		close_overlay()
-		move_from_hill(index,steps))
+			status.text = "장소 탐색을 마치고 맵으로 돌아왔습니다."))
+	panel.hill_route_chosen.connect(func(steps:int):
+		move_from_hill(index,steps,panel))
 
 ## Use the same pending-map-move animation and restore pipeline as a die,
 ## but do not roll or change the visible die. The RunSession already saved
 ## the selection, target effects and one-use receipt before animation.
-func move_from_hill(index: int, steps: int) -> void:
-	if moving or is_instance_valid(overlay): return
-	var receipt: String=session.place_visit_id("hill-route",index)
-	var result: Dictionary=session.prepare_hill_move(index,steps)
-	if not result.get("ok",false):
-		status.text=str(result.get("reason","언덕 이동을 저장하지 못했습니다."))
+func move_from_hill(index:int,steps:int,source_panel:Control=null) -> void:
+	if moving or (is_instance_valid(overlay) and overlay!=source_panel): return
+	if source_panel!=null and (not is_instance_valid(source_panel) or overlay!=source_panel): return
+	var receipt:String=session.place_visit_id("hill-route",index)
+	var result:Dictionary=session.prepare_hill_move(index,steps)
+	world=session.world
+	if not bool(result.get("ok",false)):
+		var reason:String=str(result.get("reason","언덕 이동을 저장하지 못했습니다."))
+		status.text=reason
 		highlight(world.position)
-		if world.position==index and world.pending_move.is_empty(): show_exploration_actions(index)
+		if is_instance_valid(source_panel) and overlay==source_panel:
+			source_panel.show_hill_error(reason)
+		elif world.position==index and world.pending_move.is_empty():
+			show_exploration_actions(index)
+			overlay.show_hill_error(reason)
 		return
 	moving=true
 	dice.disabled=true
 	highlight(index)
-	# Return to the actual hill painting before leaving. The successful move
-	# advanced move_serial, so use its exact PRE-move receipt rather than recomputing.
-	show_location(index)
-	var hill_background: Control=overlay
-	var paper: Button=hill_background.get_node("LocationAction_hill-route")
+	# Retain the chosen route on its original painting. Only a successful save
+	# consumes its actual confirm paper, using the exact PRE-move receipt.
+	if not is_instance_valid(source_panel):
+		show_exploration_actions(index)
+		source_panel=overlay
+	var hill_background:Control=source_panel
+	hill_background.show_hill_departure(steps)
+	var paper:Button=hill_background.action_button
 	paper.set_meta("ui_custom_open_motion",true)
-	for child in hill_background.get_children():
-		if child is Button: child.disabled=true
-	var entrance=hill_background.get_node_or_null("PanelEffectsModule")
-	await get_tree().create_timer(float(entrance.open_duration)+0.03 if entrance!=null else 0.03).timeout
 	await play_used_location_paper(hill_background,paper,receipt)
+	if not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(hill_background) or overlay!=hill_background: return
 	close_overlay()
 	for step_idx in range(result.path.size()):
-		var tile_index: int=int(result.path[step_idx])
+		var tile_index:int=int(result.path[step_idx])
 		sound("move")
-		await animate_hero_step(tile_index, step_idx == result.path.size() - 1)
+		await animate_hero_step(tile_index,step_idx==result.path.size()-1)
+		if not is_inside_tree() or is_queued_for_deletion(): return
 		highlight(tile_index)
 	await resume_map_move(true)
 
@@ -2914,7 +2922,7 @@ func show_location(index: int) -> void:
 				if world.tiles[button_index]!=type: continue
 				var marker = buttons[button_index].get_node_or_null("UnlockNewBadge")
 				if is_instance_valid(marker): marker.hide()
-	if type=="graveyard":
+	if type in ["graveyard","forest"]:
 		show_exploration_actions(index)
 		return
 	var panel = modal(false)

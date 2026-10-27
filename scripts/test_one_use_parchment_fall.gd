@@ -242,10 +242,10 @@ func hill_departure() -> void:
 	map.show_exploration_actions(index)
 	var detail: Control=map.overlay
 	detail.select_hill_step(1)
+	var paper:Button=detail.action_button
 	detail.confirm_hill_route()
 	check(session.world.move_serial==serial+1 and receipt in session.world.reward_receipts,"hill: successful departure saves the pre-move receipt before serial advances")
-	check(is_instance_valid(map.overlay) and map.overlay.get_node_or_null("LocationSceneImage")!=null,"hill: departure returns to its actual background painting")
-	var paper: Button=map.overlay.get_node("LocationAction_hill-route")
+	check(map.overlay==detail and map.overlay.get_node_or_null("LocationSceneImage")!=null,"hill: departure retains its selected route on the actual background painting")
 	check(await wait_for(func(): return is_instance_valid(paper) and paper.get_meta("spent_paper_falling",false)),"hill: actual entry paper falls using exact pre-move receipt")
 	check(map.stage.get_node_or_null("HillUsedParchmentStage")==null,"hill: no floating duplicate paper over the board")
 	check(await wait_for(func(): return not map.moving and session.world.pending_move.is_empty()),"hill: normal saved hero movement completes after paper falls")
