@@ -38,36 +38,47 @@ static func mimic_count(contamination: int, loop: int) -> int:
 	var requested = 4 if contamination>=80 else (3 if contamination>=60 else (2 if contamination>=20 else 1))
 	return constrained_count(requested,loop)
 
-static func slugs(definitions: Dictionary, contamination: int, loop: int, rng: RandomNumberGenerator, intel: Dictionary = {}) -> Array:
-	var current = stage(contamination)
-	var requested = int(intel.count) if not intel.is_empty() else int(weighted(current.counts,current.weights,rng))
-	var count = constrained_count(requested,loop)
+# Green stones always field normal monsters. Purple rare stones field exactly
+# one advanced/hero anchor plus ordinary support at higher group sizes.
+# This keeps the map indicator truthful and retains the existing group-size
+# and stage-based elite-vs-hero weighting without adding extra battles.
+static func slugs(definitions: Dictionary, contamination: int, loop: int, rng: RandomNumberGenerator, intel: Dictionary = {}, tile_kind: String = "monster") -> Array:
+	var current: Dictionary = stage(contamination)
+	var requested: int = int(intel.count) if not intel.is_empty() else int(weighted(current.counts,current.weights,rng))
+	var count: int = constrained_count(requested,loop)
 	var available: Array = eligible_roster(definitions)
-	var result: Array = []
-	if not intel.is_empty():
-		var anchors = available.filter(func(slug): return definitions[slug].grade==intel.grade and intel.legion in definitions[slug].legions)
-		if not anchors.is_empty():
-			var anchor = anchors[rng.randi_range(0,anchors.size()-1)]
-			result.append(anchor)
-			available.erase(anchor)
-	while result.size()<count and not available.is_empty():
-		var grade: String = weighted(GRADES,current.grades,rng)
-		var candidates = available.filter(func(slug): return definitions[slug].grade==grade)
-		if candidates.is_empty(): candidates = available
-		var chosen = candidates[rng.randi_range(0,candidates.size()-1)]
-		result.append(chosen)
-		available.erase(chosen)
+	var normal_pool: Array = available.filter(func(slug): return str(definitions[slug].grade)=="normal")
+	var elite_pool: Array = available.filter(func(slug): return str(definitions[slug].grade) in ["advanced","hero"])
+	var rare: bool = tile_kind=="rare-monster"
+	var first_pool: Array = elite_pool if rare else normal_pool
+	if first_pool.is_empty() or normal_pool.is_empty(): return []
+	var grade: String = "normal"
+	if rare:
+		grade = str(intel.get("grade",""))
+		if grade not in ["advanced","hero"]:
+			grade = str(weighted(["advanced","hero"],[float(current.grades[1]),float(current.grades[2])],rng))
+	var anchors: Array = first_pool.filter(func(slug): return str(definitions[slug].grade)==grade)
+	if not intel.is_empty() and str(intel.get("grade",""))==grade:
+		var legion: String = str(intel.get("legion",""))
+		var matched: Array = anchors.filter(func(slug): return legion in definitions[slug].legions)
+		if not matched.is_empty(): anchors=matched
+	if anchors.is_empty(): anchors=first_pool
+	var first: String = str(anchors[rng.randi_range(0,anchors.size()-1)])
+	var result: Array = [first]
+	normal_pool.erase(first)
+	while result.size()<count and not normal_pool.is_empty():
+		var index: int = rng.randi_range(0,normal_pool.size()-1)
+		result.append(normal_pool.pop_at(index))
 	return result
 
 static func scout_intel(definitions: Dictionary, contamination: int, loop: int, rng: RandomNumberGenerator, index: int, type: String) -> Dictionary:
-	var current = stage(contamination)
-	var count = constrained_count(int(weighted(current.counts,current.weights,rng)),loop)
-	var grade: String = weighted(GRADES,current.grades,rng)
-	var pool: Array = eligible_roster(definitions).filter(func(slug): return not definitions[slug].legions.is_empty())
-	var candidates = pool.filter(func(slug): return definitions[slug].grade==grade)
-	if candidates.is_empty():
-		grade = definitions[pool[rng.randi_range(0,pool.size()-1)]].grade
-		candidates = pool.filter(func(slug): return definitions[slug].grade==grade)
-	var anchor: Dictionary = definitions[candidates[rng.randi_range(0,candidates.size()-1)]]
-	var legion: String = anchor.legions[rng.randi_range(0,anchor.legions.size()-1)]
+	var current: Dictionary = stage(contamination)
+	var count: int = constrained_count(int(weighted(current.counts,current.weights,rng)),loop)
+	var grade: String = "normal"
+	if type=="rare-monster":
+		grade = str(weighted(["advanced","hero"],[float(current.grades[1]),float(current.grades[2])],rng))
+	var pool: Array = eligible_roster(definitions).filter(func(slug): return str(definitions[slug].grade)==grade and not definitions[slug].legions.is_empty())
+	if pool.is_empty(): return {}
+	var anchor: Dictionary = definitions[pool[rng.randi_range(0,pool.size()-1)]]
+	var legion: String = str(anchor.legions[rng.randi_range(0,anchor.legions.size()-1)])
 	return {"index":index,"type":type,"count":count,"grade":grade,"legion":legion}

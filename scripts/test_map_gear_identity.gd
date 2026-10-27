@@ -92,7 +92,7 @@ func _run() -> void:
 			var actual: Array=check_manifest(previous,generated,serial)
 			if actual.is_empty(): continue
 			if lap==1:
-				check(Gear.changed_count(previous,actual,serial)==1,"first lap reveals just one new cemetery stone")
+				check(Gear.changed_count(previous,actual,serial)==2,"first completed lap reveals cemetery and upgrades one normal monster to a rare stone")
 			world.tiles=actual
 			previous=actual.duplicate()
 	session.save_file_path=prev_path

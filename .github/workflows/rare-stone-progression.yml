@@ -1,0 +1,58 @@
+name: Rare Monster Stone and Victory Colors (Godot)
+on:
+  pull_request:
+    paths:
+      - "systems/map_state.gd"
+      - "systems/encounter_generator.gd"
+      - "systems/run_session.gd"
+      - "scripts/test_rare_stone_encounter_progression.gd"
+      - "scripts/test_ui_rare_cleared_tile_stage5k.gd"
+      - ".github/workflows/rare-stone-progression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/map_state.gd"
+      - "systems/encounter_generator.gd"
+      - "systems/run_session.gd"
+      - "scripts/test_rare_stone_encounter_progression.gd"
+      - "scripts/test_ui_rare_cleared_tile_stage5k.gd"
+      - ".github/workflows/rare-stone-progression.yml"
+permissions:
+  contents: read
+jobs:
+  rare-monster-stones:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot and check parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Grade-matched encounters, legacy migration and actual combat victories
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 220s godot --headless --path . --script res://scripts/test_rare_stone_encounter_progression.gd 2>&1 | tee rare-progress.log
+          grep -E 'RARE_STONE_PROGRESSION: [0-9]+ passed, 0 failed' rare-progress.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL rare-stone:' rare-progress.log; then exit 1; fi
+      - name: Existing rare/ordinary broken stone artwork and persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s godot --headless --path . --script res://scripts/test_ui_rare_cleared_tile_stage5k.gd 2>&1 | tee rare-ui.log
+          grep -E 'UI_RARE_CLEARED_TILE_PARITY: [0-9]+ passed, 0 failed' rare-ui.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ui-rare-tile:' rare-ui.log; then exit 1; fi
+      - name: Boss and map board progression unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd 2>&1 | tee boss.log
+          grep -E 'MAP_SHUFFLE_BOSS_THRESHOLD: [0-9]+ passed, 0 failed' boss.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL boss-threshold:' boss.log; then exit 1; fi
