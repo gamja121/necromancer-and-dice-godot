@@ -100,5 +100,14 @@ func _run() -> void:
 	if created: s.queue_free()
 	for extension in ["",".tmp"]:
 		if FileAccess.file_exists(path+extension): DirAccess.remove_absolute(ProjectSettings.globalize_path(path+extension))
+	# The disposed embedded battle may still own threaded texture requests.
+	# Let its normal scene-exit drain collect them before stopping the engine.
+	var loads = preload("res://systems/battle_resources.gd")
+	var drain_end: int=Time.get_ticks_msec()+5000
+	while not loads.PendingLoads.active.is_empty() and Time.get_ticks_msec()<drain_end: await process_frame
+	check(loads.PendingLoads.active.is_empty(),"exited battle resource requests drain before shutdown")
+	# Deferred rendering-resource releases follow collection on the next frames.
+	await process_frame
+	await process_frame
 	print("GAME_OVER_SHATTER: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

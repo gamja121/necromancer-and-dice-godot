@@ -1,6 +1,7 @@
 extends SceneTree
 ## Run: godot --headless --path . --script res://scripts/test_event_discovery_card_ui.gd
 const EventCard = preload("res://systems/event_discovery_card.gd")
+const Locations = preload("res://systems/location_discoveries.gd")
 var failures := 0
 
 func _initialize() -> void:
@@ -19,8 +20,12 @@ func _run() -> void:
 	get_root().add_child(root)
 	var card = EventCard.new()
 	root.add_child(card)
-	card.setup("발견", "언덕 발견", "낡은 길 너머 작은 언덕을 발견했다.", "언덕 타일 발견")
+	var hill: Dictionary = Locations.details("forest")
+	card.setup("발견", str(hill.title), str(hill.description), str(hill.reward), str(hill.illustration))
+	await create_timer(0.36).timeout
 	check(card.name == "EventDiscoveryCard", "reusable runtime node instantiates")
+	check(card.position.is_equal_approx(Vector2(268,80)) and card.size==Vector2(452,560), "discovery uses the shared ordinary event parchment dimensions")
+	check(card.get_node("EventDiscoveryBase").texture.resource_path.ends_with("routine_event_card_base_v2.png"), "discovery shares the routine parchment")
 	check(card.get_node_or_null("EventDiscoveryCategory") != null, "category is live Label")
 	check(card.get_node_or_null("EventDiscoveryTitle") != null, "title is live Label")
 	check(card.get_node_or_null("EventDiscoveryDescription") != null, "description is live Label")
@@ -29,8 +34,23 @@ func _run() -> void:
 	check(card.get_node_or_null("EventDiscoveryClose") == null, "no confirmation button anywhere on card")
 	check(card.get_node_or_null("EventDiscoveryDismissHint") is Label, "single-click dismissal is communicated")
 	check(card.get_node("EventDiscoveryIllustration").texture != null, "fallback art can load")
+	check(card.get_node("EventDiscoveryIllustration").texture.resource_path==str(hill.illustration), "dedicated discovery illustration loads without fallback")
+	check(card.get_node("EventDiscoveryIllustration").stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED, "the full discovery illustration and border remain visible")
 	check(card.get_node("EventDiscoveryTile").texture != null, "in-game forest tile can load")
 	check(card.get_node("EventDiscoveryTitle").text == "언덕 발견", "Korean text is not baked into image")
+	for node_name in ["EventDiscoveryTitle","EventDiscoveryDescription"]:
+		var text_box: Control=card.get_node(node_name)
+		check(Rect2(Vector2.ZERO,card.size).encloses(Rect2(text_box.position,text_box.size)), node_name+" stays inside the parchment")
+	for node_name in ["EventDiscoveryTile","EventDiscoveryReward"]:
+		var side: Control=card.get_node(node_name)
+		var box: Rect2=side.get_global_rect()
+		check(box.position.x>card.get_global_rect().end.x and Rect2(Vector2.ZERO,Vector2(1280,720)).encloses(box), node_name+" occupies the visible side plaque")
+	var language: Node=get_root().get_node("GameLanguage")
+	language.set_language("en")
+	await process_frame
+	var reward: Label=card.get_node("EventDiscoveryReward")
+	check(reward.get_minimum_size().x<=reward.size.x and reward.get_line_count()<=reward.get_visible_line_count(), "English reward remains fully readable on the side plaque")
+	language.set_language("ko")
 	var acknowledged := [false]
 	card.closed.connect(func(): acknowledged[0] = true)
 	var first_click := InputEventMouseButton.new()
@@ -50,6 +70,9 @@ func _run() -> void:
 	tap.pressed = true
 	touch_card._gui_input(tap)
 	check(touch_closed[0], "Android touch anywhere on card dismisses it")
+	touch_closed[0] = false
+	touch_card._gui_input(tap)
+	check(not touch_closed[0], "repeated touch never closes twice")
 	print("DISCOVERY_CARD_UI: %d failure(s)" % failures)
 	root.queue_free()
 	quit(0 if failures == 0 else 1)
