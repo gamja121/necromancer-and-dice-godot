@@ -321,6 +321,11 @@ func _run() -> void:
 			map = await claim_treasure_and_resume(session,map)
 			if map!=null and await return_home_and_advance(session,map):
 				await verify_saved_next_lap(session,map)
+	# The final real movement can award a discovery and start reward_gain.
+	# Keep its owning map alive until playback finishes naturally; disposing
+	# the map first would stop the voice while the audio backend still owns it.
+	var audio: Node=root.get_node_or_null("GameAudio")
+	check(await until_ready(func(): return audio==null or audio.voices.is_empty(),5000),"final movement audio finishes before its map fixture is disposed")
 	current_scene = null
 	for child in root.get_children():
 		if child != session and child is Control:
@@ -331,5 +336,13 @@ func _run() -> void:
 	clear_path(save_path)
 	clear_path(audio_path)
 	check(not FileAccess.file_exists(save_path) and not FileAccess.file_exists(audio_path),"isolated one-run save and audio files removed; real data untouched")
+	# Disposed map scenes hand unfinished texture requests to the normal
+	# asynchronous drain. Complete that lifecycle before engine shutdown.
+	var loads = preload("res://systems/battle_resources.gd")
+	check(await until_ready(func(): return loads.PendingLoads.active.is_empty(),5000),"exited map resource requests drain before shutdown")
+	# The isolated audio autoload also queues its players for deletion on
+	# exit; dispose it now so those releases finish before exit-time checks.
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
 	print("P4_SINGLE_RUN_END_TO_END: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
