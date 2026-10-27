@@ -36,6 +36,10 @@ func _run() -> void:
 	session.save_file_path = test_save
 	session.start_new_world()
 	var world = session.world
+	check(world.tiles.count("rare-monster")==0,"opening lap keeps all ordinary monster stones")
+	world.laps=MapState.RARE_MONSTER_UNLOCK_LAP
+	world.generate()
+	check(world.tiles.count("rare-monster")==1,"second lap adds exactly one rare stone without increasing monsters")
 	var rare: int = world.tiles.find("rare-monster")
 	var ordinary: int = world.tiles.find("monster")
 	check(rare>=0 and ordinary>=0 and rare!=ordinary,"real generated board has separate rare and regular monsters")

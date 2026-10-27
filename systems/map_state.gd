@@ -20,6 +20,9 @@ const FIRST_SWAMP_CONTAMINATION = 15
 const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
+# The first lap has no elite stone; one of the fixed monster encounters becomes
+# a rare stone on each subsequent lap without adding another combat tile.
+const RARE_MONSTER_UNLOCK_LAP = 1
 ## First expedition: five guaranteed monster tiles; TWO events; no
 ## rests, swamps or hills. One ordinary road is traded for the second event,
 ## preserving 24 slots and both future-swamp reservations.
@@ -177,6 +180,11 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 			counts.basic-=applied
 			counts[kind]+=applied
 			room-=applied
+	# Reserve a genuine rare stone after the opening lap. This replaces ONE
+	# ordinary monster, preserving the total encounter and 24-stone budget.
+	if completed_laps>=RARE_MONSTER_UNLOCK_LAP:
+		counts.monster-=1
+		counts["rare-monster"]+=1
 	var has_boss: bool=_boss_available_at(level)
 	if has_boss: counts.monster-=1
 	var complete: Dictionary={}
@@ -229,6 +237,19 @@ func generate() -> void:
 ## Show the active stage (20/40/60 or 80+story), only if undefeated.
 ## A defeated stage cannot be re-created on later map reshuffles.
 ## The caller persists this along with the change in one transaction.
+# Existing lap-1+ save files were generated without a rare stone.
+# Upgrade one idle, uncleared, unscouted monster deterministically on load.
+# Never reroll the layout, modify combat already in progress, or erase intel.
+func restore_missing_rare_stone() -> bool:
+	if laps<RARE_MONSTER_UNLOCK_LAP or tiles.size()!=24 or tiles.has("rare-monster"): return false
+	if not active_encounter.is_empty() or not pending_move.is_empty() or not pending_reward.is_empty(): return false
+	for index in range(tiles.size()):
+		if index==position or index in cleared or tiles[index]!="monster": continue
+		if scout.get("intel",[]).any(func(entry): return int(entry.get("index",-1))==index): continue
+		tiles[index]="rare-monster"
+		return true
+	return false
+
 func reveal_boss_at_threshold() -> bool:
 	if not boss_available() or tiles.size() != 24:
 		return false
