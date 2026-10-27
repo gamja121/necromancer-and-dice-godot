@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'map.gd'
+      - 'systems/hero_facing_policy.gd'
+      - 'scripts/test_hero_facing_policy.gd'
+      - 'assets/map/hero/necromancer-hero-*.png'
       - 'systems/main_story_book.gd'
       - 'systems/main_story_manuscript_art.gd'
       - 'assets/map/events/manuscript_*.png'
@@ -17,6 +20,9 @@ on:
     branches: [main]
     paths:
       - 'map.gd'
+      - 'systems/hero_facing_policy.gd'
+      - 'scripts/test_hero_facing_policy.gd'
+      - 'assets/map/hero/necromancer-hero-*.png'
       - 'systems/main_story_book.gd'
       - 'systems/main_story_manuscript_art.gd'
       - 'assets/map/events/manuscript_*.png'
@@ -53,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in test_story_event_layout test_story_typewriter test_main_story_book test_final_chapter_ui test_p4_single_run_end_to_end; do
+          for test in test_story_event_layout test_story_typewriter test_main_story_book test_final_chapter_ui test_p4_single_run_end_to_end test_hero_facing_policy; do
             timeout 300s godot --headless --path . --script res://scripts/$test.gd 2>&1 | tee "$test.log"
             grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
