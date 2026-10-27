@@ -241,7 +241,12 @@ func fight_real(session: Node, map: Control, story_id: String, victor: String, l
 		rounds+=1
 		await battle.roll_round()
 	check(battle.rules.winner()==victor,label+": actual die/attack queue produces %s in %d round(s)" % [victor,rounds])
-	check(session.encounter.is_empty() and session.world.active_encounter.is_empty() and session.world.pending_reward.is_empty(),label+": story combat clears checkpoint without ordinary corpse reward")
+	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),label+": story combat atomically clears checkpoint")
+	var child_reward: bool = victor=="ally" and story_id==CHILD.EVENT_ID
+	if child_reward:
+		check(str(session.world.pending_reward.get("kind",""))=="capture",label+": rescued child ghoul opens standard soul harvest")
+	else:
+		check(session.world.pending_reward.is_empty(),label+": other story outcomes keep their previous reward policy")
 	if victor=="enemy":
 		# Production policy: every battle defeat ends the expedition. There is
 		# no return button or "부활 확인" modal after a terminal loss.
@@ -249,9 +254,16 @@ func fight_real(session: Node, map: Control, story_id: String, victor: String, l
 		check(ended,label+": actual defeat opens terminal game-over instead of story result modal")
 		check(battle.map_return.disabled,label+": defeated expedition cannot return to the map")
 		return ended
-	battle.map_return.pressed.emit()
+	if child_reward:
+		check(is_instance_valid(battle.capture_panel),label+": story victory auto-enters capture instead of waiting for battle close")
+		for attempt in range(2):
+			if session.world.pending_reward.is_empty(): break
+			if str(session.world.pending_reward.get("phase",""))=="choose" and is_instance_valid(battle.capture_panel):
+				await battle.capture_panel.roll()
+	else:
+		battle.map_return.pressed.emit()
 	var result_button: String="부활 확인" if story_id==PORTAL.EVENT_ID else "맵으로"
-	var returned: bool=await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and ui_button(map,result_button)!=null,21000)
+	var returned: bool=await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and session.world.pending_reward.is_empty() and ui_button(map,result_button)!=null,24000)
 	check(returned,label+": map uses actual original \""+result_button+"\" result modal")
 	return returned
 

@@ -176,15 +176,20 @@ func actual_graveyard_rescue(session: Node) -> bool:
 		rounds+=1
 		await battle.roll_round()
 	check(battle.rules.winner()=="ally","real dice/attack actions defeat the source ghoul")
-	check(world.pending_reward.is_empty() and session.encounter.is_empty(),"source rescue battle creates no fake ordinary reward")
-	battle.map_return.pressed.emit()
-	var returned: bool=await until_ready(func(): return map.embedded_battle==null and button_at(map,"맵으로")!=null,20000)
+	check(str(world.pending_reward.get("kind",""))=="capture" and session.encounter.is_empty(),"source ghoul battle saves the ordinary soul-harvest offer before epilogue")
+	check(is_instance_valid(battle.capture_panel),"rescued child victory auto-opens soul harvest")
+	for attempt in range(2):
+		if world.pending_reward.is_empty(): break
+		if str(world.pending_reward.get("phase",""))=="choose" and is_instance_valid(battle.capture_panel):
+			await battle.capture_panel.roll()
+	var returned: bool=await until_ready(func(): return map.embedded_battle==null and world.pending_reward.is_empty() and button_at(map,"맵으로")!=null,24000)
 	check(returned,"battle-to-map result UI returns without moving any tiles")
 	if not returned: return false
 	for i in range(3): await process_frame
 	press_story_action(button_at(map,"맵으로"))
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),"original acknowledgement commits authentic rescued-child receipt")
 	check(world.tiles==first_tiles and world.map_serial==2 and world.position==destination,"genuine rescue victory never changes board or teleports hero")
+	check(await until_ready(func(): return not is_instance_valid(map.overlay),7000),"rescue storybook closes naturally after saved acknowledgement")
 	for i in range(4): await process_frame
 	map.queue_free()
 	await process_frame
