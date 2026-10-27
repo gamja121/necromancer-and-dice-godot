@@ -88,6 +88,9 @@ const UnitInfo = preload("res://systems/unit_info.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const TILE_SIZE = Vector2(120.0,90.0)
+# Presentation only: a quicker map token step without changing dice or tile rules.
+const HERO_STEP_DURATION: float = 0.24
+const HERO_LANDING_DURATION: float = 0.15
 const SELECTED_TILE_SCALE = Vector2(1.025,1.025)
 # The previous art remains an offline fallback until the direction assets are installed.
 const HERO_TOKEN_SIZE = Vector2(94.0,120.0)
@@ -835,7 +838,7 @@ func _tile_landing_feedback(index: int) -> void:
 	var base_scale: Vector2 = tile.scale
 	_tile_landing_dust(index)
 	var impact := create_tween()
-	impact.tween_method(_tile_contact_frame.bind(tile, base_scale), 0.0, 1.0, 0.19).set_trans(Tween.TRANS_LINEAR)
+	impact.tween_method(_tile_contact_frame.bind(tile, base_scale), 0.0, 1.0, HERO_LANDING_DURATION).set_trans(Tween.TRANS_LINEAR)
 	await impact.finished
 	if is_instance_valid(tile): tile.scale = base_scale
 
@@ -898,7 +901,7 @@ func animate_hero_step(index: int) -> void:
 	var target: Vector2 = hero_position(index)
 	set_hero_pose(HeroFacingPolicy.for_travel(target-start))
 	var motion: Tween = create_tween()
-	motion.tween_method(_pose_hero_step.bind(start, target), 0.0, 1.0, 0.32).set_trans(Tween.TRANS_LINEAR)
+	motion.tween_method(_pose_hero_step.bind(start, target), 0.0, 1.0, HERO_STEP_DURATION).set_trans(Tween.TRANS_LINEAR)
 	await motion.finished
 	hero.position = target
 	hero.scale = Vector2.ONE
