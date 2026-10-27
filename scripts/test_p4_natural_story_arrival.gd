@@ -96,6 +96,12 @@ func create_run(session: Node) -> int:
 	# mirror both automatic corruption thresholds before saving so reload
 	# does not legitimately migrate and change the test's expected board.
 	world.reveal_swamps_for_contamination()
+	# The fixture also jumped straight to corruption 80 without an actual
+	# contamination-change transaction. A real save has already upgraded
+	# the safe monster stones; pre-apply that same deterministic migration
+	# so the first dice roll doesn't appear to shuffle the board mid-step.
+	check(world.restore_missing_rare_stone(),"forced-corruption fixture upgrades unused monsters before the natural die")
+	check(world.tiles.count("rare-monster")==STATE.rare_stone_target(world.contamination,world.laps),"saved story board already reflects corruption-80 rare-stone quota")
 	check(world.laps==1 and world.tiles.count("graveyard")==1 and world.map_serial==2,
 		"one original first-lap exit unlocks one graveyard before the story")
 	check(world.position==STATE.HOME and world.tiles.size()==24 and world.tiles[8]=="village" and world.tiles[15]=="home", "second 24-tile board has unchanged canonical fixed anchors")
