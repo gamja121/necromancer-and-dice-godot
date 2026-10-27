@@ -96,22 +96,8 @@ func setup(run_session) -> void:
 		var option = card(box,reward.kind,item,Vector2(2,7) if is_capture_overflow else Vector2(5,16),Vector2(81,118) if is_capture_overflow else Vector2(100,146),func(): select_card(key))
 		option.name = "OverflowCard_%d" % index
 		option.focus_mode = Control.FOCUS_ALL
-		# The original leaves unselected candidates fully colored and lifts only the chosen card.
-		var outline = Panel.new()
-		outline.name = "OverflowSelectedOutline"
-		outline.size = option.size
-		outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		outline.z_index = 5
-		var glow = StyleBoxFlat.new()
-		glow.draw_center = false
-		glow.border_color = Color("ffe291")
-		glow.set_border_width_all(2)
-		glow.set_corner_radius_all(3)
-		glow.shadow_color = Color("ffe29188")
-		glow.shadow_size = 9
-		outline.add_theme_stylebox_override("panel",glow)
-		outline.visible = false
-		option.add_child(outline)
+		option.pivot_offset = option.size * 0.5
+		# Selected cards expand instead of displaying a highlighted frame.
 		var caption := option.get_child(0) as Label
 		caption.position = Vector2(-4,123) if is_capture_overflow else Vector2(-10,154)
 		caption.size = Vector2(89,32) if is_capture_overflow else Vector2(120,48)
@@ -187,23 +173,6 @@ func exchange_button_style(action: Button, destructive: bool) -> void:
 		effect.hover_scale = Vector2(1.015,1.015)
 		effect.hover_rotation_degrees = 0.0
 
-func exchange_outline(option: TextureButton) -> void:
-	var outline := Panel.new()
-	outline.name = "OverflowSelectedOutline"
-	outline.size = option.size
-	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	outline.z_index = 5
-	var rim := StyleBoxFlat.new()
-	rim.draw_center = false
-	rim.border_color = Color("e8b56b")
-	rim.set_border_width_all(3)
-	rim.set_corner_radius_all(3)
-	rim.shadow_color = Color("d89d4e70")
-	rim.shadow_size = 4
-	outline.add_theme_stylebox_override("panel",rim)
-	outline.visible = false
-	option.add_child(outline)
-
 func exchange_summary(unit: Dictionary) -> String:
 	var brands: Array = unit.get("brands",[])
 	return "%s · 체력 %d/%d · 낙인 %d개" % [
@@ -271,7 +240,7 @@ func setup_monster_swap(reward: Dictionary) -> void:
 		option.tooltip_text = exchange_summary(old) + "\n선택 시 신규 마물과 교체"
 		if LayeredUnitCard.supports(str(old.get("slug",""))):
 			option.get_child(0).hide()
-		exchange_outline(option)
+		option.pivot_offset = option.size * 0.5
 		choices[key] = option
 		choice_cards.append(option)
 
@@ -307,11 +276,9 @@ func select_monster_for_exchange(key: String) -> void:
 	for id in choices:
 		var option: TextureButton = choices[id]
 		var chosen: bool = id == key and key != "__new__"
-		option.scale = Vector2(1.025,1.025) if chosen else Vector2.ONE
-		option.z_index = 4 if chosen else 0
-		var outline := option.get_node_or_null("OverflowSelectedOutline")
-		if outline != null:
-			outline.visible = chosen
+		option.pivot_offset = option.size * 0.5
+		option.scale = Vector2.ONE * (1.12 if chosen else 1.0)
+		option.z_index = 8 if chosen else 0
 	status.visible = false
 	status.text = ""
 	selection_detail.visible = true
@@ -341,10 +308,10 @@ func select_card(key: String) -> void:
 		var option: TextureButton = choices[id]
 		var chosen: bool = id==key
 		option.position.y = (0.0 if chosen else 7.0) if is_capture_overflow else (7.0 if chosen else 16.0)
-		option.scale = Vector2(1.06,1.06) if chosen else Vector2.ONE
-		option.z_index = 4 if chosen else 0
+		option.pivot_offset = option.size * 0.5
+		option.scale = Vector2.ONE * (1.12 if chosen else 1.0)
+		option.z_index = 8 if chosen else 0
 		option.modulate = Color.WHITE
-		option.get_node("OverflowSelectedOutline").visible = chosen
 	status.text = "선택한 보상 받기" if dice_room_available else "%s 버리기 선택됨" % choices[key].tooltip_text
 	confirm.disabled = false
 	confirm.modulate.a = 1.0

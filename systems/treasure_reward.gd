@@ -10,11 +10,11 @@ var status: Label
 var confirm_button: Button
 var busy = false
 # Original HTML reward-card presentation only. These collections do not enter saves.
-var reward_outlines: Array[Panel] = []
 var reward_origins: Array[Vector2] = []
 var reward_materials: Array[ShaderMaterial] = []
 const REWARD_CARD_SIZE = Vector2(170,254)
 const SELECT_RISE = 0.08
+const SELECTED_REWARD_SCALE: float = 1.15
 const REWARD_CARD_SHADE_SHADER = """
 shader_type canvas_item;
 uniform float desaturate : hint_range(0.0, 1.0) = 0.0;
@@ -79,24 +79,6 @@ func animate_offer_entrance() -> void:
 	await rise.finished
 	refresh()
 
-func reward_outline(option: TextureButton) -> Panel:
-	var border=Panel.new()
-	border.name="TreasureSelectionOutline"
-	border.position=Vector2(-8,-14)
-	border.size=REWARD_CARD_SIZE+Vector2(16,28)
-	border.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var style=StyleBoxFlat.new()
-	style.bg_color=Color(1,1,1,0)
-	style.border_color=Color("ffe29a")
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
-	style.shadow_color=Color("ffe29a99")
-	style.shadow_size=9
-	border.add_theme_stylebox_override("panel",style)
-	border.visible=false
-	option.add_child(border)
-	return border
-
 func reward_shade(option: TextureButton) -> ShaderMaterial:
 	var material=ShaderMaterial.new()
 	var shader=Shader.new()
@@ -122,8 +104,8 @@ func build_options() -> void:
 		option.rotation_degrees=[-7,0,7][index]
 		option.set_meta("reward_index",index)
 		reward_origins.append(origin)
+		option.pivot_offset = option.size * 0.5
 		reward_materials.append(reward_shade(option))
-		reward_outlines.append(reward_outline(option))
 		options.append(option)
 	# Card taps only choose; this explicit button commits a reward transaction.
 	confirm_button=button(self,"선택한 보상 받기",Vector2(490,626),Vector2(300,52),confirm_selection)
@@ -139,10 +121,9 @@ func refresh() -> void:
 		var faded: bool=selected>=0 and not active
 		var option: TextureButton=options[index]
 		option.position=reward_origins[index]+Vector2(0,-REWARD_CARD_SIZE.y*SELECT_RISE if active else 0)
-		option.scale=Vector2.ONE*(1.08 if active else 1.0)
+		option.scale=Vector2.ONE*(SELECTED_REWARD_SCALE if active else 1.0)
 		option.modulate=Color(1,1,1,0.48 if faded else 1.0)
 		option.z_index=12 if active else 0
-		reward_outlines[index].visible=active
 		reward_materials[index].set_shader_parameter("desaturate",0.22 if faded else 0.0)
 		reward_materials[index].set_shader_parameter("brightness",0.72 if faded else 1.0)
 	if is_instance_valid(confirm_button):
@@ -155,15 +136,13 @@ func show_confirmed_choice(index: int) -> void:
 		var option: TextureButton=options[i]
 		if i==index:
 			option.position=reward_origins[i]+Vector2(0,-REWARD_CARD_SIZE.y*0.1)
-			option.scale=Vector2(1.1,1.1)
+			option.scale=Vector2.ONE*1.18
 			option.modulate.a=1.0
 			option.z_index=15
-			reward_outlines[i].visible=true
 		else:
 			option.modulate.a=0.0
 			option.scale=Vector2(0.72,0.72)
 			option.position=reward_origins[i]+Vector2(0,REWARD_CARD_SIZE.y*0.1)
-			reward_outlines[i].visible=false
 
 func choose(index: int) -> void:
 	if busy: return

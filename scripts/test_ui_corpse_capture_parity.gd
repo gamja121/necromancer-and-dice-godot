@@ -1,5 +1,5 @@
 extends SceneTree
-## Source capture banner, green selected-outline and existing capture status.
+## Capture banner and border-free selection enlargement with the original arrow.
 const CaptureUI=preload("res://systems/corpse_capture.gd")
 var passed=0
 var failed=0
@@ -42,23 +42,21 @@ func _run() -> void:
 		var card_a=TextureButton.new()
 		card_a.size=Vector2(79,115)
 		panel.add_child(card_a)
-		panel.add_selection_outline(card_a)
 		var card_b=TextureButton.new()
 		card_b.size=Vector2(79,115)
 		panel.add_child(card_b)
-		panel.add_selection_outline(card_b)
 		var arrow_a=TextureRect.new()
 		panel.add_child(arrow_a)
 		var arrow_b=TextureRect.new()
 		panel.add_child(arrow_b)
-		check(card_a.get_node_or_null("CaptureSelectedOutline") is Panel and card_b.get_node_or_null("CaptureSelectedOutline") is Panel,"each candidate has independent outline")
-		check(card_a.get_node("CaptureSelectedOutline").mouse_filter==Control.MOUSE_FILTER_IGNORE,"outlines do not intercept taps")
+		check(card_a.get_node_or_null("CaptureSelectedOutline")==null and card_b.get_node_or_null("CaptureSelectedOutline")==null,"green capture-selection borders are absent")
 		panel.choices=[{"card":card_a,"target":TextureButton.new(),"arrow":arrow_a,"index":0},{"card":card_b,"target":TextureButton.new(),"arrow":arrow_b,"index":1}]
 		panel.scene=CaptureSceneStub.new()
 		panel.session=session
 		session.world.pending_reward={"kind":"capture","selected":0,"corpses":[{"name":"구울","target":3},{"name":"늑대","target":5}],"attempts":2,"locked":false}
 		panel.refresh()
-		check(card_a.get_node("CaptureSelectedOutline").visible and not card_b.get_node("CaptureSelectedOutline").visible,"chosen corpse highlighted green, other corpse not")
+		check(near(card_a.scale.x,1.15) and near(card_b.scale.x,1.0) and card_a.z_index>card_b.z_index,"chosen corpse enlarges and rises above other cards")
+		check(card_a.pivot_offset.is_equal_approx(card_a.size*0.5),"chosen corpse scales around its center")
 		check(arrow_a.visible and not arrow_b.visible,"selected corpse alone has source arrow")
 		check(absf(card_b.modulate.a-0.97)<0.015 and absf(card_a.modulate.a-1.0)<0.015,"unselected corpse stays legible at 97% opacity")
 		# A defeated body was previously RGB 0.4 / alpha 0.35. Its actual
@@ -81,7 +79,7 @@ func _run() -> void:
 		session.world.pending_reward.selected=1
 		session.world.pending_reward.locked=true
 		panel.refresh()
-		check(card_b.get_node("CaptureSelectedOutline").visible and not card_a.get_node("CaptureSelectedOutline").visible,"selection outline follows saved selected index")
+		check(near(card_b.scale.x,1.15) and near(card_a.scale.x,1.0) and arrow_b.visible and not arrow_a.visible,"enlargement and arrow follow saved selected index")
 		check(panel.capture_info_status.text.contains("대상 고정") and panel.capture_info_status.text.contains("늑대"),"locked selection and chosen target displayed")
 		check(card_a.disabled and card_b.disabled,"locked capture candidates cannot be changed")
 		panel.queue_free()

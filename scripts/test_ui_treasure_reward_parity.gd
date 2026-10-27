@@ -56,23 +56,24 @@ func _run() -> void:
 	check(ready,"three reward cards complete original staggered entrance")
 	if ready:
 		var panel=map.overlay
-		check(panel.reward_origins.size()==3 and panel.reward_outlines.size()==3 and panel.reward_materials.size()==3,"each offer has an independent visual highlight")
+		check(panel.reward_origins.size()==3 and panel.reward_materials.size()==3,"each reward option keeps its own position and brightness")
 		check(panel.options.size()==3 and panel.options.all(func(o): return o.texture_normal!=null or o.has_node("LayeredCardBase")),"three rewards show live monster cards or regular dice art")
 		for i in range(3):
 			check(near(panel.options[i].rotation_degrees,[-7.0,0.0,7.0][i]),"source reward-card tilt %d" % i)
 			check(panel.options[i].position.distance_to(Vector2(314+i*216,245))<1.0 and panel.options[i].size.distance_to(Vector2(170,254))<0.3,"reward card %d preserves source layout" % i)
-			check(not panel.reward_outlines[i].visible and near(panel.options[i].modulate.a,1.0),"unselected card %d stays fully visible" % i)
+			check(panel.options[i].get_node_or_null("TreasureSelectionOutline")==null and near(panel.options[i].modulate.a,1.0),"card %d has no selection frame and is fully visible" % i)
 		check(is_instance_valid(panel.confirm_button) and panel.confirm_button.disabled,"separate reward claim starts disabled")
 		panel.options[1].pressed.emit()
 		check(world.pending_reward.selected==1 and not world.pending_reward.has("reward"),"first click saves choice but awards nothing")
 		check(not panel.confirm_button.disabled,"selection enables the single reward claim button")
 		panel.options[1].pressed.emit()
 		check(world.pending_reward.selected==1 and not world.pending_reward.has("reward"),"repeated card tap never claims or awards")
-		check(panel.reward_outlines[1].visible and panel.options[1].z_index==12,"chosen card has frontmost gold border")
-		check(near(panel.options[1].position.y,245.0-254.0*0.08) and near(panel.options[1].scale.x,1.08),"chosen card rises 8 percent and grows to 108 percent")
+		check(panel.options[1].z_index==12 and panel.options[1].get_node_or_null("TreasureSelectionOutline")==null,"chosen reward comes to front without a glowing border")
+		check(near(panel.options[1].position.y,245.0-254.0*0.08) and near(panel.options[1].scale.x,1.15),"chosen reward rises 8 percent and grows to 115 percent")
+		check(panel.options[1].pivot_offset.is_equal_approx(panel.options[1].size*0.5),"selected treasure enlarges from the center")
 		check(near(panel.options[0].modulate.a,0.48) and near(panel.options[2].modulate.a,0.48),"nonchosen cards dim to source opacity 48 percent")
 		check(near(float(panel.reward_materials[0].get_shader_parameter("desaturate")),0.22) and near(float(panel.reward_materials[2].get_shader_parameter("brightness")),0.72),"unchosen art uses original grayscale and brightness")
-		check(not panel.reward_outlines[0].visible and not panel.reward_outlines[2].visible,"only chosen card has gold selection outline")
+		check(panel.options.all(func(o): return o.get_node_or_null("TreasureSelectionOutline")==null),"all reward cards remain free of selection borders")
 		var selection_snapshot: Dictionary=world.pending_reward.duplicate(true)
 		map.queue_free()
 		await process_frame
@@ -85,10 +86,10 @@ func _run() -> void:
 		check(ready,"reload recreates visible saved treasure transaction")
 		if ready:
 			panel=map.overlay
-			check(panel.reward_outlines[1].visible and near(panel.options[0].modulate.a,0.48),"saved choice restores gold border and nonchosen dimming")
+			check(near(panel.options[1].scale.x,1.15) and near(panel.options[0].modulate.a,0.48),"saved choice restores chosen enlargement and nonchosen dimming")
 			var card_before: Dictionary=world.pending_reward.duplicate(true)
 			panel.show_confirmed_choice(1)
-			check(near(panel.options[1].scale.x,1.1) and not panel.options[0].visible==true or near(panel.options[0].modulate.a,0),"confirmation preview raises winner and dismisses rejects")
+			check(near(panel.options[1].scale.x,1.18) and near(panel.options[0].modulate.a,0),"confirmation preview enlarges winner to 118 percent and dismisses rejects")
 			check(world.pending_reward==card_before,"visual confirmation is never a saved transaction")
 			panel.refresh()
 			var receipt_id: String=str(world.pending_reward.id)
