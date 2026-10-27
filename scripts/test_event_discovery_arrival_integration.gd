@@ -26,6 +26,29 @@ func wait_for(predicate: Callable, limit: int=5000) -> bool:
 	while not predicate.call() and Time.get_ticks_msec()<deadline: await process_frame
 	return bool(predicate.call())
 
+func press_at(point: Vector2, touch: bool) -> void:
+	if not touch:
+		var motion := InputEventMouseMotion.new()
+		motion.position=point
+		motion.global_position=point
+		root.push_input(motion,true)
+		await process_frame
+	for down in [true,false]:
+		if touch:
+			var tap := InputEventScreenTouch.new()
+			tap.position=point
+			tap.pressed=down
+			root.push_input(tap,true)
+		else:
+			var click := InputEventMouseButton.new()
+			click.button_index=MOUSE_BUTTON_LEFT
+			click.button_mask=MOUSE_BUTTON_MASK_LEFT if down else 0
+			click.position=point
+			click.global_position=point
+			click.pressed=down
+			root.push_input(click,true)
+		await process_frame
+
 func cleanup() -> void:
 	for suffix in ["", ".tmp"]:
 		if FileAccess.file_exists(save_path + suffix):
@@ -72,11 +95,30 @@ func _run() -> void:
 	root.add_child(map)
 	await process_frame
 	var receipt := "event:discovery:forest:card_shown"
-	map.show_tile(event_index)
-	check(not session.event_flag_is_set(receipt), "preview never creates a discovery receipt")
-	check(not (map.find_child("EventDiscoveryCard",true,false) != null), "preview never opens discovery card")
-	if is_instance_valid(map.overlay):
-		map.close_overlay()
+	var preview_before: Dictionary=world.snapshot().duplicate(true)
+	var preview_rng: int=world.rng.state
+	var preview_saved: PackedByteArray=FileAccess.get_file_as_bytes(save_path)
+	# Previewing a tile is information only. Exercise real viewport input on
+	# the parchment and empty side/backdrop without rolling an actual event.
+	for sample in [
+		{"touch":false,"point":Vector2(480,300),"label":"mouse on parchment"},
+		{"touch":true,"point":Vector2(800,330),"label":"touch beside parchment"},
+		{"touch":false,"point":Vector2(40,40),"label":"mouse on backdrop"},
+		{"touch":true,"point":Vector2(40,40),"label":"touch on backdrop"}]:
+		map.show_tile(event_index)
+		await create_timer(0.36).timeout
+		var preview: Control=map.find_child("OrdinaryEventPreview",true,false)
+		check(preview!=null,"preview uses the ordinary event parchment: "+str(sample.label))
+		check(not session.event_flag_is_set(receipt) and map.find_child("EventDiscoveryCard",true,false)==null,"preview never opens or receipts an actual discovery")
+		if preview!=null:
+			check(preview.size==Vector2(452,560) and preview.position.is_equal_approx(Vector2(268,80)),"preview shares the ordinary event shell")
+			check(preview.get_node("EventDiscoveryIllustration").texture.resource_path.ends_with("ordinary_event_preview.png"),"preview has its own manuscript illustration")
+			check(preview.find_children("*","BaseButton",true,false).is_empty(),"preview has no event choice or reward claim button")
+		check(world.snapshot()==preview_before and world.rng.state==preview_rng and FileAccess.get_file_as_bytes(save_path)==preview_saved,"opening preview preserves world, RNG and saved bytes")
+		await press_at(sample.point,bool(sample.touch))
+		check(await wait_for(func(): return not is_instance_valid(map.overlay)),"preview dismisses with "+str(sample.label))
+		check(world.snapshot()==preview_before and world.rng.state==preview_rng and FileAccess.get_file_as_bytes(save_path)==preview_saved,"preview dismissal preserves world, RNG and saved bytes")
+		if is_instance_valid(map.overlay): map.close_overlay()
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var forest_before: int = world.tiles.count("forest")
 	var roads_before: int = world.tiles.count("basic")
@@ -97,9 +139,26 @@ func _run() -> void:
 		check(reveal.get_node_or_null("EventDiscoveryTile") is TextureRect,"discovery shows real in-game forest board tile")
 		check(reveal.find_children("*","BaseButton",true,false).is_empty(),"there is no confirm button")
 		check(reveal.get_node("EventDiscoveryTitle").text=="언덕 발견" and not reveal.get_node("EventDiscoveryDescription").text.is_empty(),"discovery explains the event in live text")
-		reveal.dismiss()
-		check(await wait_for(func(): return not is_instance_valid(map.overlay)),"one tap closes the discovery card and restores board")
+		await create_timer(0.36).timeout
+		var disclosed_before: Dictionary=world.snapshot().duplicate(true)
+		var disclosed_saved: PackedByteArray=FileAccess.get_file_as_bytes(save_path)
+		var reward: Control=reveal.get_node("EventDiscoveryReward")
+		check(reward.get_global_rect().position.x>reveal.get_global_rect().end.x,"discovery reward is readable outside the parchment")
+		await press_at(reward.get_global_rect().get_center(),false)
+		check(await wait_for(func(): return not is_instance_valid(map.overlay)),"mouse click on the side reward closes discovery and restores board")
 		check(map.buttons.size()==24 and new_hill_index>=0 and map.buttons[new_hill_index].texture_normal==map.texture(map.tile_path(new_hill_index)),"board redraw displays actual new forest art")
+		# Reopen only the already-durable presentation to verify each dismissal
+		# surface; no second discovery or reward operation is performed.
+		for sample in [
+			{"touch":true,"point":Vector2(800,330),"label":"touch on side plaque"},
+			{"touch":false,"point":Vector2(40,40),"label":"mouse on backdrop"},
+			{"touch":true,"point":Vector2(40,40),"label":"touch on backdrop"}]:
+			map.show_discovery_card("forest")
+			await create_timer(0.36).timeout
+			await press_at(sample.point,bool(sample.touch))
+			check(await wait_for(func(): return not is_instance_valid(map.overlay)),"discovery dismisses with "+str(sample.label))
+			check(world.snapshot()==disclosed_before and FileAccess.get_file_as_bytes(save_path)==disclosed_saved,"reading and dismissal never duplicate or rewrite discovery")
+			if is_instance_valid(map.overlay): map.close_overlay()
 	# Unread first house notice and permanent route-editor unlock art.
 	map.show_home(true)
 	check(is_instance_valid(map.overlay) and map.overlay.find_child("UnlockNewBadge",true,false)!=null,"home interior announces the newly unlocked hill")

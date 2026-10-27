@@ -36,6 +36,7 @@ func run() -> void:
 		check(card.position.is_equal_approx(Vector2(268,80)) and card.size==Vector2(452,560),event_id+": shortened card and side choices form a centered composition")
 		check(card.get_node_or_null("EventDiscoveryReward")==null and card.get_node_or_null("EventDiscoveryTile")==null,event_id+": no reward label or reward icon is created")
 		check(card.get_node("EventDiscoveryBase").texture.resource_path.ends_with("routine_event_card_base_v2.png"),event_id+": new painted parchment has no green reward strip")
+		check(card.get_node("EventDiscoveryIllustration").stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,event_id+": the complete illustrated border remains visible")
 		check(not card.get_node("EventDiscoveryDismissHint").visible,event_id+": no bottom dismissal text")
 		var accept: Button=card.get_node("RoutineAccept")
 		var decline: Button=card.get_node("RoutineDecline")
@@ -66,8 +67,16 @@ func run() -> void:
 	root.add_child(discovery)
 	discovery.setup("발견","언덕","숲길을 발견했다.","언덕 타일 해금")
 	await create_timer(0.36).timeout
-	check(discovery.position.is_equal_approx(Vector2(414,36)) and discovery.size==Vector2(452,630),"discovery card keeps its existing layout")
+	check(discovery.position.is_equal_approx(Vector2(268,80)) and discovery.size==Vector2(452,560),"discovery shares the ordinary event parchment and composition")
+	check(discovery.get_node("EventDiscoveryBase").texture.resource_path.ends_with("routine_event_card_base_v2.png"),"discovery uses the same painted parchment as routine events")
+	check(discovery.get_node("EventDiscoveryIllustration").stretch_mode==TextureRect.STRETCH_KEEP_ASPECT_CENTERED,"discovery preserves its complete illustrated border")
 	check(discovery.get_node_or_null("EventDiscoveryReward")!=null and discovery.get_node_or_null("EventDiscoveryTile")!=null,"discovery keeps its reward/location information")
+	for node_name in ["EventDiscoveryReward","EventDiscoveryTile"]:
+		var side: Control=discovery.get_node(node_name)
+		var bounds: Rect2=side.get_global_rect()
+		check(bounds.position.x>discovery.get_global_rect().end.x and bounds.end.x<=1280 and bounds.end.y<=720,"discovery "+node_name+" stays beside the parchment and inside the game surface")
+	var description: Control=discovery.get_node("EventDiscoveryDescription")
+	check(description.position.y+description.size.y<=discovery.size.y,"discovery body stays on the parchment")
 	discovery.queue_free()
 	await process_frame
 	print("ROUTINE_SIDE_CHOICES: %d passed, %d failed" % [passed,failed])

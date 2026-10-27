@@ -8,19 +8,19 @@ const ORDER = ["forest","rest","graveyard","unknown","altar"]
 const LOCATIONS = {
 	"forest":{
 		"title":"언덕 발견", "description":"낡은 길 너머 작은 언덕을 발견했다.",
-		"reward":"언덕 타일 해금", "illustration":"res://assets/map/events/forest.jpg"},
+		"reward":"언덕 타일 해금", "illustration":"res://assets/map/events/discovery_hill.png"},
 	"rest":{
 		"title":"숙영지 발견", "description":"이끼 낀 길 끝에서 버려진 숙영지를 발견했다.",
-		"reward":"숙영 타일 해금", "illustration":"res://assets/map/events/camp.jpg"},
+		"reward":"숙영 타일 해금", "illustration":"res://assets/map/events/discovery_camp.png"},
 	"graveyard":{
 		"title":"공동묘지 발견", "description":"잊힌 묘비 사이로 또 다른 시신 안치소가 나타났다.",
-		"reward":"추가 공동묘지 타일 해금", "illustration":"res://assets/map/events/graveyard.jpg"},
+		"reward":"추가 공동묘지 타일 해금", "illustration":"res://assets/map/events/discovery_graveyard.png"},
 	"unknown":{
 		"title":"세계수 발견", "description":"뒤틀린 숲 너머 거대한 세계수의 흔적을 발견했다.",
-		"reward":"세계수 타일 해금", "illustration":"res://assets/map/events/world-tree.jpg"},
+		"reward":"세계수 타일 해금", "illustration":"res://assets/map/events/discovery_world_tree.png"},
 	"altar":{
 		"title":"제단 발견", "description":"광신도들이 사용하던 낡은 제단을 발견했다.",
-		"reward":"제단 타일 해금", "illustration":"res://assets/map/events/altar.jpg"}
+		"reward":"제단 타일 해금", "illustration":"res://assets/map/events/discovery_altar.png"}
 }
 
 static func unlock_flag(kind: String) -> String:

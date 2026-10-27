@@ -1116,6 +1116,9 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 	if type in EVENT_IMAGES:
 		show_location(index)
 		return
+	if type=="event":
+		show_ordinary_event_preview()
+		return
 	var panel = modal()
 	image(panel,tile_path(index),Vector2(465,160),Vector2(350,260))
 	var title = label_at(panel,MapState.NAMES[type],Vector2(290,92),Vector2(700,36),24)
@@ -1126,21 +1129,34 @@ func show_first_discovery_card() -> void:
 	show_discovery_card("forest")
 
 func show_discovery_card(kind: String) -> void:
-	# The unlock is already durable. Explain the discovery before returning to the changed board.
+	# The unlock is already durable; reading the card never repeats the transaction.
 	var entry: Dictionary=Discovery.details(kind)
 	if entry.is_empty(): return
-	var panel: Control=modal()
 	var changed: Array[int]=presentation.new_tile_indices(kind)
+	_show_ordinary_info_card("일반 사건",entry,"res://assets/map/tiles/%s.png" % kind,"EventDiscoveryCard",func():
+		render()
+		presentation.show_discovery(changed)
+		status.text="%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind])
+
+func show_ordinary_event_preview() -> void:
+	# A story-free tile preview only creates UI: no event draw, reward or save.
+	var entry: Dictionary={
+		"title":"사건 타일 미리보기",
+		"description":"실제 이 칸에 도착하면 사건이 펼쳐집니다.\n지금은 타일 정보를 살펴보고 있습니다.",
+		"reward":"실제 도착 시 사건 확인",
+		"illustration":EventDiscoveryCard.DEFAULT_ART}
+	_show_ordinary_info_card("미리보기",entry,"res://assets/map/tiles/event.png","OrdinaryEventPreview")
+
+func _show_ordinary_info_card(category: String,entry: Dictionary,tile_art: String,node_name: String,after_close: Callable=Callable()) -> void:
+	var panel: Control=modal()
 	var card=EventDiscoveryCard.new()
 	panel.add_child(card)
-	card.setup("발견",str(entry.title),str(entry.description),str(entry.reward),
-		str(entry.illustration),"res://assets/map/tiles/%s.png" % kind)
+	card.setup(category,str(entry.title),str(entry.description),str(entry.reward),str(entry.illustration),tile_art)
+	card.name=node_name
 	card.closed.connect(func():
 		if not is_inside_tree() or not is_instance_valid(panel) or overlay!=panel: return
 		close_overlay()
-		render()
-		presentation.show_discovery(changed)
-		status.text="%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind],CONNECT_ONE_SHOT)
+		if after_close.is_valid(): after_close.call(),CONNECT_ONE_SHOT)
 	var dismiss_on_input=func(event: InputEvent):
 		if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
 			card.dismiss()
