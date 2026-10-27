@@ -66,6 +66,7 @@ const ExplorationActions = preload("res://systems/exploration_actions.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const MapState = preload("res://systems/map_state.gd")
+const HeroFacingPolicy = preload("res://systems/hero_facing_policy.gd")
 const EventDiscoveryCard = preload("res://systems/event_discovery_card.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
@@ -88,6 +89,12 @@ const DiceAnimation = preload("res://systems/dice_animation.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const TILE_SIZE = Vector2(120.0,90.0)
 const SELECTED_TILE_SCALE = Vector2(1.025,1.025)
+# The previous art remains an offline fallback until the direction assets are installed.
+const HERO_TOKEN_SIZE = Vector2(94.0,120.0)
+const HERO_BASE_ABOVE_TILE_CENTER = 33.6
+const HERO_BASE_INSET = 5.0
+const HERO_LEGACY_ART = "res://assets/map/hero/necromancer-hero.png"
+const HERO_OPTIONAL_ART_PREFIX = "assets/map/hero/necromancer-hero-"
 const EVENT_IMAGES = {"home":"home","village":"village","graveyard":"graveyard","altar":"altar","unknown":"world-tree","forest":"forest","rest":"camp","fortune-teller-camp":"fortune-teller"}
 var session
 var dice_animation = DiceAnimation.new()
@@ -102,6 +109,8 @@ var buttons: Array = []
 var hero: TextureRect
 var hero_shadow: Node2D
 var hero_shadow_in_step: bool = false
+var hero_art_path: String = ""
+var hero_pose_name: String = "front"
 var dice: TextureButton
 # The 24 perimeter tiles form a wall; the painted die (including rotation)
 # must stay inside the open central board, on map AND in combat.
@@ -581,9 +590,11 @@ func render() -> void:
 			node.tooltip_text += " · 정찰 정보 확인"
 		node.z_index = 4
 		buttons.append(node)
-	hero = image(stage,"res://assets/map/hero/necromancer-hero.png",Vector2.ZERO,Vector2(81.92,120))
+	hero = image(stage,HERO_LEGACY_ART,Vector2.ZERO,HERO_TOKEN_SIZE)
 	hero.z_index = 16
 	hero.position = hero_position(world.position)
+	hero_art_path = ""
+	set_hero_pose(HeroFacingPolicy.for_arrival())
 	_create_hero_shadow()
 	dice = TextureButton.new()
 	dice.ignore_texture_size = true
@@ -687,11 +698,28 @@ func render() -> void:
 
 # Three translucent ellipses create a soft grounded shadow without lights,
 # extra assets, or a full-screen shader. Kept separate from the hero sprite.
+# Visual state only: never change the saved position or route.
+func set_hero_pose(pose: Dictionary) -> void:
+	if not is_instance_valid(hero): return
+	var facing: String = str(pose.get("pose","front"))
+	# Generate an optional direction-specific path at runtime.
+	# Guard scripts must not treat absent optional art as missing required resources.
+	var intended: String = "res://" + HERO_OPTIONAL_ART_PREFIX + facing + ".png"
+	var selected: String = intended if ResourceLoader.exists(intended) else HERO_LEGACY_ART
+	if selected != hero_art_path:
+		hero.texture = texture(selected)
+		hero_art_path = selected
+	hero.flip_h = bool(pose.get("flip_h",false))
+	hero_pose_name = facing
+
+func hero_shadow_offset() -> Vector2:
+	return Vector2(HERO_TOKEN_SIZE.x*0.5,HERO_TOKEN_SIZE.y-HERO_BASE_INSET)
+
 func _create_hero_shadow() -> void:
 	hero_shadow = Node2D.new()
 	hero_shadow.name = "HeroContactShadow"
 	hero_shadow.z_index = 10
-	hero_shadow.position = hero.position + Vector2(40.96, 115.0)
+	hero_shadow.position = hero.position + hero_shadow_offset()
 	stage.add_child(hero_shadow)
 	for layer in range(3):
 		var oval := Polygon2D.new()
@@ -707,12 +735,12 @@ func _create_hero_shadow() -> void:
 
 func _process(_delta: float) -> void:
 	if is_instance_valid(hero_shadow) and is_instance_valid(hero) and not hero_shadow_in_step:
-		hero_shadow.position = hero.position + Vector2(40.96, 115.0)
+		hero_shadow.position = hero.position + hero_shadow_offset()
 		hero_shadow.scale = Vector2.ONE
 		hero_shadow.modulate.a = 1.0
 
 func hero_position(index: int) -> Vector2:
-	return center(index)-Vector2(40.96,86.4)
+	return center(index)-Vector2(HERO_TOKEN_SIZE.x*0.5,HERO_TOKEN_SIZE.y-HERO_BASE_ABOVE_TILE_CENTER)
 
 func highlight(index: int) -> void:
 	selected = index
@@ -729,7 +757,7 @@ func _pose_hero_step(progress: float, start: Vector2, target: Vector2) -> void:
 	hero.position = start.lerp(target, travel) + Vector2(0.0, -lift)
 	if is_instance_valid(hero_shadow):
 		# Shadow stays on the stone while the character rises above it.
-		hero_shadow.position = start.lerp(target, travel) + Vector2(40.96, 115.0)
+		hero_shadow.position = start.lerp(target, travel) + hero_shadow_offset()
 		hero_shadow.scale = Vector2.ONE * lerpf(1.0, 0.80, sin(p * PI))
 		hero_shadow.modulate.a = lerpf(1.0, 0.55, sin(p * PI))
 	# A little compression on push-off, stretch in flight, and compression at impact.
@@ -868,14 +896,17 @@ func animate_hero_step(index: int) -> void:
 	hero_shadow_in_step = true
 	var start: Vector2 = hero.position
 	var target: Vector2 = hero_position(index)
+	set_hero_pose(HeroFacingPolicy.for_travel(target-start))
 	var motion: Tween = create_tween()
 	motion.tween_method(_pose_hero_step.bind(start, target), 0.0, 1.0, 0.32).set_trans(Tween.TRANS_LINEAR)
 	await motion.finished
 	hero.position = target
 	hero.scale = Vector2.ONE
+	# Face the player for every landing, including intermediate roll steps.
+	set_hero_pose(HeroFacingPolicy.for_arrival())
 	hero_shadow_in_step = false
 	if is_instance_valid(hero_shadow):
-		hero_shadow.position = target + Vector2(40.96, 115.0)
+		hero_shadow.position = target + hero_shadow_offset()
 		hero_shadow.scale = Vector2.ONE
 		hero_shadow.modulate.a = 1.0
 	# One restrained landing response, rather than stacking three impacts.
@@ -903,7 +934,6 @@ func roll_move(instance_id: String = "") -> void:
 	var previous = int(result.origin)
 	for raw_index in result.path:
 		var index = int(raw_index)
-		hero.flip_h = center(index).x<center(previous).x
 		sound("move")
 		await animate_hero_step(index)
 		highlight(index)
@@ -917,6 +947,7 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 	var result: Dictionary = world.pending_move.duplicate(true)
 	var landed = int(result.get("landed",world.position))
 	hero.position = hero_position(landed)
+	set_hero_pose(HeroFacingPolicy.for_arrival())
 	highlight(landed)
 	var from_hill: bool = str(result.get("source",""))=="hill"
 	if not from_hill:
@@ -925,6 +956,7 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 	if world.tiles[landed]=="warp" and landed!=world.position:
 		status.text = "%d번 워프 → %d번 워프" % [landed+1,world.position+1]
 		await presentation.warp(hero,hero_position(world.position))
+		set_hero_pose(HeroFacingPolicy.for_arrival())
 		highlight(world.position)
 	elif world.tiles[landed]=="swamp":
 		if play_arrival_sound: sound("swamp_hit")
@@ -1885,7 +1917,6 @@ func move_from_hill(index: int, steps: int) -> void:
 	var previous: int=index
 	for raw_index in result.path:
 		var tile_index: int=int(raw_index)
-		hero.flip_h=center(tile_index).x<center(previous).x
 		sound("move")
 		await animate_hero_step(tile_index)
 		highlight(tile_index)
