@@ -174,6 +174,8 @@ func render_graveyard() -> void:
 	close_button=graveyard_exit_button
 	action_button=map.location_button(content,"시체 파헤치기",map.TILE_EVENT_ACTION_RECT.position,map.TILE_EVENT_ACTION_RECT.size,_graveyard_action,4)
 	action_button.name="GraveyardDigConfirm"
+	if session.event_flag_is_set("ui:unlock:graveyard:action_pending"):
+		UnlockNoticeBadge.attach(action_button,"NEW")
 	action_button.disabled=used or busy
 	action_button.tooltip_text="방문당 1회 · 무작위 주사위 제어 카드 1장 · 보유 한도 %d장"%Catalog.DICE_CAPACITY
 	if found:
@@ -217,6 +219,9 @@ func dig_graveyard() -> void:
 	if busy or graveyard_phase!="idle": return
 	graveyard_count_before=session.world.dice_cards.size()
 	map.acknowledge_discovery_action("graveyard")
+	var new_badge:Control=action_button.get_node_or_null("UnlockNewBadge")
+	if is_instance_valid(new_badge) and not session.event_flag_is_set("ui:unlock:graveyard:action_pending"):
+		new_badge.hide()
 	# Keep the original atomic draw/save before ANY successful presentation.
 	var result:Dictionary=session.dig_graveyard(index)
 	if not bool(result.get("ok",false)):

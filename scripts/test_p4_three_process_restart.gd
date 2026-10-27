@@ -284,13 +284,31 @@ func story_commit(s) -> void:
 	check(r.winner() == "ally", "victory persisted before result commit")
 	check(s.finish_encounter(r), "story result and rescue flags committed atomically")
 	check(s.encounter.is_empty() and s.world.active_encounter.is_empty(), "story fight is closed exactly once")
-	check(s.graveyard_battle_result_pending(), "unacknowledged story result receipt survives result commit")
+	check(s.event_flag_is_set(Session.GRAVEYARD_RESULT_PENDING_FLAG) and not s.graveyard_battle_result_pending(), "unacknowledged story result persists behind its saved soul harvest")
 	check(s.get_story_event(Registry.GRAVEYARD_ID).battle_result == "won" and s.get_story_event(Registry.GRAVEYARD_ID).status == "complete", "rescued child outcome is final and stored")
 	check(s.event_flag_is_set("event:graveyard_child_ambush_01:rescued") and s.event_flag_is_set(StoryEntry.COMPLETE_FLAG), "canonical rescued and complete flags saved together")
-	check(s.world.pending_reward.is_empty() and s.world.reward_receipts.is_empty(), "story rescue cannot also award an unrelated treasure")
+	check(s.world.pending_reward.get("kind","")=="capture" and s.world.pending_reward.get("corpses",[]).size()==1 and str(s.world.pending_reward.corpses[0].get("slug",""))=="ghoul" and s.world.reward_receipts.is_empty(), "real defeated ghoul saves only its original soul harvest, without unrelated treasure")
 	check(not s.start_story_encounter(Registry.GRAVEYARD_ID, s.world.position, [str(s.world.roster[0].id)]), "victory cannot start a second story battle")
 
 func story_ack(s) -> void:
+	# Shared main #329 defers the rescue epilogue until ordinary soul harvest.
+	var pending:Dictionary=s.world.pending_reward
+	check(pending.get("kind","")=="capture" and s.event_flag_is_set(Session.GRAVEYARD_RESULT_PENDING_FLAG),"new process restores the same harvest and unacknowledged rescue result")
+	check(not s.graveyard_battle_result_pending() and not s.acknowledge_graveyard_battle_result(),"result cannot be skipped while the saved harvest remains")
+	if str(pending.get("kind",""))!="capture": return
+	var receipt:String=str(pending.id)
+	check(s.select_capture(0),"restored original ghoul is selected through the existing harvest API")
+	while str(s.world.pending_reward.get("phase","")) in ["choose","retry"]:
+		var rolled:Dictionary=s.roll_capture()
+		check(bool(rolled.get("ok",false)),"restored harvest roll commits through the existing API")
+		if not bool(rolled.get("ok",false)): return
+	if str(s.world.pending_reward.get("phase",""))=="success":
+		var claimed:Dictionary=s.claim_reward()
+		if bool(claimed.get("overflow",false)): claimed=s.claim_reward("__new__")
+		check(bool(claimed.get("ok",false)),"successful soul harvest resolves through the existing claim API")
+	else:
+		check(s.dismiss_failed_capture(),"failed soul harvest closes through the existing dismissal API")
+	check(s.world.pending_reward.is_empty() and s.world.reward_receipts.count(receipt)==1,"harvest completion saves exactly one receipt before the epilogue")
 	check(s.pending_story_battle_event_id() == Registry.GRAVEYARD_ID, "Map startup will find the saved pending child result")
 	var view: Dictionary = s.story_battle_presentation(Registry.GRAVEYARD_ID)
 	check(str(view.get("title", "")) == "아이 구조 성공", "original result dialogue and screen are available after process restart")
@@ -306,6 +324,7 @@ func story_verify(s) -> void:
 	check(not s.graveyard_battle_result_pending() and s.pending_story_battle_event_id().is_empty(), "already closed result is not replayed")
 	check(s.event_flag_is_set("event:graveyard_child_ambush_01:rescued"), "child remains rescued exactly once")
 	check(s.encounter.is_empty() and s.world.active_encounter.is_empty() and s.world.pending_reward.is_empty(), "no phantom battle or harvest")
+	check(s.world.reward_receipts.size()==1 and str(s.world.reward_receipts[0]).begins_with("capture-"),"final process restores one original soul-harvest receipt")
 	var before: Dictionary = stable_snapshot(s)
 	check(s.finish_encounter(null), "second result-finalization request is a no-op")
 	check(stable_snapshot(s) == before, "no additional story reward, roster change or RNG mutation")

@@ -79,12 +79,16 @@ func check_geometry(map:Control,panel:Control) -> void:
 
 func normal_case(session:Node) -> void:
 	var grave:int=fixture(session)
+	check(session.set_event_flag("ui:unlock:graveyard:action_pending",true),"new discovery action marker fixture saves")
 	var map:Control=await open_map(grave)
 	var panel:Control=map.overlay
 	await check_geometry(map,panel)
+	var new_badge:Control=panel.action_button.get_node_or_null("UnlockNewBadge")
+	check(is_instance_valid(new_badge) and new_badge.visible and session.event_flag_is_set("ui:unlock:graveyard:action_pending"),"opening the direct screen preserves its unread action NEW marker")
 	var count_before:int=session.world.dice_cards.size()
 	panel.action_button.pressed.emit()
 	check(panel.busy and panel.graveyard_phase=="revealing","dig begins the complete reveal and input lock")
+	check(not session.event_flag_is_set("ui:unlock:graveyard:action_pending") and is_instance_valid(new_badge) and not new_badge.visible,"actual dig acknowledges and hides the original action NEW marker")
 	check(panel.action_button.disabled and panel.graveyard_exit_button.disabled,"dig and exit both remain locked during reveal")
 	check(session.world.dice_cards.size()==count_before+1 and session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"backend card and once-visit receipt are durable before reveal")
 	var committed:Dictionary=session.world.snapshot().duplicate(true)
