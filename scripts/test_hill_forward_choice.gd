@@ -18,7 +18,7 @@ func check(ok: bool, reason: String) -> void:
 		failed+=1
 		printerr("FAIL hill-forward: ",reason)
 
-func start_case(session: Node, name: String, tile_index: int = 3, target_index: int = -1, target_type: String = "") -> void:
+func start_case(session: Node, name: String, tile_index: int = 3, target_index: int = -1, target_type: String = "", force_hill_warp:bool=false) -> void:
 	var path: String="user://hill_forward_%d_%s.json" % [OS.get_process_id(),name]
 	all_paths.append(path)
 	for suffix in ["",".tmp"]:
@@ -26,8 +26,20 @@ func start_case(session: Node, name: String, tile_index: int = 3, target_index: 
 	session.save_file_path=path
 	session.start_new_world()
 	var world=session.world
+	if force_hill_warp:
+		var warp:int=world.tiles.find("warp")
+		var previous:String=world.tiles[tile_index]
+		world.tiles[tile_index]="warp"
+		world.tiles[warp]=previous
 	var old_hill:int=world.tiles.find("forest")
 	if old_hill<0:
+		# Insert a test-only hill without deleting a randomly placed warp or
+		# monster at this slot. Keep the canonical paired-warp map intact.
+		if world.tiles[tile_index]!="basic":
+			for spare in range(24):
+				if spare not in [0,8,MapState.HOME,tile_index,target_index] and world.tiles[spare]=="basic":
+					world.tiles[spare]=world.tiles[tile_index]
+					break
 		world.tiles[tile_index]="forest"
 	elif old_hill != tile_index:
 		var previous: String=world.tiles[tile_index]
@@ -54,6 +66,9 @@ func start_case(session: Node, name: String, tile_index: int = 3, target_index: 
 				world.tiles[other]=original_type
 	world.position=tile_index
 	check(session.save_world(),name+": fixture saved using isolated user data")
+	check(world.tiles.count("warp")==2,name+": disposable fixture preserves both original warp endpoints")
+	var restored=MapState.new(world.definitions,1)
+	check(restored.restore(world.snapshot()),name+": disposable fixture preserves canonical save anchors")
 
 func find_btn(parent: Node, caption: String) -> Button:
 	for child in parent.find_children("*","Button",true,false):
@@ -151,7 +166,7 @@ func test_warp_swamp(session: Node) -> void:
 	check(session.complete_map_move(),"SWAMP: completes transaction")
 	session.reload_world()
 	check(session.world.roster[0].current_hp==1,"SWAMP: restart does not repeat damage")
-	start_case(session,"warp",3,4,"warp")
+	start_case(session,"warp",3,4,"warp",true)
 	res=session.prepare_hill_move(3,1)
 	var landed:int=int(res.get("landed",-1))
 	check(res.get("ok",false) and landed==4,"WARP: chosen path first lands on real warp")
