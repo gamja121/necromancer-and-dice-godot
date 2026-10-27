@@ -1729,6 +1729,10 @@ func finish_embedded_battle() -> void:
 		show_final_ending()
 	elif not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
 		show_story_battle_result(completed_story_event_id)
+	elif not session.pending_story_battle_event_id().is_empty():
+		# A restart during soul harvest has no active encounter ID; the
+		# persisted story receipt still opens its epilogue after reward exit.
+		show_pending_story_battle_result()
 
 
 func sound(kind: String) -> void:
@@ -2809,6 +2813,14 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 		status.text = "사건 결과 저장 실패 · 다시 시도하세요."
 		return
 	var index: int = world.position
+	if event_id==StoryEventEntry.EVENT_ID and not retry:
+		# Finish the child's rescued epilogue with the book-close animation,
+		# then reveal the original map. Reward was already persisted first.
+		dismiss_overlay(func():
+			render()
+			status.text = session.notice
+			session.notice = "")
+		return
 	close_overlay()
 	if retry and not world.roster.is_empty():
 		show_story_battle_deck(event_id,index)

@@ -172,16 +172,22 @@ func choose_deck_and_fight(session: Node, map: Control, ids: Array, victor: Stri
 		await battle.roll_round()
 	check(battle.rules.winner()==victor,label+": original die/attack queue resolves intended outcome in %d round(s)" % rounds)
 	check(session.encounter.is_empty() and session.world.active_encounter.is_empty(),label+": completed fight atomically releases active checkpoint")
-	check(session.world.pending_reward.is_empty(),label+": story battle never grants ordinary corpse capture")
+	if victor=="ally":
+		check(str(session.world.pending_reward.get("kind",""))=="capture",label+": rescued child fight offers a real ghoul soul-harvest reward")
+	else:
+		check(session.world.pending_reward.is_empty(),label+": terminal defeat never offers a reward")
 	if victor=="enemy":
 		var ended: bool=await until_ready(func(): return session.world.run_result.get("reason","")=="battle_defeat" and is_instance_valid(map.game_over_screen),20000)
 		check(ended,label+": battle loss ends the expedition with the original game-over UI")
 		check(battle.map_return.disabled,label+": no map return or retry after battle defeat")
 		return ended
-	check(not battle.map_return.disabled,label+": winning fight enables map return button")
-	battle.map_return.pressed.emit()
-	var returned: bool = await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and is_instance_valid(map.overlay) and panel_button(map,"맵으로")!=null,21000)
-	check(returned,label+": actual victory return displays story result panel")
+	check(is_instance_valid(battle.capture_panel),label+": victory immediately opens soul harvest without manual battle-close click")
+	for attempt in range(2):
+		if session.world.pending_reward.is_empty(): break
+		if str(session.world.pending_reward.get("phase",""))=="choose" and is_instance_valid(battle.capture_panel):
+			await battle.capture_panel.roll()
+	var returned: bool = await until_ready(func(): return map.embedded_battle==null and not map.battle_returning and session.world.pending_reward.is_empty() and is_instance_valid(map.overlay) and panel_button(map,"맵으로")!=null,24000)
+	check(returned,label+": saved harvest automatically exits combat and shows rescue epilogue")
 	return returned
 
 func scenario_leave(session: Node) -> void:
@@ -235,7 +241,7 @@ func scenario_win(session: Node) -> void:
 	var state: Dictionary = session.get_story_event(STORY.EVENT_ID)
 	check(state.status=="complete" and state.battle_result=="won","win: rescue only completes after real battle victory")
 	check(session.event_flag_is_set("event:graveyard_child_ambush_01:rescued") and not session.event_flag_is_set("event:graveyard_child_ambush_01:abandoned"),"win: rescue true, abandonment false")
-	check(session.world.reward_receipts==receipts and session.story_battle_result_pending(STORY.EVENT_ID),"win: no ordinary reward; story result remains pending confirmation")
+	check(session.world.reward_receipts.size()==receipts.size()+1 and session.story_battle_result_pending(STORY.EVENT_ID),"win: one harvest receipt saved before pending rescue epilogue")
 	# Close the game with the result still unacknowledged; restore the original
 	# map through its real _ready() recovery dispatcher.
 	map.queue_free()
@@ -249,8 +255,8 @@ func scenario_win(session: Node) -> void:
 		press_story_action(map,panel_button(map,"맵으로"))
 		check(not session.story_battle_result_pending(STORY.EVENT_ID),"win: actual result button acknowledges exactly once")
 		check(not session.acknowledge_graveyard_battle_result(),"win: repeated acknowledgement rejected")
-	# Confirmation re-renders the board, which creates an AudioSettings node
-	# awaiting two frames in _ready; don't destroy that node immediately.
+		check(await until_ready(func(): return not is_instance_valid(map.overlay),7000),"win: rescued epilogue closes naturally to map")
+	# Allow deferred map nodes to settle before disposing the isolated test.
 	for i in range(3): await process_frame
 	map.queue_free()
 	await process_frame
