@@ -563,6 +563,24 @@ func finish_encounter(battle) -> bool:
 			world.restore(before)
 			encounter = world.active_encounter.duplicate(true)
 			return false
+		# The rescued-child ghoul is a real defeated monster: offer the same
+		# single soul-harvest reward as ordinary combat before the epilogue.
+		# The outcome, reward and receipt must share ONE atomic save. Synthetic
+		# result fixtures have no slain enemy and therefore create no reward.
+		if event_id==GRAVEYARD_EVENT_ID and battle.winner()=="ally":
+			var story_corpses: Array = []
+			for unit in battle.units:
+				if unit.team!="enemy" or unit.alive or unit.get("is_summon",false) or str(unit.get("slug",""))!="ghoul": continue
+				var original: Dictionary = unit
+				for generated in encounter.get("enemies",[]):
+					if str(generated.get("id",""))==str(unit.id):
+						original=generated
+						break
+				story_corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6),"unit":original.duplicate(true)})
+			if not story_corpses.is_empty():
+				var attempts: int = 2 if battle.active("ally","corpse") else 1
+				world.pending_reward = {"id":"capture-"+str(encounter.id),"kind":"capture","corpses":story_corpses,"selected":0,"locked":false,"max_attempts":attempts,"attempts":attempts,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
+				notice += " · 구울 영혼 수확"
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
 		if encounter.type=="boss":
