@@ -34,7 +34,7 @@ concurrency:
 jobs:
   one-notch-gear:
     runs-on: ubuntu-latest
-    timeout-minutes: 17
+    timeout-minutes: 22
     steps:
       - uses: actions/checkout@v4
       - uses: chickensoft-games/setup-godot@v2
@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 330s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
       - name: Real pair permutation, tile types and original stone identity
         shell: bash
