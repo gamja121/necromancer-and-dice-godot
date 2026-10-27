@@ -298,7 +298,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				check(float(flight_probe["closest_distance"])<35.0,
 					label+": captured card's center physically arrives at bottom-left monster book, not screen center")
 				check(bool(flight_probe["book_pulse"]),label+": real monster book responds subtly when captured card arrives")
-					check(bool(flight_probe["choices_cleared_before_flight"]),label+": arrow and all other enemy cards vanish before captured-card flight")
+				check(bool(flight_probe["choices_cleared_before_flight"]),label+": arrow and all other enemy cards vanish before captured-card flight")
 				# A layered source must remain layered all the way to the book.
 				# Unsupported slugs still use their intentionally flattened legacy art.
 				check(world.roster.size()==original_units+1,label+": visually received card corresponds to one actually saved owned monster")
