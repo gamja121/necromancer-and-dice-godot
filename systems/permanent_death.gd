@@ -6,6 +6,7 @@ var scene
 var souls: Array = []
 var elapsed = 0.0
 var dissolving = false
+var capture_dissolve_duration: float = 0.65
 
 # The same ash-and-soul dissolve is also used when a defeated enemy's soul
 # cannot be harvested. This is a presentation-only effect; no roster edits.
@@ -30,8 +31,9 @@ func _apply_material_to_capture_layers(parent: Node, mat: ShaderMaterial) -> voi
 			(child as CanvasItem).material = mat
 		_apply_material_to_capture_layers(child, mat)
 
-func play_failed_capture(battle_scene, failed_cards: Array) -> void:
+func play_failed_capture(battle_scene, failed_cards: Array, duration: float = 0.65, with_sound: bool = true) -> void:
 	scene = battle_scene
+	capture_dissolve_duration = maxf(duration,0.05)
 	# Parent lives in the same coordinates as candidate cards: the map stage
 	# for embedded battles, or the ordinary battle layer otherwise.
 	size = get_parent().size
@@ -53,15 +55,15 @@ func play_failed_capture(battle_scene, failed_cards: Array) -> void:
 		card.disabled = true
 		souls.append({"card":card,"center":card.position+card.size*0.5})
 	if souls.is_empty(): return
-	scene.sound("permanent-death")
+	if with_sound: scene.sound("permanent-death")
 	dissolving = true
 	elapsed = 0.0
-	var remaining: float = 0.65
+	var remaining: float = capture_dissolve_duration
 	while remaining>0.0:
 		await get_tree().process_frame
 		if not scene.paused:
 			remaining -= get_process_delta_time()*scene.speed_values[scene.speed_index]*scene.battle_tempo
-		var t = clampf(1.0-remaining/0.65,0.0,1.0)
+		var t = clampf(1.0-remaining/capture_dissolve_duration,0.0,1.0)
 		for soul in souls:
 			if is_instance_valid(soul.card):
 				soul.card.material.set_shader_parameter("dissolve",t)
@@ -78,7 +80,7 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	if not dissolving: return
-	var t = clampf(elapsed/0.65,0,1)
+	var t = clampf(elapsed/capture_dissolve_duration,0,1)
 	for soul in souls:
 		var p: Vector2 = soul.center+Vector2(sin(t*5)*8,-90*t)
 		for ring in range(4):

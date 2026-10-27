@@ -243,11 +243,20 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				world.pending_reward.corpses[int(world.pending_reward.selected)].target=1
 				check(session.save_world(),label+": test-only guaranteed-success capture persisted")
 				var book_center: Vector2=map.book_button.position+map.book_button.size*0.5
-				var flight_probe: Dictionary={"seen":false,"first_distance":0.0,"closest_distance":INF,"frames":0,"book_pulse":false,"layered":false}
+				var flight_probe: Dictionary={"seen":false,"first_distance":0.0,"closest_distance":INF,"frames":0,"book_pulse":false,"layered":false,"choices_cleared_before_flight":false}
 				var flight_observer: Callable=func() -> void:
 					if not is_instance_valid(map) or not is_instance_valid(map.stage): return
 					var flyer: Control=map.stage.get_node_or_null("RewardToInventoryFlight") as Control
 					if flyer!=null:
+						# The pickup must NOT begin until all selector arrows and
+						# other fallen-enemy choice cards have vanished.
+						if not bool(flight_probe["seen"]) and is_instance_valid(battle.capture_panel):
+							var cleared: bool=true
+							var card_count: int=0
+							for choice in battle.capture_panel.choices:
+								if is_instance_valid(choice.arrow) and choice.arrow.visible: cleared=false
+								if is_instance_valid(choice.card) and choice.card.visible: card_count+=1
+							flight_probe["choices_cleared_before_flight"]=cleared and card_count<=1
 						var mid: Vector2=flyer.position+flyer.size*0.5
 						var distance: float=mid.distance_to(book_center)
 						if not bool(flight_probe["seen"]): flight_probe["first_distance"]=distance
@@ -289,6 +298,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				check(float(flight_probe["closest_distance"])<35.0,
 					label+": captured card's center physically arrives at bottom-left monster book, not screen center")
 				check(bool(flight_probe["book_pulse"]),label+": real monster book responds subtly when captured card arrives")
+					check(bool(flight_probe["choices_cleared_before_flight"]),label+": arrow and all other enemy cards vanish before captured-card flight")
 				# A layered source must remain layered all the way to the book.
 				# Unsupported slugs still use their intentionally flattened legacy art.
 				check(world.roster.size()==original_units+1,label+": visually received card corresponds to one actually saved owned monster")
