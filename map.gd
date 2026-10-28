@@ -167,11 +167,31 @@ func roll_shared_die(face: int, battle_area: bool = false) -> void:
 		wall = presentation.gauge.dice_wall_rect()
 	var dragon_wall: Rect2 = final_dragon_die_exclusion()
 	if dragon_wall.has_area(): wall = dragon_wall
+	var owner_ref:WeakRef=weakref(self)
+	var die_ref:WeakRef=weakref(dice)
+	var world_ref:WeakRef=weakref(world)
 	await dice_animation.roll_map(dice,face,SHARED_DIE_AREA,texture,sound,wall)
-	world.dice_visual_face = clampi(face,1,6)
-	remember_shared_die()
-	shared_die_busy = false
-	refresh_shared_die_input()
+	var owner:Node=owner_ref.get_ref()
+	if not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion(): return
+	owner.shared_die_busy=false
+	if owner.dice!=die_ref.get_ref() or owner.world!=world_ref.get_ref() or owner.session.world!=owner.world:
+		owner.refresh_shared_die_input()
+		return
+	owner.world.dice_visual_face=clampi(face,1,6)
+	owner.remember_shared_die()
+	owner.refresh_shared_die_input()
+
+## A committed prophecy can outlive its interrupted dice animation. Read its
+## exact current-visit face for display only; never rewrite saves or die pose.
+func shared_dice_face() -> int:
+	var face:int=int(world.dice_visual_face)
+	var index:int=int(world.position)
+	if index>=0 and index<world.tiles.size() and world.tiles[index]=="fortune-teller-camp":
+		var visit:String=session.place_visit_id("prophecy",index)
+		if visit in world.reward_receipts and str(world.last_prophecy.get("visit",""))==visit:
+			var saved:int=int(world.last_prophecy.get("face",0))
+			if saved>=1 and saved<=6: return saved
+	return face
 
 func refresh_shared_die_input() -> void:
 	if not is_instance_valid(dice): return
@@ -189,8 +209,7 @@ func refresh_shared_die_input() -> void:
 		var prayer_used: bool = session.place_visit_id("purify",overlay.index) in session.world.reward_receipts
 		dice.disabled = overlay.busy or prayer_used
 	elif overlay is PlaceActions and overlay.type=="fortune-teller-camp":
-		var prophecy_used: bool = session.place_visit_id("prophecy",overlay.index) in session.world.reward_receipts
-		dice.disabled = overlay.busy or prophecy_used
+		overlay.refresh_fortune_input()
 	else:
 		dice.disabled = true
 
@@ -263,7 +282,7 @@ func _sync_map_chrome() -> void:
 	# Only the dedicated prophecy function permits the die above its art.
 	# Other location art and buttons still block clicks through the painting.
 	if is_instance_valid(dice):
-		dice.mouse_filter = Control.MOUSE_FILTER_STOP if foreground_die else Control.MOUSE_FILTER_IGNORE
+		dice.mouse_filter = Control.MOUSE_FILTER_STOP if foreground_die and not (fortune_prophecy and dice.disabled) else Control.MOUSE_FILTER_IGNORE
 	if routine_deck_delivery and is_instance_valid(deck_button):
 		deck_button.show()
 		deck_button.z_index=210
@@ -601,7 +620,7 @@ func render() -> void:
 	_create_hero_shadow()
 	dice = TextureButton.new()
 	dice.ignore_texture_size = true
-	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % world.dice_visual_face)
+	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % shared_dice_face())
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	dice.size = Vector2(76,76)
 	# roll_map() rotates the same die around its centre. Restoring a saved
@@ -1936,10 +1955,15 @@ func show_place_actions(index: int) -> void:
 	# Type/action controls are initialized in setup, AFTER overlay's setter.
 	# Now restore the die only for this panel's actual click-to-roll action.
 	_sync_map_chrome()
+	var fortune:bool=panel.type=="fortune-teller-camp"
 	panel.closed.connect(func(): dismiss_overlay(func():
 		world = session.world
-		presentation.refresh()
-		show_location(index)))
+		if fortune:
+			render()
+			status.text="예언자의 막사에서 맵으로 돌아왔습니다."
+		else:
+			presentation.refresh()
+			show_location(index)))
 
 ## Resume an interrupted full-hand graveyard find without rerolling it.
 func resume_graveyard_dig() -> void:
@@ -2925,6 +2949,9 @@ func show_location(index: int) -> void:
 	if type in ["graveyard","forest"]:
 		show_exploration_actions(index)
 		return
+	if type=="fortune-teller-camp":
+		show_place_actions(index)
+		return
 	var panel = modal(false)
 	var scene_art = location_scene_image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type])
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
@@ -2951,20 +2978,19 @@ func show_location(index: int) -> void:
 		heal.disabled = not allowed.ok
 		heal.tooltip_text = "" if allowed.ok else allowed.reason
 		apply_pending_location_paper(panel,heal,index,"heal")
-	elif type in ["village","altar","fortune-teller-camp"]:
-		var names = {"village":"마물 상점","altar":"의식","fortune-teller-camp":"예언"}
-		var variant = {"village":1,"altar":2,"fortune-teller-camp":4}[type]
+	elif type in ["village","altar"]:
+		var names = {"village":"마물 상점","altar":"의식"}
+		var variant = {"village":1,"altar":2}[type]
 		var action = location_button(panel,names[type],TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			acknowledge_discovery_action(type)
 			close_overlay()
 			show_place_actions(index),variant)
 		if Discovery.exists(type) and session.event_flag_is_set("ui:unlock:%s:action_pending" % type):
 			UnlockNoticeBadge.attach(action,"NEW")
-		var key = "ritual" if type=="altar" else "prophecy"
-		# Only a successful one-use receipt removes the original location entry.
-		if type=="altar": action.disabled = session.place_visit_id(key,index) in world.reward_receipts
-		action.name="LocationAction_"+("shop" if type=="village" else key)
-		if type!="village": apply_pending_location_paper(panel,action,index,key)
+		# The repeatable shop and altar retain their original entry papers.
+		if type=="altar": action.disabled = session.place_visit_id("ritual",index) in world.reward_receipts
+		action.name="LocationAction_"+("shop" if type=="village" else "ritual")
+		if type=="altar": apply_pending_location_paper(panel,action,index,"ritual")
 	elif type in ["unknown","graveyard","forest"]:
 		var names = {"unknown":"기도","graveyard":"시체 파헤치기","forest":"이동 위치 선택"}
 		var variant = {"unknown":3,"graveyard":4,"forest":2}[type]

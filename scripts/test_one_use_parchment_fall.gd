@@ -77,12 +77,11 @@ func verify_return(map: Control, old_id: int, index: int, kind: String, caption:
 
 func prophecy() -> void:
 	var map=await new_map("prophecy","fortune")
-	var index: int=session.world.position
+	var index:int=session.world.position
 	map.show_location(index)
-	button_at(map.overlay,"예언").pressed.emit()
 	await settle()
-	var detail: Control=map.overlay
-	var old_id: int=detail.get_instance_id()
+	var detail:Control=map.overlay
+	check(detail.get_script()==preload("res://systems/place_actions.gd") and button_at(detail,"예언")==null,"prophecy: direct shared-die screen")
 	var probe:=RandomNumberGenerator.new()
 	for seed in range(1,400):
 		probe.seed=seed
@@ -90,35 +89,38 @@ func prophecy() -> void:
 			session.world.rng.seed=seed
 			break
 	map.dice.pressed.emit()
-	check(await wait_for(func(): return is_instance_valid(detail) and not detail.busy and session.place_visit_id("prophecy",index) in session.world.reward_receipts),"prophecy: genuine shared die commits and finishes")
-	check(falling(detail)==0 and detail.get_node_or_null("SpentLocationParchment")==null,"prophecy: result screen never drops a fake entry paper")
-	check(map.pending_location_papers.has(session.place_visit_id("prophecy",index)),"prophecy: saved success only queues the exact current visit")
+	check(await wait_for(func(): return is_instance_valid(detail) and not detail.busy and session.place_visit_id("prophecy",index) in session.world.reward_receipts),"prophecy: actual shared die commits and finishes")
+	check(falling(detail)==0 and detail.get_node_or_null("SpentLocationParchment")==null,"prophecy: no fake entry paper")
+	var receipt:String=session.place_visit_id("prophecy",index)
+	check(not map.pending_location_papers.has(receipt) and not map.played_location_papers.has(receipt),"prophecy: no removed paper bookkeeping")
+	var saved:Dictionary=session.world.snapshot().duplicate(true)
 	detail.close_button.pressed.emit()
-	await verify_return(map,old_id,index,"prophecy","예언")
-	# Keep the existing saved-result view without replaying the entry peel.
-	map.close_overlay()
-	map.show_place_actions(index)
+	check(await wait_for(func(): return not is_instance_valid(map.overlay)),"prophecy: common exit returns directly to map")
+	check(map.dice.visible and not map.dice.disabled and session.world.snapshot()==saved,"prophecy: direct exit preserves saved result")
+	map.show_location(index)
 	await settle()
-	check(map.overlay.dice.disabled and falling(map.overlay)==0,"prophecy: saved result can still be inspected without rolling or falling again")
+	check(map.overlay.dice.disabled and falling(map.overlay)==0 and map.overlay.fortune_hint.text.contains("이번 방문 완료"),"prophecy: actual location reopens readable completion")
+	check(session.world.snapshot()==saved,"prophecy: reopening changes no RNG or receipt")
 	map.close_overlay()
-	# A genuinely new visit must still get its own one-use effect.
 	session.world.move_serial+=1
 	session.save_world()
-	map.show_place_actions(index)
+	map.show_location(index)
 	detail=map.overlay
-	old_id=detail.get_instance_id()
+	check(not map.dice.disabled,"prophecy: new visit enables shared die")
 	map.dice.pressed.emit()
-	check(await wait_for(func(): return is_instance_valid(detail) and not detail.busy and session.place_visit_id("prophecy",index) in session.world.reward_receipts),"prophecy: next visit can use its own prophecy")
+	check(await wait_for(func(): return is_instance_valid(detail) and not detail.busy and session.place_visit_id("prophecy",index) in session.world.reward_receipts),"prophecy: next visit commits once")
 	detail.close_button.pressed.emit()
-	await verify_return(map,old_id,index,"prophecy","예언")
+	check(await wait_for(func(): return not is_instance_valid(map.overlay)),"prophecy: next visit exits to map")
+	check(map.pending_location_papers.is_empty() and map.played_location_papers.is_empty(),"prophecy: no phantom paper queue across visits")
 	await dispose(map)
 	session.reload_world()
 	map=MAP.instantiate()
 	root.add_child(map)
 	await settle()
 	map.show_location(index)
-	await create_timer(1.1).timeout
-	check(button_at(map.overlay,"예언")==null and map.pending_location_papers.is_empty(),"reload: spent saved visits finish removing their paper on the actual painting")
+	await create_timer(0.35).timeout
+	check(map.overlay.dice.disabled and map.overlay.fortune_hint.text.contains("이번 방문 완료"),"reload: direct completion remains readable")
+	check(button_at(map.overlay,"예언")==null and map.pending_location_papers.is_empty() and falling(map.overlay)==0,"reload: no phantom entry or falling paper")
 	await dispose(map)
 
 func inheritance(success: bool) -> void:
@@ -179,14 +181,14 @@ func rest(success: bool) -> void:
 func cancel_without_use() -> void:
 	var map=await new_map("cancel","fortune")
 	var index: int=session.world.position
-	map.show_place_actions(index)
-	check(not map.queue_used_location_paper(index,"prophecy"),"cancel: an unearned action cannot queue any return animation")
-	var detail: Control=map.overlay
-	var old_id: int=detail.get_instance_id()
+	map.show_location(index)
+	check(not map.queue_used_location_paper(index,"prophecy"),"cancel: unearned action cannot queue paper")
+	var saved:Dictionary=session.world.snapshot().duplicate(true)
+	var detail:Control=map.overlay
 	detail.close_button.pressed.emit()
-	check(await wait_for(func(): return is_instance_valid(map.overlay) and map.overlay.get_instance_id()!=old_id),"cancel: returns to the painting without using the function")
+	check(await wait_for(func(): return not is_instance_valid(map.overlay)),"cancel: exits directly to map")
 	await create_timer(0.35).timeout
-	check(falling(map.overlay)==0 and map.pending_location_papers.is_empty(),"cancel: no successful receipt means no scheduled paper")
+	check(map.pending_location_papers.is_empty() and map.played_location_papers.is_empty() and session.world.snapshot()==saved,"cancel: no action means no receipt, paper or RNG change")
 	await dispose(map)
 
 func spent_backgrounds() -> void:

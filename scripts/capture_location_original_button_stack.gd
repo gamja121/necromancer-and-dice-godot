@@ -71,8 +71,11 @@ func _run() -> void:
 	await create_timer(0.6).timeout
 	await snap("graveyard")
 	map.close_overlay()
+	session.world.position=fortune
+	check(session.save_world(),"current fortune capture fixture saved")
 	map.show_location(fortune)
-	inspect(map,["예언","맵으로 나가기"])
+	inspect(map,["맵으로 나가기"])
+	check(map.overlay.dice==map.dice and not map.dice.disabled and find_button(map.overlay,"예언")==null,"direct fortune uses original shared die without entry button")
 	await create_timer(0.45).timeout
 	await snap("fortune")
 	map.close_overlay()

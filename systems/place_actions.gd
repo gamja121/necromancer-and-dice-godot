@@ -3,6 +3,7 @@ const Sound = preload("res://systems/game_audio.gd")
 signal closed
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const SHOP_COUNTER_PATH = "res://assets/map/ui/monster-shop-counter.png"
+const ProphecyInkEffect=preload("res://systems/prophecy_ink_effect.gd")
 const FORTUNE_STRIP_PATH = "res://assets/map/ui/fortune_parchment_strip.webp"
 const ALTAR_SLOTS_PATH = "res://assets/map/events/altar-ritual-slots.png"
 const ALTAR_INFO_PATH = "res://assets/map/events/altar-ritual-info.png"
@@ -31,6 +32,9 @@ var receiver_hint: Label
 var dice: TextureButton
 var fortune_result: Label
 var fortune_notice_strip: TextureRect
+var fortune_title:Label
+var fortune_hint:Label
+var fortune_effect:Control
 var unit_options: Dictionary = {}
 var offer_options: Array = []
 var shop_counter: TextureRect
@@ -55,25 +59,31 @@ func setup(map_scene, tile_index: int) -> void:
 	map.location_scene_image(self,"res://assets/map/events/%s.jpg" % location_art)
 	if type=="village":
 		setup_shop_visual()
+	elif type=="fortune-teller-camp":
+		fortune_title=label_at(self,"예언자의 막사",Vector2(179,156),Vector2(330,36),23)
+		fortune_title.name="FortuneLocationTitle"
+		fortune_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+		fortune_hint=label_at(self,"",Vector2(179,195),Vector2(900,24),14)
+		fortune_hint.name="FortuneVisitHint"
+		fortune_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+		fortune_hint.add_theme_constant_override("outline_size",3)
+		fortune_hint.add_theme_color_override("font_outline_color",Color("261b12"))
+		status=label_at(self,"",Vector2.ZERO,Vector2.ONE,20)
+		close_button=map.location_button(self,"맵으로 나가기",map.TILE_EVENT_EXIT_RECT.position,map.TILE_EVENT_EXIT_RECT.size,request_fortune_exit,4)
+		close_button.name="FortuneExitToMap"
+		setup_fortune_result()
+		dice=map.dice
+		fortune_effect=ProphecyInkEffect.new()
+		add_child(fortune_effect)
+		fortune_effect.setup(dice)
+		show_fortune_state()
+		map.refresh_shared_die_input()
+		return
 	else:
-		label_at(self,{"altar":"제단 · 피의 의식","fortune-teller-camp":"점술가 · 예언"}[type],Vector2(290,22),Vector2(700,40),24)
+		label_at(self,"제단 · 피의 의식",Vector2(290,22),Vector2(700,40),24)
 		close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 		status=label_at(self,"",Vector2(130,435),Vector2(1020,58),15)
 		status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	if type=="fortune-teller-camp":
-		setup_fortune_result()
-		# Fortune uses the persistent map die; never spawn/center a duplicate.
-		dice=map.dice
-		# The persistent map die is the only prophecy action: no duplicate button.
-		var used=session.place_visit_id("prophecy",index) in session.world.reward_receipts
-		status.text="예언 듣기"
-		fortune_result.text="주사위를 눌러 예언을 확인하세요 · 방문당 1회"
-		fortune_result.visible=true
-		if used and session.world.last_prophecy.get("visit","")==session.place_visit_id("prophecy",index):
-			status.text=str(session.world.last_prophecy.get("detail",""))
-			show_fortune_result()
-		map.refresh_shared_die_input()
-		return
 	if type=="altar":
 		setup_altar_visual()
 		donor_art=LayeredUnitCard.make_preview(self,{},Vector2(340,108),Vector2(190,254))
@@ -362,32 +372,137 @@ func setup_fortune_result() -> void:
 	fortune_result=shared.detail
 	fortune_result.name="FortuneProphecyOutcome"
 
-func show_fortune_result() -> void:
-	if not is_instance_valid(fortune_result): return
-	var value: Dictionary=session.world.last_prophecy
-	if value.is_empty(): return
-	# The primary result is status above; show the stack only once below.
-	fortune_result.text="누적 효과: "+session.prophecy_label()
-	fortune_result.visible=true
+func fortune_availability() -> Dictionary:
+	if type!="fortune-teller-camp" or session==null or session.world==null:
+		return {"ok":false,"reason":"예언을 확인할 수 없습니다."}
+	if not is_instance_valid(map) or map.world!=session.world or map.overlay!=self:
+		return {"ok":false,"reason":"현재 예언 화면에서만 주사위를 누를 수 있습니다."}
+	var transition:Node=get_node_or_null("PanelEffectsModule")
+	if transition!=null and transition.closing:
+		return {"ok":false,"reason":"맵으로 돌아가는 중입니다."}
+	var allowed:Dictionary=session.place_allowed(index,"fortune-teller-camp")
+	if not bool(allowed.get("ok",false)): return allowed
+	if session.world.position!=index:
+		return {"ok":false,"reason":"현재 막사에 도착했을 때만 예언할 수 있습니다."}
+	if session.place_visit_id("prophecy",index) in session.world.reward_receipts:
+		return {"ok":false,"reason":"이번 방문의 예언은 완료했습니다."}
+	if busy or not is_instance_valid(map) or map.overlay!=self or map.moving or map.shared_die_busy:
+		return {"ok":false,"reason":"예언을 확인하는 중입니다."}
+	return {"ok":true}
 
-func roll_prophecy() -> void:
+func fortune_can_roll() -> bool:
+	return is_inside_tree() and not is_queued_for_deletion() and bool(fortune_availability().get("ok",false))
+
+func refresh_fortune_input() -> void:
+	if not is_instance_valid(dice): return
+	var allowed:Dictionary=fortune_availability()
+	dice.disabled=not fortune_can_roll()
+	# A used die must not cover the common exit if it stopped above it.
+	dice.mouse_filter=Control.MOUSE_FILTER_IGNORE if dice.disabled else Control.MOUSE_FILTER_STOP
+	dice.tooltip_text="예언 주사위 · 이동 없음 · 방문당 1회" if not dice.disabled else str(allowed.get("reason","이번 방문의 예언은 완료했습니다."))
+	if is_instance_valid(fortune_effect): fortune_effect.set_available(not dice.disabled)
+
+func request_fortune_exit() -> void:
 	if busy: return
-	var result=session.fortune_prophecy(index)
-	if not result.ok: status.text=result.reason; return
 	busy=true
 	close_button.disabled=true
+	refresh_fortune_input()
+	closed.emit()
+
+func show_fortune_state() -> void:
+	var visit:String=session.place_visit_id("prophecy",index)
+	var used:bool=visit in session.world.reward_receipts
+	fortune_result.visible=true
+	if used:
+		fortune_hint.text="이번 방문 완료 · 결과를 확인한 뒤 맵으로 나가세요"
+		var saved:Dictionary=session.world.last_prophecy
+		if str(saved.get("visit",""))==visit:
+			var face:int=int(saved.get("face",0))
+			status.text=str(saved.get("detail","이번 방문의 예언은 완료했습니다")).replace("다음 전투 ","")
+			if face==2: status.text=status.text.replace("아군 전체 ","아군 전체 즉시 ")
+			if face>=1 and face<=6 and session.world.position==index:
+				dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png"%face)
+		else:
+			status.text="이번 방문의 예언은 완료했습니다"
+		show_fortune_result()
+	else:
+		fortune_hint.text="이동 없음 · 방문당 1회 · 1 저주 / 2 회복 / 3~6 축복"
+		status.text="주사위를 눌러 예언을 확인하세요"
+		fortune_result.text="회복은 즉시 · 나머지 효과는 다음 전투에 적용"
+		var allowed:Dictionary=fortune_availability()
+		if not bool(allowed.get("ok",false)):
+			status.text="지금은 예언을 확인할 수 없습니다"
+			fortune_result.text=str(allowed.get("reason","진행 중인 일을 먼저 마쳐주세요."))
+	status.visible_ratio=1.0
+	fortune_result.visible_ratio=1.0
+	refresh_fortune_input()
+
+func show_fortune_result() -> void:
+	if not is_instance_valid(fortune_result): return
+	var parts:Array[String]=[]
+	for pair in [["ally_attack","공격"],["ally_hp","체력"],["ally_speed","속도"],["enemy_attack","적 공격"]]:
+		var value:int=int(session.world.prophecy.get(pair[0],0))
+		if value>0: parts.append("%s +%d"%[pair[1],value])
+	fortune_result.text="다음 전투 합계: "+(" · ".join(parts) if not parts.is_empty() else "없음")
+	fortune_result.tooltip_text="다음 전투 시작 때 한 번 적용: "+session.prophecy_label()
+	fit_fortune_total()
+	# The shared typography pass runs after controls enter the tree.
+	call_deferred("fit_fortune_total")
+	fortune_result.visible=true
+
+func fit_fortune_total() -> void:
+	if not is_instance_valid(fortune_result): return
+	var font:Font=fortune_result.get_theme_font("font")
+	var width:float=font.get_string_size(fortune_result.text,HORIZONTAL_ALIGNMENT_LEFT,-1,14).x
+	fortune_result.add_theme_font_size_override("font_size",14 if width<=fortune_result.size.x else 12)
+
+static func fortune_context_alive(owner_ref:WeakRef,map_ref:WeakRef,world_ref:WeakRef,visit:String) -> bool:
+	var owner:Node=owner_ref.get_ref()
+	var scene:Node=map_ref.get_ref()
+	if not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion(): return false
+	if not is_instance_valid(scene) or not scene.is_inside_tree() or scene.is_queued_for_deletion() or scene.overlay!=owner: return false
+	return scene.session.world!=null and scene.session.world==world_ref.get_ref() and scene.session.place_visit_id("prophecy",owner.index)==visit
+
+func roll_prophecy() -> void:
+	if not fortune_can_roll(): return
+	var owner_ref:WeakRef=weakref(self)
+	var map_ref:WeakRef=weakref(map)
+	var world_ref:WeakRef=weakref(session.world)
+	var visit:String=session.place_visit_id("prophecy",index)
+	var result:Dictionary=session.fortune_prophecy(index)
+	if not bool(result.get("ok",false)):
+		status.text="예언을 저장하지 못했습니다"
+		fortune_result.text="다시 주사위를 누르거나 맵으로 나갈 수 있습니다"
+		refresh_fortune_input()
+		return
+	busy=true
+	close_button.disabled=true
+	fortune_effect.set_available(false)
 	status.text="예언의 주사위를 굴리는 중…"
-	fortune_result.text="이번 방문의 예언을 확인하고 있습니다"
+	fortune_result.text="이동하지 않습니다 · 이번 방문의 예언을 확인 중"
 	await map.roll_shared_die(int(result.face))
+	if not fortune_context_alive(owner_ref,map_ref,world_ref,visit): return
 	Sound.cue(map,"prophecy_curse" if int(result.face)==1 else ("recovery" if int(result.face)==2 else "prophecy_bless"))
-	status.text=str(session.world.last_prophecy.get("detail",result.reason))
-	show_fortune_result()
-	# Shared die is still the input: only the saved entry parchment peels.
-	map.queue_used_location_paper(index,"prophecy")
-	if int(result.face)==2: await map.presentation.full_heal()
+	show_fortune_state()
+	fortune_effect.play(status,fortune_result,int(result.face))
+	if int(result.face)==2:
+		await map.presentation.full_heal()
+		if not fortune_context_alive(owner_ref,map_ref,world_ref,visit): return
+	var tree:SceneTree=get_tree()
+	while fortune_effect.active:
+		await tree.process_frame
+		if not fortune_context_alive(owner_ref,map_ref,world_ref,visit): return
 	close_button.disabled=false
 	busy=false
 	map.refresh_shared_die_input()
+
+func _exit_tree() -> void:
+	if type!="fortune-teller-camp": return
+	if is_instance_valid(map) and not map.is_queued_for_deletion():
+		if is_instance_valid(dice) and (map.overlay==self or not is_instance_valid(map.overlay)):
+			dice.tooltip_text="주사위 · 멈춘 자리에서 다시 누르기"
+		map.call_deferred("_clear_detached_location_overlay",weakref(self))
+
 
 func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensions: Vector2, callback: Callable) -> TextureButton:
 	var option = super.card(parent,kind,item,pos,dimensions,callback)

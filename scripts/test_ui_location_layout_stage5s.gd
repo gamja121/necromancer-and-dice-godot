@@ -51,7 +51,7 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	if not is_instance_valid(map.overlay): return
 	var panel: Control = map.overlay
 	var backdrop = get_backdrop(panel)
-	if tag.begins_with("graveyard") or tag.begins_with("forest"):
+	if tag.begins_with("graveyard") or tag.begins_with("forest") or tag.begins_with("fortune-teller-camp"):
 		check(backdrop != null and backdrop.color.a>0.7, tag + " single action screen preserves its dim backdrop")
 	else:
 		check(backdrop != null and is_zero_approx(backdrop.color.a), tag + " source has transparent event backdrop")
@@ -65,16 +65,23 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 		check(frame.texture != null and frame.texture.resource_path == "res://assets/map/ui/battle_frame.png", tag + " frame uses exact battle border asset")
 		check(frame.position.distance_to(map.LOCATION_EVENT_FRAME_RECT.position)<0.2 and (frame.size*frame.scale).distance_to(map.LOCATION_EVENT_FRAME_RECT.size)<0.2, tag + " frame matches battle 1024x450 footprint")
 		check(frame.draw_center == false and frame.patch_margin_left == 170 and frame.patch_margin_top == 150, tag + " border preserves native battle nine-patch")
-	var action = get_button(panel,primary_label)
-	check(same_rect(action,primary_rect), tag + " action uses existing sprite at the approved right-hand stack slot")
-	var exit = get_button(panel,"다음 바퀴 출발" if tag.begins_with("home") else "맵으로 나가기")
-	check(same_rect(exit,map.TILE_EVENT_EXIT_RECT), tag + " original exit sprite occupies bottom-right stack slot")
-	var art_bounds: Rect2=map.LOCATION_EVENT_SCENE_RECT
-	check(is_instance_valid(action) and art_bounds.encloses(Rect2(action.position,action.size)), tag + " action is fully INSIDE the original painting")
-	check(is_instance_valid(exit) and art_bounds.encloses(Rect2(exit.position,exit.size)), tag + " exit is fully INSIDE the original painting")
-	check(is_instance_valid(action) and is_instance_valid(exit) and action.position.x==exit.position.x and action.position.y+action.size.y<exit.position.y, tag + " original parchment buttons are stacked vertically without overlap")
-	if is_instance_valid(action):
-		check(action.get_theme_stylebox("normal") is StyleBoxTexture and (action.get_theme_stylebox("normal") as StyleBoxTexture).texture.resource_path.begins_with("res://assets/map/ui/parchment_button_variant_"),tag + " unchanged original parchment button artwork remains in use")
+	var fortune:bool=tag.begins_with("fortune-teller-camp")
+	var action=get_button(panel,primary_label)
+	var exit=get_button(panel,"다음 바퀴 출발" if tag.begins_with("home") else "맵으로 나가기")
+	var art_bounds:Rect2=map.LOCATION_EVENT_SCENE_RECT
+	check(same_rect(exit,map.TILE_EVENT_EXIT_RECT),tag+" common original exit uses inside-art slot")
+	check(is_instance_valid(exit) and art_bounds.encloses(Rect2(exit.position,exit.size)),tag+" exit fits painting")
+	if fortune:
+		check(panel.get_script()==preload("res://systems/place_actions.gd") and panel.confirm_button==null and action==null,tag+" direct screen has no duplicate entry button")
+		check(panel.dice==map.dice and map.dice.visible and not map.dice.disabled and map.dice.z_index>panel.z_index,tag+" current camp uses one foreground die")
+		check(art_bounds.encloses(Rect2(panel.fortune_title.position,panel.fortune_title.size)) and art_bounds.encloses(Rect2(panel.fortune_hint.position,panel.fortune_hint.size)),tag+" title and hint fit painting")
+	else:
+		check(same_rect(action,primary_rect),tag+" action uses existing sprite at approved slot")
+		check(is_instance_valid(action) and art_bounds.encloses(Rect2(action.position,action.size)),tag+" action fits painting")
+		check(is_instance_valid(action) and is_instance_valid(exit) and action.position.x==exit.position.x and action.position.y+action.size.y<exit.position.y,tag+" original buttons do not overlap")
+		if is_instance_valid(action):
+			check(action.get_theme_stylebox("normal") is StyleBoxTexture and (action.get_theme_stylebox("normal") as StyleBoxTexture).texture.resource_path.begins_with("res://assets/map/ui/parchment_button_variant_"),tag+" original action art remains")
+	check(is_instance_valid(exit) and exit.get_theme_stylebox("normal") is StyleBoxTexture and (exit.get_theme_stylebox("normal") as StyleBoxTexture).texture.resource_path.begins_with("res://assets/map/ui/parchment_button_variant_"),tag+" original exit art remains")
 	check(map.map_audio.modal_blocked and not map.presentation.gauge.visible, tag + " Stage5Q/R event chrome remains hidden")
 	check(map.buttons.size() == 24 and map.hero.visible, tag + " all board tiles and hero remain behind art")
 
@@ -95,19 +102,20 @@ func check_action_frame(map: Control, panel: Control, tag: String, expected_art:
 # The production first lap deliberately omits altar, world tree and graveyard.
 # Inject absent types into one road tile only for this isolated visual test.
 # Restore the original road before inspecting the next location or save state.
-func location_fixture(session, tile_name: String) -> Dictionary:
-	var existing: int = session.world.tiles.find(tile_name)
-	if existing >= 0:
-		return {"index": existing, "temporary": false}
-	var spare: int = session.world.tiles.find("basic")
-	if spare < 0:
-		return {"index": -1, "temporary": false}
-	session.world.tiles[spare] = tile_name
-	return {"index": spare, "temporary": true}
+func location_fixture(session,tile_name:String) -> Dictionary:
+	var position:int=session.world.position
+	var existing:int=session.world.tiles.find(tile_name)
+	if existing>=0:
+		if tile_name=="fortune-teller-camp": session.world.position=existing
+		return {"index":existing,"temporary":false,"position":position}
+	var spare:int=session.world.tiles.find("basic")
+	if spare<0: return {"index":-1,"temporary":false,"position":position}
+	session.world.tiles[spare]=tile_name
+	return {"index":spare,"temporary":true,"position":position}
 
-func restore_location_fixture(session, fixture: Dictionary) -> void:
-	if bool(fixture.get("temporary", false)):
-		session.world.tiles[int(fixture.index)] = "basic"
+func restore_location_fixture(session,fixture:Dictionary) -> void:
+	if bool(fixture.get("temporary",false)): session.world.tiles[int(fixture.index)]="basic"
+	session.world.position=int(fixture.position)
 
 func cleanup() -> void:
 	for suffix in ["", ".tmp"]:
@@ -131,6 +139,8 @@ func _run() -> void:
 	session.start_new_world()
 	var map = MAP.instantiate()
 	root.add_child(map)
+	# Geometry only: do not start the book MP3 in a headless renderer.
+	AudioServer.set_bus_mute(0,true)
 	await process_frame
 	var before: Dictionary = session.world.snapshot().duplicate(true)
 	var before_rng: int = session.world.rng.state
@@ -166,14 +176,17 @@ func _run() -> void:
 		if idx < 0: continue
 		map.show_location(idx)
 		var button = get_button(map.overlay,str(target.button))
-		check(button != null, tile_name + " retains its function button")
-		if tile_name in ["graveyard","forest"]:
-			check(map.overlay.get_script()==preload("res://systems/exploration_actions.gd"),tile_name+" already exposes one functional screen without using its action")
-		elif button != null: button.pressed.emit()
+		if tile_name=="fortune-teller-camp":
+			check(button==null and map.overlay.get_script()==preload("res://systems/place_actions.gd"),tile_name+" directly exposes its die function")
+		else:
+			check(button != null, tile_name + " retains its function button")
+			if tile_name in ["graveyard","forest"]:
+				check(map.overlay.get_script()==preload("res://systems/exploration_actions.gd"),tile_name+" already exposes one functional screen without using its action")
+			elif button != null: button.pressed.emit()
 		var scene_name: String = str(map.EVENT_IMAGES[tile_name])
 		check_action_frame(map,map.overlay,tile_name + " function",scene_name)
 		var function_back: Button=map.overlay.get("close_button") as Button
-		if tile_name in ["graveyard","forest"]:
+		if tile_name in ["graveyard","forest","fortune-teller-camp"]:
 			check(function_back!=null and function_back.text=="맵으로 나가기" and same_rect(function_back,map.TILE_EVENT_EXIT_RECT),"graveyard function exits from the common tile slot")
 		else:
 			check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")
@@ -219,13 +232,14 @@ func _run() -> void:
 	check(session.world.snapshot() == before, "pure location presentation never modifies saved game state")
 	check(session.world.rng.state == before_rng and session.world.reward_receipts == before_receipts, "location art and button positioning never roll or award anything")
 	map.queue_free()
-	await process_frame
-	var cleanup_deadline:int=Time.get_ticks_msec()+5000
+	var cleanup_deadline:int=Time.get_ticks_msec()+10000
+	while is_instance_valid(map) and Time.get_ticks_msec()<cleanup_deadline: await process_frame
 	while not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty() and Time.get_ticks_msec()<cleanup_deadline: await process_frame
 	var audio:Node=root.get_node_or_null("GameAudio")
 	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<cleanup_deadline: await process_frame
 	if audio!=null: audio.queue_free()
-	await create_timer(0.10).timeout
+	while is_instance_valid(audio) and Time.get_ticks_msec()<cleanup_deadline: await process_frame
+	await process_frame
 	session.world=null
 	session.save_file_path = original_save
 	if created: session.queue_free()
