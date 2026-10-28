@@ -47,6 +47,10 @@ func open(index:int,sample:bool=false) -> Control:
 	check(restored.restore(session.world.snapshot()),"capture fixture preserves the canonical save schema")
 	var map:Control=MAP.instantiate()
 	root.add_child(map)
+	# This is a visual-only capture. Stop the looping MP3 while the scene
+	# stays alive so Dummy audio has time to release its playback before exit.
+	map.map_music.stop()
+	map.map_music.stream=null
 	for frame in range(3): await process_frame
 	map.show_location(index)
 	check(map.overlay.get_script()==preload("res://systems/exploration_actions.gd"),"actual location opens the approved direct picker")
