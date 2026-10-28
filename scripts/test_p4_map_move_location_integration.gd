@@ -103,7 +103,7 @@ func check_scenario(session: Node, label: String, location_type: String, is_swam
 	# Monster landings open the prebattle picker. It deliberately hides the
 	# inactive die so it cannot cover or consume clicks on the four card slots.
 	var die_should_show: bool = location_type!="monster"
-	check(not map.moving and map.dice.is_visible_in_tree()==die_should_show and map.dice.disabled==is_instance_valid(map.overlay),
+	check(not map.moving and map.dice.is_visible_in_tree()==die_should_show and map.dice.disabled==(is_instance_valid(map.overlay) and location_type!="unknown"),
 		label+": die stays visible at ordinary locations and hides under monster deck picker")
 	check(world.position==int(fixture.landing),label+": real die followed %d steps and landed correctly" % int(fixture.face))
 	check(world.move_serial==before_move_serial+1 and world.map_serial==before_map_serial,label+": one committed move, no map regeneration")
@@ -116,7 +116,10 @@ func check_scenario(session: Node, label: String, location_type: String, is_swam
 		check(location_art_visible(map,location_type),label+": correct original location background rendered")
 		check(has_panel_button(map,"맵으로 나가기"),label+": location has exit control")
 		var names: Dictionary = {"rest":"전체 회복","forest":"여기로 이동","altar":"의식","unknown":"기도"}
-		check(has_panel_button(map,str(names[location_type])),label+": correct location action is present")
+		if location_type=="unknown":
+			check(map.overlay.dice==map.dice and map.overlay.action_button==null and map.overlay.prayer_can_roll(),label+": direct prayer uses the one shared die")
+		else:
+			check(has_panel_button(map,str(names[location_type])),label+": correct location action is present")
 	elif location_type=="monster":
 		check(is_instance_valid(map.overlay) and map.overlay.get_script()!=null and map.overlay.get_script().resource_path.ends_with("battle_deck.gd"),label+": monster landing opens real pre-battle deck selection")
 		check(session.encounter.is_empty(),label+": battle does not begin before choosing deck")

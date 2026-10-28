@@ -51,7 +51,7 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	if not is_instance_valid(map.overlay): return
 	var panel: Control = map.overlay
 	var backdrop = get_backdrop(panel)
-	if tag.begins_with("graveyard") or tag.begins_with("forest") or tag.begins_with("fortune-teller-camp") or tag.begins_with("rest"):
+	if tag.begins_with("graveyard") or tag.begins_with("forest") or tag.begins_with("fortune-teller-camp") or tag.begins_with("rest") or tag.begins_with("unknown"):
 		check(backdrop != null and backdrop.color.a>0.7, tag + " single action screen preserves its dim backdrop")
 	else:
 		check(backdrop != null and is_zero_approx(backdrop.color.a), tag + " source has transparent event backdrop")
@@ -75,6 +75,10 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 		check(panel.get_script()==preload("res://systems/place_actions.gd") and panel.confirm_button==null and action==null,tag+" direct screen has no duplicate entry button")
 		check(panel.dice==map.dice and map.dice.visible and not map.dice.disabled and map.dice.z_index>panel.z_index,tag+" current camp uses one foreground die")
 		check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.fortune_result.position,panel.fortune_result.size)==Rect2(393,500,494,24),tag+" uses only the common lower guidance")
+	elif tag.begins_with("unknown"):
+		check(panel.get_script()==preload("res://systems/exploration_actions.gd") and panel.action_button==null and action==null,tag+" directly exposes prayer without another button")
+		check(panel.dice==map.dice and map.dice.visible and not map.dice.disabled and map.dice.z_index>panel.z_index,tag+" uses one foreground die")
+		check(Rect2(panel.prayer_detail.position,panel.prayer_detail.size)==Rect2(393,500,494,24),tag+" uses common lower guidance")
 	else:
 		check(same_rect(action,primary_rect),tag+" action uses existing sprite at approved slot")
 		check(is_instance_valid(action) and art_bounds.encloses(Rect2(action.position,action.size)),tag+" action fits painting")
@@ -106,11 +110,12 @@ func location_fixture(session,tile_name:String) -> Dictionary:
 	var position:int=session.world.position
 	var existing:int=session.world.tiles.find(tile_name)
 	if existing>=0:
-		if tile_name=="fortune-teller-camp": session.world.position=existing
+		if tile_name in ["fortune-teller-camp","unknown"]: session.world.position=existing
 		return {"index":existing,"temporary":false,"position":position}
 	var spare:int=session.world.tiles.find("basic")
 	if spare<0: return {"index":-1,"temporary":false,"position":position}
 	session.world.tiles[spare]=tile_name
+	if tile_name=="unknown": session.world.position=spare
 	return {"index":spare,"temporary":true,"position":position}
 
 func restore_location_fixture(session,fixture:Dictionary) -> void:
@@ -176,8 +181,8 @@ func _run() -> void:
 		if idx < 0: continue
 		map.show_location(idx)
 		var button = get_button(map.overlay,str(target.button))
-		if tile_name=="fortune-teller-camp":
-			check(button==null and map.overlay.get_script()==preload("res://systems/place_actions.gd"),tile_name+" directly exposes its die function")
+		if tile_name in ["fortune-teller-camp","unknown"]:
+			check(button==null and map.overlay.dice==map.dice,tile_name+" directly exposes its die function")
 		else:
 			check(button != null, tile_name + " retains its function button")
 			if tile_name in ["graveyard","forest"]:
@@ -186,7 +191,7 @@ func _run() -> void:
 		var scene_name: String = str(map.EVENT_IMAGES[tile_name])
 		check_action_frame(map,map.overlay,tile_name + " function",scene_name)
 		var function_back: Button=map.overlay.get("close_button") as Button
-		if tile_name in ["graveyard","forest","fortune-teller-camp"]:
+		if tile_name in ["graveyard","forest","fortune-teller-camp","unknown"]:
 			check(function_back!=null and function_back.text=="맵으로 나가기" and same_rect(function_back,map.TILE_EVENT_EXIT_RECT),"graveyard function exits from the common tile slot")
 		else:
 			check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")

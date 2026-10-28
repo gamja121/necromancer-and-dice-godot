@@ -191,6 +191,11 @@ func shared_dice_face() -> int:
 		if visit in world.reward_receipts and str(world.last_prophecy.get("visit",""))==visit:
 			var saved:int=int(world.last_prophecy.get("face",0))
 			if saved>=1 and saved<=6: return saved
+	if index>=0 and index<world.tiles.size() and world.tiles[index]=="unknown":
+		var visit:String=session.place_visit_id("purify",index)
+		if visit in world.reward_receipts and str(world.prayer_result.get("visit",""))==visit:
+			var saved:int=int(world.prayer_result.get("face",0))
+			if saved>=1 and saved<=6: return saved
 	return face
 
 func refresh_shared_die_input() -> void:
@@ -206,8 +211,7 @@ func refresh_shared_die_input() -> void:
 		dice.disabled = not world.run_result.is_empty()
 		return
 	if overlay is ExplorationActions and overlay.type=="unknown":
-		var prayer_used: bool = session.place_visit_id("purify",overlay.index) in session.world.reward_receipts
-		dice.disabled = overlay.busy or prayer_used
+		overlay.refresh_prayer_input()
 	elif overlay is PlaceActions and overlay.type=="fortune-teller-camp":
 		overlay.refresh_fortune_input()
 	else:
@@ -279,10 +283,9 @@ func _sync_map_chrome() -> void:
 		presentation.gauge.visible = show_board_controls
 	# Keep existing saved face, button and role-specific gameplay rules.
 	if is_instance_valid(dice) and not shared_die_busy: refresh_shared_die_input()
-	# Only the dedicated prophecy function permits the die above its art.
-	# Other location art and buttons still block clicks through the painting.
+	# Completed prayer/prophecy dice must not cover their common exit button.
 	if is_instance_valid(dice):
-		dice.mouse_filter = Control.MOUSE_FILTER_STOP if foreground_die and not (fortune_prophecy and dice.disabled) else Control.MOUSE_FILTER_IGNORE
+		dice.mouse_filter = Control.MOUSE_FILTER_STOP if foreground_die and not ((fortune_prophecy or world_tree_prayer) and dice.disabled) else Control.MOUSE_FILTER_IGNORE
 	if routine_deck_delivery and is_instance_valid(deck_button):
 		deck_button.show()
 		deck_button.z_index=210
@@ -2946,7 +2949,7 @@ func show_location(index: int) -> void:
 				if world.tiles[button_index]!=type: continue
 				var marker = buttons[button_index].get_node_or_null("UnlockNewBadge")
 				if is_instance_valid(marker): marker.hide()
-	if type in ["graveyard","forest"]:
+	if type in ["graveyard","forest","unknown"]:
 		show_exploration_actions(index)
 		return
 	if type=="fortune-teller-camp":
