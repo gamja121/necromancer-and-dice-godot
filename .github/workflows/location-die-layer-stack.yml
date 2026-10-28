@@ -5,6 +5,9 @@ on:
       - "map.gd"
       - "systems/home_inheritance.gd"
       - "systems/place_actions.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_world_tree_direct_flow.gd"
+      - "scripts/test_world_tree_direct_capture.gd"
       - "scripts/test_location_die_layer_stack.gd"
       - "scripts/test_location_notice_uniformity.gd"
       - "scripts/test_location_shared_capture.gd"
@@ -14,6 +17,9 @@ on:
     branches: [main]
     paths:
       - "map.gd"
+      - "systems/exploration_actions.gd"
+      - "scripts/test_world_tree_direct_flow.gd"
+      - "scripts/test_world_tree_direct_capture.gd"
       - "scripts/test_location_die_layer_stack.gd"
       - "scripts/test_location_notice_uniformity.gd"
       - "scripts/test_location_shared_capture.gd"
@@ -56,6 +62,30 @@ jobs:
             grep -E "^$summary: [0-9]+ passed, 0 failed$" one.log
             if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' one.log; then exit 1; fi
           done
+      - name: Direct world tree rules persistence and single exit
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 225s godot --headless --path . --script res://scripts/test_world_tree_direct_flow.gd 2>&1 | tee prayer.log
+          grep -E '^WORLD_TREE_DIRECT_FLOW: [0-9]+ passed, 0 failed$' prayer.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL ' prayer.log; then exit 1; fi
+      - name: Native direct world tree and original prayer effect
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_world_tree_direct_capture.gd 2>&1 | tee prayer-capture.log
+          grep -E '^WORLD_TREE_DIRECT_CAPTURE: [0-9]+ passed, 0 failed$' prayer-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL ' prayer-capture.log; then exit 1; fi
+          test -s world_tree_direct_01_ready.png
+          test -s world_tree_direct_02_effect.png
+          test -s world_tree_direct_03_result.png
+          test -s world_tree_direct_04_reopened.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: world-tree-direct-ui-native
+          path: world_tree_direct_*.png
+          if-no-files-found: warn
       - name: Four title-free locations and durable rest recovery guidance
         shell: bash
         run: |

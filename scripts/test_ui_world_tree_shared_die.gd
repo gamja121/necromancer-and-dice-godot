@@ -67,7 +67,7 @@ func _run() -> void:
 	var panel = map.overlay
 	check(is_instance_valid(panel) and panel.get_script().resource_path.ends_with("exploration_actions.gd"),"live world tree action panel")
 	check(panel.dice==map.dice and panel.action_button==null,"no second die or prayer button exists")
-	check(panel.status.text.contains("정화 기도를 하려면 주사위를 누르세요."),"guidance points to shared die")
+	check(panel.status.text.contains("주사위를 눌러 정화 기도를 하세요"),"guidance points to shared die")
 	var redundant: bool = false
 	for child in panel.get_children():
 		if child is Button and child.text=="기도": redundant=true
@@ -99,12 +99,12 @@ func _run() -> void:
 	var visit_button: Button=null
 	for child in map.overlay.get_children():
 		if child is Button and child.text=="기도": visit_button=child
-	check(visit_button!=null and visit_button.disabled,"spent world tree entry falls on the location painting instead of remaining as a result button")
+	check(visit_button==null and map.overlay.prayer_detail.text.contains("완료"),"spent world tree opens completed direct guidance without entry paper")
 	map.close_overlay()
 	map.show_exploration_actions(index)
 	panel = map.overlay
 	check(panel.action_button==null and map.dice.disabled,"reopened spent prayer leaves only a disabled die")
-	check(panel.status.text.contains("기도 결과 6"),"reopened prayer shows persisted outcome")
+	check(panel.status.text.contains("대축복") and panel.prayer_detail.text.contains("25/100"),"reopened prayer shows persisted outcome")
 	check(map.stage.get_child(map.stage.get_child_count()-1)==map.dice,"reopened world-tree art does not cover shared die")
 	map.queue_free()
 	await process_frame

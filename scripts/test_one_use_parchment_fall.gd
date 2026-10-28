@@ -206,6 +206,17 @@ func spent_backgrounds() -> void:
 		if kind=="home": map.show_home(true)
 		else: map.show_location(index)
 		var background: Control=map.overlay
+		if kind=="unknown":
+			check(background.action_button==null and background.status.text.contains("완료") and map.dice.disabled,receipt_kind+": spent direct prayer remains readable")
+			await settle()
+			check(button_at(background,caption)==null and falling(background)==0 and map.pending_location_papers.is_empty(),receipt_kind+": no removed entry paper is queued or shown")
+			check(session.world.snapshot()==before,receipt_kind+": displaying completion changes no save or RNG")
+			map.close_overlay()
+			session.world.move_serial+=1
+			map.show_location(index)
+			check(map.overlay.prayer_can_roll() and map.overlay.action_button==null,receipt_kind+": new visit restores direct die action")
+			await dispose(map)
+			continue
 		var paper:=button_at(background,caption)
 		check(paper!=null and paper.disabled and background.get_node_or_null("LocationSceneImage")!=null,receipt_kind+": existing spent save starts with actual disabled paper on its painting")
 		check(await wait_for(func(): return is_instance_valid(paper) and paper.get_meta("spent_paper_falling",false)),receipt_kind+": no transient success queue is required to fall")

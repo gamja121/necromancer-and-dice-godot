@@ -33,6 +33,8 @@ var action_button: Button
 var route_reset_button: Button
 var content: Control
 var dice: TextureButton
+var prayer_notice_strip:TextureRect
+var prayer_detail:Label
 var graveyard_result: Dictionary = {}
 var graveyard_message: String = ""
 var graveyard_phase: String = "idle"
@@ -90,22 +92,12 @@ func setup(map_scene, tile_index: int) -> void:
 		route_unlock_button=route_editor.unlock_button
 		map.refresh_shared_die_input()
 		return
-	if type not in ["graveyard","forest"]:
-		label_at(self,{"unknown":"세계수 · 정화 기도","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
-		close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	content=Control.new()
 	add_child(content)
 	if type=="unknown":
-		# World-tree prayers use the same full-stage die at its last rest pose.
-		# No local decorative copy is created and nothing snaps to (610,245).
-		dice=map.dice
-		# The existing board die starts prayer; no second action control.
-		status.text="정화 기도를 하려면 주사위를 누르세요.\n방문당 1회 · 1~3 실패(+1) · 4~5 축복(-3) · 6 대축복(-5) · 오염 %d/100" % session.world.contamination
-		var saved=session.world.prayer_result
-		if saved.get("visit","")==session.place_visit_id("purify",index):
-			status.text="기도 결과 %d · 오염도 %+d · 현재 %d/100" % [int(saved.face),int(saved.delta),session.world.contamination]
+		setup_prayer()
 	elif type=="graveyard":
 		status.hide()
 		graveyard_count_before=session.world.dice_cards.size()
@@ -117,6 +109,98 @@ func setup(map_scene, tile_index: int) -> void:
 		status.hide()
 		render_hill_choices()
 	map.refresh_shared_die_input()
+
+func setup_prayer() -> void:
+	# Keep the one map die at its existing position, size and rest pose.
+	dice=map.dice
+	var shared:Dictionary=LocationNoticeStrip.build(self,status)
+	prayer_notice_strip=shared.strip
+	prayer_notice_strip.name="PrayerNoticeStrip"
+	prayer_detail=shared.detail
+	prayer_detail.name="PrayerNoticeDetail"
+	prayer_detail.show()
+	close_button=map.location_button(self,"맵으로 나가기",map.TILE_EVENT_EXIT_RECT.position,map.TILE_EVENT_EXIT_RECT.size,request_prayer_exit,4)
+	close_button.name="PrayerExitToMap"
+	show_prayer_state()
+
+func prayer_availability() -> Dictionary:
+	if type!="unknown" or session==null or session.world==null:
+		return {"ok":false,"reason":"정화 기도를 할 수 없습니다."}
+	if not is_instance_valid(map) or not map.is_inside_tree() or map.is_queued_for_deletion() or map.world!=session.world or map.overlay!=self:
+		return {"ok":false,"reason":"현재 세계수 화면에서만 기도할 수 있습니다."}
+	var transition:Node=get_node_or_null("PanelEffectsModule")
+	if transition!=null and transition.closing:
+		return {"ok":false,"reason":"맵으로 돌아가는 중입니다."}
+	var allowed:Dictionary=session.place_allowed(index,"unknown")
+	if not bool(allowed.get("ok",false)): return allowed
+	if session.world.position!=index:
+		return {"ok":false,"reason":"현재 세계수에 도착했을 때만 기도할 수 있습니다."}
+	if session.place_visit_id("purify",index) in session.world.reward_receipts:
+		return {"ok":false,"reason":"이번 방문의 기도는 완료했습니다."}
+	if busy or map.moving or map.shared_die_busy:
+		return {"ok":false,"reason":"정화 기도를 하는 중입니다."}
+	return {"ok":true}
+
+func prayer_can_roll() -> bool:
+	return is_inside_tree() and not is_queued_for_deletion() and bool(prayer_availability().get("ok",false))
+
+func refresh_prayer_input() -> void:
+	if not is_instance_valid(dice): return
+	if is_instance_valid(prayer_notice_strip):
+		var pending:bool=session.event_flag_is_set("ui:unlock:unknown:action_pending") and not session.place_visit_id("purify",index) in session.world.reward_receipts
+		var badge:Control=prayer_notice_strip.get_node_or_null("UnlockNewBadge")
+		if pending and badge==null: badge=UnlockNoticeBadge.attach(prayer_notice_strip,"NEW")
+		if badge!=null: badge.visible=pending
+	dice.disabled=not prayer_can_roll()
+	# A stopped, spent die can overlap the common exit; let the click through.
+	dice.mouse_filter=Control.MOUSE_FILTER_IGNORE if dice.disabled else Control.MOUSE_FILTER_STOP
+	dice.tooltip_text="정화 기도 · 이동 없음 · 방문당 1회" if not dice.disabled else str(prayer_availability().get("reason","이번 방문의 기도는 완료했습니다."))
+
+func request_prayer_exit() -> void:
+	if busy or not is_inside_tree() or is_queued_for_deletion(): return
+	if not is_instance_valid(map) or map.overlay!=self: return
+	busy=true
+	close_button.disabled=true
+	refresh_prayer_input()
+	leave_to_map.emit()
+
+func show_prayer_state(error:String="") -> void:
+	var visit:String=session.place_visit_id("purify",index)
+	var used:bool=visit in session.world.reward_receipts
+	prayer_detail.show()
+	prayer_detail.tooltip_text="주사위 눈 1~3: 오염도 +1 / 4~5: -3 / 6: -5. 오염도는 0~100 범위입니다.\n이동하거나 주사위 제어 카드를 소모하지 않습니다."
+	if used:
+		var saved:Dictionary=session.world.prayer_result
+		var face:int=int(saved.get("face",0))
+		if str(saved.get("visit",""))==visit and face>=1 and face<=6:
+			status.text="%s · 오염도 %+d"%["대축복" if face==6 else ("축복" if face>=4 else "실패"),int(saved.get("delta",0))]
+			if session.world.position==index:
+				dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png"%face)
+		else:
+			status.text="이번 방문의 기도는 완료했습니다"
+		prayer_detail.text="현재 오염도 %d/100 · 이번 방문의 기도 완료"%session.world.contamination
+	elif not error.is_empty():
+		status.text="기도를 저장하지 못했습니다"
+		prayer_detail.text="다시 주사위를 누르거나 맵으로 나갈 수 있습니다"
+		prayer_detail.tooltip_text=error
+	else:
+		status.text="주사위를 눌러 정화 기도를 하세요"
+		prayer_detail.text="방문당 1회 · 1~3: +1 / 4~5: -3 / 6: -5 · 오염도 %d"%session.world.contamination
+		var allowed:Dictionary=prayer_availability()
+		if not bool(allowed.get("ok",false)):
+			status.text="지금은 정화 기도를 할 수 없습니다"
+			prayer_detail.text=str(allowed.get("reason","진행 중인 일을 먼저 마쳐주세요."))
+	status.visible_ratio=1.0
+	prayer_detail.visible_ratio=1.0
+	fit_prayer_detail()
+	call_deferred("fit_prayer_detail")
+	refresh_prayer_input()
+
+func fit_prayer_detail() -> void:
+	if not is_instance_valid(prayer_detail): return
+	var font:Font=prayer_detail.get_theme_font("font")
+	var width:float=font.get_string_size(prayer_detail.text,HORIZONTAL_ALIGNMENT_LEFT,-1,14).x
+	prayer_detail.add_theme_font_size_override("font_size",14 if width<=prayer_detail.size.x else 12)
 
 # These two *exact* source PNGs are already in the Godot repository but
 # were never connected to the in-game patrol action buttons. The frozen
@@ -306,11 +390,13 @@ func _finish_graveyard_overflow(outcome:Dictionary,popup:Control) -> void:
 		render_graveyard()
 
 func _exit_tree() -> void:
-	if type not in ["graveyard","forest"]: return
+	if type not in ["graveyard","forest","unknown"]: return
 	if type=="graveyard" and is_instance_valid(graveyard_motion):
 		graveyard_motion.cancel()
 		if not graveyard_motion.is_queued_for_deletion(): graveyard_motion.queue_free()
 	if is_instance_valid(map) and not map.is_queued_for_deletion():
+		if type=="unknown" and is_instance_valid(dice) and (map.overlay==self or not is_instance_valid(map.overlay)):
+			dice.tooltip_text="주사위 · 멈춘 자리에서 다시 누르기"
 		# Never reorder stage children while an owner/map subtree is exiting.
 		map.call_deferred("_clear_detached_location_overlay",weakref(self))
 
@@ -497,19 +583,29 @@ func confirm_route() -> void:
 		if is_inside_tree(): closed.emit()
 
 func pray() -> void:
-	if busy: return
-	var result=session.pray_world_tree(index)
-	if not result.ok: status.text=result.reason; return
+	if not prayer_can_roll(): return
+	var owner_ref:WeakRef=weakref(self)
+	var map_ref:WeakRef=weakref(map)
+	var world_ref:WeakRef=weakref(session.world)
+	var visit:String=session.place_visit_id("purify",index)
+	var result:Dictionary=session.pray_world_tree(index)
+	if not bool(result.get("ok",false)):
+		show_prayer_state(str(result.get("reason","저장 실패")))
+		return
+	# The old entry action acknowledged NEW. Direct entry acknowledges it only
+	# after the real prayer has saved; a failed confirmation keeps NEW intact.
+	map.acknowledge_discovery_action("unknown")
 	busy=true
 	close_button.disabled=true
 	status.text="세계수에 정화 기도 중…"
+	prayer_detail.text="이동하지 않습니다 · 이번 방문의 기도를 확인 중"
+	refresh_prayer_input()
 	await map.roll_shared_die(int(result.face))
+	if not prayer_context_alive(owner_ref,map_ref,world_ref,visit): return
 	Sound.cue(map,"prayer_fail" if int(session.world.prayer_result.delta)>0 else "prayer_bless")
-	status.text=result.reason
+	show_prayer_state()
 	map.presentation.refresh()
-	# Prayer reward has been saved before the roll starts: peel its location
-	# parchment as soon as the shared die has shown the result.
-	map.queue_used_location_paper(index,"purify")
+	# Direct prayer has no separate entry paper. Keep its saved purify receipt.
 	if bool(result.get("boss_appeared",false)) and map.buttons.size() > MapState.BOSS_TILE_INDEX:
 		# A world-tree prayer can cross 19→20 mid-lap. Reveal the
 		# already-persisted boss tile in place, with a quiet short fade.
@@ -518,7 +614,8 @@ func pray() -> void:
 		boss_button.tooltip_text = "24번 · 보스"
 		boss_button.modulate.a = 0.35
 		map.create_tween().tween_property(boss_button,"modulate:a",1.0,0.30).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		status.text += " · 보스 타일 출현"
+		prayer_detail.text += " · 보스 타일 출현"
+		fit_prayer_detail()
 	var popup = PrayerEffect.new()
 	popup.position = Vector2(556,315)
 	add_child(popup)
@@ -526,6 +623,13 @@ func pray() -> void:
 	close_button.disabled=false
 	busy=false
 	map.refresh_shared_die_input()
+
+static func prayer_context_alive(owner_ref:WeakRef,map_ref:WeakRef,world_ref:WeakRef,visit:String) -> bool:
+	var owner:Node=owner_ref.get_ref()
+	var scene:Node=map_ref.get_ref()
+	if not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion(): return false
+	if not is_instance_valid(scene) or not scene.is_inside_tree() or scene.is_queued_for_deletion() or scene.overlay!=owner: return false
+	return scene.session.world!=null and scene.session.world==world_ref.get_ref() and scene.world==scene.session.world and scene.session.world.position==owner.index and scene.session.place_visit_id("purify",owner.index)==visit
 
 func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensions: Vector2, callback: Callable) -> TextureButton:
 	var option = super.card(parent,kind,item,pos,dimensions,callback)
