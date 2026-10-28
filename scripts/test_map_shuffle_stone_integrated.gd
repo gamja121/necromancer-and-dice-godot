@@ -107,7 +107,7 @@ func _run() -> void:
 		check(bool(seen["input_locked"]),"lap %d blocks input during the moving gear" % (lap+1))
 		check(map.dice.position==die_pos and map.dice.rotation_degrees==die_rot and session.world.last_face==face_before,"lap %d does not move or reroll the die" % (lap+1))
 		var minimum_changes: int=Gear.changed_count(previous_tiles,session.world.tiles,session.world.map_serial)
-		if lap==0: check(minimum_changes==1,"first lap converts only one tile into the required graveyard")
+		if lap==0: check(minimum_changes==2 and session.world.tiles.count("graveyard")==1 and session.world.tiles.count("rare-monster")==1,"first completed lap adds cemetery and upgrades one ordinary monster to a rare stone")
 		elif lap==1: check(minimum_changes==0,"second lap keeps all shifted tile identities")
 		elif lap==2: check(session.world.tiles[MapState.BOSS_TILE_INDEX]=="boss" and session.world.current_boss_stage()==20 and not session.world.final_dragon_available(),"contamination 21 opens the first stage boss, not the final dragon")
 	check(session.world.map_serial==initial_serial+3,"three actual home exits were committed")

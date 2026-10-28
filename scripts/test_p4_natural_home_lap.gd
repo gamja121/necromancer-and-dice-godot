@@ -205,8 +205,8 @@ func perform_lap(session: Node) -> void:
 			check(world.position == STATE.HOME and world.tiles.size() == 24 and world.tiles[0] == "fortune-teller-camp" and world.tiles[8] == "village" and world.tiles[STATE.HOME] == "home", "reshuffled board preserves all three fixed anchors")
 			check(world.tiles.count("graveyard")==1 and world.tiles.count("basic")==10 and world.tiles.count("event")==2,
 				"first completed lap unlocks exactly one graveyard in place of one road")
-			check(world.tiles.count("unknown")==0 and world.tiles.count("altar")==0 and world.tiles.count("rare-monster")==0,
-				"world tree, altar, rare monster remain excluded after the first lap")
+			check(world.tiles.count("unknown")==0 and world.tiles.count("altar")==0 and world.tiles.count("rare-monster")==1 and world.tiles.count("monster")==4,
+				"world tree and altar remain locked; one ordinary monster converts into a rare tile after first lap")
 			check(world.reward_receipts == receipts_before_exit and session.encounter.is_empty() and world.pending_reward.is_empty(), "shuffle cannot create phantom rewards or encounters")
 			check(not is_instance_valid(map.overlay) and not map.dice.disabled, "fresh lap restores playable map and enabled die")
 			var shuffled_snapshot: Dictionary = world.snapshot().duplicate(true)

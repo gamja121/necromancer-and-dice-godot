@@ -108,7 +108,7 @@ func _run() -> void:
 	check(session.save_world(),"simulate completed lap without modifying original save")
 	check(session.leave_home(),"next home exit commits chosen route and next-lap tile arrangement")
 	check(session.world.laps==1 and session.world.contamination==7,"home exit keeps exact +7 contamination")
-	check(session.world.tiles.count("rest")==3 and session.world.tiles.count("monster")==8,"next lap contains precisely 3 rest and 5+3 monster tiles")
+	check(session.world.tiles.count("rest")==3 and session.world.tiles.count("monster")==7 and session.world.tiles.count("rare-monster")==1,"next lap has 3 rest and 8 combat stones: 7 ordinary plus 1 rare")
 	check(session.world.tiles.count("graveyard")==1 and session.world.tiles.count("event")==2,"mandatory graveyard and two event stones unaffected")
 	check(session.world.tiles.count("basic")==4 and session.world.tiles.count("swamp")==0,"two guaranteed events leave four empty roads including two protected; no premature swamp")
 	check(session.world.tiles.size()==24 and session.world.tiles[State.HOME]=="home","all 24 tile slots still valid")

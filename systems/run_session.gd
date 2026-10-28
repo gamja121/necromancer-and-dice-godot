@@ -81,6 +81,7 @@ func ensure_world() -> void:
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
+			var rare_upgraded: bool = world.restore_missing_rare_stone()
 			# The 2026-10-14 version saved only card_shown, not a hill.
 			# Retrofit one real road for those existing players instead of
 			# locking them out permanently from the new event-only award.
@@ -91,7 +92,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_migrated or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded) and not save_world():
+			if (boss_migrated or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
@@ -482,7 +483,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
 			if int(entry.index)==index: intel=entry; break
-		slugs = EncounterGenerator.slugs(world.definitions,world.contamination,world.laps+1,world.rng,intel)
+		slugs = EncounterGenerator.slugs(world.definitions,world.contamination,world.laps+1,world.rng,intel,type)
 	if slugs.is_empty():
 		world.restore(before)
 		return false
@@ -646,6 +647,9 @@ func persist_change(before: Dictionary) -> bool:
 	# Safe repair touches eligible basic roads only, never RNG or story tiles.
 	if world.contamination >= MapState.FIRST_SWAMP_CONTAMINATION:
 		world.reveal_swamps_for_contamination()
+	# Rising corruption upgrades safe unvisited monster stones immediately.
+	# Saved/scouted/in-progress encounters keep their existing identities.
+	world.restore_missing_rare_stone()
 	if save_world(): return true
 	world.restore(before)
 	encounter = world.active_encounter.duplicate(true)

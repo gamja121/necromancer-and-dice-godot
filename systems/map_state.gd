@@ -20,6 +20,18 @@ const FIRST_SWAMP_CONTAMINATION = 15
 const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
+# The first expedition has no rare stones. After the first completed lap,
+# the proportion of advanced-monster encounter stones increases at each
+# contamination milestone, while the overall combat-stone budget is unchanged.
+const RARE_MONSTER_UNLOCK_LAP = 1
+const RARE_MONSTER_CONTAMINATION_STEPS = [20,30,40]
+
+static func rare_stone_target(level: int, completed_laps: int) -> int:
+	if completed_laps < RARE_MONSTER_UNLOCK_LAP: return 0
+	var target: int = 1
+	for threshold in RARE_MONSTER_CONTAMINATION_STEPS:
+		if level >= int(threshold): target += 1
+	return target
 ## First expedition: five guaranteed monster tiles; TWO events; no
 ## rests, swamps or hills. One ordinary road is traded for the second event,
 ## preserving 24 slots and both future-swamp reservations.
@@ -177,8 +189,14 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 			counts.basic-=applied
 			counts[kind]+=applied
 			room-=applied
+	# Escalate the number of rare encounters at corruption 20 / 30 / 40.
+	# Bosses retain one dedicated stone; each rare stone replaces a normal
+	# monster stone, never an extra fight, road or event.
 	var has_boss: bool=_boss_available_at(level)
-	if has_boss: counts.monster-=1
+	var boss_cost: int=1 if has_boss else 0
+	var rare_count: int=mini(rare_stone_target(level,completed_laps),maxi(0,int(counts.monster)-boss_cost))
+	counts.monster-=rare_count+boss_cost
+	counts["rare-monster"]+=rare_count
 	var complete: Dictionary={}
 	for kind in NAMES: complete[kind]=int(counts.get(kind,0))
 	complete["fortune-teller-camp"]=1
@@ -229,6 +247,25 @@ func generate() -> void:
 ## Show the active stage (20/40/60 or 80+story), only if undefeated.
 ## A defeated stage cannot be re-created on later map reshuffles.
 ## The caller persists this along with the change in one transaction.
+# Retrofit new corruption-tier quotas in old saves and mid-lap threshold
+# crossings. Convert ONLY eligible, unvisited monsters; no dice/RNG/map
+# reroll, active combat mutation, cleared stone recolor or scout-intel loss.
+# If not enough safe stones remain this lap, the next shuffle fills the quota.
+func restore_missing_rare_stone() -> bool:
+	if tiles.size()!=24: return false
+	var remaining: int=rare_stone_target(contamination,laps)-tiles.count("rare-monster")
+	if remaining<=0: return false
+	if not active_encounter.is_empty() or not pending_move.is_empty() or not pending_reward.is_empty(): return false
+	var changed: bool=false
+	for index in range(tiles.size()):
+		if remaining<=0: break
+		if index==position or index in cleared or tiles[index]!="monster": continue
+		if scout.get("intel",[]).any(func(entry): return int(entry.get("index",-1))==index): continue
+		tiles[index]="rare-monster"
+		remaining-=1
+		changed=true
+	return changed
+
 func reveal_boss_at_threshold() -> bool:
 	if not boss_available() or tiles.size() != 24:
 		return false
