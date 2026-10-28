@@ -1,5 +1,8 @@
 extends RefCounted
-## Six boss-only candidates; draw three distinct species once per NEW run.
+## Six possible stage bosses; draw three distinct species once per NEW run.
+## Only the three actually assigned for this expedition stay out of normal
+## hero-grade encounters and random rewards. Unchosen candidates are regular
+## hero species. The dragon stays final-only.
 ## A separate RNG uses the expedition seed so boss selection never
 ## advances map/dice RNG. Each stage assignment is stored in the save.
 ## Old saves without assignments retain the historical provisional roster.
@@ -37,8 +40,12 @@ static func boss_slug(stage: int, assignments: Dictionary = {}) -> String:
 	if stage==FINAL: return "dragon"
 	return str(assignments.get(str(stage),ASSIGNMENTS.get(stage,"")))
 
-static func reserved_slugs() -> Array:
-	return CANDIDATES.duplicate()+["dragon"]
+static func reserved_slugs(assignments: Dictionary = {}) -> Array:
+	var reserved: Array = ["dragon"]
+	for stage in STAGES:
+		var slug: String = boss_slug(stage,assignments)
+		if not slug.is_empty() and not slug in reserved: reserved.append(slug)
+	return reserved
 
 static func valid(definitions: Dictionary, assignments: Dictionary = {}) -> bool:
 	var seen: Array = []

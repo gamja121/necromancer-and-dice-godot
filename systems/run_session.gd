@@ -483,7 +483,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
 			if int(entry.index)==index: intel=entry; break
-		slugs = EncounterGenerator.slugs(world.definitions,world.contamination,world.laps+1,world.rng,intel,type)
+		slugs = EncounterGenerator.slugs(world.definitions,world.contamination,world.laps+1,world.rng,intel,type,world.boss_assignments)
 	if slugs.is_empty():
 		world.restore(before)
 		return false
@@ -723,7 +723,7 @@ func open_treasure(index: int = -1) -> bool:
 		world.pending_reward = {"id":visit_id,"kind":"mimic","index":index,"count":EncounterGenerator.mimic_count(world.contamination,world.laps+1)}
 		return persist_change(before)
 	# Exactly one monster and two distinct dice controls in every normal chest.
-	var unit_pool: Array=EncounterGenerator.eligible_roster(world.definitions)
+	var unit_pool: Array=EncounterGenerator.eligible_roster(world.definitions,world.boss_assignments)
 	var dice_pool: Array=Catalog.dice_cards()
 	if unit_pool.is_empty() or dice_pool.size()<2:
 		world.restore(before)
@@ -1026,7 +1026,7 @@ func altar_ritual(index: int, donor_id: String, receiver_id: String) -> Dictiona
 ## Offer a different species of the donor's grade. Offering a monster is a
 ## one-for-one trade, not a free new card or a change to its inherited brands.
 func shop_monster_offer(donor: Dictionary, used_slugs: Array) -> Dictionary:
-	var candidates: Array = EncounterGenerator.eligible_roster(world.definitions).filter(
+	var candidates: Array = EncounterGenerator.eligible_roster(world.definitions,world.boss_assignments).filter(
 		func(slug): return str(slug)!=str(donor.slug) and str(world.definitions[slug].grade)==str(donor.grade) and not slug in used_slugs
 	)
 	if candidates.is_empty(): return {}
@@ -1197,7 +1197,7 @@ func scout_hill(index: int) -> Dictionary:
 	var intel: Array = []
 	for i in range(world.tiles.size()):
 		if world.tiles[i] in ["monster","rare-monster","boss"] and not i in world.cleared:
-			intel.append(EncounterGenerator.scout_intel(world.definitions,world.contamination,world.laps+1,world.rng,i,world.tiles[i]))
+			intel.append(EncounterGenerator.scout_intel(world.definitions,world.contamination,world.laps+1,world.rng,i,world.tiles[i],world.boss_assignments))
 	world.scout = {"scouted":true,"intel":intel}
 	world.reward_receipts.append(place_visit_id("scout",index))
 	if not persist_change(before): return {"ok":false,"reason":notice}

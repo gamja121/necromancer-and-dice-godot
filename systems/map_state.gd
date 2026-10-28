@@ -639,7 +639,7 @@ func normalize_treasure_offers(saved_move_serial: int) -> void:
 			if offers[i].get("kind","")=="unit": unit_slot=i; break
 	if unit_slot<0:
 		unit_slot=1 if selected==0 else 0
-		var roster: Array=EncounterGenerator.eligible_roster(definitions)
+		var roster: Array=EncounterGenerator.eligible_roster(definitions,boss_assignments)
 		if roster.is_empty(): return
 		var slug: String=str(roster[posmod(saved_move_serial+unit_slot,roster.size())])
 		offers[unit_slot]={"kind":"unit","source":{"slug":slug,"name":definitions[slug].name}}
