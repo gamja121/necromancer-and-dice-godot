@@ -18,7 +18,7 @@ func check(ok: bool, reason: String) -> void:
 		failed+=1
 		printerr("FAIL hill-forward: ",reason)
 
-func start_case(session: Node, name: String, tile_index: int = 3, target_index: int = -1, target_type: String = "") -> void:
+func start_case(session: Node, name: String, tile_index: int = 3, target_index: int = -1, target_type: String = "", force_hill_warp:bool=false) -> void:
 	var path: String="user://hill_forward_%d_%s.json" % [OS.get_process_id(),name]
 	all_paths.append(path)
 	for suffix in ["",".tmp"]:
@@ -26,8 +26,22 @@ func start_case(session: Node, name: String, tile_index: int = 3, target_index: 
 	session.save_file_path=path
 	session.start_new_world()
 	var world=session.world
+	if force_hill_warp:
+		var warp:int=world.tiles.find("warp")
+		var previous:String=world.tiles[tile_index]
+		world.tiles[tile_index]="warp"
+		world.tiles[warp]=previous
 	var old_hill:int=world.tiles.find("forest")
-	if old_hill != tile_index:
+	if old_hill<0:
+		# Insert a test-only hill without deleting a randomly placed warp or
+		# monster at this slot. Keep the canonical paired-warp map intact.
+		if world.tiles[tile_index]!="basic":
+			for spare in range(24):
+				if spare not in [0,8,MapState.HOME,tile_index,target_index] and world.tiles[spare]=="basic":
+					world.tiles[spare]=world.tiles[tile_index]
+					break
+		world.tiles[tile_index]="forest"
+	elif old_hill != tile_index:
 		var previous: String=world.tiles[tile_index]
 		world.tiles[tile_index]="forest"
 		world.tiles[old_hill]=previous
@@ -52,9 +66,12 @@ func start_case(session: Node, name: String, tile_index: int = 3, target_index: 
 				world.tiles[other]=original_type
 	world.position=tile_index
 	check(session.save_world(),name+": fixture saved using isolated user data")
+	check(world.tiles.count("warp")==2,name+": disposable fixture preserves both original warp endpoints")
+	var restored=MapState.new(world.definitions,1)
+	check(restored.restore(world.snapshot()),name+": disposable fixture preserves canonical save anchors")
 
 func find_btn(parent: Node, caption: String) -> Button:
-	for child in parent.get_children():
+	for child in parent.find_children("*","Button",true,false):
 		if child is Button and child.text==caption: return child
 	return null
 
@@ -71,15 +88,11 @@ func test_hill_ui(session: Node) -> void:
 	await process_frame
 	check(not is_instance_valid(map.overlay),"UI: no modal until hill entered")
 	map.show_location(3)
-	var entry:Button=find_btn(map.overlay,"이동 위치 선택")
-	check(entry!=null,"UI: hill offers movement, not scouting")
+	check(map.overlay.get_script()==preload("res://systems/exploration_actions.gd"),"UI: hill opens its route picker directly")
 	check(find_btn(map.overlay,"정찰")==null,"UI: old monster intel control is gone")
-	if entry!=null:
-		entry.pressed.emit()
-		await process_frame
 	var hill_panel=map.overlay
 	var choice4:Button=hill_panel.find_child("HillStep4",true,false) as Button
-	var choose:Button=find_btn(hill_panel,"이동 확정")
+	var choose:Button=find_btn(hill_panel,"여기로 이동")
 	check(choice4!=null and choose!=null,"UI: six destination steps and confirmation are displayed")
 	check(choose!=null and choose.disabled,"UI: cannot move before selecting a distance")
 	var prior_dice:Texture2D=map.dice.texture_normal
@@ -103,15 +116,16 @@ func test_hill_ui(session: Node) -> void:
 	check(session.world.snapshot()==expected,"UI: committed choice survives disk reload")
 
 func test_home_rule(session: Node) -> void:
-	start_case(session,"home",13)
+	var hill_index:int=(MapState.HOME-2+24)%24
+	start_case(session,"home",hill_index)
 	var before:Dictionary=session.world.snapshot().duplicate(true)
-	var denied:Dictionary=session.prepare_hill_move(13,3)
+	var denied:Dictionary=session.prepare_hill_move(hill_index,3)
 	check(not denied.get("ok",false) and session.world.snapshot()==before,"HOME: 3 steps cannot skip the home at distance 2")
-	var wrong:Dictionary=session.prepare_hill_move(13,0)
+	var wrong:Dictionary=session.prepare_hill_move(hill_index,0)
 	check(not wrong.get("ok",false) and session.world.snapshot()==before,"HOME: zero distance rejected without writes")
-	wrong=session.prepare_hill_move(13,7)
+	wrong=session.prepare_hill_move(hill_index,7)
 	check(not wrong.get("ok",false) and session.world.snapshot()==before,"HOME: seven steps rejected without writes")
-	var accepted:Dictionary=session.prepare_hill_move(13,2)
+	var accepted:Dictionary=session.prepare_hill_move(hill_index,2)
 	check(accepted.get("ok",false) and session.world.position==MapState.HOME,"HOME: two forward steps reach actual home")
 	check(session.world.lap_ready and session.world.pending_move.path.size()==2,"HOME: original lap-ready and movement path preserved")
 	check(session.complete_map_move() and session.world.pending_move.is_empty(),"HOME: route committed once")
@@ -152,7 +166,7 @@ func test_warp_swamp(session: Node) -> void:
 	check(session.complete_map_move(),"SWAMP: completes transaction")
 	session.reload_world()
 	check(session.world.roster[0].current_hp==1,"SWAMP: restart does not repeat damage")
-	start_case(session,"warp",3,4,"warp")
+	start_case(session,"warp",3,4,"warp",true)
 	res=session.prepare_hill_move(3,1)
 	var landed:int=int(res.get("landed",-1))
 	check(res.get("ok",false) and landed==4,"WARP: chosen path first lands on real warp")
@@ -193,6 +207,13 @@ func _run() -> void:
 	await test_pending_recovery(session)
 	test_warp_swamp(session)
 	test_fail_and_replay(session)
+	var deadline:int=Time.get_ticks_msec()+5000
+	while not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty() and Time.get_ticks_msec()<deadline: await process_frame
+	var audio:Node=root.get_node_or_null("GameAudio")
+	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<deadline: await process_frame
+	if audio!=null: audio.queue_free()
+	await create_timer(0.10).timeout
+	session.world=null
 	session.save_file_path=original_save
 	for path in all_paths:
 		for suffix in ["",".tmp"]:

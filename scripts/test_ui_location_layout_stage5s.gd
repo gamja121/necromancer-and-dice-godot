@@ -11,7 +11,7 @@ const SOURCE = [
 	{"tile":"fortune-teller-camp", "button":"예언"},
 	{"tile":"unknown", "button":"기도"},
 	{"tile":"graveyard", "button":"시체 파헤치기"},
-	{"tile":"forest", "button":"이동 위치 선택"}
+	{"tile":"forest", "button":"여기로 이동"}
 ]
 var passed: int = 0
 var failed: int = 0
@@ -51,7 +51,7 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	if not is_instance_valid(map.overlay): return
 	var panel: Control = map.overlay
 	var backdrop = get_backdrop(panel)
-	if tag.begins_with("graveyard"):
+	if tag.begins_with("graveyard") or tag.begins_with("forest"):
 		check(backdrop != null and backdrop.color.a>0.7, tag + " single action screen preserves its dim backdrop")
 	else:
 		check(backdrop != null and is_zero_approx(backdrop.color.a), tag + " source has transparent event backdrop")
@@ -150,7 +150,7 @@ func _run() -> void:
 		var art = get_art(map.overlay)
 		check(art != null and art.texture.resource_path == "res://assets/map/events/%s.jpg" % map.EVENT_IMAGES[str(target.tile)], str(target.tile) + " original event art resource is preserved")
 		if str(target.tile) == "forest":
-			var hill_action = get_button(map.overlay,"이동 위치 선택")
+			var hill_action = get_button(map.overlay,"여기로 이동")
 			check(is_instance_valid(hill_action), "hill action offers a selectable 1–6 tile movement instead of scouting")
 		map.close_overlay()
 		check(map.overlay == null and not map.map_audio.modal_blocked, str(target.tile) + " close removes foreground and restores audio icon")
@@ -167,13 +167,13 @@ func _run() -> void:
 		map.show_location(idx)
 		var button = get_button(map.overlay,str(target.button))
 		check(button != null, tile_name + " retains its function button")
-		if tile_name=="graveyard":
-			check(map.overlay.get_script()==preload("res://systems/exploration_actions.gd") and map.overlay.graveyard_phase=="idle","graveyard already exposes the single functional screen without spending its reward")
+		if tile_name in ["graveyard","forest"]:
+			check(map.overlay.get_script()==preload("res://systems/exploration_actions.gd"),tile_name+" already exposes one functional screen without using its action")
 		elif button != null: button.pressed.emit()
 		var scene_name: String = str(map.EVENT_IMAGES[tile_name])
 		check_action_frame(map,map.overlay,tile_name + " function",scene_name)
 		var function_back: Button=map.overlay.get("close_button") as Button
-		if tile_name=="graveyard":
+		if tile_name in ["graveyard","forest"]:
 			check(function_back!=null and function_back.text=="맵으로 나가기" and same_rect(function_back,map.TILE_EVENT_EXIT_RECT),"graveyard function exits from the common tile slot")
 		else:
 			check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")
