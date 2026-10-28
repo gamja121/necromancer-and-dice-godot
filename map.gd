@@ -2953,24 +2953,24 @@ func show_location(index: int) -> void:
 		show_place_actions(index)
 		return
 	var panel = modal(false)
+	if type=="rest":
+		# Match only these ordinary location screens; other modal styles stay local.
+		for child in panel.get_children():
+			if child is ColorRect and child.get_meta("ui_backdrop",false): child.color=Color("030201d9")
 	var scene_art = location_scene_image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type])
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
 	InkSceneReveal.play(scene_art)
-	var exit = location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func(): dismiss_overlay(render),4)
+	var exit_action:Callable=_leave_rest.bind(weakref(panel)) if type=="rest" else func(): dismiss_overlay(render)
+	var exit = location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_action,4)
 	if type=="rest":
+		exit.name="RestExitToMap"
 		var allowed = session.rest_allowed(index)
-		var heal: Button
-		heal = location_button(panel,"전체 회복",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
-			var result = session.heal_at_rest(index)
-			status.text = result.reason
-			if not result.ok: return
-			exit.disabled = true
-			# Resolve after construction: a lambda captures an unassigned heal as null.
-			var used_button: Button=panel.get_node_or_null("RestHealAction") as Button
-			play_used_location_paper(panel,used_button,session.place_visit_id("heal",index))
-			sound("recovery")
-			await presentation.full_heal()
-			if is_instance_valid(exit): exit.disabled=false)
+		var shared:Dictionary=preload("res://systems/location_notice_strip.gd").build(panel)
+		shared.strip.name="RestNoticeStrip"
+		shared.text.name="RestNoticeText"
+		shared.detail.name="RestNoticeDetail"
+		shared.detail.visible=true
+		var heal:Button=location_button(panel,"전체 회복",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,_heal_rest.bind(index,weakref(panel)),4)
 		heal.name = "RestHealAction"
 		heal.set_meta("ui_custom_open_motion",true)
 		if session.event_flag_is_set(UnlockNoticeBadge.REST_ACTION_PENDING):
@@ -2978,6 +2978,7 @@ func show_location(index: int) -> void:
 		heal.disabled = not allowed.ok
 		heal.tooltip_text = "" if allowed.ok else allowed.reason
 		apply_pending_location_paper(panel,heal,index,"heal")
+		_refresh_rest_notice(panel,index)
 	elif type in ["village","altar"]:
 		var names = {"village":"마물 상점","altar":"의식"}
 		var variant = {"village":1,"altar":2}[type]
@@ -3005,6 +3006,64 @@ func show_location(index: int) -> void:
 		var key: String={"unknown":"purify","graveyard":"grave-extract","forest":"hill-route"}[type]
 		action.name="LocationAction_"+key
 		apply_pending_location_paper(panel,action,index,key)
+
+func _refresh_rest_notice(panel:Control,index:int,save_failed:bool=false) -> void:
+	if not is_instance_valid(panel) or session.world==null: return
+	var notice:Label=panel.get_node_or_null("RestNoticeText") as Label
+	var detail:Label=panel.get_node_or_null("RestNoticeDetail") as Label
+	if not is_instance_valid(notice) or not is_instance_valid(detail): return
+	if bool(panel.get_meta("rest_busy",false)):
+		notice.text="모든 마물의 체력을 회복하는 중입니다"
+		detail.text="회복이 끝나면 맵으로 나갈 수 있습니다"
+	elif save_failed:
+		notice.text="회복을 저장하지 못했습니다"
+		detail.text="다시 시도하거나 맵으로 나갈 수 있습니다"
+	elif session.place_visit_id("heal",index) in session.world.reward_receipts:
+		notice.text="이번 방문의 회복은 완료했습니다"
+		detail.text="모든 마물의 체력을 완전히 회복했습니다"
+	else:
+		var allowed:Dictionary=session.rest_allowed(index)
+		notice.text="부상당한 마물을 회복하세요" if bool(allowed.get("ok",false)) else str(allowed.get("reason","지금은 회복할 수 없습니다."))
+		detail.text="방문당 1회 · 모든 마물 체력 완전 회복"
+
+func _leave_rest(panel_ref:WeakRef) -> void:
+	var panel:Control=panel_ref.get_ref() as Control
+	if not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(panel) or not panel.is_inside_tree() or panel.is_queued_for_deletion() or overlay!=panel or bool(panel.get_meta("rest_busy",false)): return
+	panel.set_meta("rest_closing",true)
+	var heal:Button=panel.get_node_or_null("RestHealAction") as Button
+	if is_instance_valid(heal): heal.disabled=true
+	dismiss_overlay(render)
+
+func _heal_rest(index:int,panel_ref:WeakRef) -> void:
+	var panel:Control=panel_ref.get_ref() as Control
+	if not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(panel) or not panel.is_inside_tree() or panel.is_queued_for_deletion() or overlay!=panel or world!=session.world or session.world==null: return
+	if bool(panel.get_meta("rest_busy",false)) or bool(panel.get_meta("rest_closing",false)): return
+	var world_ref:WeakRef=weakref(session.world)
+	var owner_ref:WeakRef=weakref(self)
+	var visit:String=session.place_visit_id("heal",index)
+	var result:Dictionary=session.heal_at_rest(index)
+	status.text=result.reason
+	if not bool(result.get("ok",false)):
+		_refresh_rest_notice(panel,index,bool(session.rest_allowed(index).get("ok",false)))
+		return
+	panel.set_meta("rest_busy",true)
+	var exit:Button=panel.get_node_or_null("RestExitToMap") as Button
+	if is_instance_valid(exit): exit.disabled=true
+	_refresh_rest_notice(panel,index)
+	# Preserve the original one-use paper, sound and recovery effect order.
+	var used_button:Button=panel.get_node_or_null("RestHealAction") as Button
+	play_used_location_paper(panel,used_button,visit)
+	sound("recovery")
+	await presentation.full_heal()
+	var owner:Node=owner_ref.get_ref()
+	panel=panel_ref.get_ref() as Control
+	if not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion(): return
+	if not is_instance_valid(panel) or not panel.is_inside_tree() or panel.is_queued_for_deletion() or owner.overlay!=panel or owner.session.world==null: return
+	if owner.session.world!=world_ref.get_ref() or owner.session.place_visit_id("heal",index)!=visit: return
+	panel.set_meta("rest_busy",false)
+	exit=panel.get_node_or_null("RestExitToMap") as Button
+	if is_instance_valid(exit): exit.disabled=false
+	owner._refresh_rest_notice(panel,index)
 
 func use_warp(index: int) -> void:
 	if moving: return

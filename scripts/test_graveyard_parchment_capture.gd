@@ -72,7 +72,7 @@ func dig() -> void:
 	check(session.world.snapshot()==committed,"duplicate click cannot roll or grant again")
 func ready() -> void:
 	check(panel.graveyard_phase=="ready" and not panel.busy,"soil reveal completes and waits for input")
-	check(panel.action_button.text=="챙기고 나가기" and not panel.action_button.disabled and not panel.graveyard_exit_button.visible,"collect replaces the action in its original slot")
+	check(panel.action_button.text=="챙기고 나가기" and not panel.action_button.disabled and not panel.graveyard_exit_button.visible and Rect2(panel.action_button.position,panel.action_button.size)==map.TILE_EVENT_EXIT_RECT,"collect-and-exit uses common lower exit slot")
 	check(panel.graveyard_motion.front.texture.resource_path==preload("res://systems/reward_catalog.gd").image("dice",panel.graveyard_result),"revealed card uses the actual original green front")
 	check(not panel.graveyard_motion.dirt.visible,"soil clears without flipping the card")
 func finish() -> void:

@@ -99,7 +99,7 @@ func prophecy() -> void:
 	check(map.dice.visible and not map.dice.disabled and session.world.snapshot()==saved,"prophecy: direct exit preserves saved result")
 	map.show_location(index)
 	await settle()
-	check(map.overlay.dice.disabled and falling(map.overlay)==0 and map.overlay.fortune_hint.text.contains("이번 방문 완료"),"prophecy: actual location reopens readable completion")
+	check(map.overlay.dice.disabled and falling(map.overlay)==0 and map.overlay.status.text.contains("완료"),"prophecy: actual location reopens readable completion")
 	check(session.world.snapshot()==saved,"prophecy: reopening changes no RNG or receipt")
 	map.close_overlay()
 	session.world.move_serial+=1
@@ -119,7 +119,7 @@ func prophecy() -> void:
 	await settle()
 	map.show_location(index)
 	await create_timer(0.35).timeout
-	check(map.overlay.dice.disabled and map.overlay.fortune_hint.text.contains("이번 방문 완료"),"reload: direct completion remains readable")
+	check(map.overlay.dice.disabled and map.overlay.status.text.contains("완료"),"reload: direct completion remains readable")
 	check(button_at(map.overlay,"예언")==null and map.pending_location_papers.is_empty() and falling(map.overlay)==0,"reload: no phantom entry or falling paper")
 	await dispose(map)
 

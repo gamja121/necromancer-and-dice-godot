@@ -77,10 +77,10 @@ func _run() -> void:
 	check(panel.get_node_or_null("LocationSceneImage")!=null,"original fortune-teller painting remains behind the simplified UI")
 	check(panel.confirm_button==null,"fortune has no separate action button")
 	check(panel.status.text=="주사위를 눌러 예언을 확인하세요","main parchment identifies the single shared-die action")
-	check(panel.fortune_result.text.contains("회복은 즉시") and panel.fortune_result.text.contains("다음 전투"),"idle detail explains immediate healing and next-battle effects")
-	var hint:String=panel.fortune_hint.text.replace(" ","")
-	check(hint.contains("이동없음") and hint.contains("방문당1회") and hint.contains("1저주") and hint.contains("2회복") and hint.contains("3~6축복"),"idle guidance explains no movement, visit limit and possible outcomes")
-	check(map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(panel.fortune_title.position,panel.fortune_title.size)) and map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(panel.fortune_hint.position,panel.fortune_hint.size)),"title and guidance remain inside original painting")
+	check(panel.fortune_result.text.contains("즉시 회복") and panel.fortune_result.tooltip_text.contains("회복은 즉시") and panel.fortune_result.tooltip_text.contains("다음 전투"),"lower guidance and tooltip preserve effect timing")
+	var hint:String=panel.fortune_result.text.replace(" ","")
+	check(hint.contains("이동없음") and hint.contains("방문당1회") and hint.contains("1저주") and hint.contains("2즉시회복") and hint.contains("3~6축복"),"idle guidance explains no movement, visit limit and possible outcomes")
+	check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.fortune_result.position,panel.fortune_result.size)==Rect2(393,500,494,24),"prophecy has no upper heading and uses shared lower guidance")
 	check(panel.close_button.text=="맵으로 나가기" and Rect2(panel.close_button.position,panel.close_button.size)==map.TILE_EVENT_EXIT_RECT,"fortune uses the common original exit slot")
 	var redundant_action: bool=false
 	for child in panel.get_children():
@@ -125,7 +125,7 @@ func _run() -> void:
 	await process_frame
 	map.show_location(index)
 	panel=map.overlay
-	check(panel.get_script().resource_path.ends_with("place_actions.gd") and panel.fortune_hint.text.contains("이번 방문 완료"),"completed camp directly reopens the readable result")
+	check(panel.get_script().resource_path.ends_with("place_actions.gd") and panel.status.text.contains("완료"),"completed camp directly reopens the readable result")
 	check(panel.get_node_or_null("LocationAction_prophecy")==null and map.pending_location_papers.is_empty(),"reopening does not reconstruct a removed entry paper")
 	check(panel.confirm_button==null and map.dice.disabled,"loaded already-used fortune disables the single shared die without adding a button")
 	check(map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE,"completed foreground die cannot intercept the common exit")

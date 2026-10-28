@@ -51,7 +51,7 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	if not is_instance_valid(map.overlay): return
 	var panel: Control = map.overlay
 	var backdrop = get_backdrop(panel)
-	if tag.begins_with("graveyard") or tag.begins_with("forest") or tag.begins_with("fortune-teller-camp"):
+	if tag.begins_with("graveyard") or tag.begins_with("forest") or tag.begins_with("fortune-teller-camp") or tag.begins_with("rest"):
 		check(backdrop != null and backdrop.color.a>0.7, tag + " single action screen preserves its dim backdrop")
 	else:
 		check(backdrop != null and is_zero_approx(backdrop.color.a), tag + " source has transparent event backdrop")
@@ -74,7 +74,7 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	if fortune:
 		check(panel.get_script()==preload("res://systems/place_actions.gd") and panel.confirm_button==null and action==null,tag+" direct screen has no duplicate entry button")
 		check(panel.dice==map.dice and map.dice.visible and not map.dice.disabled and map.dice.z_index>panel.z_index,tag+" current camp uses one foreground die")
-		check(art_bounds.encloses(Rect2(panel.fortune_title.position,panel.fortune_title.size)) and art_bounds.encloses(Rect2(panel.fortune_hint.position,panel.fortune_hint.size)),tag+" title and hint fit painting")
+		check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.fortune_result.position,panel.fortune_result.size)==Rect2(393,500,494,24),tag+" uses only the common lower guidance")
 	else:
 		check(same_rect(action,primary_rect),tag+" action uses existing sprite at approved slot")
 		check(is_instance_valid(action) and art_bounds.encloses(Rect2(action.position,action.size)),tag+" action fits painting")

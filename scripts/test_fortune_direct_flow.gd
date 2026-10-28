@@ -78,7 +78,7 @@ func all_faces() -> void:
 		check(map.dice.position==Vector2(450,250) and is_equal_approx(map.dice.rotation_degrees,17.0),"opening preserves the real die stopping pose")
 		check(panel.dice==map.dice and panel.confirm_button==null and panel.fortune_can_roll(),"one shared die is the only action")
 		check(Rect2(panel.close_button.position,panel.close_button.size)==map.TILE_EVENT_EXIT_RECT and panel.close_button.text=="맵으로 나가기","common exit stays in original slot")
-		check(panel.fortune_hint.text.contains("이동 없음") and panel.fortune_hint.text.contains("방문당 1회") and panel.fortune_hint.text.contains("1 저주"),"idle guidance explains movement limit and curse risk")
+		check(panel.fortune_result.text.contains("이동 없음") and panel.fortune_result.text.contains("방문당 1회") and panel.fortune_result.text.contains("1 저주"),"idle guidance explains movement limit and curse risk")
 		var preview:=RandomNumberGenerator.new()
 		preview.seed=session.world.rng.seed
 		preview.state=session.world.rng.state
@@ -96,7 +96,7 @@ func all_faces() -> void:
 		tones.append(panel.fortune_effect.tone)
 		check(await until(func(): return not panel.busy),"ink and result finish")
 		check(map.dice.disabled and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE and not panel.close_button.disabled,"completed die cannot block the enabled common exit")
-		check(panel.fortune_hint.text.contains("이번 방문 완료") and panel.fortune_result.text.begins_with("다음 전투 합계: "),"completion distinguishes result from next battle total")
+		check(panel.status.text.contains("완료") and panel.fortune_result.text.begins_with("다음 전투 합계: "),"completion distinguishes result from next battle total")
 		var world=session.world
 		check(world.position==before.position and world.move_serial==before.move_serial and world.last_face==before.last_face and world.previous_map_roll==before.previous_map_roll and world.dice_cards==before.dice_cards,"prophecy causes no movement or card cost")
 		check(int(world.prophecy.get("enemy_attack",0))==(1 if face==1 else 0) and int(world.prophecy.get("ally_speed",0))==(1 if face==3 else 0) and int(world.prophecy.get("ally_hp",0))==(2 if face in [4,6] else 0) and int(world.prophecy.get("ally_attack",0))==(1 if face in [5,6] else 0),"all original face-specific battle effects preserved")
@@ -107,7 +107,7 @@ func all_faces() -> void:
 		await close(map,panel)
 		panel=enter(map,camp)
 		panel.roll_prophecy()
-		check(map.dice.disabled and not panel.fortune_effect.active and panel.fortune_hint.text.contains("이번 방문 완료"),"normal reopening reads completion without replaying")
+		check(map.dice.disabled and not panel.fortune_effect.active and panel.status.text.contains("완료"),"normal reopening reads completion without replaying")
 		check(session.world.snapshot()==complete and FileAccess.get_file_as_bytes(save)==bytes and map.pending_location_papers.is_empty(),"reopening neither grants nor saves nor queues removed paper")
 		await dispose(map)
 	check(tones[0]!=tones[2] and tones[1]!=tones[2] and tones[5]!=tones[2],"curse healing blessing and grand blessing are visually distinct")
