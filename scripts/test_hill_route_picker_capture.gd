@@ -54,10 +54,14 @@ func open(index:int,sample:bool=false) -> Control:
 	return map
 func dispose(map:Control) -> void:
 	map.queue_free()
-	await process_frame
-	var deadline:int=Time.get_ticks_msec()+5000
+	var deadline:int=Time.get_ticks_msec()+10000
+	# Queued deletion happens after process_frame. Drain only once _exit_tree
+	# has transferred the scene's unfinished requests to PendingLoads.
+	while is_instance_valid(map) and Time.get_ticks_msec()<deadline: await process_frame
+	check(not is_instance_valid(map),"captured scene finishes queued deletion")
 	while not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty() and Time.get_ticks_msec()<deadline: await process_frame
-	await create_timer(0.15).timeout
+	check(preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty(),"captured scene drains all background resource requests")
+	await process_frame
 func run() -> void:
 	root.size=Vector2i(1280,720)
 	AudioServer.set_bus_mute(0,true)
@@ -90,7 +94,9 @@ func run() -> void:
 	var deadline:int=Time.get_ticks_msec()+5000
 	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<deadline: await process_frame
 	if audio!=null: audio.queue_free()
-	await create_timer(0.15).timeout
+	while is_instance_valid(audio) and Time.get_ticks_msec()<deadline: await process_frame
+	check(not is_instance_valid(audio),"capture audio cleanup finishes before shutdown")
+	await process_frame
 	session.world=null
 	session.save_file_path=old_path
 	for suffix in ["",".tmp"]:

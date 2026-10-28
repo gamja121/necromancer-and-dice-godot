@@ -71,7 +71,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --fixed-fps 30 --script res://scripts/test_hill_route_picker_capture.gd 2>&1 | tee hill-capture.log
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --verbose --fixed-fps 30 --script res://scripts/test_hill_route_picker_capture.gd 2>&1 | tee hill-capture.log
           grep -E '^HILL_ROUTE_CAPTURE: [0-9]+ passed, 0 failed$' hill-capture.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL hill-capture:' hill-capture.log; then exit 1; fi
           test -s hill_route_01_choose.png
