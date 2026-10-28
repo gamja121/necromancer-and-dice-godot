@@ -146,6 +146,11 @@ func prayer_can_roll() -> bool:
 
 func refresh_prayer_input() -> void:
 	if not is_instance_valid(dice): return
+	if is_instance_valid(prayer_notice_strip):
+		var pending:bool=session.event_flag_is_set("ui:unlock:unknown:action_pending") and not session.place_visit_id("purify",index) in session.world.reward_receipts
+		var badge:Control=prayer_notice_strip.get_node_or_null("UnlockNewBadge")
+		if pending and badge==null: badge=UnlockNoticeBadge.attach(prayer_notice_strip,"NEW")
+		if badge!=null: badge.visible=pending
 	dice.disabled=not prayer_can_roll()
 	# A stopped, spent die can overlap the common exit; let the click through.
 	dice.mouse_filter=Control.MOUSE_FILTER_IGNORE if dice.disabled else Control.MOUSE_FILTER_STOP

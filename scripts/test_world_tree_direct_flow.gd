@@ -78,6 +78,7 @@ func cancellation_and_failure() -> void:
 	var map:Control=await new_map()
 	var panel:Control=enter(map,index)
 	var before:Dictionary=session.world.snapshot().duplicate(true)
+	check(panel.prayer_notice_strip.has_node("UnlockNewBadge"),"newly discovered prayer keeps visible NEW guidance")
 	panel.close_button.pressed.emit()
 	panel.pray()
 	map.dice.pressed.emit()
@@ -94,6 +95,7 @@ func cancellation_and_failure() -> void:
 	check(await until(func(): return not panel.busy),"retry completes")
 	check(session.world.contamination==7 and session.world.reward_receipts.count(session.place_visit_id("purify",index))==1,"retry commits original result once")
 	check(not session.event_flag_is_set("ui:unlock:unknown:action_pending"),"successful actual prayer acknowledges NEW")
+	check(not panel.prayer_notice_strip.get_node("UnlockNewBadge").visible,"completed prayer hides NEW guidance")
 	await dispose(map)
 func guards_and_legacy() -> void:
 	var index:int=fixture("guards")
