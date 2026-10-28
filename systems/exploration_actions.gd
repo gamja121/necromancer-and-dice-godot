@@ -38,6 +38,7 @@ var graveyard_message: String = ""
 var graveyard_phase: String = "idle"
 var graveyard_motion:Control
 var graveyard_notice:Label
+var graveyard_detail:Label
 var graveyard_count_before:int=0
 var graveyard_overflow: Control
 var plan: Dictionary = {}
@@ -92,9 +93,6 @@ func setup(map_scene, tile_index: int) -> void:
 	if type not in ["graveyard","forest"]:
 		label_at(self,{"unknown":"세계수 · 정화 기도","forest":"언덕 · 이동 경로 선택","home":"우리집 · 순찰경로"}[type],Vector2(290,22),Vector2(700,40),24)
 		close_button=button(self,"← 돌아가기",Vector2(1100,26),Vector2(110,38),func(): if not busy: closed.emit())
-	else:
-		var location_title:Label=label_at(self,"공동묘지" if type=="graveyard" else "언덕",Vector2(179,156),Vector2(230,36),23)
-		if type=="forest": location_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
 	status=label_at(self,"",Vector2(130,555),Vector2(1020,60),15)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	content=Control.new()
@@ -168,6 +166,10 @@ func render_graveyard() -> void:
 	ribbon.name="GraveyardNoticeStrip"
 	graveyard_notice=shared.text
 	graveyard_notice.name="GraveyardNoticeText"
+	graveyard_detail=shared.detail
+	graveyard_detail.name="GraveyardNoticeDetail"
+	graveyard_detail.text="방문당 1회 · 주사위 제어 카드 1장"
+	graveyard_detail.visible=true
 	var message:String="묘지를 파헤쳐 보세요"
 	if found: message="카드를 발견했다"
 	elif not graveyard_message.is_empty(): message=graveyard_message
@@ -215,7 +217,11 @@ func _make_graveyard_motion() -> Control:
 func _show_graveyard_ready_controls() -> void:
 	action_button.name="GraveyardCollectConfirm"
 	action_button.text="챙기고 나가기"
+	# Collection is also the exit: retain the same lower exit slot.
+	action_button.position=map.TILE_EVENT_EXIT_RECT.position
+	action_button.size=map.TILE_EVENT_EXIT_RECT.size
 	action_button.disabled=false
+	graveyard_detail.text="아래 버튼을 누르면 카드를 챙기고 맵으로 돌아갑니다"
 	graveyard_exit_button.hide()
 	_set_graveyard_notice("카드를 발견했다")
 

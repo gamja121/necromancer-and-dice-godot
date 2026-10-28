@@ -34,7 +34,7 @@ func run() -> void:
 	var panel:Control=enter(map,camp)
 	await create_timer(0.30).timeout
 	check(Rect2(panel.fortune_notice_strip.position,panel.fortune_notice_strip.size)==Rect2(340,423,600,150),"GPU retains common full-size parchment")
-	check(map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(panel.fortune_title.position,panel.fortune_title.size)) and Rect2(panel.close_button.position,panel.close_button.size)==map.TILE_EVENT_EXIT_RECT,"GPU title and exit match approved inside-art geometry")
+	check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.close_button.position,panel.close_button.size)==map.TILE_EVENT_EXIT_RECT,"GPU has no upper heading and preserves common exit")
 	var before:Dictionary=session.world.snapshot().duplicate(true)
 	var bytes:PackedByteArray=FileAccess.get_file_as_bytes(save)
 	await snap("01_ready")

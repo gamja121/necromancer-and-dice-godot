@@ -6,12 +6,18 @@ on:
       - "systems/home_inheritance.gd"
       - "systems/place_actions.gd"
       - "scripts/test_location_die_layer_stack.gd"
+      - "scripts/test_location_notice_uniformity.gd"
+      - "scripts/test_location_shared_capture.gd"
+      - "systems/location_notice_strip.gd"
       - ".github/workflows/location-die-layer-stack.yml"
   push:
     branches: [main]
     paths:
       - "map.gd"
       - "scripts/test_location_die_layer_stack.gd"
+      - "scripts/test_location_notice_uniformity.gd"
+      - "scripts/test_location_shared_capture.gd"
+      - "systems/location_notice_strip.gd"
       - ".github/workflows/location-die-layer-stack.yml"
   workflow_dispatch:
 permissions:
@@ -50,6 +56,30 @@ jobs:
             grep -E "^$summary: [0-9]+ passed, 0 failed$" one.log
             if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL ' one.log; then exit 1; fi
           done
+      - name: Four title-free locations and durable rest recovery guidance
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_location_notice_uniformity.gd 2>&1 | tee shared.log
+          grep -E '^LOCATION_NOTICE_UNIFORMITY: [0-9]+ passed, 0 failed$' shared.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL fortune-direct:' shared.log; then exit 1; fi
+      - name: Actual shared lower notices exit slots and original recovery effect
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_location_shared_capture.gd 2>&1 | tee shared-capture.log
+          grep -E '^LOCATION_SHARED_CAPTURE: [0-9]+ passed, 0 failed$' shared-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL uniformity:' shared-capture.log; then exit 1; fi
+          test -s location_shared_01_graveyard_ready.png
+          test -s location_shared_02_rest_ready.png
+          test -s location_shared_04_prophecy_ready.png
+          test -s location_shared_10_rest_heal_flash.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: location-shared-ui-native
+          path: location_shared_*.png
+          if-no-files-found: warn
       - name: Verify real embedded combat and return
         shell: bash
         run: |

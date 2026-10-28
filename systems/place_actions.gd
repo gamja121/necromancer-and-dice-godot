@@ -32,8 +32,6 @@ var receiver_hint: Label
 var dice: TextureButton
 var fortune_result: Label
 var fortune_notice_strip: TextureRect
-var fortune_title:Label
-var fortune_hint:Label
 var fortune_effect:Control
 var unit_options: Dictionary = {}
 var offer_options: Array = []
@@ -60,14 +58,6 @@ func setup(map_scene, tile_index: int) -> void:
 	if type=="village":
 		setup_shop_visual()
 	elif type=="fortune-teller-camp":
-		fortune_title=label_at(self,"예언자의 막사",Vector2(179,156),Vector2(330,36),23)
-		fortune_title.name="FortuneLocationTitle"
-		fortune_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
-		fortune_hint=label_at(self,"",Vector2(179,195),Vector2(900,24),14)
-		fortune_hint.name="FortuneVisitHint"
-		fortune_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
-		fortune_hint.add_theme_constant_override("outline_size",3)
-		fortune_hint.add_theme_color_override("font_outline_color",Color("261b12"))
 		status=label_at(self,"",Vector2.ZERO,Vector2.ONE,20)
 		close_button=map.location_button(self,"맵으로 나가기",map.TILE_EVENT_EXIT_RECT.position,map.TILE_EVENT_EXIT_RECT.size,request_fortune_exit,4)
 		close_button.name="FortuneExitToMap"
@@ -414,11 +404,10 @@ func show_fortune_state() -> void:
 	var used:bool=visit in session.world.reward_receipts
 	fortune_result.visible=true
 	if used:
-		fortune_hint.text="이번 방문 완료 · 결과를 확인한 뒤 맵으로 나가세요"
 		var saved:Dictionary=session.world.last_prophecy
 		if str(saved.get("visit",""))==visit:
 			var face:int=int(saved.get("face",0))
-			status.text=str(saved.get("detail","이번 방문의 예언은 완료했습니다")).replace("다음 전투 ","")
+			status.text="예언 완료 · "+str(saved.get("detail","이번 방문의 예언은 완료했습니다")).replace("다음 전투 ","")
 			if face==2: status.text=status.text.replace("아군 전체 ","아군 전체 즉시 ")
 			if face>=1 and face<=6 and session.world.position==index:
 				dice.texture_normal=map.texture("res://assets/battle/dice/result-%02d.png"%face)
@@ -426,15 +415,17 @@ func show_fortune_state() -> void:
 			status.text="이번 방문의 예언은 완료했습니다"
 		show_fortune_result()
 	else:
-		fortune_hint.text="이동 없음 · 방문당 1회 · 1 저주 / 2 회복 / 3~6 축복"
 		status.text="주사위를 눌러 예언을 확인하세요"
-		fortune_result.text="회복은 즉시 · 나머지 효과는 다음 전투에 적용"
+		fortune_result.text="이동 없음 · 방문당 1회 · 1 저주 / 2 즉시 회복 / 3~6 축복"
+		fortune_result.tooltip_text="회복은 즉시 적용되며, 그 외 효과는 다음 전투 시작 때 한 번 적용됩니다.\n이동하거나 주사위 제어 카드를 소모하지 않습니다."
 		var allowed:Dictionary=fortune_availability()
 		if not bool(allowed.get("ok",false)):
 			status.text="지금은 예언을 확인할 수 없습니다"
 			fortune_result.text=str(allowed.get("reason","진행 중인 일을 먼저 마쳐주세요."))
 	status.visible_ratio=1.0
 	fortune_result.visible_ratio=1.0
+	fit_fortune_total()
+	call_deferred("fit_fortune_total")
 	refresh_fortune_input()
 
 func show_fortune_result() -> void:
