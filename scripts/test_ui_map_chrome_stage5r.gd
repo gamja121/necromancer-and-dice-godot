@@ -66,6 +66,8 @@ func _run() -> void:
 	session.start_new_world()
 	var map = MAP.instantiate()
 	root.add_child(map)
+	# This checks UI visibility only, not audio playback.
+	AudioServer.set_bus_mute(0,true)
 	await process_frame
 	var original_snapshot: Dictionary = session.world.snapshot().duplicate(true)
 	var original_rng: int = session.world.rng.state
@@ -88,6 +90,10 @@ func _run() -> void:
 	var fortune: int = session.world.tiles.find("fortune-teller-camp")
 	check(fortune >= 0, "fixed map still has the source fortune-teller scene")
 	if fortune >= 0:
+		# An enabled prophecy belongs to the actual current camp. Restore the
+		# UI-only fixture position before the final no-state-change assertion.
+		var previous_position:int=session.world.position
+		session.world.position=fortune
 		map.show_location(fortune)
 		check(modal_and_chrome(map), "location art suppresses toolbar and contamination HUD while shared die remains visible")
 		check(board_remains(map), "location overlay leaves board tile imagery intact")
@@ -99,6 +105,7 @@ func _run() -> void:
 			"fortune teller uses same visible and clickable stage die, never a mini copy")
 		map.close_overlay()
 		check(chrome_visible(map), "closing nested location actions restores toolbar")
+		session.world.position=previous_position
 
 	var tree_index: int = session.world.tiles.find("unknown")
 	if tree_index >= 0:
