@@ -1,9 +1,9 @@
 extends RefCounted
 
-const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","skeleton-cavalry","grave-worm","flesh-golem","ghoul","boulder-ogre","plague-doctor","plague-frog","hydra","minotaur","yeti","ice-lord","sea-wolf","spider-knight","spiderling","goblin-chief","goblin-commoner","goblin-soldier","grave-priest","doom-executor","abyss-eye","hell-mantis","abyss-claw-hunter","corpse-slime","scorpion-knight","ancient-treant","stone-golem","kraken","crystal-devourer","raging-treant","cerberus","mushroom-soldier","goblin-rider","abyss-harpy","orc-warrior","bone-golem","forest-fairy","mummy-guardian","soul-reaper","bone-hound","mimic","ice-princess","siren"]
-# Only the original fixed HTML V2 combat catalog may enter normal
-# encounters or random rewards. Extra Godot catalog entries stay readable
-# for existing saves, but do not silently change web-equivalent runs.
+const ROSTER = ["death-knight","skeleton-spear","skeleton-archer","skeleton-cavalry","grave-worm","flesh-golem","ghoul","boulder-ogre","plague-doctor","plague-frog","hydra","minotaur","yeti","ice-lord","sea-wolf","spider-knight","spiderling","goblin-chief","goblin-commoner","goblin-soldier","grave-priest","doom-executor","abyss-eye","hell-mantis","abyss-claw-hunter","corpse-slime","scorpion-knight","ancient-treant","stone-golem","kraken","crystal-devourer","raging-treant","cerberus","mushroom-soldier","goblin-rider","abyss-harpy","orc-warrior","bone-golem","forest-fairy","mummy-guardian","soul-reaper","bone-hound","mimic","ice-princess","siren","dracula"]
+# All non-summoned species, including Dracula and stage-boss candidates not
+# selected this expedition, may enter encounters/rewards at their normal
+# grade. This expedition's three bosses and the final dragon are protected.
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const GRADES = ["normal","advanced","hero"]
 const STAGES = [
@@ -14,8 +14,9 @@ const STAGES = [
 	{"min":80,"counts":[3,4],"weights":[0.55,0.45],"grades":[0.20,0.55,0.25]}
 ]
 
-static func eligible_roster(definitions: Dictionary) -> Array:
-	return ROSTER.filter(func(slug): return definitions.has(slug) and definitions[slug].grade in GRADES and not slug in BossStages.reserved_slugs())
+static func eligible_roster(definitions: Dictionary, boss_assignments: Dictionary = {}) -> Array:
+	var reserved: Array = BossStages.reserved_slugs(boss_assignments)
+	return ROSTER.filter(func(slug): return definitions.has(slug) and definitions[slug].grade in GRADES and not slug in reserved)
 
 static func stage(contamination: int) -> Dictionary:
 	for index in range(STAGES.size()-1,-1,-1):
@@ -42,11 +43,11 @@ static func mimic_count(contamination: int, loop: int) -> int:
 # one advanced/hero anchor plus ordinary support at higher group sizes.
 # This keeps the map indicator truthful and retains the existing group-size
 # and stage-based elite-vs-hero weighting without adding extra battles.
-static func slugs(definitions: Dictionary, contamination: int, loop: int, rng: RandomNumberGenerator, intel: Dictionary = {}, tile_kind: String = "monster") -> Array:
+static func slugs(definitions: Dictionary, contamination: int, loop: int, rng: RandomNumberGenerator, intel: Dictionary = {}, tile_kind: String = "monster", boss_assignments: Dictionary = {}) -> Array:
 	var current: Dictionary = stage(contamination)
 	var requested: int = int(intel.count) if not intel.is_empty() else int(weighted(current.counts,current.weights,rng))
 	var count: int = constrained_count(requested,loop)
-	var available: Array = eligible_roster(definitions)
+	var available: Array = eligible_roster(definitions,boss_assignments)
 	var normal_pool: Array = available.filter(func(slug): return str(definitions[slug].grade)=="normal")
 	var elite_pool: Array = available.filter(func(slug): return str(definitions[slug].grade) in ["advanced","hero"])
 	var rare: bool = tile_kind=="rare-monster"
@@ -71,13 +72,13 @@ static func slugs(definitions: Dictionary, contamination: int, loop: int, rng: R
 		result.append(normal_pool.pop_at(index))
 	return result
 
-static func scout_intel(definitions: Dictionary, contamination: int, loop: int, rng: RandomNumberGenerator, index: int, type: String) -> Dictionary:
+static func scout_intel(definitions: Dictionary, contamination: int, loop: int, rng: RandomNumberGenerator, index: int, type: String, boss_assignments: Dictionary = {}) -> Dictionary:
 	var current: Dictionary = stage(contamination)
 	var count: int = constrained_count(int(weighted(current.counts,current.weights,rng)),loop)
 	var grade: String = "normal"
 	if type=="rare-monster":
 		grade = str(weighted(["advanced","hero"],[float(current.grades[1]),float(current.grades[2])],rng))
-	var pool: Array = eligible_roster(definitions).filter(func(slug): return str(definitions[slug].grade)==grade and not definitions[slug].legions.is_empty())
+	var pool: Array = eligible_roster(definitions,boss_assignments).filter(func(slug): return str(definitions[slug].grade)==grade and not definitions[slug].legions.is_empty())
 	if pool.is_empty(): return {}
 	var anchor: Dictionary = definitions[pool[rng.randi_range(0,pool.size()-1)]]
 	var legion: String = str(anchor.legions[rng.randi_range(0,anchor.legions.size()-1)])

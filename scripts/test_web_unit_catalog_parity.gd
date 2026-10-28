@@ -1,6 +1,7 @@
 extends SceneTree
-## W080: source-anchored 46-unit parity, original encounter/treasure pools,
-## and backward compatibility for Godot-only Dracula in older player saves.
+## Original 46 source species retain their unit definitions. New design allows
+## Dracula and unselected stage candidates to join normal hero-tier encounters,
+## with selected expedition bosses protected across saves, scouts and rewards.
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const SessionScript = preload("res://systems/run_session.gd")
@@ -70,11 +71,14 @@ func _run() -> void:
 		for key in original[slug]:
 			var expected = "아자젤" if slug=="doom-executor" and key=="name" else original[slug][key]
 			check(definitions[slug].get(key,null)==expected,"source field parity or approved name: %s.%s" % [slug,key])
-	var expected_pool: Array=original.keys().filter(func(slug): return original[slug].grade in ["normal","advanced","hero"] and not slug in BossStages.reserved_slugs())
-	var actual_pool: Array=EncounterGenerator.eligible_roster(definitions)
-	check(actual_pool.size()==expected_pool.size() and actual_pool.size()==37,"six boss candidates are excluded from the old 43 random species")
-	check(not actual_pool.has("dracula"),"extra Dracula excluded from new source-parity runs")
-	check(BossStages.valid(definitions) and BossStages.reserved_slugs().size()==7 and BossStages.reserved_slugs().all(func(slug): return not actual_pool.has(slug)),"every designated stage boss is reserved for boss encounters only")
+	var draw: Dictionary=BossStages.roll_assignments(80191)
+	var reserved: Array=BossStages.reserved_slugs(draw)
+	var expected_pool: Array=original.keys().filter(func(slug): return original[slug].grade in ["normal","advanced","hero"] and not slug in reserved)
+	expected_pool.append("dracula")
+	var actual_pool: Array=EncounterGenerator.eligible_roster(definitions,draw)
+	check(actual_pool.size()==expected_pool.size() and actual_pool.size()==41,"three selected stage bosses excluded; Dracula and three unchosen candidates added to random species")
+	check(actual_pool.has("dracula") and str(definitions["dracula"].grade)=="hero","Dracula enters ordinary encounters as a hero grade")
+	check(BossStages.valid(definitions,draw) and reserved.size()==4 and reserved.all(func(slug): return not actual_pool.has(slug)),"only three selected stage bosses plus final dragon are reserved")
 	check(not actual_pool.has("guardian-seed") and not actual_pool.has("spiderling") and not actual_pool.has("goblin-commoner"),"summon-only species are never in the random pool")
 	for slug in expected_pool:
 		check(actual_pool.has(slug),"original spawn-eligible unit retained: "+slug)
@@ -83,22 +87,24 @@ func _run() -> void:
 	var no_additional_species: bool=true
 	for contamination in [0,20,40,60,80,100]:
 		for i in range(85):
-			var encountered=EncounterGenerator.slugs(definitions,contamination,4,rng)
+			var encountered=EncounterGenerator.slugs(definitions,contamination,4,rng,{},"monster",draw)
 			for slug in encountered:
 				if not actual_pool.has(slug): no_additional_species=false
-	check(no_additional_species,"510 staged random encounters contain no extra Godot species")
+	check(no_additional_species,"510 normal-tile encounters draw only eligible species under the expedition boss assignments")
 	var scout_safe: bool=true
 	for i in range(48):
-		var intel=EncounterGenerator.scout_intel(definitions,60,5,rng,12,"monster")
-		var anchored=EncounterGenerator.slugs(definitions,60,5,rng,intel)
+		var intel=EncounterGenerator.scout_intel(definitions,60,5,rng,12,"monster",draw)
+		var anchored=EncounterGenerator.slugs(definitions,60,5,rng,intel,"monster",draw)
 		for slug in anchored:
 			if not actual_pool.has(slug): scout_safe=false
-	check(scout_safe,"48 scout-directed encounters use original species only")
+	check(scout_safe,"48 scout-directed encounters exclude only selected expedition bosses")
 	var test_path: String="user://web_v2_unit_catalog_%d.json" % OS.get_process_id()
 	var session=SessionScript.new()
 	root.add_child(session)
 	session.save_file_path=test_path
 	session.start_new_world()
+	var reward_pool: Array=EncounterGenerator.eligible_roster(definitions,session.world.boss_assignments)
+	check(reward_pool.has("dracula") and reward_pool.size()==41,"actual new run offers Dracula and its three unassigned stage candidates")
 	var treasure_index: int=session.world.tiles.find("gem")
 	check(treasure_index>=0,"treasure tile exists for real reward-generation test")
 	var offers_safe: bool=treasure_index>=0
@@ -114,10 +120,9 @@ func _run() -> void:
 				for offer in session.world.pending_reward.offers:
 					if offer.kind=="unit":
 						recorded_unit_offers+=1
-						if not actual_pool.has(offer.source.slug): offers_safe=false
-	check(offers_safe and recorded_unit_offers>0,"real treasure offers exclude Dracula and non-native species")
-	# Old Godot 47-species saves must not become invalid when generation is
-	# restricted to the original web pool; never delete the extra metadata.
+						if not reward_pool.has(offer.source.slug): offers_safe=false
+	check(offers_safe and recorded_unit_offers>0,"real treasure offers respect expedition-selected bosses and allow Dracula")
+	# Old Godot saves containing Dracula must remain readable with no stat or name changes.
 	var rules=BattleRules.new(definitions,404)
 	var existing=rules.individual("dracula","legacy-dracula-1")
 	existing.current_hp=existing.max_hp

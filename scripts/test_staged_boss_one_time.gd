@@ -1,6 +1,7 @@
 extends SceneTree
 ## Staged bosses: only one stage encounter per run, distinct boss types,
-## reserved species never leak into routine combat or random rewards.
+## selected species stay exclusive to boss encounters; three unselected
+## candidates are ordinary hero-grade enemies and reward candidates.
 const SessionScript = preload("res://systems/run_session.gd")
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
@@ -63,7 +64,7 @@ func _run() -> void:
 	var world=session.world
 	var definitions: Dictionary=world.definitions
 	check(BossStages.valid(definitions,world.boss_assignments),"three distinct candidates selected in this expedition")
-	check(BossStages.CANDIDATES.size()==6 and BossStages.reserved_slugs().size()==7,"six exclusive boss candidates plus the final dragon")
+	check(BossStages.CANDIDATES.size()==6 and BossStages.reserved_slugs(world.boss_assignments).size()==4,"six candidates yield three selected boss-only species plus the final dragon")
 	var seen_species: Dictionary={}
 	var seen_rosters: Dictionary={}
 	var all_draws_valid: bool=true
@@ -86,8 +87,41 @@ func _run() -> void:
 	check(BossStages.current_stage(19)==0 and BossStages.current_stage(20)==20 and BossStages.current_stage(39)==20,"first stage is 20 to 39")
 	check(BossStages.current_stage(40)==40 and BossStages.current_stage(59)==40 and BossStages.current_stage(60)==60 and BossStages.current_stage(79)==60,"next stages are 40 and 60")
 	check(BossStages.current_stage(80)==80,"final dragon retains separate 80+ gate")
-	for slug in BossStages.reserved_slugs():
-		check(not slug in EncounterGenerator.eligible_roster(definitions),"boss %s absent from regular encounters and rewards" % slug)
+	var selected: Array=BossStages.reserved_slugs(original_draw)
+	var eligible: Array=EncounterGenerator.eligible_roster(definitions,original_draw)
+	check(eligible.size()==41,"16 normal, 19 advanced, and six ordinary heroes are available per expedition")
+	check(eligible.has("dracula") and not eligible.has("dragon"),"hero Dracula is eligible; the story-only dragon is still final-only")
+	for slug in selected:
+		check(not slug in eligible,"this expedition's reserved boss %s never appears in normal rolls or rewards" % slug)
+	for slug in BossStages.CANDIDATES:
+		if not slug in selected:
+			check(slug in eligible,"unchosen stage candidate %s returns to regular hero-grade roster" % slug)
+	# The same reservation applies to every map seed and survives JSON restore.
+	var seen_unselected: Dictionary={}
+	for seed in range(1,101):
+		var assignment: Dictionary=BossStages.roll_assignments(seed)
+		var candidates: Array=EncounterGenerator.eligible_roster(definitions,assignment)
+		var blocked: Array=BossStages.reserved_slugs(assignment)
+		check(candidates.size()==41 and blocked.size()==4 and blocked.all(func(slug): return not slug in candidates),"seed %d protects only current bosses" % seed)
+		for slug in BossStages.CANDIDATES:
+			if not slug in blocked and slug in candidates: seen_unselected[slug]=true
+	check(seen_unselected.size()==6,"every boss candidate can appear as a normal hero in another expedition")
+	# Exercising the *actual* encounter generator also validates selected boss
+	# exclusion and a nonzero chance to encounter Dracula and spare candidates.
+	var seen_random: Dictionary={}
+	var rare_rng=RandomNumberGenerator.new()
+	rare_rng.seed=425709
+	var rare_valid: bool=true
+	for trial in range(1200):
+		var slugs: Array=EncounterGenerator.slugs(definitions,80,5,rare_rng,{},"rare-monster",original_draw)
+		for slug in slugs:
+			if not slug in eligible: rare_valid=false
+			seen_random[slug]=true
+	check(rare_valid,"all 1200 corruption-80 encounters exclude assigned bosses and the final dragon")
+	check(seen_random.has("dracula"),"Dracula can naturally spawn as a hero in rare-monster combat")
+	for slug in BossStages.CANDIDATES:
+		if not slug in selected:
+			check(seen_random.has(slug),"unchosen boss candidate %s actually appears in real rare-tile battles" % slug)
 	for pollution in [0,10,19]:
 		world.contamination=pollution
 		world.generate()
