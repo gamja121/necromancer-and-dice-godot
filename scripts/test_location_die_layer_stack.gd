@@ -67,7 +67,8 @@ func _run() -> void:
 	session.world.generate()
 	session.world.event_flags["ui:unlock:rest:tile_pending"] = false
 	session.world.event_flags["ui:unlock:rest:action_pending"] = false
-	check(session.save_world(), "unlocked rest painting fixture is persisted")
+	session.world.position=session.world.tiles.find("fortune-teller-camp")
+	check(session.save_world(), "rest and current fortune fixture persisted")
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	var rng: int=session.world.rng.state
 	var map: Control=MAP.instantiate()
@@ -99,13 +100,13 @@ func _run() -> void:
 		check_location(map,"rest","전체 회복")
 		map.close_overlay()
 
-	# The ordinary teller painting must still hide the die; only its
-	# explicit prophecy action may raise the single click-to-roll die.
+	# The direct camp immediately exposes the single shared prophecy die.
 	map.show_location(0)
-	check_location(map,"fortune-teller location painting","예언")
+	check_location(map,"fortune-teller direct function","맵으로 나가기",true)
+	check(map.overlay.get_script()==preload("res://systems/place_actions.gd") and find_button(map.overlay,"예언")==null,"direct camp has no redundant entry action")
 	map.close_overlay()
 	map.show_place_actions(0)
-	check_location(map,"fortune-teller function","",true)
+	check_location(map,"fortune-teller function","맵으로 나가기",true)
 	var fortune_panel: Control=map.overlay
 	check(fortune_panel.get("dice")==die and fortune_panel.confirm_button==null and find_button(fortune_panel,"예언 듣기")==null,"prophecy has no separate button and reuses the original die above its art")
 	check(not die.disabled,"unused fortune die is immediately clickable before the one-time prophecy")

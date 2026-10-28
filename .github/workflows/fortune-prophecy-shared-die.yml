@@ -4,6 +4,9 @@ on:
     paths:
       - "map.gd"
       - "systems/place_actions.gd"
+      - "systems/prophecy_ink_effect.gd"
+      - "scripts/test_fortune_direct_flow.gd"
+      - "scripts/test_fortune_direct_capture.gd"
       - "systems/exploration_actions.gd"
       - "scripts/test_ui_world_tree_shared_die.gd"
       - "scripts/test_location_die_layer_stack.gd"
@@ -14,6 +17,9 @@ on:
     paths:
       - "map.gd"
       - "systems/place_actions.gd"
+      - "systems/prophecy_ink_effect.gd"
+      - "scripts/test_fortune_direct_flow.gd"
+      - "scripts/test_fortune_direct_capture.gd"
       - "systems/exploration_actions.gd"
       - "scripts/test_ui_world_tree_shared_die.gd"
       - "scripts/test_location_die_layer_stack.gd"
@@ -51,6 +57,29 @@ jobs:
           timeout 140s godot --headless --path . --script res://scripts/test_ui_fortune_prophecy_stage5l.gd 2>&1 | tee fortune.log
           grep -E 'UI_FORTUNE_PROPHECY_PARITY: [0-9]+ passed, 0 failed' fortune.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-fortune:' fortune.log; then exit 1; fi
+      - name: Direct prophecy six faces rollback interruption and real map arrival
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_fortune_direct_flow.gd 2>&1 | tee direct.log
+          grep -E '^FORTUNE_DIRECT_FLOW: [0-9]+ passed, 0 failed$' direct.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL fortune-direct:' direct.log; then exit 1; fi
+      - name: Native direct prophecy and actual exit pointer click
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_fortune_direct_capture.gd 2>&1 | tee capture.log
+          grep -E '^FORTUNE_DIRECT_CAPTURE: [0-9]+ passed, 0 failed$' capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL fortune-direct:' capture.log; then exit 1; fi
+          test -s prophecy_01_ready.png
+          test -s prophecy_04_grand_result.png
+          test -s prophecy_07_curse_result.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prophecy-direct-native
+          path: prophecy_*.png
+          if-no-files-found: warn
       - name: Shared world-tree prayer die with no duplicate button and persistent one-time result
         shell: bash
         run: |

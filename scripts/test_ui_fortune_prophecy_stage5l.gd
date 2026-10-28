@@ -60,7 +60,7 @@ func _run() -> void:
 	var map=MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
-	map.show_place_actions(index)
+	map.show_location(index)
 	var panel=map.overlay
 	check(is_instance_valid(panel),"live map opens actual fortune action panel")
 	check(panel.get_script().resource_path.ends_with("place_actions.gd"),"fortune panel uses original PlaceActions code")
@@ -76,7 +76,12 @@ func _run() -> void:
 	check(panel.status.position==Vector2(394,465) and panel.status.size==Vector2(492,30),"main ink-colored text is centered on the parchment")
 	check(panel.get_node_or_null("LocationSceneImage")!=null,"original fortune-teller painting remains behind the simplified UI")
 	check(panel.confirm_button==null,"fortune has no separate action button")
-	check(panel.status.text=="예언 듣기" and panel.fortune_result.text.contains("주사위를 눌러 예언을 확인하세요"),"one-line title and unobtrusive shared-die guidance appear only once")
+	check(panel.status.text=="주사위를 눌러 예언을 확인하세요","main parchment identifies the single shared-die action")
+	check(panel.fortune_result.text.contains("회복은 즉시") and panel.fortune_result.text.contains("다음 전투"),"idle detail explains immediate healing and next-battle effects")
+	var hint:String=panel.fortune_hint.text.replace(" ","")
+	check(hint.contains("이동없음") and hint.contains("방문당1회") and hint.contains("1저주") and hint.contains("2회복") and hint.contains("3~6축복"),"idle guidance explains no movement, visit limit and possible outcomes")
+	check(map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(panel.fortune_title.position,panel.fortune_title.size)) and map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(panel.fortune_hint.position,panel.fortune_hint.size)),"title and guidance remain inside original painting")
+	check(panel.close_button.text=="맵으로 나가기" and Rect2(panel.close_button.position,panel.close_button.size)==map.TILE_EVENT_EXIT_RECT,"fortune uses the common original exit slot")
 	var redundant_action: bool=false
 	for child in panel.get_children():
 		if child is Button and child.text=="예언 듣기": redundant_action=true
@@ -97,8 +102,8 @@ func _run() -> void:
 	check(not panel.busy and not panel.close_button.disabled,"actual roll animation finishes and restores close button")
 	check(int(world.last_prophecy.get("face",-1))==4,"live persisted prophecy uses real RNG result, not mocked UI result")
 	check(panel.status.text.contains("축복") and panel.status.text.contains("아군 체력 +2"),"primary line shows the real prophecy result after the roll")
-	check(panel.fortune_result.visible and panel.fortune_result.text.contains("아군 체력 +2"),"bottom subline shows saved cumulative buff")
-	check(panel.fortune_result.text.begins_with("누적 효과: "),"cumulative effect appears once beneath the main outcome")
+	check(panel.fortune_result.visible and panel.fortune_result.text.contains("체력 +2"),"bottom subline shows saved cumulative buff")
+	check(panel.fortune_result.text.begins_with("다음 전투 합계: "),"cumulative effect appears once beneath the main outcome")
 	check(not panel.status.text.contains("누적:"),"the primary outcome is not duplicated with the cumulative line")
 	check(world.reward_receipts.size()==before_receipts+1 and world.prophecy.rolls.size()==before_rolls+1,"exactly one fortune receipt and stack added")
 	check(not session.fortune_prophecy(index).get("ok",true),"same visit cannot issue a second prophecy")
@@ -119,21 +124,22 @@ func _run() -> void:
 	root.add_child(map)
 	await process_frame
 	map.show_location(index)
-	var visit_button: Button=null
-	for child in map.overlay.get_children():
-		if child is Button and child.text=="예언": visit_button=child
-	check(visit_button!=null and visit_button.disabled,"spent fortune entry falls on the location painting instead of remaining as a result button")
-	map.close_overlay()
-	map.show_place_actions(index)
 	panel=map.overlay
+	check(panel.get_script().resource_path.ends_with("place_actions.gd") and panel.fortune_hint.text.contains("이번 방문 완료"),"completed camp directly reopens the readable result")
+	check(panel.get_node_or_null("LocationAction_prophecy")==null and map.pending_location_papers.is_empty(),"reopening does not reconstruct a removed entry paper")
 	check(panel.confirm_button==null and map.dice.disabled,"loaded already-used fortune disables the single shared die without adding a button")
-	check(map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,"reopened fortune result still draws the same die above original artwork")
+	check(map.dice.z_index>panel.z_index and map.dice.mouse_filter==Control.MOUSE_FILTER_IGNORE,"completed foreground die cannot intercept the common exit")
 	check(panel.get_node_or_null("FortuneProphecyCrystal")==null and panel.get_node_or_null("FortuneCrystalAura")==null,"reopened result never recreates old crystal/table overlay")
 	check(panel.fortune_notice_strip!=null and panel.fortune_notice_strip.texture==ribbon,"reopened prophecy reuses the same transparent parchment texture")
 	check(panel.status.text.contains("아군 체력 +2") and not panel.status.text.contains("누적:"),"reopened primary result is restored without a duplicate line")
-	check(panel.fortune_result.visible and panel.fortune_result.text.begins_with("누적 효과: ") and panel.fortune_result.text.contains("아군 체력 +2"),"reopened result displays persisted cumulative effect under the primary outcome")
+	check(panel.fortune_result.visible and panel.fortune_result.text.begins_with("다음 전투 합계: ") and panel.fortune_result.text.contains("체력 +2"),"reopened result displays persisted cumulative effect under the primary outcome")
 	check(panel.dice.texture_normal==map.texture("res://assets/battle/dice/result-04.png"),"result die texture restores from persisted face")
 	check(session.world.reward_receipts.size()==before_receipts+1,"reopen never duplicates fortune receipt")
+	panel.close_button.pressed.emit()
+	var exit_start:int=Time.get_ticks_msec()
+	while is_instance_valid(map.overlay) and Time.get_ticks_msec()-exit_start<6000: await process_frame
+	check(not is_instance_valid(map.overlay) and map.dice.visible and not map.dice.disabled,"one exit directly returns to playable map")
+	check(session.world.snapshot()==serialized,"completed exit changes no saved result or RNG")
 	map.queue_free()
 	await process_frame
 	session.save_file_path=original_save
