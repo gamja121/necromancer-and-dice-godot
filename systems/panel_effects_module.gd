@@ -8,6 +8,7 @@ var _panel: Control
 var _tween: Tween
 var _base_color: Color
 var _positions: Dictionary = {}
+var _colors: Dictionary = {}
 var closing := false
 
 static func attach(panel: Control) -> PanelEffectsModule:
@@ -17,6 +18,15 @@ static func attach(panel: Control) -> PanelEffectsModule:
 	effect.name = "PanelEffectsModule"
 	panel.add_child(effect)
 	return effect
+
+static func pin_background(panel: Control, artwork: Control, frame: Control) -> void:
+	panel.set_meta("ui_fixed_background",true)
+	artwork.set_meta("ui_fixed_background",true)
+	frame.set_meta("ui_fixed_background",true)
+	var effect:=attach(panel)
+	# setup() runs before the deferred open, so the replacement painting
+	# never renders the zero alpha initially used by the generic effect.
+	panel.modulate=effect._base_color
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -31,12 +41,17 @@ func _ready() -> void:
 func _open() -> void:
 	if closing or not is_instance_valid(_panel): return
 	_reset_tween()
+	var fixed_background:bool=bool(_panel.get_meta("ui_fixed_background",false))
 	for child in _panel.get_children():
-		if child == self or not child is Control or child.has_meta("ui_backdrop") or bool(child.get_meta("ui_custom_open_motion",false)): continue
+		if child == self or not child is Control or child.has_meta("ui_backdrop") or bool(child.get_meta("ui_custom_open_motion",false)) or bool(child.get_meta("ui_fixed_background",false)): continue
 		_positions[child] = child.position
 		child.position.y += travel
 		_tween.tween_property(child,"position",_positions[child],open_duration)
-	_tween.tween_property(_panel,"modulate",_base_color,open_duration)
+		if fixed_background:
+			_colors[child]=child.modulate
+			child.modulate.a=0.0
+			_tween.tween_property(child,"modulate",_colors[child],open_duration)
+	if not fixed_background: _tween.tween_property(_panel,"modulate",_base_color,open_duration)
 
 func play_close(done: Callable) -> void:
 	if closing or not is_instance_valid(_panel): return
@@ -52,7 +67,12 @@ func play_close(done: Callable) -> void:
 	for child in _positions:
 		if is_instance_valid(child) and child.get_parent() == _panel:
 			_tween.tween_property(child,"position",_positions[child]+Vector2(0,travel*0.5),close_duration)
-	_tween.tween_property(_panel,"modulate:a",0.0,close_duration)
+	if bool(_panel.get_meta("ui_fixed_background",false)):
+		for child in _colors:
+			if is_instance_valid(child) and child.get_parent()==_panel:
+				_tween.tween_property(child,"modulate:a",0.0,close_duration)
+	else:
+		_tween.tween_property(_panel,"modulate:a",0.0,close_duration)
 	_tween.chain().tween_callback(func(): if done.is_valid(): done.call())
 
 func _disable_buttons(node: Node) -> void:
@@ -69,3 +89,5 @@ func _exit_tree() -> void:
 	_panel.modulate = _base_color
 	for child in _positions:
 		if is_instance_valid(child): child.position = _positions[child]
+	for child in _colors:
+		if is_instance_valid(child): child.modulate = _colors[child]

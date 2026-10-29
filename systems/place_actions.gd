@@ -138,6 +138,8 @@ func setup_altar_visual() -> void:
 	style_shop_button(close_button,4)
 
 func animate_altar_open() -> void:
+	altar_slots.set_meta("ui_custom_open_motion",true)
+	altar_info.set_meta("ui_custom_open_motion",true)
 	altar_slots.modulate.a=0.0
 	altar_info.modulate.a=0.0
 	altar_slots.position=ALTAR_SLOTS_RECT.position+Vector2(0,10)
@@ -148,6 +150,7 @@ func animate_altar_open() -> void:
 	enter.tween_property(altar_info,"modulate:a",1.0,0.26)
 	enter.tween_property(altar_info,"position",ALTAR_INFO_RECT.position,0.26)
 	if is_instance_valid(hand):
+		hand.set_meta("ui_custom_open_motion",true)
 		hand.position=Vector2(0,170)
 		hand.modulate.a=0.0
 		enter.tween_property(hand,"position",Vector2.ZERO,0.68).set_delay(0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

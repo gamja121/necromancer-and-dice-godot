@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "map.gd"
+      - "systems/panel_effects_module.gd"
+      - "scripts/test_location_art_continuity.gd"
       - "scripts/test_ui_location_layout_stage5s.gd"
       - "scripts/capture_location_original_button_stack.gd"
       - ".github/workflows/location-original-buttons-right-stack.yml"
@@ -10,6 +12,8 @@ on:
     branches: [main]
     paths:
       - "map.gd"
+      - "systems/panel_effects_module.gd"
+      - "scripts/test_location_art_continuity.gd"
       - "scripts/test_ui_location_layout_stage5s.gd"
       - "scripts/capture_location_original_button_stack.gd"
       - ".github/workflows/location-original-buttons-right-stack.yml"
@@ -41,6 +45,22 @@ jobs:
           timeout 170s godot --headless --path . --script res://scripts/test_ui_location_layout_stage5s.gd 2>&1 | tee button-layout.log
           grep -E '^UI_LOCATION_LAYOUT_STAGE5S: [0-9]+ passed, 0 failed$' button-layout.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL ui-location-layout:' button-layout.log; then exit 1; fi
+      - name: Same-art menu transitions and bounded home unlock layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --audio-driver Dummy --script res://scripts/test_location_art_continuity.gd 2>&1 | tee continuity.log
+          grep -E '^LOCATION_ART_CONTINUITY: [0-9]+ passed, 0 failed$' continuity.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL location-continuity:' continuity.log; then exit 1; fi
+      - name: Native early-frame menu continuity captures
+        shell: bash
+        env:
+          LOCATION_CONTINUITY_CAPTURE_DIR: ${{ github.workspace }}/location_continuity
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_location_art_continuity.gd 2>&1 | tee continuity-native.log
+          grep -E '^LOCATION_ART_CONTINUITY: [0-9]+ passed, 0 failed$' continuity-native.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL location-continuity:' continuity-native.log; then exit 1; fi
       - name: Real graphical Godot native button captures
         shell: bash
         run: |
@@ -54,5 +74,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: native-godot-original-location-buttons
-          path: location_original_buttons_*.webp
+          path: |
+            location_original_buttons_*.webp
+            location_continuity/*.png
           if-no-files-found: warn

@@ -141,6 +141,13 @@ func _run() -> void:
 		var expected: int=2 if kind=="graveyard" else 1
 		check(w.tiles.count(kind)==expected,kind+": map reshuffle retains expected permanent discovered terrain count")
 	check(w.tiles.count("basic")>=2,"at least two protected swamp roads survive five unlocks")
+	# Detached reveal/book cues must finish cleanup before the audio driver exits.
+	var cues:Node=root.get_node_or_null("GameAudio")
+	if cues!=null: cues.queue_free()
+	var cleanup_deadline:int=Time.get_ticks_msec()+10000
+	while (is_instance_valid(cues) or not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty()) and Time.get_ticks_msec()<cleanup_deadline:
+		await process_frame
+	await process_frame
 	session.save_file_path=old_path
 	if own: session.queue_free()
 	for suffix in ["",".tmp"]:

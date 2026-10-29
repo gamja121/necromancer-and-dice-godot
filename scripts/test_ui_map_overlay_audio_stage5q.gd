@@ -139,6 +139,16 @@ func _run() -> void:
 	check(is_unblocked(map), "map stage rebuild starts with icon visible and OPTION closed")
 	map.queue_free()
 	await process_frame
+	# Retire detached book cues before quitting the Dummy audio driver.
+	var cues:Node=root.get_node_or_null("GameAudio")
+	var deadline:int=Time.get_ticks_msec()+10000
+	while cues!=null and not cues.voices.is_empty() and Time.get_ticks_msec()<deadline:
+		await process_frame
+	if cues!=null: cues.queue_free()
+	while (is_instance_valid(cues) or not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty()) and Time.get_ticks_msec()<deadline:
+		await process_frame
+	# Allow the Dummy audio mixer to release its MP3 playback on a real tick.
+	await create_timer(0.15).timeout
 	session.save_file_path = original_save
 	if created: session.queue_free()
 	cleanup()
