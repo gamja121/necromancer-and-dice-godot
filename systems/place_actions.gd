@@ -521,5 +521,7 @@ func _exit_tree() -> void:
 
 func card(parent: Control, kind: String, item: Dictionary, pos: Vector2, dimensions: Vector2, callback: Callable) -> TextureButton:
 	var option = super.card(parent,kind,item,pos,dimensions,callback)
-	add_button_effect(option)
+	# Shop selection owns whole-card scale; the generic click/hover module
+	# restores its own base scale and would otherwise erase that selection.
+	if type!="village": add_button_effect(option)
 	return option

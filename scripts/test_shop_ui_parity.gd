@@ -43,6 +43,18 @@ func run() -> void:
 	var before:Dictionary=session.world.snapshot().duplicate(true)
 	shop.choose_offer(1)
 	check(session.world.snapshot()==before and not shop.shop_confirm_button.disabled,"repeated offer tap does not trade")
+	await create_timer(0.22).timeout
+	var selected_card:Control=shop.offer_options[1]
+	var selection:Control=selected_card.get_node("ShopSelectionEffect")
+	check(not selected_card.has_node("ShopSelectionEdge") and selected_card.scale.distance_to(Vector2(1.04,1.04))<0.001,"selection raises the entire card without a rectangular border")
+	check(selection.show_behind_parent and selection.z_index==0 and selection.mouse_filter==Control.MOUSE_FILTER_IGNORE,"soft light stays behind card but above window and never blocks clicks")
+	selected_card.mouse_entered.emit()
+	selected_card.mouse_exited.emit()
+	await create_timer(0.22).timeout
+	check(selected_card.scale.distance_to(Vector2(1.04,1.04))<0.001,"hover exit cannot erase selected whole-card enlargement")
+	shop.refresh()
+	await create_timer(0.22).timeout
+	check(selected_card.scale.distance_to(Vector2(1.04,1.04))<0.001,"repeated refresh never compounds selected scale")
 	check(shop.shop_summary.text.contains("→") and not shop.shop_summary.text.contains("\n"),"pending exchange has a compact single-line summary")
 	var offered_id:String=str(shop.offers[1].item.id)
 	shop.shop_confirm_button.pressed.emit()
