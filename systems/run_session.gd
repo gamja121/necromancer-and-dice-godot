@@ -17,6 +17,8 @@ const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
 const StoryBattleOutcomes = preload("res://systems/story_battle_outcomes.gd")
 const SAVE = "user://map_run_v1.json"
+const SHOP_OFFER_COUNT = 3
+const SHOP_TRADE_LIMIT = 3
 # Tests use a separate user:// path; production keeps the canonical path by default.
 var save_file_path: String = SAVE
 const RITUAL_EVENT_ID = "ritual_portal_trace_01"
@@ -1034,19 +1036,31 @@ func shop_monster_offer(donor: Dictionary, used_slugs: Array) -> Dictionary:
 	used_slugs.append(choice)
 	return {"kind":"unit","item":create_item("unit",{"slug":choice})}
 
+func shop_trades_remaining(index: int) -> int:
+	if world==null: return 0
+	if world.shop_trade.get("visit","")!=place_visit_id("shop",index): return SHOP_TRADE_LIMIT
+	return maxi(0,SHOP_TRADE_LIMIT-int(world.shop_trade.get("used",0)))
+
 func shop_offers(index: int, unit_id: String) -> Dictionary:
 	var allowed = place_allowed(index,"village")
 	if not allowed.ok: return allowed
+	if shop_trades_remaining(index)<=0:
+		return {"ok":false,"reason":"이번 방문의 거래 3회를 모두 마쳤습니다."}
 	var unit = owned_unit(unit_id)
 	if unit.is_empty() or world.roster.size()<=1:
 		return {"ok":false,"reason":"마지막 마물은 교환할 수 없습니다."}
 	var visit = place_visit_id("shop",index)
 	if world.shop_trade.get("visit","")==visit and world.shop_trade.offers.has(unit_id):
+		# Keep the original first three identities without drawing new RNG.
+		if world.shop_trade.offers[unit_id].size()>SHOP_OFFER_COUNT:
+			var cached_before:Dictionary=world.snapshot().duplicate(true)
+			world.shop_trade.offers[unit_id]=world.shop_trade.offers[unit_id].slice(0,SHOP_OFFER_COUNT)
+			if not persist_change(cached_before): return {"ok":false,"reason":notice}
 		return {"ok":true,"offers":world.shop_trade.offers[unit_id].duplicate(true)}
 	var before: Dictionary = world.snapshot().duplicate(true)
-	if world.shop_trade.get("visit","")!=visit: world.shop_trade={"visit":visit,"offers":{}}
+	if world.shop_trade.get("visit","")!=visit: world.shop_trade={"visit":visit,"offers":{},"used":0}
 	var grade = str(unit.grade)
-	var count = 5 if grade=="hero" else (4 if grade=="advanced" else 3)
+	var count = SHOP_OFFER_COUNT
 	var pool = Catalog.dice_cards().filter(func(c): return grade=="hero" or (c.card_id!="echo" and (grade=="advanced" or c.card_id!="repeat")))
 	var offers: Array = []
 	var offered_slugs: Array = []
@@ -1072,10 +1086,12 @@ func shop_offers(index: int, unit_id: String) -> Dictionary:
 func shop_trade(index: int, unit_id: String, offer_index: int) -> Dictionary:
 	var allowed = place_allowed(index,"village")
 	if not allowed.ok: return allowed
+	if shop_trades_remaining(index)<=0:
+		return {"ok":false,"reason":"이번 방문의 거래 3회를 모두 마쳤습니다."}
 	if world.shop_trade.get("visit","")!=place_visit_id("shop",index) or not world.shop_trade.get("offers",{}).has(unit_id):
 		return {"ok":false,"reason":"교환할 마물을 다시 선택하세요."}
 	var offers: Array = world.shop_trade.offers[unit_id]
-	if world.roster.size()<=1 or owned_unit(unit_id).is_empty() or offer_index<0 or offer_index>=offers.size():
+	if world.roster.size()<=1 or owned_unit(unit_id).is_empty() or offer_index<0 or offer_index>=mini(offers.size(),SHOP_OFFER_COUNT):
 		return {"ok":false,"reason":"거래할 수 없는 편성입니다."}
 	var offer: Dictionary = offers[offer_index]
 	if not offer.kind in ["dice","unit"]: return {"ok":false,"reason":"현재 교환할 수 없는 카드입니다. 상품을 다시 선택하세요."}
@@ -1087,6 +1103,7 @@ func shop_trade(index: int, unit_id: String, offer_index: int) -> Dictionary:
 	if offer.kind=="dice": world.dice_cards.append(offer.item.duplicate(true))
 	else: world.roster.append(offer.item.duplicate(true))
 	world.shop_trade.offers.erase(unit_id)
+	world.shop_trade.used=int(world.shop_trade.get("used",0))+1
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"reason":"%s ↔ %s 거래 완료" % [unit_name,Catalog.label(offer.kind,offer.item)]}
 

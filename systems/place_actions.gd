@@ -2,14 +2,13 @@ extends "res://systems/reward_ui.gd"
 const Sound = preload("res://systems/game_audio.gd")
 signal closed
 const DiceAnimation = preload("res://systems/dice_animation.gd")
-const SHOP_COUNTER_PATH = "res://assets/map/ui/monster-shop-counter.png"
+const ShopWindowVisual = preload("res://systems/shop_window_visual.gd")
 const ProphecyInkEffect=preload("res://systems/prophecy_ink_effect.gd")
 const FORTUNE_STRIP_PATH = "res://assets/map/ui/fortune_parchment_strip.webp"
 const ALTAR_SLOTS_PATH = "res://assets/map/events/altar-ritual-slots.png"
 const ALTAR_INFO_PATH = "res://assets/map/events/altar-ritual-info.png"
 const ALTAR_SLOTS_RECT = Rect2(192.0,36.0,896.0,403.2)
 const ALTAR_INFO_RECT = Rect2(384.0,309.6,512.0,176.0)
-const SHOP_STAGE = Rect2(115.2,10.13,1049.6,699.73)
 var session
 var map
 var index: int
@@ -35,7 +34,10 @@ var fortune_notice_strip: TextureRect
 var fortune_effect:Control
 var unit_options: Dictionary = {}
 var offer_options: Array = []
-var shop_counter: TextureRect
+var shop_window: TextureRect
+var shop_remaining: Label
+var shop_summary: Label
+var shop_empty_hint: Label
 var shop_cancel_button: Button
 var shop_confirm_button: Button
 var shop_offer_scroll: ScrollContainer
@@ -151,57 +153,59 @@ func animate_altar_open() -> void:
 		enter.tween_property(hand,"position",Vector2.ZERO,0.68).set_delay(0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		enter.tween_property(hand,"modulate:a",1.0,0.68).set_delay(0.16)
 
-# The 1280x720 source uses a centered 82%-wide 3:2 trading counter.
-# This method ONLY runs on village tiles: altar/fortune presentation is unchanged.
+# Only the village uses this window; altar and prophecy keep their own art.
 func setup_shop_visual() -> void:
-	if ResourceLoader.exists(SHOP_COUNTER_PATH):
-		shop_counter=art(self,SHOP_COUNTER_PATH,SHOP_STAGE.position,SHOP_STAGE.size)
-		shop_counter.stretch_mode=TextureRect.STRETCH_SCALE
-	else:
-		shop_counter=TextureRect.new()
-		shop_counter.position=SHOP_STAGE.position
-		shop_counter.size=SHOP_STAGE.size
-		add_child(shop_counter)
-		var fallback=ColorRect.new()
-		fallback.color=Color("392719")
-		fallback.size=SHOP_STAGE.size
-		fallback.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		shop_counter.add_child(fallback)
-	var trade_origin: Vector2=SHOP_STAGE.position+Vector2(SHOP_STAGE.size.x*0.145,SHOP_STAGE.size.y*0.122)
-	var offer_origin: Vector2=SHOP_STAGE.position+Vector2(SHOP_STAGE.size.x*0.445,SHOP_STAGE.size.y*0.122)
-	label_at(self,"내가 올린 카드",trade_origin+Vector2(12,0),Vector2(235,28),17)
-	label_at(self,"상인의 제안",offer_origin+Vector2(50,0),Vector2(300,28),17)
-	donor_art=LayeredUnitCard.make_preview(self,{},trade_origin+Vector2(45,35),Vector2(166,211))
+	shop_window=art(self,ShopWindowVisual.FRAME_PATH,ShopWindowVisual.FRAME_RECT.position,ShopWindowVisual.FRAME_RECT.size)
+	shop_window.name="ShopWindowFrame"
+	var frame_texture=AtlasTexture.new()
+	frame_texture.atlas=load(ShopWindowVisual.FRAME_PATH)
+	frame_texture.region=ShopWindowVisual.FRAME_SOURCE_RECT
+	shop_window.texture=frame_texture
+	shop_window.stretch_mode=TextureRect.STRETCH_SCALE
+	label_at(self,"마물 상점",Vector2(430,62),Vector2(420,40),28)
+	shop_remaining=label_at(self,"",Vector2(932,74),Vector2(202,26),16)
+	shop_remaining.name="ShopTradesRemaining"
+	ShopWindowVisual.line(self,Rect2(132,116,1016,1))
+	ShopWindowVisual.line(self,Rect2(415,135,1,308))
+	ShopWindowVisual.line(self,Rect2(132,453,1016,1))
+	ShopWindowVisual.line(self,Rect2(132,626,1016,1))
+	label_at(self,"내놓을 마물",Vector2(145,127),Vector2(208,28),18)
+	label_at(self,"상인의 제안",Vector2(468,127),Vector2(666,28),18)
+	label_at(self,"보유 마물",Vector2(146,457),Vector2(150,24),16).horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+	donor_art=LayeredUnitCard.make_preview(self,{},Vector2(164,164),Vector2(166,211))
+	donor_art.name="ShopDonorCard"
 	donor_art.texture=null
-	donor_hint=label_at(self,"교환할 마물 선택",trade_origin+Vector2(15,247),Vector2(225,32),14)
-	shop_cancel_button=button(self,"거래대에서 내리기",trade_origin+Vector2(38,281),Vector2(189,37),reset_shop_selection)
-	style_shop_button(shop_cancel_button,3)
-	shop_confirm_button=button(self,"교환 확정",Vector2(875,476),Vector2(206,38),confirm_shop_trade)
+	donor_hint=label_at(self,"아래에서 마물 선택",Vector2(145,380),Vector2(208,24),14)
+	shop_cancel_button=button(self,"다시 선택",Vector2(170,409),Vector2(154,32),reset_shop_selection)
+	shop_cancel_button.name="ShopResetSelection"
+	ShopWindowVisual.style_button(shop_cancel_button)
+	shop_confirm_button=button(self,"교환 확정",Vector2(960,632),Vector2(176,38),confirm_shop_trade)
 	shop_confirm_button.name="ShopTradeConfirm"
 	shop_confirm_button.disabled=true
-	style_shop_button(shop_confirm_button,2)
+	ShopWindowVisual.style_button(shop_confirm_button,true)
 	shop_offer_scroll=ScrollContainer.new()
-	shop_offer_scroll.position=offer_origin+Vector2(2,35)
-	shop_offer_scroll.size=Vector2(425,218)
+	shop_offer_scroll.position=Vector2(468,166)
+	shop_offer_scroll.size=Vector2(666,242)
 	shop_offer_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	shop_offer_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+	shop_offer_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(shop_offer_scroll)
 	var row=HBoxContainer.new()
-	row.add_theme_constant_override("separation",12)
+	row.custom_minimum_size.x=666
+	row.alignment=BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation",26)
 	shop_offer_scroll.add_child(row)
 	offer_area=row
-	var backing=ColorRect.new()
-	backing.position=Vector2(293,434)
-	backing.size=Vector2(703,45)
-	backing.color=Color("c9a878e6")
-	backing.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	add_child(backing)
-	status=label_at(self,"",Vector2(309,443),Vector2(672,30),14)
-	status.add_theme_color_override("font_color",Color("49301d"))
-	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	shop_empty_hint=label_at(self,"내놓을 마물을 고르면\n교환할 카드 3장이 나타납니다.",Vector2(488,232),Vector2(626,90),19)
+	shop_empty_hint.name="ShopEmptyOffers"
+	shop_summary=label_at(self,"",Vector2(468,410),Vector2(666,30),16)
+	shop_summary.name="ShopTradeSummary"
+	shop_summary.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	status=label_at(self,"",Vector2(142,634),Vector2(610,32),13)
+	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	close_button=button(self,"← 돌아가기",Vector2(992,55),Vector2(146,42),func(): if not busy: closed.emit())
-	style_shop_button(close_button,4)
+	close_button=button(self,"나가기",Vector2(802,632),Vector2(144,38),func(): if not busy: closed.emit())
+	close_button.name="ShopExit"
+	ShopWindowVisual.style_button(close_button)
 
 func style_shop_button(control: Button, variant: int) -> void:
 	var path="res://assets/map/ui/parchment_button_variant_%02d.png" % variant
@@ -228,24 +232,27 @@ func build_hand() -> void:
 	hand.z_index=5 if type=="altar" else 0
 	add_child(hand)
 	var scroll=ScrollContainer.new()
-	scroll.position=Vector2(192,532) if type=="altar" else Vector2(130,515)
-	scroll.size=Vector2(896,220) if type=="altar" else Vector2(1020,190)
+	scroll.position=Vector2(140,480) if type=="village" else Vector2(192,532)
+	scroll.size=Vector2(1000,144) if type=="village" else Vector2(896,220)
 	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	if type=="altar": altar_scroll=scroll
 	hand.add_child(scroll)
 	var row=HBoxContainer.new()
-	row.custom_minimum_size.x=880 if type=="altar" else 1000
+	row.custom_minimum_size.x=1000 if type=="village" else 880
 	row.alignment=BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation",16)
 	scroll.add_child(row)
 	for unit in session.world.roster:
 		var box=Control.new()
-		box.custom_minimum_size=Vector2(110,184) if type=="altar" else Vector2(105,182)
+		box.custom_minimum_size=Vector2(120,136) if type=="village" else Vector2(110,184)
 		row.add_child(box)
 		var id=str(unit.id)
-		var option=card(box,"unit",unit,Vector2(4,0),Vector2(96,139),func(): select_unit(id))
+		var option=card(box,"unit",unit,Vector2(12,6) if type=="village" else Vector2(4,0),Vector2(96,122) if type=="village" else Vector2(96,139),func(): select_unit(id))
+		if type=="village":
+			ShopWindowVisual.hide_duplicate_caption(option)
+			ShopWindowVisual.select_card(option,id==donor_id)
 		unit_options[id]=option
-	if session.world.roster.size()<2: label_at(hand,"마물이 2마리 이상 있어야 사용할 수 있습니다",Vector2(280,595),Vector2(720,40),18)
+	if session.world.roster.size()<2 and type=="altar": label_at(hand,"마물이 2마리 이상 있어야 사용할 수 있습니다",Vector2(280,595),Vector2(720,40),18)
 
 func select_unit(id: String) -> void:
 	if busy or completed: return
@@ -281,44 +288,61 @@ func refresh() -> void:
 		confirm_button.disabled=busy or completed or used or donor.is_empty() or receiver.is_empty() or level>=3
 		if not completed: status.text="이번 방문의 의식은 완료했습니다" if used else ("강화 한도 3회에 도달했습니다" if level>=3 else "재물을 먼저 고른 뒤 강화할 마물을 선택하세요")
 	else:
-		status.text="상품 선택 후 교환 확정 · 선택한 마물은 영구 소멸" if not offers.is_empty() else "아래에서 교환할 마물을 선택하세요 · 마지막 마물은 교환할 수 없습니다"
-		if is_instance_valid(shop_confirm_button): shop_confirm_button.disabled=busy or donor.is_empty() or chosen<0 or chosen>=offers.size()
+		var remaining:int=session.shop_trades_remaining(index)
+		shop_remaining.text="남은 거래 %d / 3" % remaining
+		shop_empty_hint.visible=offers.is_empty()
+		shop_empty_hint.text="이번 방문의 거래를 모두 마쳤습니다." if remaining<=0 else "내놓을 마물을 고르면\n교환할 카드 3장이 나타납니다."
+		shop_summary.text=""
+		if chosen>=0 and chosen<offers.size() and not donor.is_empty():
+			shop_summary.text="%s → %s" % [str(donor.name),Catalog.label(offers[chosen].kind,offers[chosen].item)]
+		shop_summary.tooltip_text=shop_summary.text
+		status.text="이번 방문의 거래 3회를 모두 마쳤습니다." if remaining<=0 else ("상품을 고른 뒤 교환 확정 · 내놓은 마물은 사라집니다." if not donor.is_empty() else "아래에서 내놓을 마물을 고르세요. 마지막 마물은 교환할 수 없습니다.")
+		if is_instance_valid(shop_confirm_button): shop_confirm_button.disabled=busy or remaining<=0 or donor.is_empty() or chosen<0 or chosen>=offers.size()
 		if is_instance_valid(shop_cancel_button):
 			shop_cancel_button.visible=not donor.is_empty()
 			shop_cancel_button.disabled=busy
 	for id in unit_options:
-		unit_options[id].modulate=Color.WHITE if id in [donor_id,receiver_id] else Color(0.76,0.70,0.61)
+		if type=="village":
+			ShopWindowVisual.select_card(unit_options[id],id==donor_id)
+			unit_options[id].disabled=busy or session.shop_trades_remaining(index)<=0 or session.world.roster.size()<2
+		else:
+			unit_options[id].modulate=Color.WHITE if id in [donor_id,receiver_id] else Color(0.76,0.70,0.61)
 
 func render_offers() -> void:
 	for node in offer_area.get_children(): offer_area.remove_child(node); node.queue_free()
 	offer_options=[]
-	for i in range(offers.size()):
+	for i in range(mini(offers.size(),3)):
 		var offer=offers[i]
 		var parent: Control=offer_area
 		var pos=Vector2(390+i*145,140)
 		var dims=Vector2(112,168)
 		if type=="village":
 			var slot=Control.new()
-			slot.custom_minimum_size=Vector2(129,212)
+			slot.custom_minimum_size=Vector2(198,238)
 			offer_area.add_child(slot)
 			parent=slot
-			pos=Vector2(3,4)
-			dims=Vector2(122,182)
+			pos=Vector2(16,6)
+			dims=Vector2(166,211)
 		var option=card(parent,offer.kind,offer.item,pos,dims,func(): choose_offer(i))
 		if type=="village":
-			for child in option.get_children():
-				if child is Label: child.visible=false
+			ShopWindowVisual.hide_duplicate_caption(option)
 		option.disabled=busy or (offer.kind=="dice" and session.world.dice_cards.size()>=Catalog.DICE_CAPACITY)
-		option.modulate=Color.WHITE if i==chosen or chosen<0 else Color(0.5,0.5,0.5)
+		if type=="village":
+			ShopWindowVisual.select_card(option,i==chosen)
+			if option.disabled:
+				option.modulate=Color(0.5,0.5,0.5)
+				option.tooltip_text+=" · 주사위 카드 보관함이 가득 찼습니다."
+		else:
+			option.modulate=Color.WHITE if i==chosen or chosen<0 else Color(0.5,0.5,0.5)
 		offer_options.append(option)
-	if is_instance_valid(shop_confirm_button): shop_confirm_button.disabled=busy or donor_id.is_empty() or chosen<0 or chosen>=offer_options.size()
+	if is_instance_valid(shop_confirm_button): shop_confirm_button.disabled=busy or session.shop_trades_remaining(index)<=0 or donor_id.is_empty() or chosen<0 or chosen>=offer_options.size()
 
 func choose_offer(i: int) -> void:
 	if busy or donor_id.is_empty() or i<0 or i>=offer_options.size(): return
 	if offer_options[i].disabled: return
 	chosen=i
 	render_offers()
-	status.text="%s 소모 → %s 획득 · 아래 교환 확정" % [str(session.owned_unit(donor_id).get("name","선택 마물")),offer_options[i].tooltip_text]
+	refresh()
 
 func confirm_shop_trade() -> void:
 	if busy or not is_instance_valid(shop_confirm_button) or shop_confirm_button.disabled: return
