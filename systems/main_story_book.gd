@@ -176,6 +176,7 @@ static func layer_bounds(path: String, original: Rect2) -> Rect2:
 		var mirrored_player: bool = path.ends_with("manuscript_village_necromancer.png") and not original.is_equal_approx(SOURCE_ART)
 		return ManuscriptArt.layer_bounds(path,ART_RECT.size,mirrored_player)
 	match path.get_file():
+		"prophet_story_actor.png": return Rect2(145,4,210,246)
 		"rumor-villagers-whisper.webp", "rumor-villagers-turn.webp": return Rect2(53,12.5,152.05,190)
 		"rumor-necromancer.webp": return Rect2(206,12.5,152.05,190)
 		"knight-commander-upperbody-hd.webp": return Rect2(124,34.5,224,168)
@@ -239,6 +240,7 @@ func set_heading(value: String) -> void:
 		"마을": information = ["두 번째 기록","마을 소문","마을",3]
 		"기사단장": information = ["세 번째 기록","기사단장","마을 길목",5]
 		"세계수": information = ["네 번째 기록","마물 사냥꾼","세계수",7]
+		"예언가": information = ["네 번째 기록","예언가의 단서","예언자의 막사",7]
 		"같은 문양": information = ["다섯 번째 기록","광신도 소문","마을",9]
 		"광신도의 의식", "광신도": information = ["여섯 번째 기록","광신도의 의식","밤의 제단",11]
 		"마물의 왕 부활 의식": information = ["일곱 번째 기록",heading,"의식의 폐허",13]

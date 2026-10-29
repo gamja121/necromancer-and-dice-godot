@@ -10,6 +10,7 @@ const MINIMUMS = {
 	"rumor_abandoned_child_01":15,
 	"knight_commander_contamination_01":20,
 	"monster_hunter_encounter_01":30,
+	"prophet_cultist_clue_01":30,
 	"cultist_rumor_01":40,
 	"cultist_altar_encounter_01":50,
 	"ritual_portal_trace_01":75,

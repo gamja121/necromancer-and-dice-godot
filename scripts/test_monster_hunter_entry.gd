@@ -333,7 +333,7 @@ func test_art_ui() -> void:
 	check(map.contains('str(beat.effect)'),"map renders source narration from current hunter beat")
 	check(map.contains("MonsterHunterEntry.BASE_ART"),"original background drawn")
 	check(map.contains('session.get_story_event(MonsterHunterEntry.EVENT_ID).status=="seen"'),"reload only reopens seen hunter")
-	check(map.contains('world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest"]'),"world tree startup can resume alongside original graveyard and forest story tiles")
+	check(map.contains('world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp"]'),"startup restores original story locations and the alternate prophet camp")
 	check(map.contains('"세계수 기능"'),"world-tree location actions retained")
 	check(map.contains('"돌아가기"'),"hunter scene has exit")
 	var grave: int=map.find("StoryEventEntry.can_enter(session,index)")

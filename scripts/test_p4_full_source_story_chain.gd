@@ -313,7 +313,7 @@ func abandoned_branch(session: Node) -> void:
 	map=a.map
 	check(VILLAGE.eligible_event_id(session,session.world.position)==VILLAGE.ABANDONED_ID,label+":real map picks abandoned-specific source rumor")
 	if not await finish_plain_event(session,map,VILLAGE_BEATS.count(VILLAGE.ABANDONED_ID),VILLAGE.ABANDONED_ID,label+":village"): return
-	check(not COMMANDER.can_enter(session,session.world.position),label+":commander correctly locked after abandoning child")
+	check(COMMANDER.can_enter(session,session.world.position) and COMMANDER.route(session)=="prophet",label+":abandoned rumor unlocks distinct prophet referral")
 	check(is_unseen(session,COMMANDER.EVENT_ID) and is_unseen(session,HUNTER.EVENT_ID) and is_unseen(session,CULTIST.EVENT_ID),label+":no fake rescue-only downstream story receipts")
 	check(not session.event_flag_is_set(PORTAL.HUNT_FLAG) and not session.event_flag_is_set(PORTAL.REVIVED_FLAG),label+":abandoned rumor cannot silently revive king")
 	await close_and_reload(session,map,label+":village")

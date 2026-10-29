@@ -229,7 +229,7 @@ func ui_wiring() -> void:
 	check(source.contains('func show_cultist_rumor_intro(index: int) -> void:'),"first intro API preserved")
 	check(source.contains('func show_cultist_rumor_beat(index: int) -> void:'),"dialogue scene renderer")
 	check(source.contains('CultistRumorEntry.current_beat(session)'),"current scene restored from save")
-	check(source.contains('CultistRumorBeats.beat(beat_index)'),"canonical dialogue loaded")
+	check(source.contains('CultistRumorBeats.beat(beat_index,') and source.contains('CultistRumorEntry.route(session)'),"dialogue uses the actual clue source")
 	check(source.contains('CultistRumorBeats.layer_for(str(beat.visual))'),"procession layer rendered")
 	check(source.contains('str(beat.effect)'),"scene narration rendered")
 	check(source.contains('str(beat.dialogue)'),"resident and system dialogue rendered")

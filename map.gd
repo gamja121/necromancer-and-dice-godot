@@ -26,6 +26,9 @@ const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
+const ProphetStoryEntry = preload("res://systems/prophet_story_entry.gd")
+const ProphetStoryBeats = preload("res://systems/prophet_story_beats.gd")
+const ProphetStoryMotion = preload("res://systems/prophet_story_motion.gd")
 const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
 const CultistAltarEntry = preload("res://systems/cultist_altar_entry.gd")
 const RitualPortalEntry = preload("res://systems/ritual_portal_entry.gd")
@@ -336,7 +339,7 @@ func _ready() -> void:
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
 	elif world.tiles[world.position]=="boss" and not world.position in world.cleared: call_deferred("show_tile",world.position)
-	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest"]: call_deferred("resume_village_rumor_if_unfinished")
+	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -1106,6 +1109,14 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 			show_monster_hunter_intro(index)
 			return
 		status.text = session.notice
+	# The abandoned-child investigation visits the seer at the actual camp.
+	# A remote preview or first map load cannot discover this story.
+	if type=="fortune-teller-camp" and ProphetStoryEntry.can_enter(session,index):
+		if actual_landing or session.get_story_event(ProphetStoryEntry.EVENT_ID).status=="seen":
+			if ProphetStoryEntry.begin(session,index):
+				show_prophet_story_beat(index)
+				return
+			status.text = session.notice
 	# The human-involvement clue from the completed hunter story unlocks
 	# a new village rumor. It cannot award the tracking quest yet.
 	if type in ["village","event"] and CultistRumorEntry.can_enter(session,index):
@@ -2203,6 +2214,10 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(MonsterHunterEntry.EVENT_ID).status=="seen":
 			show_monster_hunter_intro(index)
 			return
+	if ProphetStoryEntry.can_enter(session,index):
+		if session.get_story_event(ProphetStoryEntry.EVENT_ID).status=="seen":
+			show_prophet_story_beat(index)
+			return
 	# A saved first cultist rumor encounter can reopen; never generate a
 	# previously unseen event solely by loading the map scene.
 	if CultistRumorEntry.can_enter(session,index):
@@ -2291,7 +2306,7 @@ func show_knight_commander_intro(index: int) -> void:
 func show_knight_commander_beat(index: int) -> void:
 	if not KnightCommanderEntry.can_enter(session,index): return
 	var beat_index: int=KnightCommanderEntry.current_beat(session)
-	var beat: Dictionary=KnightCommanderBeats.beat(beat_index)
+	var beat: Dictionary=KnightCommanderBeats.beat(beat_index,KnightCommanderEntry.route(session))
 	if beat.is_empty(): return
 	var panel=story_modal()
 	if beat.get("quest_accepted",false): panel.show_seal("의뢰")
@@ -2317,7 +2332,7 @@ func show_knight_commander_beat(index: int) -> void:
 	speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var finishing: bool=KnightCommanderBeats.is_final(beat_index)
+	var finishing: bool=KnightCommanderBeats.is_final(beat_index,KnightCommanderEntry.route(session))
 	if world.tiles[index]=="village":
 		location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_knight_commander(index,beat_index),1)
 		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
@@ -2326,14 +2341,15 @@ func show_knight_commander_beat(index: int) -> void:
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func advance_knight_commander(index: int, shown_beat: int) -> void:
-	var finishing: bool=KnightCommanderBeats.is_final(shown_beat)
+	var route: String=KnightCommanderEntry.route(session)
+	var finishing: bool=KnightCommanderBeats.is_final(shown_beat,route)
 	if not KnightCommanderEntry.advance(session,index,shown_beat):
 		status.text="기사단장 사건 진행 저장 실패 · 다시 시도하세요."
 		return
 	if finishing:
 		close_overlay()
 		render()
-		status.text="[오염에 대한 의뢰를 받았습니다.]"
+		status.text="[예언가를 찾아갈 의뢰를 받았습니다.]" if route=="prophet" else "[오염에 대한 의뢰를 받았습니다.]"
 	else:
 		show_knight_commander_beat(index)
 
@@ -2401,6 +2417,60 @@ func advance_monster_hunter(index: int, shown_beat: int) -> void:
 	else:
 		show_monster_hunter_beat(index)
 
+## This story owns only narrative progress. The camp's ordinary prophecy
+## remains a separate visit action with its original die and receipts.
+func show_prophet_story_beat(index: int) -> void:
+	if not ProphetStoryEntry.can_enter(session,index): return
+	var beat_index: int=ProphetStoryEntry.current_beat(session)
+	var beat: Dictionary=ProphetStoryBeats.beat(beat_index)
+	if beat.is_empty(): return
+	var panel=story_modal()
+	panel.set_meta("prophet_story_event",true)
+	var art=image(panel,ProphetStoryEntry.BASE_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	art.name="ProphetStoryBackground"
+	if beat_index==0: InkSceneReveal.play(art)
+	var visual: String=str(beat.get("visual","base"))
+	if visual=="portrait":
+		var portrait=image(panel,ProphetStoryEntry.PORTRAIT_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+		portrait.name="ProphetStoryPortrait"
+		ProphetStoryMotion.play(portrait,beat.id=="reveal")
+	elif visual=="player":
+		var bounds: Rect2=CommanderPortraitMotion.source_rect(TILE_EVENT_SCENE_RECT,true)
+		var portrait=image(panel,"res://assets/map/events/manuscript_village_necromancer.png",bounds.position,bounds.size)
+		portrait.name="ProphetPlayerPortrait"
+		CommanderPortraitMotion.play(portrait,true,true)
+	shared_story_frame(panel)
+	var heading=label_at(panel,"사건 · 예언가",Vector2(350,84),Vector2(582,42),24)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var effect=label_at(panel,str(beat.effect),Vector2(286,541),Vector2(708,58),17)
+	effect.add_theme_color_override("font_color",Color("271a10"))
+	effect.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if not str(beat.dialogue).is_empty():
+		var speech=label_at(panel,"%s: %s" % [str(beat.speaker),str(beat.dialogue)],Vector2(291,604),Vector2(698,47),16)
+		speech.add_theme_color_override("font_color",Color("271a10"))
+		speech.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var finishing: bool=ProphetStoryBeats.is_final(beat_index)
+	if finishing: panel.show_seal("단서")
+	location_button(panel,"마치기" if finishing else "계속",Vector2(463,653),Vector2(171,48),func():advance_prophet_story(index,beat_index),1)
+	location_button(panel,"예언자의 막사 기능",Vector2(651,653),Vector2(194,48),func():dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func():dismiss_overlay(render),4)
+
+func advance_prophet_story(index: int, shown_beat: int) -> void:
+	var finishing: bool=ProphetStoryBeats.is_final(shown_beat)
+	if not ProphetStoryEntry.advance(session,index,shown_beat):
+		status.text="예언가 사건 진행 저장 실패 · 다시 시도하세요."
+		return
+	if finishing:
+		close_overlay()
+		render()
+		status.text="[광신도를 추적할 문양의 단서를 얻었습니다.]"
+	else:
+		show_prophet_story_beat(index)
+
 ## P1-05H: current scene is reconstructed from the saved sequential beat flags.
 ## Dismissing does not consume the event or its tracking reward.
 func show_cultist_rumor_intro(index: int) -> void:
@@ -2409,7 +2479,7 @@ func show_cultist_rumor_intro(index: int) -> void:
 func show_cultist_rumor_beat(index: int) -> void:
 	if not CultistRumorEntry.can_enter(session,index): return
 	var beat_index: int=CultistRumorEntry.current_beat(session)
-	var beat: Dictionary=CultistRumorBeats.beat(beat_index)
+	var beat: Dictionary=CultistRumorBeats.beat(beat_index,CultistRumorEntry.route(session))
 	if beat.is_empty(): return
 	var panel=story_modal()
 	if beat.get("trackingActivated",false): panel.show_seal("추적")
