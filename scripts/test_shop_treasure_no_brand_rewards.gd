@@ -33,11 +33,11 @@ func test_shops(session: Node) -> void:
 		check(result.get("ok",false),"%s donor opens a real merchant offer" % grade)
 		if not result.get("ok",false): continue
 		var offers: Array = result.offers
-		var expected_count: int = 5 if grade=="hero" else (4 if grade=="advanced" else 3)
+		var expected_count: int = 3
 		check(offers.size()==expected_count,"%s still gets %d offers" % [grade,expected_count])
 		# The six boss-only hero species cannot be used to pad shop offers.
 		# If a grade has fewer distinct species, surplus monster slots become dice.
-		var requested_monsters: int = 3 if grade=="hero" else (2 if grade=="advanced" else 1)
+		var requested_monsters: int = 2 if grade=="hero" else 1
 		var expected_monsters: int = mini(requested_monsters,candidates.size()-1)
 		var monster_offers: Array = offers.filter(func(offer): return offer.kind=="unit")
 		var dice_offers: Array = offers.filter(func(offer): return offer.kind=="dice")
@@ -101,6 +101,65 @@ func test_legacy_shop(session: Node) -> void:
 	var revised: Array = upgraded.offers.duplicate(true)
 	session.reload_world()
 	check(session.shop_offers(8,donor_id).offers==revised,"new merchant offers persist across subsequent reload")
+
+func test_shop_window_limits(session: Node) -> void:
+	session.start_new_world()
+	var world=session.world
+	var donor_id:String=str(world.roster[0].id)
+	var original:Array=session.shop_offers(8,donor_id).offers.duplicate(true)
+	var legacy:Array=original.duplicate(true)
+	for n in range(2): legacy.append({"kind":"dice","item":session.create_item("dice",Catalog.dice_cards()[n])})
+	world.shop_trade.offers[donor_id]=legacy
+	world.shop_trade.used=1
+	check(session.save_world(),"legacy five-offer fixture saves")
+	session.reload_world()
+	world=session.world
+	check(session.shop_trades_remaining(8)==2,"saved used count restores as an integer")
+	var before:Dictionary=world.snapshot().duplicate(true)
+	var good_path:String=session.save_file_path
+	session.save_file_path="user://shop_missing_%d/save.json" % OS.get_process_id()
+	check(not session.shop_offers(8,donor_id).get("ok",false) and world.snapshot()==before,"failed legacy trim restores exact offers, count, RNG and serial")
+	session.save_file_path=good_path
+	check(not session.shop_trade(8,donor_id,4).get("ok",false) and world.snapshot()==before,"hidden legacy fourth/fifth offer cannot be purchased")
+	var trimmed:Dictionary=session.shop_offers(8,donor_id)
+	check(trimmed.get("ok",false) and trimmed.offers==original,"legacy cache keeps precisely the original first three cards")
+	check(world.rng.state==int(before.rng_state) and world.next_serial==int(before.next_serial) and session.shop_trades_remaining(8)==2,"trim spends no RNG, identity or trade allowance")
+	session.reload_world()
+	world=session.world
+	check(session.shop_offers(8,donor_id).offers==original,"trimmed cards are durable across restart")
+	before=world.snapshot().duplicate(true)
+	session.save_file_path="user://shop_missing_%d/save.json" % OS.get_process_id()
+	check(not session.shop_trade(8,donor_id,1).get("ok",false) and world.snapshot()==before,"failed trade restores donor, prize, cached offers and allowance atomically")
+	session.save_file_path=good_path
+	world.dice_cards.clear()
+	for n in range(Catalog.DICE_CAPACITY): world.dice_cards.append(session.create_item("dice",Catalog.dice_cards()[0]))
+	before=world.snapshot().duplicate(true)
+	check(not session.shop_trade(8,donor_id,0).get("ok",false) and world.snapshot()==before,"full dice inventory cannot spend donor or allowance")
+	world.dice_cards.clear()
+	world.roster=world.roster.filter(func(u): return str(u.id)==donor_id)
+	before=world.snapshot().duplicate(true)
+	check(not session.shop_trade(8,donor_id,1).get("ok",false) and world.snapshot()==before,"last monster cannot spend allowance")
+	# A new visit has its own three successful transactions.
+	world.roster.append(session.create_item("unit",{"slug":"skeleton-archer"}))
+	world.move_serial+=1
+	check(session.shop_trades_remaining(8)==3,"new visit starts with three transactions")
+	for n in range(3):
+		donor_id=str(world.roster[0].id)
+		var choices:Dictionary=session.shop_offers(8,donor_id)
+		check(choices.get("ok",false) and choices.offers.size()==3,"visit trade %d has three offers" % n)
+		var chosen:int=-1
+		for i in range(choices.offers.size()):
+			if choices.offers[i].kind=="unit": chosen=i; break
+		check(chosen>=0 and session.shop_trade(8,donor_id,chosen).get("ok",false),"successful monster trade consumes one allowance")
+		check(session.shop_trades_remaining(8)==2-n,"remaining allowance decreases exactly once")
+		session.reload_world()
+		world=session.world
+		check(session.shop_trades_remaining(8)==2-n,"remaining allowance survives restart")
+	before=world.snapshot().duplicate(true)
+	donor_id=str(world.roster[0].id)
+	check(not session.shop_offers(8,donor_id).get("ok",false) and not session.shop_trade(8,donor_id,0).get("ok",false) and world.snapshot()==before,"fourth transaction blocked without any state change")
+	world.move_serial+=1
+	check(session.shop_trades_remaining(8)==3 and session.shop_offers(8,donor_id).get("ok",false),"only a genuinely new visit restores allowance")
 
 func test_treasure(session: Node) -> void:
 	var generated: int = 0
@@ -211,6 +270,7 @@ func _run() -> void:
 	session.save_file_path = scratch
 	test_shops(session)
 	test_legacy_shop(session)
+	test_shop_window_limits(session)
 	test_treasure(session)
 	test_pending_mix(session)
 	session.save_file_path = old_path

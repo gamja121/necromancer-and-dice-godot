@@ -1,84 +1,79 @@
-extends SceneTree
+extends "res://scripts/test_fortune_direct_flow.gd"
 const ShopUI=preload("res://systems/place_actions.gd")
-const MapScene=preload("res://map.tscn")
-var passed=0
-var failed=0
-func _initialize() -> void:
-	call_deferred("_run")
-func check(ok: bool, label: String) -> void:
-	if ok:
-		passed+=1
-		print("PASS shop-ui-parity: ",label)
-	else:
-		failed+=1
-		printerr("FAIL shop-ui-parity: ",label)
-func _run() -> void:
-	var session=root.get_node_or_null("RunSession")
-	if session==null:
-		check(false,"RunSession autoload exists")
-		quit(1)
-		return
-	var original_path: String=session.save_file_path
-	var path="user://shop_ui_stage2_%d.json" % OS.get_process_id()
-	session.save_file_path=path
+const Visual=preload("res://systems/shop_window_visual.gd")
+
+func inside(control:Control,rect:Rect2) -> bool:
+	return rect.encloses(Rect2(control.global_position,control.size))
+
+func run() -> void:
+	session=root.get_node("RunSession")
+	var original_path:String=session.save_file_path
+	save="user://shop_window_ui_%d.json" % OS.get_process_id()
+	paths.append(save)
+	session.save_file_path=save
 	session.start_new_world()
-	var map: Control=MapScene.instantiate()
-	root.add_child(map)
-	await process_frame
+	var index:int=session.world.tiles.find("village")
+	session.world.position=index
+	var map:Control=await new_map()
 	var shop=ShopUI.new()
 	map.add_child(shop)
-	shop.setup(map,8)
-	await process_frame
-	check(ResourceLoader.exists(ShopUI.SHOP_COUNTER_PATH),"original counter imported and recognized")
-	check(is_instance_valid(shop.shop_counter) and shop.shop_counter.texture!=null,"original image displayed")
-	check(shop.shop_counter.position.distance_to(ShopUI.SHOP_STAGE.position)<1,"counter geometry matches source")
-	check(shop.donor_art.position.x>275 and shop.donor_art.position.x<500,"donor card in left trading slot")
-	check(shop.offer_area is HBoxContainer and shop.shop_offer_scroll!=null,"offer horizontal scroll implemented")
-	check(shop.close_button.position.x<1045 and shop.close_button.position.y<100,"original upper-right close button position")
-	check(not shop.shop_cancel_button.visible,"cancel hidden before selecting donor")
-	check(is_instance_valid(shop.shop_confirm_button) and shop.shop_confirm_button.disabled,"explicit trade button is initially disabled")
-	var sample: Dictionary={"kind":"unit","item":session.world.roster[0]}
-	for count in [3,4,5]:
-		shop.offers=[]
-		for i in range(count): shop.offers.append(sample.duplicate(true))
-		shop.render_offers()
-		await process_frame
-		check(shop.offer_options.size()==count and shop.offer_area.get_child_count()==count,"offer count %d in one row" % count)
-		if count==5:
-			check(shop.shop_offer_scroll.get_h_scroll_bar().max_value>shop.shop_offer_scroll.size.x,"five cards scroll horizontally")
-	shop.reset_shop_selection()
-	check(shop.offers.is_empty() and shop.chosen==-1 and shop.shop_confirm_button.disabled,"cancel leaves no pending selection")
-	var donor: String=str(session.world.roster[0].id)
+	shop.setup(map,index)
+	for frame in range(4): await process_frame
+	check(shop.shop_window.texture!=null and shop.shop_window.texture is AtlasTexture,"painted blank window frame renders through native texture")
+	var window:Rect2=Visual.FRAME_RECT
+	for control in [shop.donor_art,shop.shop_offer_scroll,shop.shop_summary,shop.shop_remaining,shop.status,shop.close_button,shop.shop_confirm_button]:
+		check(inside(control,window),"shop content stays inside frame: "+str(control.name))
+	check(shop.offer_area is HBoxContainer and shop.shop_offer_scroll.horizontal_scroll_mode==ScrollContainer.SCROLL_MODE_DISABLED,"three offers have a complete visible row without horizontal scrolling")
+	check(shop.close_button.position.y==shop.shop_confirm_button.position.y and shop.close_button.position.y>620,"exit and confirmation share fixed bottom row")
+	check(not shop.shop_cancel_button.visible and shop.shop_confirm_button.disabled and shop.shop_empty_hint.visible,"initial selection instructions and disabled confirmation")
+	check(shop.shop_remaining.text=="남은 거래 3 / 3","initial counter uses live allowance")
+	var donor:String=str(session.world.roster[0].id)
 	shop.select_unit(donor)
-	check(shop.offers.size()>=3 and shop.shop_confirm_button.disabled,"real donor opens offers but does not enable trade")
-	var before_roster: int=session.world.roster.size()
-	var before_receipts: int=session.world.reward_receipts.size()
-	check(shop.offers.all(func(offer): return offer.kind in ["unit","dice"]),"real shop shows no brand-card offers")
-	check(shop.offers[1].kind=="unit","normal-grade merchant replaces its former brand slot with a monster")
-	var offered_id: String=str(shop.offers[1].item.id)
+	for frame in range(4): await process_frame
+	check(shop.offers.size()==3 and shop.offer_options.size()==3,"real donor reveals exactly three proposals")
+	check(not shop.shop_empty_hint.visible and shop.shop_cancel_button.visible and shop.shop_confirm_button.disabled,"donor selection waits for product choice")
+	for option in shop.offer_options:
+		check(inside(option,Rect2(shop.shop_offer_scroll.global_position,shop.shop_offer_scroll.size)),"each complete card fits the visible offer area")
+		check(option.modulate==Color.WHITE,"valid unselected card keeps its original color")
+	var cached:Array=shop.offers.duplicate(true)
+	shop.reset_shop_selection()
+	shop.select_unit(donor)
+	check(shop.offers==cached and session.shop_trades_remaining(index)==3,"reset/reselect never rerolls or spends allowance")
 	shop.choose_offer(1)
-	check(shop.chosen==1 and not shop.shop_confirm_button.disabled,"choosing one valid monster offer enables explicit confirmation")
+	var before:Dictionary=session.world.snapshot().duplicate(true)
 	shop.choose_offer(1)
-	check(session.world.roster.size()==before_roster and session.world.reward_receipts.size()==before_receipts,"repeated offer tap never consumes a monster")
+	check(session.world.snapshot()==before and not shop.shop_confirm_button.disabled,"repeated offer tap does not trade")
+	check(shop.shop_summary.text.contains("→") and not shop.shop_summary.text.contains("\n"),"pending exchange has a compact single-line summary")
+	var offered_id:String=str(shop.offers[1].item.id)
 	shop.shop_confirm_button.pressed.emit()
-	check(session.world.roster.size()==before_roster and session.world.roster.any(func(unit): return str(unit.id)==offered_id) and not session.world.roster.any(func(unit): return str(unit.id)==donor),"one explicit trade replaces donor with exactly one offered monster")
-	check(session.world.reward_receipts.size()==before_receipts,"shop preserves existing exchange rules without inventing a per-visit receipt")
-	check(not session.world.shop_trade.offers.has(donor),"traded donor's offers cannot be reused")
-	check(shop.shop_confirm_button.disabled and shop.chosen==-1,"completed trade resets the confirmation state")
+	check(session.owned_unit(donor).is_empty() and not session.owned_unit(offered_id).is_empty(),"explicit confirmation exchanges exactly the offered monster")
+	check(session.shop_trades_remaining(index)==2 and shop.shop_remaining.text=="남은 거래 2 / 3","successful trade updates saved and visible allowance")
+	check(shop.shop_confirm_button.disabled and shop.chosen==-1 and shop.shop_empty_hint.visible,"successful trade clears pending state")
+	shop.queue_free()
+	await process_frame
+	shop=ShopUI.new()
+	map.add_child(shop)
+	shop.setup(map,index)
+	check(shop.shop_remaining.text=="남은 거래 2 / 3","reopening preserves allowance")
 	shop.queue_free()
 	await process_frame
 	for kind in ["altar","fortune-teller-camp"]:
-		session.world.tiles[8]=kind
+		session.world.tiles[index]=kind
 		var other=ShopUI.new()
 		map.add_child(other)
-		other.setup(map,8)
-		check(other.shop_counter==null and other.shop_offer_scroll==null,"existing %s interface untouched" % kind)
+		other.setup(map,index)
+		check(other.shop_window==null and other.shop_offer_scroll==null,"existing %s interface does not receive shop window" % kind)
 		other.queue_free()
 		await process_frame
-	map.queue_free()
-	await process_frame
+	await dispose(map)
+	var audio:Node=root.get_node_or_null("GameAudio")
+	var audio_ref:WeakRef=weakref(audio) if audio!=null else null
+	if audio!=null: audio.queue_free()
+	check(await until(func(): return audio_ref==null or audio_ref.get_ref()==null),"audio decoder drains")
+	session.world=null
 	session.save_file_path=original_path
-	for suffix in ["",".tmp"]:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
+	for path in paths:
+		for suffix in ["",".tmp"]:
+			if FileAccess.file_exists(path+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
 	print("SHOP_UI_PARITY: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

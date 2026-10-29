@@ -8,11 +8,23 @@ on:
       - "systems/run_session.gd"
       - "systems/map_state.gd"
       - "systems/place_actions.gd"
+      - "systems/shop_window_visual.gd"
+      - "assets/map/ui/shop_window_frame.png"
       - "systems/treasure_reward.gd"
       - "scripts/test_shop_treasure_no_brand_rewards.gd"
       - "scripts/test_shop_ui_parity.gd"
       - ".github/workflows/brand-free-shop-treasure.yml"
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "systems/place_actions.gd"
+      - "systems/shop_window_visual.gd"
+      - "assets/map/ui/shop_window_frame.png"
+      - "scripts/test_shop_treasure_no_brand_rewards.gd"
+      - "scripts/test_shop_ui_parity.gd"
+      - ".github/workflows/brand-free-shop-treasure.yml"
 
 permissions:
   contents: read
@@ -31,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 330s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
       - name: New merchant and treasure economy with saves
         shell: bash

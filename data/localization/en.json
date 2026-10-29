@@ -1,4 +1,13 @@
 {
+  "남은 거래 %d / 3": "Trades left %d / 3",
+  "내놓을 마물": "Your Offer",
+  "다시 선택": "Reselect",
+  "아래에서 마물 선택": "Choose a Monster below",
+  "내놓을 마물을 고르면\n교환할 카드 3장이 나타납니다.": "Choose your Monster below\nto reveal three trade offers.",
+  "이번 방문의 거래를 모두 마쳤습니다.": "All trades for this visit are complete.",
+  "이번 방문의 거래 3회를 모두 마쳤습니다.": "All three trades for this visit are complete.",
+  "상품을 고른 뒤 교환 확정 · 내놓은 마물은 사라집니다.": "Choose an offer, then confirm. Your offered Monster is consumed.",
+  "아래에서 내놓을 마물을 고르세요. 마지막 마물은 교환할 수 없습니다.": "Choose a Monster below. Your last Monster cannot be traded.",
   "": "",
   "\n받는 마물": "\nRecipient Monster",
   "\n선택 시 신규 마물과 교체": "\nSelect to replace with the new Monster",

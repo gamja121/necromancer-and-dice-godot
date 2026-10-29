@@ -434,6 +434,9 @@ func restore(saved: Dictionary) -> bool:
 	var shop: Dictionary = saved.get("shop_trade",{})
 	if not shop.is_empty():
 		if not shop.get("visit") is String or not shop.get("offers") is Dictionary: return false
+		var used=shop.get("used",0)
+		if not used is int and not used is float: return false
+		if used<0 or used>3 or float(used)!=floorf(float(used)): return false
 		for id in shop.offers:
 			if not shop.offers[id] is Array: return false
 			for offer in shop.offers[id]:
@@ -545,6 +548,7 @@ func restore(saved: Dictionary) -> bool:
 	last_prophecy = saved.get("last_prophecy",{}).duplicate(true)
 	if last_prophecy.has("face"): last_prophecy.face = int(last_prophecy.face)
 	shop_trade = shop.duplicate(true)
+	if not shop_trade.is_empty(): shop_trade.used=int(shop_trade.get("used",0))
 	# A legacy merchant's independent-brand offers are invalidated on load,
 	# before any overlay can access them. The next merchant visit generates a
 	# fresh monster/dice selection; ordinary saved trades are unchanged.
