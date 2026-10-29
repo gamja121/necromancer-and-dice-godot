@@ -237,9 +237,12 @@ var overlay: Control:
 		overlay = value
 		if is_instance_valid(map_audio): map_audio.set_modal_blocked(is_instance_valid(value))
 		_sync_map_chrome()
+		call_deferred("_reset_location_art_if_absent")
 var selected = -1
 var moving = false
 var textures: Dictionary = {}
+var _last_location_art_path: String = ""
+var _last_location_art_world: WeakRef
 var embedded_battle: Control
 var book_button: TextureButton
 var book_lock: Control
@@ -1843,6 +1846,13 @@ func show_dice_hand() -> void:
 		close_overlay()
 		roll_move(id))
 
+func _reset_location_art_if_absent() -> void:
+	# Synchronous menu replacement retains the painting; a real board return
+	# or a different kind of overlay ends this presentation-only continuity.
+	if not is_instance_valid(overlay) or not overlay.has_meta("location_art_path"):
+		_last_location_art_path=""
+		_last_location_art_world=null
+
 func location_scene_image(parent: Control, path: String) -> TextureRect:
 	# Shared across ordinary locations AND their feature/action panels.
 	# Reuse the native embedded battle's actual inner viewport and nine-patch frame.
@@ -1850,6 +1860,11 @@ func location_scene_image(parent: Control, path: String) -> TextureRect:
 	var scene_art = image(parent,path,LOCATION_EVENT_SCENE_RECT.position,LOCATION_EVENT_SCENE_RECT.size)
 	scene_art.name = "LocationSceneImage"
 	scene_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var same_world:bool=_last_location_art_world!=null and _last_location_art_world.get_ref()==world
+	scene_art.set_meta("location_art_continues",same_world and _last_location_art_path==path)
+	parent.set_meta("location_art_path",path)
+	_last_location_art_path=path
+	_last_location_art_world=weakref(world)
 	var frame = NinePatchRect.new()
 	frame.name = "LocationBattleFrame"
 	frame.texture = texture("res://assets/map/ui/battle_frame.png")
@@ -1866,38 +1881,63 @@ func location_scene_image(parent: Control, path: String) -> TextureRect:
 	# buttons/text built after location_scene_image().
 	frame.z_index = 0
 	parent.add_child(frame)
+	if bool(scene_art.get_meta("location_art_continues",false)):
+		PanelEffects.pin_background(parent,scene_art,frame)
 	return scene_art
 
 func show_home(interior: bool = false) -> void:
 	var panel = modal(false)
 	var home_art = location_scene_image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg")
 	# The home exterior opens with ink; entering the house shows interior art instantly.
-	if not interior:
+	if not interior and not bool(home_art.get_meta("location_art_continues",false)):
 		InkSceneReveal.play(home_art)
 	var title = label_at(panel,"우리집 · 실내" if interior else "우리집",Vector2(290,92),Vector2(700,36),24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	# Every newly discovered real place is displayed inside HOME.
-	# Keep rows compact and away from the bottom action buttons.
-	var discovery_row: int = 0
+	# Every real unlock remains readable inside the painting, to the left
+	# of the shared action column, even after all places are discovered.
+	var unlock_scroll:=ScrollContainer.new()
+	unlock_scroll.name="HomeUnlockScroll"
+	unlock_scroll.position=Vector2(238,326)
+	unlock_scroll.size=Vector2(620,210)
+	unlock_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	unlock_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+	unlock_scroll.z_index=13
+	panel.add_child(unlock_scroll)
+	var unlock_padding:=PanelContainer.new()
+	unlock_padding.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	var unlock_backing:=StyleBoxFlat.new()
+	unlock_backing.bg_color=Color("160f0bd9")
+	unlock_backing.set_corner_radius_all(4)
+	unlock_backing.content_margin_top=12
+	unlock_backing.content_margin_bottom=4
+	unlock_padding.add_theme_stylebox_override("panel",unlock_backing)
+	unlock_scroll.add_child(unlock_padding)
+	var unlock_rows:=VBoxContainer.new()
+	unlock_rows.name="HomeUnlockRows"
+	unlock_rows.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	unlock_rows.add_theme_constant_override("separation",4)
+	unlock_padding.add_child(unlock_rows)
 	# Cemetery is a first-lap milestone, not an event discovery.
 	if world.laps >= 1 or world.lap_ready:
-		var grave_icon = image(panel,"res://assets/map/tiles/graveyard.png",Vector2(245,427),Vector2(38,34))
+		var grave_row:=_home_unlock_row(unlock_rows)
+		var grave_icon = image(grave_row,"res://assets/map/tiles/graveyard.png",Vector2(7,0),Vector2(38,34))
 		grave_icon.name = "HomeUnlocked_graveyard"
 		grave_icon.z_index = 13
-		var grave_message = label_at(panel,"공동묘지 해금 · 첫 바퀴 완주 · 다음 맵부터 자동 배치",Vector2(298,427),Vector2(650,33),16)
+		var grave_message = label_at(grave_row,"공동묘지 해금 · 첫 바퀴 완주 · 다음 맵부터 자동 배치",Vector2(60,0),Vector2(530,34),16)
+		grave_message.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
 		grave_message.z_index = 13
 		if session.event_flag_is_set("ui:unlock:graveyard:home_pending"):
 			UnlockNoticeBadge.attach(grave_icon,"NEW")
-		discovery_row = 1
 	for kind in Discovery.ORDER:
 		if not session.event_flag_is_set(Discovery.unlock_flag(kind)): continue
-		var y: float = 427.0 + float(discovery_row)*34.0
-		var place_icon = image(panel,"res://assets/map/tiles/%s.png" % kind,Vector2(245,y),Vector2(38,34))
+		var row:=_home_unlock_row(unlock_rows)
+		var place_icon = image(row,"res://assets/map/tiles/%s.png" % kind,Vector2(7,0),Vector2(38,34))
 		place_icon.name = "HomeUnlocked_%s" % kind
 		place_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		place_icon.z_index=13
-		var message = label_at(panel,"%s 타일 해금 · 자동 배치" % MapState.NAMES[kind],Vector2(298,y),Vector2(430,33),16)
+		var message = label_at(row,"%s 타일 해금 · 자동 배치" % MapState.NAMES[kind],Vector2(60,0),Vector2(530,34),16)
 		message.name = "HomeUnlockText_%s" % kind
+		message.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
 		message.add_theme_color_override("font_color",Color("ffe4ad"))
 		message.add_theme_color_override("font_shadow_color",Color.BLACK)
 		message.add_theme_constant_override("shadow_offset_y",2)
@@ -1905,7 +1945,7 @@ func show_home(interior: bool = false) -> void:
 		message.z_index=13
 		if session.event_flag_is_set(Discovery.home_flag(kind)):
 			UnlockNoticeBadge.attach(place_icon,"NEW")
-		discovery_row+=1
+	unlock_scroll.visible=unlock_rows.get_child_count()>0
 	location_button(panel,"다음 바퀴 출발",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
 	if not interior:
 		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
@@ -1937,6 +1977,14 @@ func show_home(interior: bool = false) -> void:
 		if not allowed.ok:
 			var hint = label_at(panel,str(allowed.reason),Vector2(350,665),Vector2(580,30),15)
 			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+func _home_unlock_row(parent:VBoxContainer) -> Control:
+	var row:=Control.new()
+	row.custom_minimum_size=Vector2(600,34)
+	row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	row.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	parent.add_child(row)
+	return row
 
 func show_home_inheritance() -> void:
 	var allowed: Dictionary = session.home_action_allowed()
@@ -2962,7 +3010,8 @@ func show_location(index: int) -> void:
 			if child is ColorRect and child.get_meta("ui_backdrop",false): child.color=Color("030201d9")
 	var scene_art = location_scene_image(panel,"res://assets/map/events/%s.jpg" % EVENT_IMAGES[type])
 	# Reveal artwork only for all seven location tile types; keep UI unaffected.
-	InkSceneReveal.play(scene_art)
+	if not bool(scene_art.get_meta("location_art_continues",false)):
+		InkSceneReveal.play(scene_art)
 	var exit_action:Callable=_leave_rest.bind(weakref(panel)) if type=="rest" else func(): dismiss_overlay(render)
 	var exit = location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_action,4)
 	if type=="rest":

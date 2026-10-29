@@ -53,6 +53,7 @@ func setup(run_session, map_scene: Control = null) -> void:
 	panel_slot(Vector2(814,38),false)
 	inheritance_frame=art(self,"res://assets/map/ui/inheritance_info.webp",Vector2(471,62),Vector2(338,352))
 	inheritance_frame.stretch_mode=TextureRect.STRETCH_SCALE
+	inheritance_frame.set_meta("ui_custom_open_motion",true)
 	PanelDepthMotion.shadow(inheritance_frame)
 	PanelDepthMotion.enter(inheritance_frame)
 	depth_panels.append(inheritance_frame)
@@ -95,6 +96,7 @@ func setup(run_session, map_scene: Control = null) -> void:
 
 func panel_slot(pos: Vector2, material: bool) -> void:
 	var node = Control.new()
+	node.set_meta("ui_custom_open_motion",true)
 	node.position = pos
 	node.size = Vector2(266,390)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -334,6 +336,7 @@ func render_hand() -> void:
 		unit_options[id]=option
 	render_selection()
 	# The existing entry motion and dissolve only move visual controls.
+	hand.set_meta("ui_custom_open_motion",true)
 	hand.position.y=48
 	hand.modulate.a=0.0
 	var rise=create_tween().set_parallel(true)
