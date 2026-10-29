@@ -10,6 +10,7 @@ GameLanguage="*res://systems/game_language.gd"
 RunSession="*res://systems/run_session.gd"
 UiTypography="*res://systems/ui_typography.gd"
 GameAudio="*res://systems/game_audio.gd"
+QuitConfirmation="*res://systems/quit_confirmation.gd"
 
 [internationalization]
 locale/fallback="ko"
