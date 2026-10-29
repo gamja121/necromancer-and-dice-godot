@@ -193,6 +193,8 @@ func _run() -> void:
 		var function_back: Button=map.overlay.get("close_button") as Button
 		if tile_name in ["graveyard","forest","fortune-teller-camp","unknown"]:
 			check(function_back!=null and function_back.text=="맵으로 나가기" and same_rect(function_back,map.TILE_EVENT_EXIT_RECT),"graveyard function exits from the common tile slot")
+		elif tile_name=="village":
+			check(function_back!=null and function_back.text=="나가기" and preload("res://systems/shop_window_visual.gd").FRAME_RECT.encloses(Rect2(function_back.position,function_back.size)),"village function exits from inside the approved shop window")
 		else:
 			check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")
 		map.close_overlay()
