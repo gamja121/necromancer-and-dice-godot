@@ -8,8 +8,9 @@ void vertex() {
 }
 void fragment() {
 	vec4 ink = texture(TEXTURE, UV);
-	vec2 delta = (UV - vec2(0.794, 0.660)) * vec2(0.83, 1.0);
-	float orb = 1.0 - smoothstep(0.105, 0.155, length(delta));
+	// Same 1672x941 landscape registration as the manuscript background.
+	vec2 delta = (UV - vec2(0.737, 0.723)) * vec2(1672.0 / 941.0, 1.0);
+	float orb = 1.0 - smoothstep(0.100, 0.145, length(delta));
 	float violet = smoothstep(0.03, 0.22, ink.b - ink.g);
 	float pulse = 0.5 + 0.5 * sin(TIME * 1.65);
 	ink.rgb += vec3(0.05, 0.015, 0.09) * orb * violet * pulse;

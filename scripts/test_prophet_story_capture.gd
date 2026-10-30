@@ -13,6 +13,8 @@ const CULTIST_BEATS=preload("res://systems/cultist_rumor_beats.gd")
 const BOOK=preload("res://systems/main_story_book.gd")
 const ACTIONS=preload("res://systems/place_actions.gd")
 const LOADS=preload("res://systems/battle_resources.gd")
+const EXPECTED_BASE="res://assets/map/events/manuscript_prophet_base.png"
+const EXPECTED_ACTOR="res://assets/map/events/manuscript_prophet_actor.png"
 var passed: int=0
 var failed: int=0
 var captures: int=0
@@ -88,7 +90,23 @@ func snap(tag: String) -> void:
 	check(shot.get_size()==Vector2i(1280,720),"native viewport "+tag)
 	if check(shot.save_png("res://prophet_story_%s.png" % tag)==OK,"rendered screenshot "+tag): captures+=1
 
+func inspect_art_sources() -> void:
+	check(PROPHET.BASE_ART==EXPECTED_BASE and BEATS.BASE==EXPECTED_BASE,"uses repainted manuscript background, not the old woodcut")
+	check(PROPHET.PORTRAIT_ART==EXPECTED_ACTOR and BEATS.PROPHET==EXPECTED_ACTOR,"uses repainted landscape manuscript actor")
+	for path in [EXPECTED_BASE,EXPECTED_ACTOR]:
+		var pixels: Image=Image.load_from_file(path)
+		if not check(pixels!=null and not pixels.is_empty(),"read source artwork "+path): continue
+		check(pixels.get_size()==Vector2i(1672,941),"same native resolution as existing main-event manuscripts")
+		var imported: Texture2D=load(path) as Texture2D
+		check(imported!=null and imported.get_image().has_mipmaps(),"mipmaps retain detail in the small storybook illustration")
+		if path==EXPECTED_ACTOR:
+			var visible: Rect2i=pixels.get_used_rect()
+			check(visible.has_area() and pixels.get_pixel(1000,400).a>0.9 and pixels.get_pixel(1200,680).a>0.9,"visible character and orb retain landscape registration")
+			for corner in [Vector2i(0,0),Vector2i(1671,0),Vector2i(0,940),Vector2i(1671,940),Vector2i(300,470)]:
+				check(is_zero_approx(pixels.get_pixelv(corner).a),"foreground has real transparent exterior "+str(corner))
+
 func scenario() -> void:
+	inspect_art_sources()
 	session.start_new_world()
 	session.world.laps=1
 	session.world.contamination=40
@@ -128,10 +146,18 @@ func scenario() -> void:
 		var background: TextureRect=map.overlay.find_child("ProphetStoryBackground",true,false) as TextureRect
 		var portrait: TextureRect=map.overlay.find_child("ProphetStoryPortrait",true,false) as TextureRect
 		check(background!=null and background.texture.resource_path==PROPHET.BASE_ART,"approved background layer")
+		if background!=null:
+			check(background.texture_filter==CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS,"background uses shared manuscript sampling")
 		if str(data.get("visual","base"))=="portrait":
 			check(portrait!=null and portrait.texture.resource_path==PROPHET.PORTRAIT_ART and portrait.get_parent()==map.overlay.art,"reference portrait in illustration")
-			if portrait!=null: check(portrait.material is ShaderMaterial and portrait.mouse_filter==Control.MOUSE_FILTER_IGNORE and is_equal_approx(portrait.modulate.a,1.0),"orb shader and settled nonblocking portrait")
+			if portrait!=null:
+				check(portrait.material is ShaderMaterial and portrait.mouse_filter==Control.MOUSE_FILTER_IGNORE and is_equal_approx(portrait.modulate.a,1.0),"orb shader and settled nonblocking portrait")
+				check(portrait.texture_filter==CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS,"actor uses shared manuscript sampling")
+				if background!=null:
+					check(portrait.position.is_equal_approx(background.position) and portrait.size.is_equal_approx(background.size) and portrait.stretch_mode==background.stretch_mode,"foreground and background share exact full-canvas registration")
 		else: check(portrait==null,"no premature prophet portrait")
+		if str(data.id)=="arrival": await snap("04_prophet_arrival")
+		if str(data.id)=="player_reply": await snap("05_prophet_player_reply")
 		if str(data.id)=="reveal":
 			before=session.world.snapshot().duplicate(true)
 			await dispose_map()
@@ -166,7 +192,7 @@ func scenario() -> void:
 			await snap("03_cultist_prophet_route")
 		check(CULTIST.advance(session,village,beat),"cultist acknowledgement "+str(beat))
 	check(session.event_flag_is_set(CULTIST.TRACKING_FLAG) and session.world.reward_receipts==receipts and session.encounter.is_empty(),"actual tracking and no invented rewards or battle")
-	if DisplayServer.get_name()!="headless": check(captures==3,"three useful rendered captures")
+	if DisplayServer.get_name()!="headless": check(captures==5,"five useful rendered captures including base-only and player reply")
 
 func run() -> void:
 	root.size=Vector2i(1280,720)
