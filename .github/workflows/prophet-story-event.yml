@@ -62,7 +62,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_prophet_story_capture.gd 2>&1 | tee capture.log
+          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --verbose --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_prophet_story_capture.gd 2>&1 | tee capture.log
           grep -E '^PROPHET_STORY_CAPTURE: [0-9]+ passed, 0 failed$' capture.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' capture.log; then exit 1; fi
           for image in 01_commander_prophet 02_prophet_clue 03_cultist_prophet_route; do

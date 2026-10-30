@@ -174,7 +174,6 @@ func run() -> void:
 	clean()
 	session=root.get_node("RunSession")
 	var original: String=session.save_file_path
-	var original_world=session.world
 	session.save_file_path=save
 	await scenario()
 	await dispose_map()
@@ -183,7 +182,9 @@ func run() -> void:
 	# The last voice is removed before its queued AudioStreamPlayer is freed.
 	# Flush deferred frees before terminating the short-lived capture process.
 	for frame in range(3): await process_frame
-	session.world=original_world
+	# This isolated process exits here; drop the test world before quitting,
+	# rather than retaining a RefCounted world in a suspended run coroutine.
+	session.world=null
 	session.save_file_path=original
 	clean()
 	print("PROPHET_STORY_CAPTURE: %d passed, %d failed" % [passed,failed])
