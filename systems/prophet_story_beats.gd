@@ -1,8 +1,8 @@
 extends RefCounted
 ## Reports and uncertain images reveal a human trail, not the child's fate
 ## or any hidden identity. The final acknowledgement owns the actual clue.
-const BASE = "res://assets/map/events/prophet_story_base.png"
-const PROPHET = "res://assets/map/events/prophet_story_actor.png"
+const BASE = "res://assets/map/events/manuscript_prophet_base.png"
+const PROPHET = "res://assets/map/events/manuscript_prophet_actor.png"
 const PLAYER = "res://assets/map/events/manuscript_village_necromancer.png"
 const BEATS = [
 	{"id":"arrival","effect":"점술가의 막사 안. 낡은 천 사이로 희미한 보랏빛이 새어 나온다.","dialogue":"","speaker":"","visual":"base"},

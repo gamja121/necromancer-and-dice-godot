@@ -10,6 +10,8 @@ on:
       - 'systems/story_contamination_gate.gd'
       - 'systems/main_story_book.gd'
       - 'assets/map/events/prophet_story_*.png'
+      - 'assets/map/events/manuscript_prophet_*.png'
+      - 'assets/map/events/manuscript_prophet_*.png.import'
       - 'scripts/test_prophet_story_*.gd'
       - '.github/workflows/prophet-story-event.yml'
   push:
@@ -17,6 +19,8 @@ on:
     paths:
       - 'systems/prophet_story_*.gd'
       - 'assets/map/events/prophet_story_*.png'
+      - 'assets/map/events/manuscript_prophet_*.png'
+      - 'assets/map/events/manuscript_prophet_*.png.import'
       - '.github/workflows/prophet-story-event.yml'
   workflow_dispatch:
 permissions:
@@ -65,7 +69,7 @@ jobs:
           timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --verbose --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_prophet_story_capture.gd 2>&1 | tee capture.log
           grep -E '^PROPHET_STORY_CAPTURE: [0-9]+ passed, 0 failed$' capture.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' capture.log; then exit 1; fi
-          for image in 01_commander_prophet 02_prophet_clue 03_cultist_prophet_route; do
+          for image in 01_commander_prophet 02_prophet_clue 03_cultist_prophet_route 04_prophet_arrival 05_prophet_player_reply; do
             test -s "prophet_story_$image.png"
           done
       - uses: actions/upload-artifact@v4

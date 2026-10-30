@@ -10,8 +10,8 @@ const QUEST_ACTIVE_FLAG = "quest:prophet_cultist_01:active"
 const QUEST_COMPLETE_FLAG = "quest:prophet_cultist_01:complete"
 const HUMAN_CLUE_FLAG = "story:cultist:human_involvement_clue"
 const CULTIST_CLUE_FLAG = HUMAN_CLUE_FLAG
-const BASE_ART = "res://assets/map/events/prophet_story_base.png"
-const PORTRAIT_ART = "res://assets/map/events/prophet_story_actor.png"
+const BASE_ART = "res://assets/map/events/manuscript_prophet_base.png"
+const PORTRAIT_ART = "res://assets/map/events/manuscript_prophet_actor.png"
 const FIRST_BEAT = {"id":"arrival","effect":"점술가의 막사 안. 낡은 천 사이로 희미한 보랏빛이 새어 나온다.","dialogue":"","speaker":"","visual":"base"}
 
 static func hunter_untouched(session) -> bool:
