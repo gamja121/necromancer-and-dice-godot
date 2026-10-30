@@ -24,6 +24,8 @@ const CultistStoryLayerMotion = preload("res://systems/cultist_story_layer_motio
 const RitualPortalLayerMotion = preload("res://systems/ritual_portal_layer_motion.gd")
 const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
+const VillageMistrustEntry = preload("res://systems/village_mistrust_entry.gd")
+const VillageMistrustBeats = preload("res://systems/village_mistrust_beats.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const ProphetStoryEntry = preload("res://systems/prophet_story_entry.gd")
@@ -1130,6 +1132,14 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 			show_cultist_altar_intro(index)
 			return
 		status.text = session.notice
+	# A witness account arrives on the next real village visit. Previewing
+	# the current tile can resume a saved rumor, never discover a new one.
+	if type=="village" and VillageMistrustEntry.can_enter(session,index):
+		if actual_landing or session.get_story_event(VillageMistrustEntry.EVENT_ID).status=="seen":
+			if VillageMistrustEntry.begin(session,index):
+				show_village_mistrust_beat(index)
+				return
+			status.text=session.notice
 	# P1-05J-1: the forest (or event wildcard) reveals the portal only
 	# after the *completed* cultist altar story and new tracking quest.
 	if type in ["forest","event"] and RitualPortalEntry.can_enter(session,index):
@@ -2230,6 +2240,10 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CultistAltarEntry.EVENT_ID).status=="seen" or session.get_story_event(CultistAltarEntry.EVENT_ID).status=="active":
 			show_cultist_altar_intro(index)
 			return
+	if VillageMistrustEntry.can_enter(session,index):
+		if session.get_story_event(VillageMistrustEntry.EVENT_ID).status=="seen":
+			show_village_mistrust_beat(index)
+			return
 	# Saved portal intervention or acknowledged epilogue resumes at its tile;
 	# reconnect never starts combat or concludes the quest automatically.
 	if RitualPortalEntry.can_enter(session,index):
@@ -2713,12 +2727,18 @@ func finish_ritual_portal(index: int) -> void:
 	status.text="전이문 의식 종료 · 마물의 왕 추적 시작"
 
 func show_cultist_altar_intro(index: int) -> void:
+	if session.get_story_event(CultistAltarEntry.EVENT_ID).choice=="infiltrate":
+		show_cultist_infiltration_beat(index)
+		return
 	if CultistAltarEntry.followup_ready(session,index):
 		show_cultist_altar_followup(index)
 	else:
 		show_cultist_altar_beat(index)
 
 func show_cultist_altar_beat(index: int) -> void:
+	if session.get_story_event(CultistAltarEntry.EVENT_ID).choice=="infiltrate":
+		show_cultist_infiltration_beat(index)
+		return
 	if CultistAltarEntry.followup_ready(session,index):
 		show_cultist_altar_followup(index)
 		return
@@ -2741,6 +2761,8 @@ func show_cultist_altar_beat(index: int) -> void:
 	var heading=label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var narration: String=CultistAltarBeats.SUMMON_EFFECT if fighting else str(beat.effect)
+	if beat_index==2 and altar_state.status=="seen" and CultistAltarEntry.can_infiltrate(session):
+		narration=CultistAltarBeats.INVESTIGATE_WARNING
 	var effect=label_at(panel,narration,Vector2(285,573),Vector2(710,64),18)
 	effect.add_theme_color_override("font_color", Color("271a10"))
 	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
@@ -2754,6 +2776,8 @@ func show_cultist_altar_beat(index: int) -> void:
 	elif altar_state.status=="seen" and beat.get("choice",false)==true:
 		location_button(panel,"싸운다",Vector2(320,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"fight"),1)
 		location_button(panel,"지나간다",Vector2(504,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"pass"),1)
+		if CultistAltarEntry.can_infiltrate(session):
+			location_button(panel,CultistAltarBeats.INVESTIGATE_CHOICE,Vector2(688,653),Vector2(164,48),func(): choose_cultist_altar(index,beat_index,"infiltrate"),1)
 	elif fighting:
 		if altar_state.battle_result=="won":
 			var won_note=label_at(panel,"소환 마물 격퇴 기록 저장됨 · 후속 사건 연결 대기",Vector2(315,613),Vector2(715,33),16)
@@ -2778,6 +2802,9 @@ func show_cultist_altar_beat(index: int) -> void:
 func show_cultist_altar_followup(index: int) -> void:
 	if not CultistAltarEntry.followup_ready(session,index): return
 	var story: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
+	if story.choice=="infiltrate":
+		show_cultist_infiltration_beat(index)
+		return
 	var narration: String=CultistAltarBeats.followup_effect(str(story.choice),str(story.battle_result))
 	if narration.is_empty(): return
 	var panel=story_modal()
@@ -2811,6 +2838,7 @@ func show_cultist_altar_followup(index: int) -> void:
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func finish_cultist_altar(index: int) -> void:
+	var infiltrated: bool=session.get_story_event(CultistAltarEntry.EVENT_ID).choice=="infiltrate"
 	if not CultistAltarEntry.finish(session,index):
 		status.text="광신도 제단 추적 기록 저장 실패 · 다시 시도하세요."
 		return
@@ -2820,6 +2848,7 @@ func finish_cultist_altar(index: int) -> void:
 	else:
 		render()
 	status.text="광신도의 의식 확인 · 마물의 왕 부활 의식의 흔적 추적 시작"
+	if infiltrated: status.text="의식 장소의 단서를 얻었다. 당신을 본 목격자가 마을로 향했다."
 
 func advance_cultist_altar(index: int, shown_beat: int) -> void:
 	if not CultistAltarEntry.advance(session,index,shown_beat):
@@ -2846,6 +2875,71 @@ func reconsider_cultist_altar(index: int) -> void:
 		status.text="광신도 제단 선택 변경 실패 · 다시 시도하세요."
 		return
 	show_cultist_altar_beat(index)
+
+## The same altar book preserves each noncombat act before its final handoff.
+func show_cultist_infiltration_beat(index: int) -> void:
+	if not CultistAltarEntry.can_enter(session,index): return
+	var state: Dictionary=session.get_story_event(CultistAltarEntry.EVENT_ID)
+	if state.status!="active" or state.choice!="infiltrate": return
+	var current: int=CultistAltarEntry.infiltration_beat(session)
+	var beat: Dictionary=CultistAltarBeats.infiltration_beat(current)
+	if beat.is_empty(): return
+	var panel=story_modal()
+	var picture=image(panel,CultistAltarBeats.INQUIRY_ART if beat.visual=="inquiry" else CultistAltarEntry.BASE_ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	picture.name="CultistInquiryScene"
+	if beat.visual=="ritual":
+		var bounds: Rect2=CultistStoryLayerMotion.source_rect(TILE_EVENT_SCENE_RECT,true)
+		var layer=image(panel,CultistAltarBeats.RITUAL,bounds.position,bounds.size)
+		layer.name="CultistInquiryRitualLayer"
+		CultistStoryLayerMotion.play(layer,true,false)
+	shared_story_frame(panel)
+	label_at(panel,"사건 · 광신도의 의식",Vector2(350,84),Vector2(582,42),24)
+	label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,62),17)
+	if not str(beat.dialogue).is_empty():
+		label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,610),Vector2(710,50),16)
+	var final_scene: bool=current==CultistAltarBeats.infiltration_count()-1
+	if final_scene: panel.show_seal("목격")
+	location_button(panel,"마치기" if final_scene else "계속",Vector2(463,653),Vector2(171,48),func():
+		if final_scene: finish_cultist_altar(index)
+		else:
+			if CultistAltarEntry.advance_infiltration(session,index,current): show_cultist_infiltration_beat(index)
+			else: status.text="광신도 조사 장면 저장 실패 · 다시 시도하세요."
+	,1)
+	if current==0:
+		location_button(panel,"선택 변경",Vector2(651,653),Vector2(194,48),func(): reconsider_cultist_altar(index),4)
+	elif world.tiles[index]=="altar":
+		location_button(panel,"제단 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func show_village_mistrust_beat(index: int) -> void:
+	if not VillageMistrustEntry.can_enter(session,index): return
+	var current: int=VillageMistrustEntry.current_beat(session)
+	var beat: Dictionary=VillageMistrustBeats.beat(current)
+	if beat.is_empty(): return
+	var panel=story_modal()
+	var base=image(panel,VillageMistrustBeats.BASE,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	if current==0: InkSceneReveal.play(base)
+	for path in beat.layers:
+		image(panel,str(path),TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	shared_story_frame(panel)
+	label_at(panel,"사건 · 와전된 소문",Vector2(350,84),Vector2(582,42),24)
+	label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,62),17)
+	if not str(beat.dialogue).is_empty():
+		label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,610),Vector2(710,50),16)
+	var final_scene: bool=VillageMistrustBeats.is_final(current)
+	if final_scene: panel.show_seal("불신")
+	location_button(panel,"마치기" if final_scene else "계속",Vector2(463,653),Vector2(171,48),func():
+		if not VillageMistrustEntry.advance(session,index,current):
+			status.text="마을 목격담 저장 실패 · 다시 시도하세요."
+			return
+		if final_scene:
+			close_overlay()
+			render()
+			status.text="와전된 소문이 퍼졌다. 주민들의 불신이 커졌다."
+		else: show_village_mistrust_beat(index)
+	,1)
+	location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)

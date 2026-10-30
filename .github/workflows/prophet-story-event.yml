@@ -4,6 +4,8 @@ on:
     paths:
       - 'map.gd'
       - 'systems/prophet_story_*.gd'
+      - 'systems/village_mistrust_*.gd'
+      - 'systems/cultist_altar_*.gd'
       - 'systems/knight_commander_*.gd'
       - 'systems/monster_hunter_entry.gd'
       - 'systems/cultist_rumor_*.gd'
@@ -13,11 +15,20 @@ on:
       - 'assets/map/events/manuscript_prophet_*.png'
       - 'assets/map/events/manuscript_prophet_*.png.import'
       - 'scripts/test_prophet_story_*.gd'
+      - 'scripts/test_cultist_mistrust_*.gd'
+      - 'scripts/cultist_mistrust_fixture.gd'
+      - 'assets/map/events/manuscript_cultist_inquiry_*.png*'
+      - 'data/localization/en.json'
       - '.github/workflows/prophet-story-event.yml'
   push:
     branches: [main]
     paths:
       - 'systems/prophet_story_*.gd'
+      - 'systems/village_mistrust_*.gd'
+      - 'systems/cultist_altar_*.gd'
+      - 'scripts/test_cultist_mistrust_*.gd'
+      - 'scripts/cultist_mistrust_fixture.gd'
+      - 'assets/map/events/manuscript_cultist_inquiry_*.png*'
       - 'assets/map/events/prophet_story_*.png'
       - 'assets/map/events/manuscript_prophet_*.png'
       - 'assets/map/events/manuscript_prophet_*.png.import'
@@ -57,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in test_prophet_story_entry test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
+          for test in test_prophet_story_entry test_cultist_mistrust_branch test_cultist_altar_entry test_cultist_altar_choice test_cultist_altar_followup test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
             timeout 180s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
             grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
@@ -80,4 +91,25 @@ jobs:
             prophet_story_*.png
             capture.log
             test_prophet_story_entry.log
+          if-no-files-found: warn
+      - name: Covert inquiry and delayed mistrust in Korean and English
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --verbose --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_cultist_mistrust_capture.gd 2>&1 | tee mistrust-capture.log
+          grep -E '^CULTIST_MISTRUST_CAPTURE: [0-9]+ passed, 0 failed$' mistrust-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' mistrust-capture.log; then exit 1; fi
+          for locale in ko en; do
+            for scene in choice witness rumor final; do
+              test -s "cultist_mistrust_${scene}_${locale}.png"
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cultist-mistrust-rendered
+          path: |
+            cultist_mistrust_*.png
+            mistrust-capture.log
+            test_cultist_mistrust_branch.log
           if-no-files-found: warn
