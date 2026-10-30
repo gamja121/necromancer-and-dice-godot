@@ -1,0 +1,79 @@
+name: Prophet Story Event
+on:
+  pull_request:
+    paths:
+      - 'map.gd'
+      - 'systems/prophet_story_*.gd'
+      - 'systems/knight_commander_*.gd'
+      - 'systems/monster_hunter_entry.gd'
+      - 'systems/cultist_rumor_*.gd'
+      - 'systems/story_contamination_gate.gd'
+      - 'systems/main_story_book.gd'
+      - 'assets/map/events/prophet_story_*.png'
+      - 'scripts/test_prophet_story_*.gd'
+      - '.github/workflows/prophet-story-event.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'systems/prophet_story_*.gd'
+      - 'assets/map/events/prophet_story_*.png'
+      - '.github/workflows/prophet-story-event.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: prophet-story-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  prophet-story:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official Godot 4.7.2 and GL capture support
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip' -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          mv /tmp/godot-bin/Godot_v4.7.2-stable_linux.x86_64 /tmp/godot-bin/godot
+          chmod +x /tmp/godot-bin/godot
+          echo /tmp/godot-bin >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+      - name: Import production resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource' import.log; then exit 1; fi
+      - name: Alternate route and existing story regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_prophet_story_entry test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
+            timeout 180s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
+            grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
+          done
+      - name: Actual route and rendered shared book
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --verbose --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_prophet_story_capture.gd 2>&1 | tee capture.log
+          grep -E '^PROPHET_STORY_CAPTURE: [0-9]+ passed, 0 failed$' capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' capture.log; then exit 1; fi
+          for image in 01_commander_prophet 02_prophet_clue 03_cultist_prophet_route; do
+            test -s "prophet_story_$image.png"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prophet-story-rendered
+          path: |
+            prophet_story_*.png
+            capture.log
+            test_prophet_story_entry.log
+          if-no-files-found: warn

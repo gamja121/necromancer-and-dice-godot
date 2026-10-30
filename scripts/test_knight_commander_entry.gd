@@ -113,13 +113,15 @@ func test_valid_entry(rescue: bool, event_tile: bool) -> void:
 		check(not Commander.can_enter(s,off),"preview of distant tile forbidden")
 		check(not Commander.begin(s,off),"distant tile cannot save first encounter")
 	else:
-		check(not Commander.can_enter(s,idx),"abandoned branch never triggers knight")
-		check(not Commander.begin(s,idx),"abandoned branch cannot mark knight seen")
-		check(s.world.snapshot()==before,"abandoned attempt does not alter save")
-		check(s.get_story_event(Commander.EVENT_ID).status=="unseen","abandoned branch knight remains unseen")
-		check(not s.event_flag_is_set(Commander.SEEN_FLAG),"abandoned branch flag absent")
+		check(Commander.route(s)=="prophet","abandoned history selects distinct prophet route")
+		check(Commander.can_enter(s,idx) and Commander.begin(s,idx),"completed abandoned rumor enables durable prophet referral")
+		check(s.get_story_event(Commander.EVENT_ID).status=="seen" and s.event_flag_is_set(Commander.SEEN_FLAG),"abandoned commander remains unfinished")
+		check(not s.event_flag_is_set(Commander.RECOGNIZED_FLAG) and not s.event_flag_is_set(Commander.QUEST_ACTIVE_FLAG),"no rescue recognition or hunter quest")
+		check(not s.event_flag_is_set(Commander.PROPHET_QUEST_ACTIVE_FLAG),"arrival does not accept quest")
+		var saved: Dictionary=s.world.snapshot().duplicate(true)
+		check(Commander.begin(s,idx) and s.world.snapshot()==saved,"abandoned arrival idempotent")
 		s.reload_world()
-		check(not Commander.can_enter(s,idx),"abandon remains blocked after reload")
+		check(Commander.route(s)=="prophet" and Commander.can_enter(s,idx),"abandoned arrival resumes correct route")
 	s.free()
 
 func test_failed_save() -> void:

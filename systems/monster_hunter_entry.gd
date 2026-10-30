@@ -1,6 +1,7 @@
 extends RefCounted
 const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 const HunterBeats = preload("res://systems/monster_hunter_beats.gd")
+const CommanderEntry = preload("res://systems/knight_commander_entry.gd")
 ## P1-05F: source-canonical hunter encounter with durable beat-by-beat progress.
 ## The human involvement clue and hunter quest completion are granted only
 ## by confirming the last beat.
@@ -27,6 +28,7 @@ const FIRST_BEAT = {
 
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
+	if CommanderEntry.route(session)!="hunter": return false
 	var w = session.world
 	if not ContaminationGate.allows(session,EVENT_ID): return false
 	if index<0 or index>=w.tiles.size() or w.position!=index: return false

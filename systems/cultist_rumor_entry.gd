@@ -1,6 +1,8 @@
 extends RefCounted
 const ContaminationGate = preload("res://systems/story_contamination_gate.gd")
 const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
+const ProphetEntry = preload("res://systems/prophet_story_entry.gd")
+const CommanderEntry = preload("res://systems/knight_commander_entry.gd")
 ## P1-05H: complete six-scene village cultist rumor and tracking quest.
 ## The later cultist altar encounter and its battle remain inactive.
 
@@ -24,6 +26,24 @@ const FIRST_BEAT = {
 	"visual":"base"
 }
 
+static func route(session) -> String:
+	if session == null or session.world == null: return ""
+	var w=session.world
+	if w.event_flags.get(HUMAN_CLUE_FLAG,false)!=true: return ""
+	if ProphetEntry.completed(session): return "prophet"
+	var prophet: Dictionary=session.get_story_event(ProphetEntry.EVENT_ID)
+	if prophet.status!="unseen" or prophet.choice!="" or prophet.battle_result!="": return ""
+	for flag in [ProphetEntry.SEEN_FLAG,ProphetEntry.COMPLETE_FLAG,ProphetEntry.QUEST_ACTIVE_FLAG,ProphetEntry.QUEST_COMPLETE_FLAG]:
+		if w.event_flags.get(flag,false)==true: return ""
+	for flag in w.event_flags:
+		if str(flag).begins_with("event:%s:beat:" % ProphetEntry.EVENT_ID) and w.event_flags[flag]==true: return ""
+	if CommanderEntry.route(session)=="prophet": return ""
+	if session.get_story_event(HUNTER_ID).status!="complete": return ""
+	if w.event_flags.get(HUNTER_COMPLETE_FLAG,false)!=true: return ""
+	if w.event_flags.get(HUNTER_QUEST_ACTIVE_FLAG,false)==true: return ""
+	if w.event_flags.get(HUNTER_QUEST_COMPLETE_FLAG,false)!=true: return ""
+	return "hunter"
+
 static func can_enter(session, index: int) -> bool:
 	if session == null or session.world == null: return false
 	var w = session.world
@@ -32,13 +52,8 @@ static func can_enter(session, index: int) -> bool:
 	if w.tiles[index] not in ["village","event"]: return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty(): return false
 	if not w.pending_move.is_empty() or not w.pending_reward.is_empty(): return false
-	# An isolated clue/quest flag is not enough; the full hunter story
-	# and its original quest must both be finished.
-	if session.get_story_event(HUNTER_ID).status!="complete": return false
-	if w.event_flags.get(HUNTER_COMPLETE_FLAG,false)!=true: return false
-	if w.event_flags.get(HUNTER_QUEST_ACTIVE_FLAG,false)==true: return false
-	if w.event_flags.get(HUNTER_QUEST_COMPLETE_FLAG,false)!=true: return false
-	if w.event_flags.get(HUMAN_CLUE_FLAG,false)!=true: return false
+	# An isolated clue is not enough; its actual source and quest must finish.
+	if route(session).is_empty(): return false
 	# Do not repeat an already completed branch or regress a later quest.
 	if w.event_flags.get(COMPLETE_FLAG,false)==true: return false
 	if w.event_flags.get(TRACKING_FLAG,false)==true: return false
@@ -65,6 +80,7 @@ static func progress_flag(index: int) -> String:
 
 static func current_beat(session) -> int:
 	if session == null or session.world == null: return -1
+	if route(session).is_empty(): return -1
 	var w=session.world
 	var event: Dictionary=session.get_story_event(EVENT_ID)
 	if event.status!="seen" or event.choice!="" or event.battle_result!="": return -1

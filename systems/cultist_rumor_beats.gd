@@ -15,9 +15,12 @@ const BEATS = [
 static func count() -> int:
 	return BEATS.size()
 
-static func beat(index: int) -> Dictionary:
+static func beat(index: int, route: String = "hunter") -> Dictionary:
 	if index<0 or index>=BEATS.size(): return {}
-	return BEATS[index].duplicate(true)
+	var result: Dictionary=BEATS[index].duplicate(true)
+	if route=="prophet" and result.id=="mark":
+		result.effect="짐을 덮은 천에 새겨진 문양이 눈에 들어온다. 예언가가 알려 준 문양과 같다."
+	return result
 
 static func is_final(index: int) -> bool:
 	return index==BEATS.size()-1

@@ -1,5 +1,5 @@
 extends SceneTree
-## First-discovery contamination gates: all 9 story IDs, true runtime
+## First-discovery contamination gates: all 10 story IDs, true runtime
 ## child/village entry, branch parity, lower-contamination continuation,
 ## and durable save/reload. No quest reward or unrelated rules changed.
 const Session = preload("res://systems/run_session.gd")
@@ -34,7 +34,7 @@ func _run() -> void:
 	clean()
 	session.save_file_path = save_path
 	session.start_new_world()
-	check(Gate.MINIMUMS.size()==9,"exactly nine canonical story branch IDs")
+	check(Gate.MINIMUMS.size()==10,"ten story branch IDs including alternate prophet clue")
 	check(not Gate.allows(session,"missing_event"),"unknown event id fails closed")
 	check(not Gate.allows(null,Child.EVENT_ID),"missing session fails closed")
 	for id in Gate.MINIMUMS:
@@ -95,11 +95,11 @@ func _run() -> void:
 	check(Rumor.eligible_event_id(session,village)==Rumor.RESCUED_ID,"rescued rumor opens exactly at 15")
 	session.world.contamination = 0
 	check(not Gate.allows(session,Rumor.RESCUED_ID),"rescued rumor unseen at zero despite abandoned rumor already seen")
-	# All eight entry modules must actually consume the common gate.
+	# All nine entry modules must actually consume the common gate.
 	var modules: Array[String] = [
 		"story_event_entry.gd","village_rumor_entry.gd","knight_commander_entry.gd",
 		"monster_hunter_entry.gd","cultist_rumor_entry.gd","cultist_altar_entry.gd",
-		"ritual_portal_entry.gd","monster_king_hunt_entry.gd"
+		"ritual_portal_entry.gd","monster_king_hunt_entry.gd","prophet_story_entry.gd"
 	]
 	for path in modules:
 		var file = FileAccess.open("res://systems/"+path,FileAccess.READ)
