@@ -182,6 +182,11 @@ func run() -> void:
 	# The last voice is removed before its queued AudioStreamPlayer is freed.
 	# Flush deferred frees before terminating the short-lived capture process.
 	for frame in range(3): await process_frame
+	# --fixed-fps can advance these frames in only a few real milliseconds.
+	# The audio mixer releases stopped WAV playback on its own real-time
+	# thread, so give it a bounded wall-clock drain after the last stop.
+	var mixer_deadline: int=Time.get_ticks_msec()+250
+	while Time.get_ticks_msec()<mixer_deadline: await process_frame
 	# This isolated process exits here; drop the test world before quitting,
 	# rather than retaining a RefCounted world in a suspended run coroutine.
 	session.world=null
