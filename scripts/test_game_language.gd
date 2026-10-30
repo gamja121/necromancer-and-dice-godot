@@ -105,7 +105,7 @@ func collect_beats(value: Variant, result: Array) -> void:
 
 func check_story_beats() -> void:
 	var beats: Array=[]
-	for file in ["graveyard_story_beats","village_rumor_beats","knight_commander_beats","monster_hunter_beats","cultist_rumor_beats","cultist_altar_beats","ritual_portal_beats","monster_king_hunt_beats"]:
+	for file in ["graveyard_story_beats","village_rumor_beats","knight_commander_beats","monster_hunter_beats","cultist_rumor_beats","cultist_altar_beats","village_mistrust_beats","ritual_portal_beats","monster_king_hunt_beats"]:
 		collect_beats(load("res://systems/"+file+".gd").get_script_constant_map(),beats)
 	var problems: Array[String]=[]
 	for beat in beats:
