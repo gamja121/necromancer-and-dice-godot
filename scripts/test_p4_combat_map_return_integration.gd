@@ -211,17 +211,30 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				label+": each fallen enemy has a selectable capture card")
 			var candidates_on_tiles: bool = true
 			var layered_capture_matches: bool = true
+			var capture_cards_above_map: bool = true
 			for candidate in candidates:
 				var card: TextureButton = candidate.card
 				var enemy: Dictionary = battle.rules.find_id(str(world.pending_reward.corpses[int(candidate.index)].id))
 				candidates_on_tiles = candidates_on_tiles and (card.get_parent()==map.stage and enemy.team=="enemy"
 					and card.position==battle.cards[enemy.id].position
 					and card.position.y==battle.MAP_BOTTOM_TILE_CARD_Y)
+				# The real lower row has map tiles at z 4/5 and persistent
+				# inventory buttons at z 50. A capture refresh must never reset
+				# enemy cards to local 6/0 and bury them under those controls.
+				var is_chosen: bool = int(candidate.index)==int(world.pending_reward.selected)
+				capture_cards_above_map = capture_cards_above_map and (
+					card.z_index == (battle.capture_panel.MAP_CAPTURE_SELECTED_CARD_Z if is_chosen else battle.capture_panel.MAP_CAPTURE_CARD_Z)
+					and card.z_index>battle.cards[enemy.id].z_index
+					and card.z_index>map.book_button.z_index
+					and card.z_index>map.deck_button.z_index
+					and candidate.arrow.z_index>card.z_index
+					and candidate.caption.z_index>card.z_index)
 				if Layered.supports(str(enemy.slug)):
 					var live_portrait := card.get_node_or_null("LayeredCardCharacter") as TextureRect
 					layered_capture_matches = layered_capture_matches and live_portrait!=null and live_portrait.texture.resource_path.ends_with("%s.webp" % str(enemy.slug).replace("-","_"))
 					layered_capture_matches = layered_capture_matches and card.get_node_or_null("LayeredCardBrands")!=null
 			check(candidates_on_tiles,label+": defeated enemy capture cards stay on exact lower map tiles")
+			check(capture_cards_above_map,label+": capture card and selection arrow stay in front of map tiles, book/deck and original enemy cards")
 			check(layered_capture_matches,label+": post-victory capture choices preserve approved layered monster art")
 			if force_capture_failure:
 				# Emulate a legitimately exhausted capture phase in an isolated save.
