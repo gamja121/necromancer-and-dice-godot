@@ -6,6 +6,7 @@ extends SceneTree
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 const LAYOUT = preload("res://systems/battle_presentation_layout.gd")
+const RULES = preload("res://systems/battle_rules.gd")
 var passed := 0
 var failed := 0
 
@@ -16,6 +17,53 @@ func check(ok: bool, name: String) -> void:
 	else:
 		failed += 1
 		printerr("FAIL battle-formation-order: ",name)
+
+## Enemy screen columns are mirrored, but the canonical hit weights stay
+## untouched. Confirm both factions get the highest hit chance at the center.
+func test_targeting_placement() -> void:
+	check(RULES.WEIGHTS == {1:[100],2:[35,65],3:[20,33,47],4:[15,20,27,38]},
+		"canonical 1–4 unit hit probabilities are unchanged")
+	var layout=LAYOUT.new()
+	var battle=RULES.new()
+	var surface=Vector2(1280,720)
+	for count in [1,2,3,4]:
+		battle.units=[]
+		for team in ["ally","enemy"]:
+			for slot in range(count):
+				battle.units.append({"id":"%s-%d" % [team,slot],"team":team,"slot":slot,"alive":true,"is_summon":false})
+		for team in ["ally","enemy"]:
+			var targets: Array=battle.target_weights(team)
+			var slot_rates: Array=targets.map(func(entry): return int(entry.chance))
+			check(slot_rates==RULES.WEIGHTS[count],
+				"%s %d units: canonical hit weights remain assigned in slot order" % [team,count])
+			var on_screen: Array=targets.duplicate()
+			on_screen.sort_custom(func(a,b):
+				return layout.horizontal_center(a.unit,surface)<layout.horizontal_center(b.unit,surface))
+			var visual_rates: Array=on_screen.map(func(entry): return int(entry.chance))
+			var expected: Array=RULES.WEIGHTS[count].duplicate()
+			if team=="enemy": expected.reverse()
+			check(visual_rates==expected,
+				"%s %d units: hit rate rises toward the center of the battlefield" % [team,count])
+	# Death removes a target without shifting the surviving units' geometry.
+	for team in ["ally","enemy"]:
+		battle.units=[]
+		for slot in range(4):
+			battle.units.append({"id":"%s-%d" % [team,slot],"team":team,"slot":slot,"alive":slot!=1,"is_summon":false})
+		var remaining: Array=battle.target_weights(team)
+		check(remaining.map(func(entry): return int(entry.chance))==RULES.WEIGHTS[3]
+			and remaining.map(func(entry): return int(entry.unit.slot))==[0,2,3],
+			"%s: surviving positions use unchanged three-target hit weights" % team)
+	# A summon inherits the dead/replaced owner's target position.
+	battle.units=[
+		{"id":"enemy-outer","team":"enemy","slot":0,"alive":true,"is_summon":false},
+		{"id":"enemy-inner","team":"enemy","slot":1,"alive":true,"is_summon":false},
+		{"id":"enemy-summon","team":"enemy","slot":4,"owner_slot":1,"alive":true,"is_summon":true}
+	]
+	var summoned: Array=battle.target_weights("enemy")
+	check(summoned.size()==2 and int(summoned[0].chance)==RULES.WEIGHTS[2][0]
+		and int(summoned[1].chance)==RULES.WEIGHTS[2][1]
+		and str(summoned[1].unit.id)=="enemy-summon",
+		"enemy summon inherits the center-side target rate without changing values")
 
 func until_ready(condition: Callable, msec: int = 13000) -> bool:
 	var start := Time.get_ticks_msec()
@@ -190,6 +238,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	test_targeting_placement()
 	var session: Node=root.get_node_or_null("RunSession")
 	var created: bool=session==null
 	if created:
