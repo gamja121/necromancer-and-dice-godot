@@ -101,6 +101,11 @@ func _run() -> void:
 	"plague-frog": "base_plague.webp",
 	"siren": "base_ice.webp",
 	}
+	# Tree portraits were supplied under the other species' filenames.
+	# The calm face belongs to the forest elder; the roaring face to the raging treant.
+	var treant_portraits := {"ancient-treant": "raging_treant.webp", "raging-treant": "ancient_treant.webp"}
+	check(str(Layered.PORTRAITS.get("ancient-treant", "")).ends_with(treant_portraits["ancient-treant"]), "forest elder uses calm tree portrait")
+	check(str(Layered.PORTRAITS.get("raging-treant", "")).ends_with(treant_portraits["raging-treant"]), "raging treant uses roaring tree portrait")
 	check(expected_backgrounds.size() == 47, "all 47 real monster slugs have approved layered scenery")
 	for slug in expected_backgrounds.keys():
 		for dims in [Vector2(136,218), Vector2(121.856,225.216), Vector2(90,120), Vector2(170,302.4)]:
@@ -158,7 +163,7 @@ func _run() -> void:
 				check(reward_choice.texture_normal == null and reward_choice.texture_disabled == null, "%s capture uses no flattened texture" % slug)
 				check(reward_choice.has_node("LayeredCardBase") and reward_choice.has_node("LayeredCardCharacter") and reward_choice.has_node("LayeredCardRibbon") and reward_choice.has_node("LayeredCardBrands"), "%s soul-harvest choice uses live layered portrait" % slug)
 				var reward_actor := reward_choice.get_node_or_null("LayeredCardCharacter") as TextureRect
-				check(reward_actor != null and reward_actor.texture.resource_path.ends_with("%s.webp" % slug.replace("-", "_")) or slug in ["skeleton-spear","skeleton-archer"] and reward_actor != null, "%s soul-harvest choice uses approved art path" % slug)
+				check(reward_actor != null and reward_actor.texture.resource_path.ends_with(str(treant_portraits.get(slug, "%s.webp" % slug.replace("-", "_")))) or slug in ["skeleton-spear","skeleton-archer"] and reward_actor != null, "%s soul-harvest choice uses approved art path" % slug)
 				var reward_flight := Layered.flight_visual_copy(reward_choice)
 				check(reward_flight != null and reward_flight.has_node("LayeredCardCharacter") and reward_flight.has_node("LayeredCardBrands"), "%s harvested card flies to book with live layers" % slug)
 				check(_brand_positions_ok(reward_choice.get_node_or_null("LayeredCardBrands") as Control, reward_choice.get_node_or_null("LayeredCardBase") as TextureRect, 3), "%s soul-harvest option keeps centered brands" % slug)
@@ -177,7 +182,7 @@ func _run() -> void:
 				if slug != "skeleton-spear" and slug != "skeleton-archer" and dims == Vector2(136,218):
 					var bg_image := base.texture.get_image()
 					check(bg_image.get_pixel(0, 0).a < 0.03 and bg_image.get_pixel(bg_image.get_width()-1, 0).a < 0.03 and bg_image.get_pixel(0, bg_image.get_height()-1).a < 0.03 and bg_image.get_pixel(bg_image.get_width()-1, bg_image.get_height()-1).a < 0.03, "%s approved legion background has no black opaque exterior corners" % slug)
-				check(actor.texture.resource_path.ends_with("%s.webp" % slug.replace("-", "_")) or slug in ["skeleton-spear", "skeleton-archer"], "%s uses its own cutout art asset" % slug)
+				check(actor.texture.resource_path.ends_with(str(treant_portraits.get(slug, "%s.webp" % slug.replace("-", "_")))) or slug in ["skeleton-spear", "skeleton-archer"], "%s uses its own cutout art asset" % slug)
 				if dims == Vector2(136, 218):
 					var source_image := actor.texture.get_image()
 					check(source_image.get_pixel(0, 0).a < 0.05 and source_image.get_pixel(source_image.get_width()-1, source_image.get_height()-1).a < 0.05, "%s portrait has transparent exterior pixels" % slug)
