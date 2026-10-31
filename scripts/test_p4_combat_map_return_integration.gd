@@ -7,6 +7,7 @@ extends SceneTree
 const MapScene = preload("res://map.tscn")
 const SessionScript = preload("res://systems/run_session.gd")
 const Layered = preload("res://systems/layered_unit_card.gd")
+const CaptureUI = preload("res://systems/corpse_capture.gd")
 
 var passed: int = 0
 var failed: int = 0
@@ -223,7 +224,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				# enemy cards to local 6/0 and bury them under those controls.
 				var is_chosen: bool = int(candidate.index)==int(world.pending_reward.selected)
 				capture_cards_above_map = capture_cards_above_map and (
-					card.z_index == (battle.capture_panel.MAP_CAPTURE_SELECTED_CARD_Z if is_chosen else battle.capture_panel.MAP_CAPTURE_CARD_Z)
+					card.z_index == (CaptureUI.MAP_CAPTURE_SELECTED_CARD_Z if is_chosen else CaptureUI.MAP_CAPTURE_CARD_Z)
 					and card.z_index>battle.cards[enemy.id].z_index
 					and card.z_index>map.book_button.z_index
 					and card.z_index>map.deck_button.z_index
