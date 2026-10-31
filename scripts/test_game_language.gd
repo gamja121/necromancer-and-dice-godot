@@ -54,7 +54,7 @@ func source_literals(source: String) -> Array[String]:
 			var character: String=line.substr(i,1)
 			if quote.is_empty():
 				if character=="#": break
-				if character=="\\"" or character=="'":
+				if character=="\"" or character=="'":
 					quote=character
 					value=""
 			elif escaped:
