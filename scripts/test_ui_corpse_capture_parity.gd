@@ -9,12 +9,13 @@ class CaptureSceneStub extends RefCounted:
 	var sprites: Dictionary={}
 	var layer: Control
 	var paused: bool = false
+	var map_dock: bool = false
 	var speed_values: Array = [1.5,2.0,3.0]
 	var speed_index: int = 0
 	var battle_tempo: float = 2.0
 	var sound_calls: Array = []
 	func sound(id: String) -> void: sound_calls.append(id)
-	func uses_map_tile_dock() -> bool: return false
+	func uses_map_tile_dock() -> bool: return map_dock
 func _initialize() -> void:
 	call_deferred("_run")
 func check(ok: bool, label: String) -> void:
@@ -91,6 +92,20 @@ func _run() -> void:
 		check(near(card_b.scale.x,1.15) and near(card_a.scale.x,1.0) and arrow_b.visible and not arrow_a.visible,"enlargement and arrow follow saved selected index")
 		check(panel.capture_info_status.text.contains("대상 고정") and panel.capture_info_status.text.contains("늑대"),"locked selection and chosen target displayed")
 		check(card_a.disabled and card_b.disabled,"locked capture candidates cannot be changed")
+		# In embedded combat the choices are stage siblings of the real map
+		# tile buttons. Their z-order must stay high on every refresh and after
+		# saved selection changes (not fall back to standalone 6/0).
+		panel.scene.map_dock=true
+		panel.refresh()
+		check(card_a.z_index==CaptureUI.MAP_CAPTURE_CARD_Z and card_b.z_index==CaptureUI.MAP_CAPTURE_SELECTED_CARD_Z,
+			"embedded harvest selection keeps all candidate cards over bottom map tiles")
+		session.world.pending_reward.selected=0
+		panel.refresh()
+		check(card_a.z_index==CaptureUI.MAP_CAPTURE_SELECTED_CARD_Z and card_b.z_index==CaptureUI.MAP_CAPTURE_CARD_Z,
+			"embedded harvest selection changes never lower any card to standalone z-order")
+		panel.scene.map_dock=false
+		session.world.pending_reward.selected=1
+		panel.refresh()
 		# Saved success cleanup: the arrow and other candidates disappear
 		# before the kept monster can begin its inventory flight.
 		var world_before_visual: String=JSON.stringify(session.world.snapshot())
