@@ -6,6 +6,14 @@ const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
 # Selection uses a larger card and the original arrow, never a green frame.
 const SELECTED_CAPTURE_SCALE: float = 1.15
+# Embedded capture candidates live directly on the MAP stage (not the
+# battlefield layer). Keep every candidate above map tiles (z 4/5),
+# the normal battle cards (z 44), and the bottom book/deck (z 50).
+# The original standalone capture window retains its local 6/0 ordering.
+const MAP_CAPTURE_CARD_Z: int = 65
+const MAP_CAPTURE_SELECTED_CARD_Z: int = 66
+const MAP_CAPTURE_ANNOTATION_Z: int = 67
+const MAP_CAPTURE_ARROW_Z: int = 68
 const CAPTURE_ARROW_EXIT_SECONDS: float = 0.10
 const CAPTURE_OTHER_CARD_DISSOLVE_SECONDS: float = 0.45
 const CAPTURE_SUCCESS_REVEAL_SECONDS: float = 0.12
@@ -40,7 +48,7 @@ static func make_choice_card(source: TextureButton, unit: Dictionary) -> Texture
 func place_choice_node(node: Control, parent: Control) -> void:
 	if parent != self:
 		external_choice_nodes.append(node)
-		node.z_index = 65
+		node.z_index = MAP_CAPTURE_CARD_Z
 
 var capture_info_panel: Panel
 var capture_info_status: Label
@@ -104,12 +112,14 @@ func setup(battle_scene) -> void:
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		place_choice_node(caption,choice_parent)
+		if on_map_tiles: caption.z_index = MAP_CAPTURE_ANNOTATION_Z
 		var arrow_pos: Vector2 = option.position+Vector2(23,-13 if on_map_tiles else -55)
 		var arrow = scene.image(choice_parent,"res://assets/cards/corpse-selection-arrow.png",arrow_pos,Vector2(34,34))
 		arrow.rotation = PI
 		arrow.pivot_offset = arrow.size*0.5
 		arrow.z_index = 8 # Stay visible above the enlarged selected card.
 		place_choice_node(arrow,choice_parent)
+		if on_map_tiles: arrow.z_index = MAP_CAPTURE_ARROW_Z
 		choices.append({"card":option,"target":target,"arrow":arrow,"caption":caption,"index":index})
 	refresh()
 	if pending.phase in ["success","failed"]: call_deferred("resume_result")
@@ -174,7 +184,9 @@ func refresh() -> void:
 		choice.card.modulate = Color.WHITE if selected else Color(1,1,1,0.97)
 		choice.card.pivot_offset = choice.card.size * 0.5
 		choice.card.scale = Vector2.ONE * (SELECTED_CAPTURE_SCALE if selected else 1.0)
-		choice.card.z_index = 6 if selected else 0
+		# Never push stage-attached capture cards behind the map's tiles and
+		# border when refresh() runs (including selection/lock/reload).
+		choice.card.z_index = (MAP_CAPTURE_SELECTED_CARD_Z if selected else MAP_CAPTURE_CARD_Z) if scene.uses_map_tile_dock() else (6 if selected else 0)
 		choice.arrow.visible = selected
 		choice.card.disabled = busy or pending.locked
 		choice.target.disabled = busy or pending.locked
