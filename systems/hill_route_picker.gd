@@ -4,6 +4,8 @@ extends "res://systems/reward_ui.gd"
 signal step_selected(steps:int)
 const State=preload("res://systems/map_state.gd")
 const CURVE_Y=[349.0,341.0,335.0,338.0,346.0,350.0]
+const TILE_SPACING_X=108.0
+const TILE_COUNT=6
 var choice_buttons:Array[Button]=[]
 var pictures:Array[TextureRect]=[]
 var captions:Array[Label]=[]
@@ -70,9 +72,12 @@ func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="í˜„ì
 	path.z_index=1
 	path.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	add_child(path)
-	path.points.append(Vector2(183,371))
-	for i in range(6):
-		var point:=Vector2(270+108*i,float(CURVE_Y[i]))
+	# Center all six destinations as one group in the 1280px overlay.
+	# Keep the origin, ink path and labels in the same coordinate system.
+	var first_tile_x:float=(size.x-TILE_SPACING_X*float(TILE_COUNT-1))*0.5
+	path.points.append(Vector2(first_tile_x-87.0,371))
+	for i in range(TILE_COUNT):
+		var point:=Vector2(first_tile_x+TILE_SPACING_X*float(i),float(CURVE_Y[i]))
 		centers.append(point)
 		path.points.append(point)
 		var step:int=i+1
@@ -103,7 +108,7 @@ func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="í˜„ì
 		var text:Label=caption(tile_name,point+Vector2(-52,37 if long_name else 43),Vector2(104,34 if long_name else 24),14 if long_name else 16)
 		text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		captions.append(text)
-	caption(origin_text,Vector2(158,384),Vector2(50,25),14)
+	caption(origin_text,Vector2(first_tile_x-112.0,384),Vector2(50,25),14)
 	flag=Flag.new()
 	flag.name="HillDestinationFlag"
 	flag.size=Vector2(38,58)
