@@ -222,9 +222,11 @@ func target_weights(team: String) -> Array:
 	formation.sort_custom(func(a,b): return a.get("owner_slot",a.slot) < b.get("owner_slot",b.slot))
 	if formation.is_empty():
 		return []
+	# Each team's slot order runs from its outer edge toward the center.
+	# Enemy sprites are mirrored on screen, so the unchanged weights already
+	# increase toward the center for BOTH teams. Reversing them here gave the
+	# far-right enemy the highest hit chance instead of the center-side enemy.
 	var weights = WEIGHTS[formation.size()].duplicate()
-	if team == "enemy":
-		weights.reverse()
 	var result: Array = []
 	for i in range(formation.size()):
 		result.append({"unit":formation[i],"chance":weights[i]})
