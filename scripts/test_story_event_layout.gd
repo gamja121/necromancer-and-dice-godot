@@ -45,7 +45,7 @@ func _run() -> void:
 	check(Rect2(narration.position,narration.size)==Rect2(702,211,432,78),"narration moves up into its right-page reading lane")
 	check(Rect2(speech.position,speech.size)==Rect2(702,333,432,112),"spoken text moves up into a separate readable lane")
 	check(Rect2(action.position,action.size)==Rect2(700,458,440,44),"Continue choice follows lifted prose without crowding it")
-	check(Rect2(secondary.position,secondary.size)==Rect2(700,531,210,44) and Rect2(exit.position,exit.size)==Rect2(940,531,210,44),"secondary choices follow the lifted copy without changing their widths")
+	check(Rect2(secondary.position,secondary.size)==Rect2(700,518,210,44) and Rect2(exit.position,exit.size)==Rect2(940,518,210,44),"secondary choices follow the lifted copy without changing their widths")
 	check(speech.text=="여기 있었구만.","speaker label is separated without changing the dialogue")
 	check(not Rect2(narration.position,narration.size).intersects(Rect2(speech.position,speech.size)),"narration and speech do not overlap")
 	check(not Rect2(speech.position,speech.size).intersects(Rect2(action.position,action.size)),"dialogue does not overlap Continue")
