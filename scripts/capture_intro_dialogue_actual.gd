@@ -6,13 +6,14 @@ const BEAT_INDEX = 10 # Knight commander: "살아서 돌아와라."
 var passed: int = 0
 var failed: int = 0
 
-func check(ok: bool, description: String) -> void:
+func check(ok: bool, description: String) -> bool:
 	if ok:
 		passed += 1
 		print("PASS intro-gui: ",description)
 	else:
 		failed += 1
 		printerr("FAIL intro-gui: ",description)
+	return ok
 
 func _initialize() -> void:
 	call_deferred("_run")
