@@ -175,12 +175,15 @@ func discovery_exclusion_case() -> void:
 	var probe:=RandomNumberGenerator.new()
 	for seed in range(1,600):
 		probe.seed=seed
-		if probe.randf()>=0.60:
+		if probe.randf()<0.60:
 			world.rng.seed=seed
 			break
-	check(session.save_world(),"qualified discovery branch uses genuine seeded 40-percent draw")
+	check(session.save_world(),"qualified story-location fixture saves a seed that formerly chose routine")
+	var rng_before: int=world.rng.state
 	var chosen: Dictionary=session.begin_story_free_event(index)
-	check(bool(chosen.get("ok",false)) and chosen.get("type","")=="discovery","qualified location discovery remains possible after routine addition")
+	check(bool(chosen.get("ok",false)) and chosen.get("type","")=="discovery" and chosen.get("location","")=="forest",
+		"qualified hill takes priority over a 60-percent routine result")
+	check(world.rng.state==rng_before,"guaranteed main place does not consume repeatable-event RNG")
 	var receipt: String="routine-visit:%d:%d:%d" % [world.map_serial,world.move_serial,index]
 	check(receipt in world.reward_receipts and world.pending_reward.is_empty(),"discovery also closes the current visit receipt")
 	check(not bool(session.begin_story_free_event(index).get("ok",false)),"same arrival can never award both discovery and routine")
