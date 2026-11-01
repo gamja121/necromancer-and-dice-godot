@@ -60,10 +60,66 @@ func test_targeting_placement() -> void:
 		{"id":"enemy-summon","team":"enemy","slot":4,"owner_slot":1,"alive":true,"is_summon":true}
 	]
 	var summoned: Array=battle.target_weights("enemy")
-	check(summoned.size()==2 and int(summoned[0].chance)==RULES.WEIGHTS[2][0]
-		and int(summoned[1].chance)==RULES.WEIGHTS[2][1]
-		and str(summoned[1].unit.id)=="enemy-summon",
-		"enemy summon inherits the center-side target rate without changing values")
+	check(summoned.size()==3 and float(summoned[0].chance)==35.0
+		and float(summoned[1].chance)==32.5 and float(summoned[2].chance)==32.5
+		and str(summoned[1].unit.id)=="enemy-inner"
+		and str(summoned[2].unit.id)=="enemy-summon",
+		"enemy summon and living owner each take half their unchanged center-side rate")
+	# The pet is physically on the fifth column, but targets inherit the
+	# owner's slot and not the summons' separate visual slot.
+	for count in [1,2,3,4]:
+		for team in ["ally","enemy"]:
+			battle.units=[]
+			for slot in range(count):
+				battle.units.append({"id":"%s-%d" % [team,slot],"team":team,"slot":slot,"alive":true,"is_summon":false})
+			var owner_slot: int=count-1
+			battle.units.append({"id":team+"-pet","team":team,"slot":4,"owner_slot":owner_slot,"alive":true,"is_summon":true})
+			var split: Array=battle.target_weights(team)
+			var expected: Array=RULES.WEIGHTS[count]
+			check(split.size()==count+1 and split.map(func(entry): return float(entry.chance)).reduce(func(acc,rate): return acc+rate,0.0)==100.0,
+				"%s %d units: summon adds a target without increasing overall hit probability" % [team,count])
+			var owner_rate: float=0.0
+			var pet_rate: float=0.0
+			for entry in split:
+				if str(entry.unit.id)=="%s-%d" % [team,owner_slot]: owner_rate=float(entry.chance)
+				if str(entry.unit.id)==team+"-pet": pet_rate=float(entry.chance)
+			check(owner_rate==float(expected[owner_slot])*0.5 and pet_rate==owner_rate,
+				"%s %d units: the owner and summon share exactly 50/50" % [team,count])
+			# A pet remains targetable if its owner dies.
+			battle.units[owner_slot].alive=false
+			var orphaned: Array=battle.target_weights(team)
+			check(orphaned.size()==count and orphaned.any(func(entry): return str(entry.unit.id)==team+"-pet")
+				and orphaned.map(func(entry): return float(entry.chance)).reduce(func(acc,rate): return acc+rate,0.0)==100.0,
+				"%s %d units: summon remains targetable after the owner dies" % [team,count])
+
+func test_summon_cooldown() -> void:
+	var data: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json"))
+	var defs: Dictionary=data.units
+	var battle=RULES.new(defs,734)
+	var ally: Dictionary=battle.individual("spider-knight","ally-owner")
+	var enemy: Dictionary=battle.individual("spider-knight","enemy-owner")
+	battle.start([ally],[enemy])
+	battle.round_number=1
+	battle.summon_round()
+	for team in ["ally","enemy"]:
+		check(battle.living(team).filter(func(u): return u.is_summon and u.slot==4).size()==1,
+			team+": a summon can spawn in the first round")
+		var pet: Dictionary=battle.living(team).filter(func(u): return u.is_summon and u.slot==4)[0]
+		battle.damage(pet,pet.hp+1)
+		check(not pet.alive and int(pet.death_round)==1,team+": summon death round is recorded")
+	var checkpoint: Dictionary=JSON.parse_string(JSON.stringify(battle.snapshot()))
+	var restored=RULES.new(defs,735)
+	check(restored.restore(checkpoint),"summon death round survives the battle save/reload")
+	restored.round_number=2
+	restored.summon_round()
+	for team in ["ally","enemy"]:
+		check(restored.living(team).filter(func(u): return u.is_summon and u.slot==4).is_empty(),
+			team+": one complete round of resummon cooldown after death")
+	restored.round_number=3
+	restored.summon_round()
+	for team in ["ally","enemy"]:
+		check(restored.living(team).filter(func(u): return u.is_summon and u.slot==4).size()==1,
+			team+": resummoning is available in the round after cooldown")
 
 func until_ready(condition: Callable, msec: int = 13000) -> bool:
 	var start := Time.get_ticks_msec()
@@ -239,6 +295,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	test_targeting_placement()
+	test_summon_cooldown()
 	var session: Node=root.get_node_or_null("RunSession")
 	var created: bool=session==null
 	if created:
