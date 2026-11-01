@@ -1,0 +1,46 @@
+name: Intro Dialogue Actual Godot Screenshots
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/capture_intro_dialogue_actual.gd'
+      - '.github/workflows/capture-intro-dialogue.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture-intro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import game resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee intro-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' intro-import.log; then exit 1; fi
+      - name: Capture actual intro dialogue from the Godot graphical renderer
+        shell: bash
+        env:
+          INTRO_CAPTURE_DIR: ${{ runner.temp }}/intro-real-screens
+        run: |
+          set -euo pipefail
+          mkdir -p "$INTRO_CAPTURE_DIR"
+          xvfb-run -a -s "-screen 0 1600x900x24" timeout 180s godot --audio-driver Dummy --path . --script res://scripts/capture_intro_dialogue_actual.gd 2>&1 | tee intro-capture.log
+          grep -E '^INTRO_GUI_CAPTURE: [0-9]+ passed, 0 failed$' intro-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|FAIL intro-gui:' intro-capture.log; then exit 1; fi
+      - name: Upload original Godot screenshot PNG files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: intro-dialogue-real-godot-pngs
+          path: |
+            ${{ runner.temp }}/intro-real-screens/*.png
+            intro-capture.log
+          if-no-files-found: warn
+          retention-days: 14
