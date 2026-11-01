@@ -157,6 +157,8 @@ func damage(target: Dictionary, n: int, source: Dictionary = {}, kind: String = 
 		target.hp = 1
 	if target.hp <= 0:
 		target.alive = false
+		if target.is_summon and target.slot == 4:
+			target.death_round = round_number
 		events.append("%s 전사" % target.name)
 		if not source.is_empty() and source.alive and source.passive == "feast" and kind in ["attack","poison"]:
 			source.max_hp += 2
@@ -176,6 +178,10 @@ func poison(u: Dictionary, count: int, source: Dictionary) -> void:
 func summon_round() -> void:
 	for team in ["ally","enemy"]:
 		if living(team).any(func(u): return u.slot == 4):
+			continue
+		# A summon that died in the previous round blocks one full round.
+		# Keep the death round on the retained summon so saves restore it.
+		if units.any(func(u): return u.team == team and u.slot == 4 and not u.alive and int(u.get("death_round",-100000)) >= round_number-1):
 			continue
 		var owner = {}
 		var cost = false
@@ -216,20 +222,34 @@ func summon_round() -> void:
 
 func target_weights(team: String) -> Array:
 	var formation = living(team).filter(func(u): return u.slot < 4 and not u.is_summon)
-	for pet in living(team).filter(func(u): return u.slot == 4):
-		formation = formation.filter(func(u): return u.slot != pet.owner_slot)
-		formation.append(pet)
+	var pets = living(team).filter(func(u): return u.slot == 4)
+	# A surviving pet without a living owner takes that owner's formation
+	# position as an ordinary target; no unit may become untargetable.
+	for pet in pets:
+		if not formation.any(func(u): return u.slot == pet.owner_slot):
+			formation.append(pet)
 	formation.sort_custom(func(a,b): return a.get("owner_slot",a.slot) < b.get("owner_slot",b.slot))
 	if formation.is_empty():
 		return []
-	# Each team's slot order runs from its outer edge toward the center.
-	# Enemy sprites are mirrored on screen, so the unchanged weights already
-	# increase toward the center for BOTH teams. Reversing them here gave the
-	# far-right enemy the highest hit chance instead of the center-side enemy.
+	# Keep the original 1–4 unit probabilities, in outside-to-center slot
+	# order for both mirrored sides. Only an active owner/pet pair shares
+	# its slot's rate; all other targets keep their unchanged weights.
 	var weights = WEIGHTS[formation.size()].duplicate()
 	var result: Array = []
 	for i in range(formation.size()):
-		result.append({"unit":formation[i],"chance":weights[i]})
+		var unit: Dictionary = formation[i]
+		var pet: Dictionary = {}
+		if not unit.is_summon:
+			for candidate in pets:
+				if candidate.owner_slot == unit.slot:
+					pet = candidate
+					break
+		if not pet.is_empty():
+			var half_chance: float = float(weights[i])*0.5
+			result.append({"unit":unit,"chance":half_chance})
+			result.append({"unit":pet,"chance":half_chance})
+		else:
+			result.append({"unit":unit,"chance":weights[i]})
 	return result
 
 func pick_target(team: String) -> Dictionary:
@@ -429,7 +449,7 @@ func restore(saved: Dictionary) -> bool:
 	# JSON decodes numbers as floats; Array membership is type-sensitive in Godot.
 	# Restore dice faces to integers so blessings/curses still trigger after loading.
 	for u in units:
-		for field in ["slot","owner_slot","born_round","max_hp","base_hp","base_attack","base_speed","hp","attack","speed","grudge","summon_power","shields"]:
+		for field in ["slot","owner_slot","born_round","death_round","max_hp","base_hp","base_attack","base_speed","hp","attack","speed","grudge","summon_power","shields"]:
 			if u.has(field): u[field] = int(u[field])
 		for b in u.brands:
 			b.bless = b.bless.map(func(face): return int(face))
