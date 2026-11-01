@@ -185,9 +185,14 @@ func begin_story_free_event(index: int) -> Dictionary:
 	if receipt in world.reward_receipts: return {"ok":false,"reason":"이번 방문은 이미 완료했습니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var possible: String = Discovery.next_eligible(world)
-	# One balanced draw only when a real undiscovered, qualified location
-	# exists. Without such a location, all six routine events stay reachable.
-	if not possible.is_empty() and world.rng.randf()>=0.60:
+	# Story-critical locations (World Tree, Altar, Hill) win the next real,
+	# story-free event visit without the 40% discovery roll. Otherwise the
+	# six repeatable routines retain the existing 60/40 choice.
+	var guaranteed_story: bool = not Discovery.next_main_eligible(world).is_empty()
+	var discover: bool = guaranteed_story
+	if not guaranteed_story and not possible.is_empty():
+		discover = world.rng.randf() >= 0.60
+	if discover:
 		var converted: int = world.reveal_discovered_location(possible)
 		if converted>=0:
 			_apply_discovery_flags(possible)
