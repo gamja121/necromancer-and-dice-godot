@@ -71,7 +71,7 @@ func _run() -> void:
 	check(intro_art_found, "intro uses exactly the same parchment texture")
 	check(intro.advance_button is Button and intro.skip_button is Button, "intro click and skip affordances remain")
 	var intro_box: Control=intro.dialogue_stage.get_node_or_null("IntroDialogueBox")
-	check(intro_box!=null and intro_box.size==Vector2(1075.2,216),"intro keeps original cinematic dialogue footprint")
+	check(intro_box!=null and intro_box.size.distance_to(Vector2(1075.2,216))<0.1,"intro keeps original cinematic dialogue footprint")
 	if intro_box!=null:
 		var nameplate: Control=intro_box.get_node_or_null("SpeakerNameplate")
 		var inner: Control=intro_box.get_node_or_null("GoldHairline")
