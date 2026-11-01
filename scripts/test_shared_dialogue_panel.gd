@@ -62,38 +62,37 @@ func _run() -> void:
 	var intro = INTRO.instantiate()
 	root.add_child(intro)
 	await process_frame
-	var intro_art_found: bool = false
-	for node in intro.dialogue_stage.get_children():
-		if node is Control:
-			for child in node.get_children():
-				if child is TextureRect and child.texture != null and child.texture.resource_path == FRAME:
-					intro_art_found = true
-	check(intro_art_found, "intro uses exactly the same parchment texture")
-	check(intro.advance_button is Button and intro.skip_button is Button, "intro click and skip affordances remain")
 	var intro_box: Control=intro.dialogue_stage.get_node_or_null("IntroDialogueBox")
-	check(intro_box!=null and intro_box.size.distance_to(Vector2(1075.2,216))<0.1,"intro keeps original cinematic dialogue footprint")
+	check(intro_box!=null and intro_box.size.distance_to(Vector2(1075.2,216))<0.1,
+		"intro retains its approved in-game footprint")
+	check(intro.advance_button is Button and intro.skip_button is Button,
+		"intro touch, Continue and Skip buttons are preserved")
 	if intro_box!=null:
-		var nameplate: Control=intro_box.get_node_or_null("SpeakerNameplate")
-		var inner: Control=intro_box.get_node_or_null("GoldHairline")
-		var badge: Control=intro_box.get_node_or_null("DialogueNextBadge")
-		check(nameplate is Panel and nameplate.position.y<0,"intro has a raised independent speaker plate")
-		check(nameplate!=null and intro.speaker_label.get_parent()==nameplate and intro.speaker_label.name=="IntroSpeakerName",
-			"editable speaker text is embedded in the gilt nameplate")
-		check(inner is Panel and intro_box.get_node_or_null("BronzeInset") is Panel,
-			"intro uses double live gilded inner-frame rules")
-		check(badge is Panel and badge.get_node_or_null("IntroContinueArrow") is Label,
-			"animated continue indicator sits in its own heraldic medallion")
-		check(intro.text_label.get_parent()==intro_box and intro.text_label.name=="IntroDialogueText"
-			and intro.text_label.has_theme_font_override("font"),"dialogue type stays live and uses a legible manuscript font")
-		var text_bounds: Rect2=Rect2(intro.text_label.position,intro.text_label.size)
-		check(text_bounds.position.x>=75 and text_bounds.end.x<badge.position.x
-			and text_bounds.position.y>nameplate.position.y+nameplate.size.y
-			and text_bounds.end.y<intro_box.size.y-10,
-			"spoken text stays clear of the nameplate, advance emblem and lower frame")
-		for deco in [intro_box.get_node_or_null("DialogueShadow"),inner,nameplate,badge]:
-			check(deco!=null and deco.mouse_filter==Control.MOUSE_FILTER_IGNORE,
-				"purely decorative trim never intercepts dialogue tap input")
-		var unchanged = session.world.snapshot().duplicate(true)
+		var original: NinePatchRect=intro_box.get_node_or_null("IntroOriginalDialogueFrame") as NinePatchRect
+		check(original!=null and original.texture!=null
+			and original.texture.resource_path=="res://assets/intro/dialogue_frame.webp",
+			"intro uses its original hand-painted dialogue_frame.webp asset")
+		check(original!=null and original.patch_margin_left==32 and original.patch_margin_right==32
+			and original.patch_margin_top==28 and original.patch_margin_bottom==28,
+			"hand-painted corners are protected by nine-slice margins")
+		check(original!=null and original.mouse_filter==Control.MOUSE_FILTER_IGNORE,
+			"original image never captures dialogue taps")
+		check(intro_box.get_node_or_null("SpeakerNameplate")==null
+			and intro_box.get_node_or_null("BronzeInset")==null
+			and intro_box.get_node_or_null("DialogueNextBadge")==null,
+			"old synthetic brass decorations are removed")
+		check(intro.speaker_label.get_parent()==intro_box and intro.speaker_label.name=="IntroSpeakerName"
+			and intro.text_label.get_parent()==intro_box and intro.text_label.name=="IntroDialogueText",
+			"speaker and manuscript copy stay as live localized game labels")
+		var bounds: Rect2=Rect2(intro.text_label.position,intro.text_label.size)
+		check(bounds.position.x>55 and bounds.end.x<980
+			and bounds.position.y>intro.speaker_label.position.y+intro.speaker_label.size.y
+			and bounds.end.y<200,"original art's inner writing area clears borders and name")
+		check(intro_box.get_node_or_null("IntroContinueArrow") is Label,
+			"live animated continuation cue remains accessible")
+		check(intro_box.get_children().filter(func(n):return n is TextureRect).is_empty(),
+			"original intro frame uses NinePatchRect instead of distorting a TextureRect")
+	var unchanged = session.world.snapshot().duplicate(true)
 		intro.advance()
 		check(intro.line_index==0 and intro.dialogue_stage.visible
 			and intro.speaker_label.text==str(intro.lines[0].speaker)
