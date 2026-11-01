@@ -111,44 +111,6 @@ func _portrait(path: String, pos: Vector2, dimensions: Vector2, mirrored: bool =
 	dialogue_stage.add_child(node)
 	return node
 
-## High-fidelity intro dialogue trim, assembled from live Godot nodes.
-## This intentionally does not alter the shared story parchment or any art.
-func _dialogue_panel(parent: Control, title: String, bounds: Rect2, fill: Color, outline: Color, width: int = 2, rounding: int = 6) -> Panel:
-	var node := Panel.new()
-	node.name = title
-	node.position = bounds.position
-	node.size = bounds.size
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var skin := StyleBoxFlat.new()
-	skin.bg_color = fill
-	skin.border_color = outline
-	skin.set_border_width_all(width)
-	skin.set_corner_radius_all(rounding)
-	node.add_theme_stylebox_override("panel",skin)
-	parent.add_child(node)
-	return node
-
-func _dialogue_rule(parent: Control, title: String, bounds: Rect2, tint: Color) -> ColorRect:
-	var line := ColorRect.new()
-	line.name = title
-	line.position = bounds.position
-	line.size = bounds.size
-	line.color = tint
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(line)
-	return line
-
-func _dialogue_diamond(parent: Control, title: String, center: Vector2, radius: float, tint: Color) -> Polygon2D:
-	var gem := Polygon2D.new()
-	gem.name = title
-	gem.position = center
-	gem.polygon = PackedVector2Array([
-		Vector2(0,-radius),Vector2(radius,0),
-		Vector2(0,radius),Vector2(-radius,0)])
-	gem.color = tint
-	parent.add_child(gem)
-	return gem
-
 func _build_dialogue() -> void:
 	dialogue_stage = _layer()
 	var backdrop = ColorRect.new()
@@ -158,76 +120,42 @@ func _build_dialogue() -> void:
 	dialogue_stage.add_child(backdrop)
 	hero = _portrait("res://assets/intro/necromancer.webp",Vector2(51.2,14.4),Vector2(512,518.4))
 	commander = _portrait("res://assets/intro/knight_commander.webp",Vector2(678.4,-28.8),Vector2(588.8,561.6),true)
-	var box = Control.new()
+	# Use the original hand-painted intro dialogue frame rather than the
+	# shared event parchment or a stack of synthetic gilt decorations.
+	var box := Control.new()
 	box.name = "IntroDialogueBox"
 	box.position = Vector2(102.4,489.6)
 	box.size = Vector2(1075.2,216)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dialogue_stage.add_child(box)
-	# Antique bronze depth behind the original hand-drawn parchment.
-	_dialogue_panel(box,"DialogueShadow",Rect2(9,12,1057,195),
-		Color("110c0bd9"),Color("21140edd"),5,9)
-	var frame = TextureRect.new()
-	frame.name = "IntroParchment"
-	frame.texture = load("res://assets/map/ui/shared_dialogue_panel.svg")
-	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	frame.stretch_mode = TextureRect.STRETCH_SCALE
+	var frame := NinePatchRect.new()
+	frame.name = "IntroOriginalDialogueFrame"
+	frame.texture = load("res://assets/intro/dialogue_frame.webp")
 	frame.size = box.size
+	# Preserve hand-drawn corner and side ornaments at original proportions
+	# while spreading the paper center across the 16:9 game dialogue width.
+	frame.patch_margin_left = 32
+	frame.patch_margin_right = 32
+	frame.patch_margin_top = 28
+	frame.patch_margin_bottom = 28
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(frame)
-	# Double-rule metalwork adds depth without masking the original paper.
-	_dialogue_panel(box,"BronzeInset",Rect2(34,34,1007,151),
-		Color.TRANSPARENT,Color("67442d99"),2,3)
-	_dialogue_panel(box,"GoldHairline",Rect2(40,40,995,139),
-		Color.TRANSPARENT,Color("fff0c451"),1,2)
-	_dialogue_rule(box,"UpperGiltRule",Rect2(334,24,685,2),Color("deb87bba"))
-	_dialogue_rule(box,"UpperDarkRule",Rect2(334,28,685,1),Color("48301bb8"))
-	_dialogue_rule(box,"LowerGiltRule",Rect2(115,186,845,2),Color("9f7645c9"))
-	# The speaker sits in its own raised oxblood nameplate instead of floating
-	# inside the parchment alongside the spoken line.
-	var plate := _dialogue_panel(box,"SpeakerNameplate",
-		Rect2(78,-14,331,67),Color("261511"),Color("a37b4d"),3,7)
-	_dialogue_panel(plate,"NameplateInset",Rect2(5,5,321,57),
-		Color("43251f"),Color("c49960"),1,5)
-	_dialogue_rule(plate,"NameplateSheen",Rect2(72,11,235,1),Color("efd0a66f"))
-	_dialogue_rule(plate,"NameplateUnderline",Rect2(72,54,235,1),Color("130d0b"))
-	# A small layered heraldic seal is drawn with native polygons.
-	var seal := _dialogue_panel(plate,"HeraldicSeal",
-		Rect2(10,9,48,49),Color("271d17"),Color("d5ad70"),2,8)
-	_dialogue_diamond(seal,"OuterCrest",Vector2(24,24),15,Color("d6ae6f"))
-	_dialogue_diamond(seal,"InnerCrest",Vector2(24,24),10,Color("493022"))
-	_dialogue_diamond(seal,"CrestStar",Vector2(24,24),5,Color("f6dfab"))
-	speaker_label = _label(plate,"",Vector2(75,12),Vector2(242,42),24,Color("f7e3b5"))
+	speaker_label = _label(box,"",Vector2(72,38),Vector2(870,29),19,Color("513723"))
 	speaker_label.name = "IntroSpeakerName"
-	speaker_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	speaker_label.add_theme_color_override("font_shadow_color",Color("090504ad"))
-	speaker_label.add_theme_constant_override("shadow_offset_y",1)
-	# Readable manuscript text, with a consistent left inset and room for
-	# wrapping all twelve existing lines without clipping.
-	text_label = _label(box,"",Vector2(94,84),Vector2(860,99),27,Color("24170f"))
+	text_label = _label(box,"",Vector2(72,82),Vector2(890,91),24,Color("21150d"))
 	text_label.name = "IntroDialogueText"
-	text_label.add_theme_font_override("font",preload("res://assets/fonts/nanum_gothic_regular.ttf"))
 	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	dialogue_typewriter = StoryTypewriter.new()
 	dialogue_typewriter.name = "IntroTypewriter"
 	dialogue_stage.add_child(dialogue_typewriter)
-	# A gold-trimmed live continue marker; the full-screen input button stays
-	# above the visual stage and remains the sole scene-advance input.
-	var next_badge := _dialogue_panel(box,"DialogueNextBadge",
-		Rect2(975,146,49,46),Color("2c1c15e6"),Color("b9915e"),2,8)
-	_dialogue_diamond(next_badge,"NextCrest",Vector2(24,23),13,Color("dcb778"))
-	_dialogue_diamond(next_badge,"NextCore",Vector2(24,23),9,Color("4b3021"))
-	var arrow = _label(next_badge,"▼",Vector2(10,8),Vector2(28,28),19,Color("f5d69d"))
+	var arrow := _label(box,"▼",Vector2(1007,164),Vector2(24,26),17,Color("69482b"))
 	arrow.name = "IntroContinueArrow"
-	arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var baseline = arrow.position.y
-	var bob = arrow.create_tween().set_loops().set_parallel(true)
+	var baseline := arrow.position.y
+	var bob := arrow.create_tween().set_loops().set_parallel(true)
 	bob.tween_property(arrow,"position:y",baseline+3,0.45).set_trans(Tween.TRANS_SINE)
-	bob.tween_property(arrow,"modulate:a",1.0,0.45).from(0.6)
+	bob.tween_property(arrow,"modulate:a",1.0,0.45).from(0.45)
 	bob.chain().tween_property(arrow,"position:y",baseline,0.45).set_trans(Tween.TRANS_SINE)
-	bob.parallel().tween_property(arrow,"modulate:a",0.6,0.45)
+	bob.parallel().tween_property(arrow,"modulate:a",0.45,0.45)
 	dialogue_stage.hide()
 
 func _utility_button(title: String, pos: Vector2, callback: Callable) -> Button:
