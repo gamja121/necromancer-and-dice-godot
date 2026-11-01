@@ -327,7 +327,7 @@ func arrange_actions() -> void:
 		style_action(primary[i],Rect2(700,458 if primary.size()==1 else 401+i*54,440,44))
 	for i in range(secondary.size()):
 		var width := 440.0 if secondary.size()==1 else 210.0
-		style_action(secondary[i],Rect2(700+i*240,531,width,44),17)
+		style_action(secondary[i],Rect2(700+i*240,518,width,44),17)
 	for child in get_children():
 		if not child is Label or not child.has_meta("book_copy_role") or child.has_meta("book_skip"): continue
 		var role: String = str(child.get_meta("book_copy_role"))
