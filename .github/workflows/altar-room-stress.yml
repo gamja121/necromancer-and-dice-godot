@@ -1,0 +1,42 @@
+name: Altar Road Capacity Stress - Godot
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/test_altar_room_stress.gd'
+      - '.github/workflows/altar-room-stress.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import actual Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Repeat legitimate patrol plans and actual altar discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_altar_room_stress.gd 2>&1 | tee altar-stress.log
+          grep -E '^ALTAR_ROOM_STRESS: [0-9]+ attempts, [1-9][0-9]* fully blocked legal cases, [0-9]+ partly blocked cases, [0-9]+ checks passed, 0 failed$' altar-stress.log
+          grep -E '^ALTAR_ROOM_REPRO ' altar-stress.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|FAIL altar-room-stress:' altar-stress.log; then exit 1; fi
+      - name: Upload full random-seed trial results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: altar-road-capacity-godot-stress-log
+          path: altar-stress.log
+          if-no-files-found: warn
+          retention-days: 14
