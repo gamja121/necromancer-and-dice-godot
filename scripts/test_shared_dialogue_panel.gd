@@ -92,7 +92,7 @@ func _run() -> void:
 			"live animated continuation cue remains accessible")
 		check(intro_box.get_children().filter(func(n):return n is TextureRect).is_empty(),
 			"original intro frame uses NinePatchRect instead of distorting a TextureRect")
-	var unchanged = session.world.snapshot().duplicate(true)
+		var unchanged = session.world.snapshot().duplicate(true)
 		intro.advance()
 		check(intro.line_index==0 and intro.dialogue_stage.visible
 			and intro.speaker_label.text==str(intro.lines[0].speaker)
