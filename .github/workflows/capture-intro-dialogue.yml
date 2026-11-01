@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/capture_intro_dialogue_actual.gd'
+      - 'systems/intro_scene.gd'
+      - 'assets/intro/dialogue_frame.webp'
       - '.github/workflows/capture-intro-dialogue.yml'
   workflow_dispatch:
 permissions:
