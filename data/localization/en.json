@@ -1150,5 +1150,14 @@
   "지금은 회복할 수 없습니다.": "Healing is currently unavailable.",
   "방문당 1회 · 모든 마물 체력 완전 회복": "Once per Visit · Fully Restore All Monsters' HP",
   " · 구울 영혼 수확": " · Ghoul Soul Harvest",
-  "예언자의 막사": "Seer's Tent"
+  "예언자의 막사": "Seer's Tent",
+  "선택 {selected}/6 · 실제 배치 {applied}/{selected}": "Selected {selected}/6 · Placed {applied}/{selected}",
+  "일반 길 {roads}칸 · 늪지 예약 {reserved}칸": "Open paths {roads} · Marsh reserve {reserved}",
+  "필수 장소 우선 · 추가 타일 {trimmed}칸은 이번 지도에서 제외": "Story sites first · {trimmed} optional stones not placed this lap",
+  "이번 방문의 편성을 확정했습니다. · {space}": "Patrol confirmed for this visit · {space}",
+  "다음 바퀴 배치 예약": "Reserved for the next lap",
+  "현재 지도에 빈 길이 없어 다음 바퀴에 먼저 배치합니다.": "No safe road on this map · The site will be placed first on the next lap.",
+  "다음 바퀴 필수 장소 배치 예약": "Mandatory story site reserved for next lap",
+  "%s 발견 예약 · 다음 바퀴에 확정 배치됩니다.": "%s reserved · Guaranteed placement on the next lap",
+  "필수 장소 발견 · 다음 바퀴에 확정 배치됩니다.": "Story site discovered · Guaranteed placement on the next lap"
 }
