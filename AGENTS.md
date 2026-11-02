@@ -1,5 +1,11 @@
 # Necromancer and Dice
 
+## Latest shared discovery and patrol rules — 2026-11-01
+
+- The current rule in [docs/location_unlock_conditions.md](docs/location_unlock_conditions.md) supersedes the older blanket discovery-40% notes below: an eligible undiscovered **world tree (`unknown`), altar (`altar`) or hill (`forest`)** is guaranteed on the next genuine story-free event arrival, without the routine/discovery RNG draw. Existing main-story events still take priority. Optional camp/additional-graveyard discovery retains the original 40% discovery / 60% routine draw.
+- If no safe road is available, save a pending mandatory-site reservation and place it before optional stones on the next generated board. A pending site is not yet an unlocked or placed tile; keep its distinct card and HOME notice.
+- All six legal saved optional choices remain valid when mandatory sites reduce physical room. Preserve the requested selection and auto-fit the actual placed counts; never turn an otherwise valid six-choice plan into a blocked HOME departure. Over-budget or malformed plans still need visible rejection and repair. See `test_altar_queued_discovery.gd`, `test_patrol_budget_preservation.gd` and `test_patrol_localized_editor.gd`.
+
 ## Scenario collaboration rule — 2026-10-27 (user-confirmed)
 
 - **Read [docs/SCENARIO_MASTER.md](docs/SCENARIO_MASTER.md) BEFORE any story, NPC, demo, ending, time-loop, boss-identity or event-branch authoring.** It contains **public-repository developer spoilers**; do not paste the reveal into the Steam demo, in-game text, store marketing, or automatically generated public previews.

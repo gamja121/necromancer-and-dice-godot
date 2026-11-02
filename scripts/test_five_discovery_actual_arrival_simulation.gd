@@ -207,13 +207,20 @@ func _run() -> void:
 		var expected: int=2 if kind=="graveyard" else 1
 		check(w.tiles.count(kind)==expected,kind+": map reshuffle retains expected permanent discovered terrain count")
 	check(w.tiles.count("basic")>=2,"at least two protected swamp roads survive five unlocks")
+	# The test coroutine must not retain its RefCounted world at process exit.
+	w=null
+	session.world=null
 	# Detached reveal/book cues must finish cleanup before the audio driver exits.
 	var cues:Node=root.get_node_or_null("GameAudio")
+	var audio_deadline: int=Time.get_ticks_msec()+5000
+	while cues!=null and not cues.voices.is_empty() and Time.get_ticks_msec()<audio_deadline: await process_frame
 	if cues!=null: cues.queue_free()
 	var cleanup_deadline:int=Time.get_ticks_msec()+10000
 	while (is_instance_valid(cues) or not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty()) and Time.get_ticks_msec()<cleanup_deadline:
 		await process_frame
-	await process_frame
+	for frame in range(3): await process_frame
+	var mixer_deadline: int=Time.get_ticks_msec()+250
+	while Time.get_ticks_msec()<mixer_deadline: await process_frame
 	session.save_file_path=old_path
 	if own: session.queue_free()
 	for suffix in ["",".tmp"]:

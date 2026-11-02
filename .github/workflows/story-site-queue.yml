@@ -1,9 +1,21 @@
 name: Guaranteed Story Location Queue - Godot
 on:
+  pull_request:
+    paths:
+      - 'scripts/test_altar_queued_discovery.gd'
+      - 'scripts/test_patrol_budget_preservation.gd'
+      - 'scripts/test_patrol_localized_editor.gd'
+      - 'systems/location_discoveries.gd'
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'map.gd'
+      - '.github/workflows/story-site-queue.yml'
   push:
     branches: [main]
     paths:
       - 'scripts/test_altar_queued_discovery.gd'
+      - 'scripts/test_patrol_budget_preservation.gd'
+      - 'scripts/test_patrol_localized_editor.gd'
       - 'systems/location_discoveries.gd'
       - 'systems/map_state.gd'
       - 'systems/run_session.gd'
@@ -12,6 +24,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: story-site-queue-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   story-queue:
     runs-on: ubuntu-latest
@@ -27,47 +42,36 @@ jobs:
         run: |
           set -euo pipefail
           timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|Failed loading resource' import.log; then exit 1; fi
       - name: Test save atomicity, original UI event, next-lap placement
         shell: bash
         run: |
           set -euo pipefail
           timeout 180s godot --headless --path . --script res://scripts/test_altar_queued_discovery.gd 2>&1 | tee story-queue.log
           grep -E '^ALTAR_QUEUE_INTEGRATION: [0-9]+ passed, 0 failed$' story-queue.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|FAIL altar-queue:' story-queue.log; then exit 1; fi
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|Invalid call|FAIL altar-queue:|ObjectDB.*leaked' story-queue.log; then exit 1; fi
       - name: Verify full six-choice patrol budget auto-fit
         shell: bash
         run: |
           set -euo pipefail
           timeout 140s godot --headless --path . --script res://scripts/test_patrol_budget_preservation.gd 2>&1 | tee patrol-budget.log
-          grep -E '^PATROL_BUDGET_PRESERVATION: [0-9]+ passed, 0 failed        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: story-location-queue-regression
-          path: |
-            story-queue.log
-            patrol-budget.log
-            patrol-localized.log
-          if-no-files-found: warn
- patrol-budget.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|FAIL patrol-budget:' patrol-budget.log; then exit 1; fi
+          grep -E '^PATROL_BUDGET_PRESERVATION: [0-9]+ passed, 0 failed$' patrol-budget.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|Invalid call|FAIL patrol-budget:|ObjectDB.*leaked' patrol-budget.log; then exit 1; fi
       - name: Verify localization and actual HOME six-choice editor
         shell: bash
         run: |
           set -euo pipefail
           timeout 150s godot --headless --path . --script res://scripts/test_patrol_localized_editor.gd 2>&1 | tee patrol-localized.log
-          grep -E '^PATROL_LOCALIZED_EDITOR: [0-9]+ passed, 0 failed        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: story-location-queue-regression
-          path: story-queue.log
-          if-no-files-found: warn
- patrol-localized.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|FAIL patrol-locale:' patrol-localized.log; then exit 1; fi
-      - name: Upload regression log
+          grep -E '^PATROL_LOCALIZED_EDITOR: [0-9]+ passed, 0 failed$' patrol-localized.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|Invalid call|FAIL patrol-locale:|ObjectDB.*leaked' patrol-localized.log; then exit 1; fi
+      - name: Upload regression logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: story-location-queue-regression
-          path: story-queue.log
+          path: |
+            import.log
+            story-queue.log
+            patrol-budget.log
+            patrol-localized.log
           if-no-files-found: warn
