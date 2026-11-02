@@ -182,6 +182,7 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 	var capacity: int=mini(RoutePlan.OPTIONAL_CAPACITY,maxi(0,int(counts.basic)-reserved))
 	var selected: int=RoutePlan.total_selected(plan) if modern else 0
 	var applied: int=0
+	var applied_by_kind: Dictionary={"monster":0,"rest":0,"forest":0}
 	if modern:
 		# Keep unsafe stored intent, but never drop earned places from generated boards.
 		var room: int=capacity
@@ -189,6 +190,7 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 			var slot_count: int=mini(room,maxi(0,int(plan.selection.get(kind,0))))
 			counts.basic-=slot_count
 			counts[kind]+=slot_count
+			applied_by_kind[kind]=slot_count
 			room-=slot_count
 		# Preserve the six requested selections; only the number that fits
 		# after mandatory story places and swamp reserves goes onto the board.
@@ -207,7 +209,7 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 	complete.village=1
 	complete.home=1
 	complete.boss=1 if has_boss else 0
-	return {"pool":counts,"counts":complete,"capacity":capacity if modern else RoutePlan.OPTIONAL_CAPACITY,"selected":selected,"applied":applied if modern else selected,"reserved_roads":reserved,"boss":has_boss}
+	return {"pool":counts,"counts":complete,"capacity":capacity if modern else RoutePlan.OPTIONAL_CAPACITY,"selected":selected,"applied":applied if modern else selected,"applied_by_kind":applied_by_kind,"reserved_roads":reserved,"boss":has_boss}
 
 ## Forecast the next actual HOME exit without RNG, save or serial changes.
 func patrol_preview(plan: Dictionary) -> Dictionary:
@@ -224,7 +226,7 @@ func patrol_preview(plan: Dictionary) -> Dictionary:
 	var reason: String=""
 	if not structural: reason="순찰경로의 해금 상태와 수량 제한을 확인하세요."
 	return {"capacity":capacity,"selected":selected,"remaining":RoutePlan.OPTIONAL_CAPACITY-selected if RoutePlan.is_new(source) else capacity-selected,
-		"applied":applied,"trimmed":trimmed,"reserved_roads":int(manifest.reserved_roads),
+		"applied":applied,"applied_by_kind":manifest.applied_by_kind,"trimmed":trimmed,"reserved_roads":int(manifest.reserved_roads),
 		"basic_roads":int(manifest.counts.basic),"contamination":level,
 		"counts":manifest.counts,"valid":valid,"reason":reason}
 
