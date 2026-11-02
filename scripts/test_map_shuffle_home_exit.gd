@@ -109,9 +109,9 @@ func _run() -> void:
 	map.close_overlay()
 	check(not map.dice.disabled, "closing retry modal returns map die input")
 
-	# A saved six-stone patrol can become over capacity when earned places and
-	# swamp reservations appear. The player must see WHY exit is blocked and
-	# enter the route editor directly, without changing or resetting the save.
+	# Six saved choices remain legal when mandatory sites reduce placements.
+	# Use an actually invalid seven-choice in-memory fixture to test the
+	# visible rejection and direct repair; never persist that invalid plan.
 	session.save_file_path=test_save_path
 	var world = session.world
 	world.position=MapState.HOME
@@ -121,9 +121,13 @@ func _run() -> void:
 	world.patrol_plan.selection.monster=6
 	for kind in ["forest","unknown","altar"]:
 		world.event_flags[Discovery.unlock_flag(kind)]=true
+	var fitted: Dictionary=world.patrol_preview(world.patrol_plan)
+	check(bool(fitted.valid) and int(fitted.selected)==6 and int(fitted.applied)<6,
+		"six saved choices remain valid while earned places auto-fit actual placements")
+	world.patrol_plan.selection.monster=7
 	var invalid_preview: Dictionary=world.patrol_preview(world.patrol_plan)
-	check(not bool(invalid_preview.valid) and int(invalid_preview.selected)>int(invalid_preview.capacity),
-		"earned locations reduce usable optional capacity below an older six-stone plan")
+	check(not RoutePlan.valid(world.patrol_plan) and not bool(invalid_preview.valid),
+		"seven-choice fixture exceeds the real six-choice limit")
 	var invalid_before: Dictionary=world.snapshot().duplicate(true)
 	map.show_home()
 	var depart: Button=panel_button(map,"다음 바퀴 출발")
@@ -132,7 +136,7 @@ func _run() -> void:
 		depart.pressed.emit()
 		check(is_instance_valid(map.overlay) and not map.moving,
 			"invalid departure keeps the house open and does not lock input")
-		var warning: Control=map.overlay.get_node_or_null("HomeDepartureFeedback")
+		var warning: Control=map.overlay.get_node_or_null("HomeDepartureFeedback") if is_instance_valid(map.overlay) else null
 		check(warning!=null and warning.get_node("HomeDepartureReason").text.contains(str(invalid_preview.reason)),
 			"patrol rejection reason is readable above the home actions")
 		var repair: Button=panel_button(map,"순찰경로 수정")
@@ -145,6 +149,17 @@ func _run() -> void:
 				"repair button enters the actual home route editor")
 			map.close_overlay()
 	map.queue_free()
+	await process_frame
+	var deadline: int=Time.get_ticks_msec()+5000
+	while not preload("res://systems/battle_resources.gd").PendingLoads.active.is_empty() and Time.get_ticks_msec()<deadline: await process_frame
+	var audio: Node=root.get_node_or_null("GameAudio")
+	deadline=Time.get_ticks_msec()+5000
+	while audio!=null and not audio.voices.is_empty() and Time.get_ticks_msec()<deadline: await process_frame
+	for frame in range(3): await process_frame
+	deadline=Time.get_ticks_msec()+250
+	while Time.get_ticks_msec()<deadline: await process_frame
+	world=null
+	session.world=null
 	session.save_file_path = initial_save_path
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_save_path))
 	print("MAP_SHUFFLE_HOME_EXIT: %d passed, %d failed" % [passed, failed])

@@ -277,14 +277,8 @@ func test_world_tree_discovery_dispatch() -> void:
 	root.add_child(map)
 	for _frame in range(3): await process_frame
 	check(not is_instance_valid(map.overlay),"loading an unseen hunter without a tree does not start its story")
-	var candidate:=RandomNumberGenerator.new()
-	var expected_rng: int=0
-	for seed in range(1,500):
-		candidate.seed=seed
-		if candidate.randf()>=0.60:
-			s.world.rng.seed=seed
-			expected_rng=candidate.state
-			break
+	# Eligible main-story places are guaranteed before optional routine draws.
+	var expected_rng: int=s.world.rng.state
 	map.show_tile(index,true)
 	for _frame in range(3): await process_frame
 	check(s.world.tiles.has("unknown") and s.event_flag_is_set("event:discovery:unknown:unlocked"),"actual generic-event dispatch can discover and place the world tree before the hunter")
@@ -293,7 +287,7 @@ func test_world_tree_discovery_dispatch() -> void:
 	var discovery_card:Control=map.find_child("EventDiscoveryCard",true,false) as Control
 	var reward_tile:TextureRect=discovery_card.get_node_or_null("EventDiscoveryTile") as TextureRect if discovery_card!=null else null
 	check(is_instance_valid(map.overlay) and discovery_card!=null and discovery_card.visible and reward_tile!=null and reward_tile.texture==map.texture("res://assets/map/tiles/unknown.png") and discovery_card.get_node("EventDiscoveryTitle").text=="세계수 발견","the player sees the actual world-tree discovery card before the hunter story")
-	check(s.world.rng.state==expected_rng,"world-tree-first order preserves the existing single 60/40 draw")
+	check(s.world.rng.state==expected_rng,"guaranteed world-tree discovery preserves RNG without a routine draw")
 	map.close_overlay()
 	map.render()
 	var tree_index: int=s.world.tiles.find("unknown")
