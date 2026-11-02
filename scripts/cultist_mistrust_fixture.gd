@@ -10,6 +10,9 @@ const ProphetBeats=preload("res://systems/prophet_story_beats.gd")
 const Cultist=preload("res://systems/cultist_rumor_entry.gd")
 const CultistBeats=preload("res://systems/cultist_rumor_beats.gd")
 const Altar=preload("res://systems/cultist_altar_entry.gd")
+const AltarBeats=preload("res://systems/cultist_altar_beats.gd")
+const Mistrust=preload("res://systems/village_mistrust_entry.gd")
+const MistrustBeats=preload("res://systems/village_mistrust_beats.gd")
 
 static func prepare(s) -> bool:
 	s.start_new_world()
@@ -41,3 +44,18 @@ static func prepare(s) -> bool:
 	s.world.position=altar
 	s.world.contamination=50
 	return s.save_world() and Altar.begin(s,altar) and Altar.advance(s,altar,0) and Altar.advance(s,altar,1)
+
+static func prepare_mistrust(s) -> bool:
+	if not prepare(s): return false
+	var altar: int=s.world.position
+	if not Altar.choose(s,altar,2,"infiltrate"): return false
+	for beat in range(AltarBeats.infiltration_count()-1):
+		if not Altar.advance_infiltration(s,altar,beat): return false
+	if not Altar.finish(s,altar): return false
+	var village: int=s.world.tiles.find("village")
+	s.world.position=village
+	s.world.move_serial+=1
+	if not Mistrust.begin(s,village): return false
+	for beat in range(MistrustBeats.count()):
+		if not Mistrust.advance(s,village,beat): return false
+	return Mistrust.completed(s)

@@ -18,6 +18,9 @@ static func progress_flag(index: int) -> String:
 	if index<1 or index>=Beats.count(): return ""
 	return "event:%s:beat:%d" % [EVENT_ID,index]
 
+static func finished_visit_flag(session, index: int) -> String:
+	return session.place_visit_id("mistrust-finished",index)
+
 static func checkpoint(session) -> int:
 	if session==null or session.world==null: return -1
 	var prefix: String="event:%s:beat:" % EVENT_ID
@@ -76,6 +79,7 @@ static func advance(session, index: int, shown_index: int) -> bool:
 		session.world.event_flags[COMPLETE_FLAG]=true
 		session.world.event_flags[PENDING_FLAG]=false
 		session.world.event_flags[DISTRUST_FLAG]=true
+		session.world.event_flags[finished_visit_flag(session,index)]=true
 	else:
 		session.world.event_flags[progress_flag(current+1)]=true
 	return session.persist_change(before)

@@ -5,6 +5,9 @@ on:
       - 'map.gd'
       - 'systems/prophet_story_*.gd'
       - 'systems/village_mistrust_*.gd'
+      - 'systems/commander_inquiry_*.gd'
+      - 'scripts/test_commander_inquiry_*.gd'
+      - 'assets/map/events/manuscript_commander_inquiry_*.png*'
       - 'systems/cultist_altar_*.gd'
       - 'systems/knight_commander_*.gd'
       - 'systems/monster_hunter_entry.gd'
@@ -25,6 +28,9 @@ on:
     paths:
       - 'systems/prophet_story_*.gd'
       - 'systems/village_mistrust_*.gd'
+      - 'systems/commander_inquiry_*.gd'
+      - 'scripts/test_commander_inquiry_*.gd'
+      - 'assets/map/events/manuscript_commander_inquiry_*.png*'
       - 'systems/cultist_altar_*.gd'
       - 'scripts/test_cultist_mistrust_*.gd'
       - 'scripts/cultist_mistrust_fixture.gd'
@@ -68,7 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in test_prophet_story_entry test_cultist_mistrust_branch test_cultist_altar_entry test_cultist_altar_choice test_cultist_altar_followup test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
+          for test in test_prophet_story_entry test_cultist_mistrust_branch test_commander_inquiry_branch test_cultist_altar_entry test_cultist_altar_choice test_cultist_altar_followup test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
             timeout 180s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
             grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
@@ -91,6 +97,27 @@ jobs:
             prophet_story_*.png
             capture.log
             test_prophet_story_entry.log
+          if-no-files-found: warn
+      - name: Commander inquiry responses in Korean and English
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --verbose --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_commander_inquiry_capture.gd 2>&1 | tee inquiry-capture.log
+          grep -E '^COMMANDER_INQUIRY_CAPTURE: [0-9]+ passed, 0 failed$' inquiry-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' inquiry-capture.log; then exit 1; fi
+          for locale in ko en; do
+            for scene in choice explain withhold watch; do
+              test -s "commander_inquiry_${scene}_${locale}.png"
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: commander-inquiry-rendered
+          path: |
+            commander_inquiry_*.png
+            inquiry-capture.log
+            test_commander_inquiry_branch.log
           if-no-files-found: warn
       - name: Covert inquiry and delayed mistrust in Korean and English
         shell: bash

@@ -244,6 +244,7 @@ func set_heading(value: String) -> void:
 		"같은 문양": information = ["다섯 번째 기록","광신도 소문","마을",9]
 		"광신도의 의식", "광신도": information = ["여섯 번째 기록","광신도의 의식","밤의 제단",11]
 		"와전된 소문": information = ["엇갈린 기록","와전된 소문","마을",11]
+		"기사단장의 추궁": information = ["증언의 기록","기사단장의 추궁","마을 길목",11]
 		"마물의 왕 부활 의식": information = ["일곱 번째 기록",heading,"의식의 폐허",13]
 		"왕의 흔적": information = ["여덟 번째 기록","마물의 왕 추적","세계수",15]
 	if _record == null:
