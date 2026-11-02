@@ -26,6 +26,8 @@ const StoryEventEntry = preload("res://systems/story_event_entry.gd")
 const VillageRumorEntry = preload("res://systems/village_rumor_entry.gd")
 const VillageMistrustEntry = preload("res://systems/village_mistrust_entry.gd")
 const VillageMistrustBeats = preload("res://systems/village_mistrust_beats.gd")
+const CommanderInquiryEntry = preload("res://systems/commander_inquiry_entry.gd")
+const CommanderInquiryBeats = preload("res://systems/commander_inquiry_beats.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const ProphetStoryEntry = preload("res://systems/prophet_story_entry.gd")
@@ -1140,6 +1142,13 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		if actual_landing or session.get_story_event(VillageMistrustEntry.EVENT_ID).status=="seen":
 			if VillageMistrustEntry.begin(session,index):
 				show_village_mistrust_beat(index)
+				return
+			status.text=session.notice
+	# A separate later village arrival lets the commander hear an account.
+	if type=="village" and CommanderInquiryEntry.can_enter(session,index):
+		if actual_landing or session.get_story_event(CommanderInquiryEntry.EVENT_ID).status in ["seen","active"]:
+			if CommanderInquiryEntry.begin(session,index):
+				show_commander_inquiry_beat(index)
 				return
 			status.text=session.notice
 	# P1-05J-1: the forest (or event wildcard) reveals the portal only
@@ -2307,6 +2316,10 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(VillageMistrustEntry.EVENT_ID).status=="seen":
 			show_village_mistrust_beat(index)
 			return
+	if CommanderInquiryEntry.can_enter(session,index):
+		if session.get_story_event(CommanderInquiryEntry.EVENT_ID).status in ["seen","active"]:
+			show_commander_inquiry_beat(index)
+			return
 	# Saved portal intervention or acknowledged epilogue resumes at its tile;
 	# reconnect never starts combat or concludes the quest automatically.
 	if RitualPortalEntry.can_enter(session,index):
@@ -3003,6 +3016,52 @@ func show_village_mistrust_beat(index: int) -> void:
 	,1)
 	location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func show_commander_inquiry_beat(index: int) -> void:
+	if not CommanderInquiryEntry.can_enter(session,index): return
+	var current: int=CommanderInquiryEntry.current_beat(session)
+	var state: Dictionary=session.get_story_event(CommanderInquiryEntry.EVENT_ID)
+	var beat: Dictionary=CommanderInquiryBeats.beat(current,state.choice)
+	if beat.is_empty(): return
+	var panel=story_modal()
+	var picture=image(panel,CommanderInquiryBeats.ART,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	picture.name="CommanderInquiryScene"
+	if current==0: InkSceneReveal.play(picture)
+	shared_story_frame(panel)
+	label_at(panel,"사건 · 기사단장의 추궁",Vector2(350,84),Vector2(582,42),24)
+	label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,62),17)
+	if not str(beat.dialogue).is_empty():
+		label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,610),Vector2(710,50),16)
+	if current==2:
+		location_button(panel,CommanderInquiryBeats.EXPLAIN_CHOICE,Vector2(463,653),Vector2(171,48),func(): choose_commander_inquiry(index,current,"explain"),1)
+		location_button(panel,CommanderInquiryBeats.WITHHOLD_CHOICE,Vector2(651,653),Vector2(194,48),func(): choose_commander_inquiry(index,current,"withhold"),2)
+	else:
+		var final_scene: bool=CommanderInquiryBeats.is_final(current)
+		if final_scene: panel.show_seal("유보" if state.choice=="explain" else "감시")
+		location_button(panel,"마치기" if final_scene else "계속",Vector2(463,653),Vector2(171,48),func():
+			if not CommanderInquiryEntry.advance(session,index,current):
+				status.text="기사단장 대화 저장 실패 · 다시 시도하세요."
+				return
+			if final_scene:
+				close_overlay()
+				render()
+				status.text="조사 경위가 기록되었다. 기사단장은 판단을 보류했다." if state.choice=="explain" else "경위를 밝히지 않았다. 기사단장이 감시를 명했다."
+			else: show_commander_inquiry_beat(index)
+		,1)
+	if current==3:
+		location_button(panel,"선택 변경",Vector2(651,653),Vector2(194,48),func():
+			if CommanderInquiryEntry.reconsider(session,index): show_commander_inquiry_beat(index)
+			else: status.text="기사단장 선택 변경 실패 · 다시 시도하세요."
+		,4)
+	else:
+		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func choose_commander_inquiry(index: int, shown_beat: int, decision: String) -> void:
+	if not CommanderInquiryEntry.choose(session,index,shown_beat,decision):
+		status.text="기사단장 선택 저장 실패 · 다시 시도하세요."
+		return
+	show_commander_inquiry_beat(index)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)

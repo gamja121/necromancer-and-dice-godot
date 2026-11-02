@@ -10,6 +10,7 @@ const ALTAR = preload("res://systems/cultist_altar_entry.gd")
 const RUMOR = preload("res://systems/cultist_rumor_entry.gd")
 const ENEMIES = preload("res://systems/cultist_altar_enemies.gd")
 const BEATS = preload("res://systems/cultist_altar_beats.gd")
+const LOADS = preload("res://systems/battle_resources.gd")
 
 var passed: int = 0
 var failed: int = 0
@@ -328,6 +329,15 @@ func _run() -> void:
 	await scenario_pass(session)
 	await scenario_win(session)
 	await scenario_loss_finish(session)
+	# The last game-over scene has asynchronous texture/audio work. Let the
+	# test's final resources finish before shutting down the rendering server.
+	for frame in range(3): await process_frame
+	check(await until_ready(func():return LOADS.PendingLoads.active.is_empty()),"background loads drain before shutdown")
+	var audio: Node=root.get_node_or_null("GameAudio")
+	check(await until_ready(func():return audio==null or audio.voices.is_empty()),"audio drains before shutdown")
+	session.world=null
+	var deadline: int=Time.get_ticks_msec()+250
+	while Time.get_ticks_msec()<deadline: await process_frame
 	session.save_file_path=old_path
 	if created: session.queue_free()
 	for path in paths: clear_save(path)

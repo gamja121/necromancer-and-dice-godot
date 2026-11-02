@@ -206,7 +206,7 @@ func ui_wiring() -> void:
 	check(src.contains('"마을 기능"'),"original village actions retained")
 	check(src.contains('"돌아가기"'),"player may exit unfinished scene")
 	check(src.contains('session.get_story_event(KnightCommanderEntry.EVENT_ID).status=="seen"'),"only started story automatically resumes")
-	check(src.contains('if not Commander')==false,"map remains independent from test aliases")
+	check(src.contains('if not Commander.')==false,"map remains independent from test aliases")
 
 func _run() -> void:
 	verify_source_beats()
