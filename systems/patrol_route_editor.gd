@@ -356,6 +356,11 @@ func refresh() -> void:
 		elif kind=="forest" and not is_unlocked: _copy(station_hints[kind],"사건에서 발견 후 편성 가능")
 		elif kind=="rest": _copy(station_hints[kind],"숙영 해금 후 편성 가능")
 		else: _copy(station_hints[kind],"추가 수량")
+		# Surface exactly which optional type gets reduced by mandatory sites.
+		var actually_placed: int=int(preview.applied_by_kind.get(kind,0))
+		if count>actually_placed and not reason.begins_with(tr("사건에서 발견 후 편성 가능")):
+			_copy(station_hints[kind],"이번 지도 {placed}/{chosen}칸 배치",
+				{"placed":actually_placed,"chosen":count})
 	var unlock_allowed: Dictionary=actions.session.rest_unlock_allowed()
 	unlock_button.visible=not bool(actions.plan.get("rest_unlocked",false))
 	_button_state(unlock_button,locked or not bool(unlock_allowed.get("ok",false)),tr(str(unlock_allowed.get("reason","숙영 해금"))))
