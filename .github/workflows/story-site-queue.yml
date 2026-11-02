@@ -1,0 +1,44 @@
+name: Guaranteed Story Location Queue - Godot
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/test_altar_queued_discovery.gd'
+      - 'systems/location_discoveries.gd'
+      - 'systems/map_state.gd'
+      - 'systems/run_session.gd'
+      - 'map.gd'
+      - '.github/workflows/story-site-queue.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  story-queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import Godot assets and scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
+      - name: Test save atomicity, original UI event, next-lap placement
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_altar_queued_discovery.gd 2>&1 | tee story-queue.log
+          grep -E '^ALTAR_QUEUE_INTEGRATION: [0-9]+ passed, 0 failed$' story-queue.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|FAIL altar-queue:' story-queue.log; then exit 1; fi
+      - name: Upload regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-location-queue-regression
+          path: story-queue.log
+          if-no-files-found: warn
