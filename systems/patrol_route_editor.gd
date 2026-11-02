@@ -239,7 +239,7 @@ func _build() -> void:
 	# Keep remaining capacity visible even when long localized body copy scrolls.
 	budget.reparent(column)
 	status_label=_label(column,"PatrolStatus","",17)
-	status_label.custom_minimum_size.y=34
+	status_label.custom_minimum_size.y=48
 	_rule(column)
 	var footer:=HBoxContainer.new()
 	footer.name="PatrolFooter"
@@ -359,18 +359,16 @@ func refresh() -> void:
 	var unlock_allowed: Dictionary=actions.session.rest_unlock_allowed()
 	unlock_button.visible=not bool(actions.plan.get("rest_unlocked",false))
 	_button_state(unlock_button,locked or not bool(unlock_allowed.get("ok",false)),tr(str(unlock_allowed.get("reason","숙영 해금"))))
-	if bool(preview.valid):
-		_copy(budget_label,"추가 가능 {count}칸",{"count":int(preview.remaining)})
-		budget_label.add_theme_color_override("font_color",INK)
-	else:
-		_copy(budget_label,"선택 {selected}칸 · 편성 가능 {capacity}칸",{"selected":int(preview.selected),"capacity":int(preview.capacity)})
-		budget_label.add_theme_color_override("font_color",Color("843f2a"))
+	_copy(budget_label,"선택 {selected}/6 · 실제 배치 {applied}/{selected}",
+		{"selected":int(preview.selected),"applied":int(preview.applied)})
+	budget_label.add_theme_color_override("font_color",Color("843f2a") if int(preview.trimmed)>0 else INK)
 	for kind in summary_labels: summary_labels[kind].text=str(int(preview.counts.get(kind,0)))
 	var visible_places: int=0
 	for kind in Discovery.ORDER:
-		var found: bool=actions.session.event_flag_is_set(Discovery.unlock_flag(str(kind)))
+		var found: bool=actions.session.event_flag_is_set(Discovery.unlock_flag(str(kind))) or Discovery.is_pending(actions.session.world,str(kind))
 		discovery_cells[kind].visible=found
-		discovery_badges[kind].visible=found and actions.session.event_flag_is_set(Discovery.home_flag(str(kind)))
+		discovery_badges[kind].visible=found and (Discovery.is_pending(actions.session.world,str(kind)) or actions.session.event_flag_is_set(Discovery.home_flag(str(kind))))
+		discovery_badges[kind].tooltip_text=tr("다음 바퀴 배치 예약") if Discovery.is_pending(actions.session.world,str(kind)) else tr("신규")
 		if found: visible_places+=1
 	discovery_grid.visible=visible_places>0
 	empty_discovery.visible=visible_places==0
@@ -378,10 +376,16 @@ func refresh() -> void:
 	_button_state(reset_button,locked)
 	_button_state(back_button,false)
 	var feedback: String=str(actions.route_feedback)
-	if not feedback.is_empty(): _copy(status_label,feedback)
-	elif locked: _copy(status_label,"이번 방문의 편성을 확정했습니다.")
+	var space: String=tr("일반 길 {roads}칸 · 늪지 예약 {reserved}칸").format({
+		"roads":int(preview.basic_roads),"reserved":int(preview.reserved_roads)})
+	if int(preview.trimmed)>0:
+		space += " · " + tr("필수 장소 우선 · 추가 타일 {trimmed}칸은 이번 지도에서 제외").format({
+			"trimmed":int(preview.trimmed)})
+	if not feedback.is_empty(): _copy(status_label,feedback + " · " + space)
 	elif not bool(preview.valid): _copy(status_label,str(preview.reason))
-	else: _copy(status_label,"")
+	else: _copy(status_label,space)
+	if locked and int(preview.trimmed)==0 and feedback.is_empty():
+		_copy(status_label,"이번 방문의 편성을 확정했습니다. · {space}",{"space":space})
 	status_label.visible=not status_label.text.is_empty()
 	if is_instance_valid(previous_focus) and previous_focus is BaseButton and previous_focus.disabled:
 		for kind in plus_buttons:
