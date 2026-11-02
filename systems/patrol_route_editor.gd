@@ -173,7 +173,8 @@ func _build() -> void:
 	margins.add_theme_constant_override("margin_bottom",28)
 	add_child(margins)
 	var column:=VBoxContainer.new()
-	column.add_theme_constant_override("separation",9)
+	# Keep both discovered-place rows inside the body at the native 720p height.
+	column.add_theme_constant_override("separation",7)
 	margins.add_child(column)
 	title_label=_label(column,"PatrolTitle","순찰 편성",30,"heading",true)
 	title_label.custom_minimum_size.y=38

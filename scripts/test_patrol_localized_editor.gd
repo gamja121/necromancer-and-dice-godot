@@ -56,7 +56,9 @@ func discovered_names_visible(panel: Control) -> bool:
 	for cell in panel.discovery_cells.values():
 		if not cell.visible: continue
 		for label in cell.find_children("*","Label",true,false):
-			if label.is_visible_in_tree() and not viewport.encloses(label.get_global_rect()): return false
+			if label.is_visible_in_tree() and not viewport.encloses(label.get_global_rect()):
+				printerr("DISCOVERY_BOUNDS ",label.name," ",label.get_global_rect()," viewport=",viewport)
+				return false
 	return true
 
 func temporary_locale(code: String, rtl: bool=false) -> Translation:
