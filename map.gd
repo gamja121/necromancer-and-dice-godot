@@ -1166,6 +1166,9 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		if str(outcome.get("type",""))=="discovery":
 			sound("reward_gain")
 			show_discovery_card(str(outcome.location))
+		elif str(outcome.get("type",""))=="discovery_pending":
+			sound("reward_gain")
+			show_pending_discovery_card(str(outcome.location))
 		else:
 			show_routine_card()
 		return
@@ -1209,6 +1212,18 @@ func show_discovery_card(kind: String) -> void:
 		render()
 		presentation.show_discovery(changed)
 		status.text="%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind])
+
+func show_pending_discovery_card(kind: String) -> void:
+	# The event was saved, but there is no real stone on this map yet.
+	# Show a distinct card so the player never mistakes a queue for a tile.
+	var entry: Dictionary=Discovery.details(kind)
+	if entry.is_empty(): return
+	entry["description"] = str(entry.description) + "\n현재 지도에 빈 길이 없어 다음 바퀴에 먼저 배치합니다."
+	entry["reward"] = "다음 바퀴 필수 장소 배치 예약"
+	_show_ordinary_info_card("일반 사건",entry,
+		"res://assets/map/tiles/%s.png" % kind,"EventDiscoveryPendingCard",func():
+			render()
+			status.text="%s 발견 예약 · 다음 바퀴에 확정 배치됩니다." % MapState.NAMES[kind])
 
 func show_ordinary_event_preview() -> void:
 	# A story-free tile preview only creates UI: no event draw, reward or save.
