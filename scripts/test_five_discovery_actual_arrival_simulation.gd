@@ -3,7 +3,7 @@ extends SceneTree
 ## Prerequisites and event arrivals are seeded fixture state, not claims that a
 ## random unassisted playthrough naturally reaches every condition in 5 visits.
 ## Production map.show_tile(index,true) owns actual story-priority dispatch,
-## the 40-percent discovery roll, card display, current map and HOME rewards.
+## main-location guarantees / optional 40-percent roll, card, map, HOME.
 const Session = preload("res://systems/run_session.gd")
 const MapScene = preload("res://map.tscn")
 const Discovery = preload("res://systems/location_discoveries.gd")
@@ -26,6 +26,71 @@ func wait_for(predicate: Callable, limit: int=5000) -> bool:
 	var deadline: int=Time.get_ticks_msec()+limit
 	while not predicate.call() and Time.get_ticks_msec()<deadline: await process_frame
 	return bool(predicate.call())
+
+# A seed that would have failed the old 40% location-discovery roll.
+# Eligible story places must now unlock regardless of that seed.
+func routine_seed() -> int:
+	var probe := RandomNumberGenerator.new()
+	for seed in range(1,700):
+		probe.seed=seed
+		if probe.randf()<0.60: return seed
+	return -1
+
+func verify_story_location_priority(session: Node) -> void:
+	var w=session.world
+	var index: int=w.tiles.find("event")
+	var blocked_seed: int=routine_seed()
+	check(blocked_seed>0,"fixture reproduces old story-unlock RNG rejection")
+	w.laps=1
+	w.max_contamination_reached=20
+	w.event_flags["discovery:ever_injured"]=true
+	w.story_events["graveyard_child_ambush_01"]={"status":"seen","choice":"","battle_result":""}
+	check(Discovery.MAIN_STORY_ORDER==["unknown","altar","forest"],"all 3 main-story location priorities are declared")
+	check(Discovery.next_eligible(w)=="unknown","story places outrank optional rest and graveyard")
+	for expected in Discovery.MAIN_STORY_ORDER:
+		w.position=index
+		w.move_serial+=1
+		w.rng.seed=blocked_seed
+		var before_rng: int=w.rng.state
+		var before_roads: int=w.tiles.count("basic")
+		var visit: String="routine-visit:%d:%d:%d" % [w.map_serial,w.move_serial,index]
+		var result: Dictionary=session.begin_story_free_event(index)
+		check(bool(result.get("ok",false)) and result.get("type","")=="discovery" and result.get("location","")==expected,
+			expected+": qualified main-story place beats the old 60% routine outcome")
+		check(w.rng.state==before_rng,expected+": main location does not consume an unnecessary discovery roll")
+		check(Discovery.is_unlocked(w,expected) and w.tiles.count("basic")==before_roads-1,
+			expected+": current board unlocks exactly one real road")
+		check(w.reward_receipts.has(visit) and w.pending_reward.is_empty(),
+			expected+": unique visit saved, never combined with a routine reward")
+		var snapshot: Dictionary=w.snapshot().duplicate(true)
+		check(not bool(session.begin_story_free_event(index).get("ok",false)) and w.snapshot()==snapshot,
+			expected+": the same visit cannot unlock twice or reroll")
+		session.reload_world()
+		w=session.world
+		check(Discovery.is_unlocked(w,expected) and w.reward_receipts.has(visit),
+			expected+": discovery survives actual save/reload")
+	check(Discovery.next_main_eligible(w).is_empty(),"no qualified main location is repeated after all 3 are unlocked")
+	# Existing optional locations retain their 60% repeatable-event result.
+	w.position=index
+	w.move_serial+=1
+	w.rng.seed=blocked_seed
+	var routine: Dictionary=session.begin_story_free_event(index)
+	check(bool(routine.get("ok",false)) and routine.get("type","")=="routine",
+		"after main unlocks, optional discoveries still use unchanged 60/40 routine selection")
+	check(w.pending_reward.get("kind","")=="routine",
+		"optional routine remains a genuine saved event with a pending player choice")
+	check(bool(session.complete_routine_choice("skip").get("ok",false)),
+		"old routine outcome can be safely dismissed without blocking the next visit")
+	w.position=index
+	w.move_serial+=1
+	w.rng.seed=discovery_seed()
+	var optional: Dictionary=session.begin_story_free_event(index)
+	check(bool(optional.get("ok",false)) and optional.get("type","")=="discovery" and optional.get("location","")=="rest",
+		"after story unlocks, original 40% optional discovery still works")
+	check(Discovery.is_unlocked(w,"rest") and not Discovery.is_unlocked(w,"graveyard"),
+		"remaining optional discovery does not auto-award unrelated places")
+	# The integration loop below uses a fresh world, not this test fixture.
+	session.start_new_world()
 
 func discovery_seed() -> int:
 	var probe := RandomNumberGenerator.new()
@@ -67,6 +132,7 @@ func _run() -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path+suffix))
 	session.save_file_path=path
 	session.start_new_world()
+	verify_story_location_priority(session)
 	var w = session.world
 	var index: int = w.tiles.find("event")
 	var order: Array=["forest","rest","graveyard","unknown","altar"]
@@ -97,7 +163,7 @@ func _run() -> void:
 		await process_frame
 		scene.show_tile(index,true)
 		check(w.reward_receipts.has(visit),kind+": real event dispatcher saves unique visit receipt")
-		check(Discovery.is_unlocked(w,kind),kind+": real 40-percent event draw unlocks location")
+		check(Discovery.is_unlocked(w,kind),kind+": genuine event draw unlocks location")
 		check(w.tiles.count(kind)==total_before+1 and w.tiles.count("basic")==roads_before-1,kind+": exactly 1 vacant road changes to actual location")
 		check(w.tiles[0]=="fortune-teller-camp" and w.tiles[8]=="village" and w.tiles[15]=="home" and w.tiles[index]=="event",
 			kind+": real map protects fixed and story positions")

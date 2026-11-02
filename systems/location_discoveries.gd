@@ -1,10 +1,13 @@
 extends RefCounted
 ## Original narrative entries always take priority; this registry only
 ## offers places after a genuine, story-free generic event arrival.
-## No extra RNG roll or unapproved discovery/routine percentages.
+## Main-story location unlocks must not be delayed by repeatable routine RNG.
 const WORLD_TREE_MINIMUM = 14
 const ALTAR_MINIMUM = 20
 const ORDER = ["forest","rest","graveyard","unknown","altar"]
+# Story-critical places: the World Tree, Altar and Hill (later ritual portal).
+# Keep map generation ORDER independent of discovery priority.
+const MAIN_STORY_ORDER = ["unknown","altar","forest"]
 const LOCATIONS = {
 	"forest":{
 		"title":"언덕 발견", "description":"낡은 길 너머 작은 언덕을 발견했다.",
@@ -26,6 +29,12 @@ const LOCATIONS = {
 static func unlock_flag(kind: String) -> String:
 	return "event:discovery:%s:unlocked" % kind
 
+static func pending_flag(kind: String) -> String:
+	return "event:discovery:%s:pending" % kind
+
+static func is_pending(world,kind: String) -> bool:
+	return exists(kind) and world.event_flags.get(pending_flag(kind),false)==true
+
 static func receipt_flag(kind: String) -> String:
 	return "event:discovery:%s:card_shown" % kind
 
@@ -45,7 +54,7 @@ static func is_unlocked(world,kind: String) -> bool:
 	return world.event_flags.get(unlock_flag(kind),false)==true
 
 static func eligible(world,kind: String) -> bool:
-	if not exists(kind) or is_unlocked(world,kind): return false
+	if not exists(kind) or is_unlocked(world,kind) or is_pending(world,kind): return false
 	match kind:
 		"forest":
 			return world.laps>=1
@@ -63,11 +72,16 @@ static func eligible(world,kind: String) -> bool:
 			return world.max_contamination_reached>=ALTAR_MINIMUM or world.story_events.get("cultist_rumor_01",{}).get("status","unseen")!="unseen" or world.event_flags.get("event:cultist_rumor_01:seen",false)==true
 	return false
 
+static func next_main_eligible(world) -> String:
+	for kind in MAIN_STORY_ORDER:
+		if eligible(world,kind): return kind
+	return ""
+
 static func next_eligible(world) -> String:
-	# Prioritize the story location among qualified places. This ranking
-	# does not change the separate 60/40 routine/discovery draw.
-	if eligible(world,"unknown"): return "unknown"
-	if eligible(world,"altar"): return "altar"
+	# Story locations are selected before optional sites. The calling event
+	# dispatcher guarantees them instead of rolling the routine-event chance.
+	var main: String = next_main_eligible(world)
+	if not main.is_empty(): return main
 	for kind in ORDER:
 		if eligible(world,kind): return kind
 	return ""

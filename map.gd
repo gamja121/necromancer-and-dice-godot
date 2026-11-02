@@ -112,6 +112,8 @@ var pending_location_papers: Dictionary = {}
 var played_location_papers: Dictionary = {}
 var routine_deck_delivery: bool=false
 var routine_deck_state: Dictionary={}
+# Local-only error text; never written into the player's save.
+var home_departure_feedback: String=""
 var stage: Control
 var buttons: Array = []
 var hero: TextureRect
@@ -1174,6 +1176,9 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		if str(outcome.get("type",""))=="discovery":
 			sound("reward_gain")
 			show_discovery_card(str(outcome.location))
+		elif str(outcome.get("type",""))=="discovery_pending":
+			sound("reward_gain")
+			show_pending_discovery_card(str(outcome.location))
 		else:
 			show_routine_card()
 		return
@@ -1217,6 +1222,18 @@ func show_discovery_card(kind: String) -> void:
 		render()
 		presentation.show_discovery(changed)
 		status.text="%s 타일 해금! 길 한 칸이 변했습니다 · 집에서 확인하세요." % MapState.NAMES[kind])
+
+func show_pending_discovery_card(kind: String) -> void:
+	# The event was saved, but there is no real stone on this map yet.
+	# Show a distinct card so the player never mistakes a queue for a tile.
+	var entry: Dictionary=Discovery.details(kind)
+	if entry.is_empty(): return
+	entry["description"] = str(entry.description) + "\n현재 지도에 빈 길이 없어 다음 바퀴에 먼저 배치합니다."
+	entry["reward"] = "다음 바퀴 필수 장소 배치 예약"
+	_show_ordinary_info_card("일반 사건",entry,
+		"res://assets/map/tiles/%s.png" % kind,"EventDiscoveryPendingCard",func():
+			render()
+			status.text="%s 발견 예약 · 다음 바퀴에 확정 배치됩니다." % MapState.NAMES[kind])
 
 func show_ordinary_event_preview() -> void:
 	# A story-free tile preview only creates UI: no event draw, reward or save.
@@ -1968,6 +1985,23 @@ func show_home(interior: bool = false) -> void:
 			UnlockNoticeBadge.attach(place_icon,"NEW")
 	unlock_scroll.visible=unlock_rows.get_child_count()>0
 	location_button(panel,"다음 바퀴 출발",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
+	# A blocked departure must explain itself ON this panel. The map status
+	# line is hidden behind the painting, which made a rejected press appear
+	# completely unresponsive. Offer a direct route repair if relevant.
+	var departure_allowed: Dictionary=session.place_allowed(MapState.HOME,"home")
+	var route_preview: Dictionary=world.patrol_preview(world.patrol_plan)
+	var blocking_reason: String=home_departure_feedback
+	if not bool(departure_allowed.get("ok",false)):
+		blocking_reason=str(departure_allowed.get("reason","이동·보상 상태를 확인하세요."))
+	elif not bool(route_preview.get("valid",false)):
+		blocking_reason=str(route_preview.get("reason","순찰경로를 확인하세요."))
+	if not blocking_reason.is_empty():
+		_show_home_departure_feedback(panel,blocking_reason)
+		if not interior and bool(departure_allowed.get("ok",false)) and not bool(route_preview.get("valid",false)):
+			location_button(panel,"순찰경로 수정",TILE_EVENT_INHERITANCE_RECT.position,
+				TILE_EVENT_INHERITANCE_RECT.size,func():
+					close_overlay()
+					show_exploration_actions(MapState.HOME),3)
 	if not interior:
 		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
 			var injured = world.roster.any(func(u): return u.current_hp<u.max_hp)
@@ -1998,6 +2032,35 @@ func show_home(interior: bool = false) -> void:
 		if not allowed.ok:
 			var hint = label_at(panel,str(allowed.reason),Vector2(350,665),Vector2(580,30),15)
 			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+func _show_home_departure_feedback(panel: Control, reason: String) -> void:
+	# Readable, non-interactive parchment ink panel above the existing actions.
+	# Its bounds do not overlap the departure/inheritance/patrol hit targets.
+	var warning:=PanelContainer.new()
+	warning.name="HomeDepartureFeedback"
+	warning.position=Vector2(850,248)
+	warning.size=Vector2(346,94)
+	warning.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	warning.z_index=14
+	var paper:=StyleBoxFlat.new()
+	paper.bg_color=Color("25170eea")
+	paper.border_color=Color("d6a97b")
+	paper.set_border_width_all(1)
+	paper.set_corner_radius_all(5)
+	paper.content_margin_left=12
+	paper.content_margin_right=12
+	paper.content_margin_top=7
+	paper.content_margin_bottom=7
+	warning.add_theme_stylebox_override("panel",paper)
+	var warning_text:=Label.new()
+	warning_text.name="HomeDepartureReason"
+	warning_text.text="출발할 수 없습니다.\n"+reason
+	warning_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	warning_text.add_theme_font_size_override("font_size",15)
+	warning_text.add_theme_color_override("font_color",Color("ffe4bd"))
+	warning_text.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	warning.add_child(warning_text)
+	panel.add_child(warning)
 
 func _home_unlock_row(parent:VBoxContainer) -> Control:
 	var row:=Control.new()
@@ -3298,6 +3361,18 @@ func use_warp(index: int) -> void:
 
 func exit_home() -> void:
 	if moving: return
+	# Never dismiss the home screen before checking whether departure is
+	# legal. A rejected patrol plan used to rebuild an apparently identical
+	# home scene with its error hidden behind the artwork.
+	var allowed: Dictionary=session.place_allowed(MapState.HOME,"home")
+	var preview: Dictionary=world.patrol_preview(world.patrol_plan)
+	if not bool(allowed.get("ok",false)) or not bool(preview.get("valid",false)):
+		home_departure_feedback=str(allowed.get("reason","")) if not bool(allowed.get("ok",false)) else str(preview.get("reason","순찰경로를 확인하세요."))
+		status.text=home_departure_feedback
+		close_overlay()
+		show_home()
+		return
+	home_departure_feedback=""
 	moving = true
 	close_overlay()
 	# Lock input, save exactly one generated lap, then gather two rings,
@@ -3327,9 +3402,11 @@ func exit_home() -> void:
 	moving = false
 	dice.disabled = false
 	if not ok:
-		status.text = session.notice if not session.notice.is_empty() else "맵 교체 저장 실패 · 다시 시도하세요"
+		home_departure_feedback = session.notice if not session.notice.is_empty() else "맵 교체 저장 실패 · 다시 시도하세요"
+		status.text = home_departure_feedback
 		show_home()
 	else:
+		home_departure_feedback = ""
 		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
 		if previous_tiles[MapState.BOSS_TILE_INDEX]!="boss" and world.tiles[MapState.BOSS_TILE_INDEX]=="boss":
 			status.text += " · 보스 타일 출현"

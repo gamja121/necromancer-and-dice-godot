@@ -263,7 +263,9 @@ func add_source_label(value: String, original: Rect2, points: int) -> Label:
 	if original.position.y>=75.0 and original.position.y<140.0 and original.size.x>300.0:
 		set_heading(value)
 		role = "title"
-		bounds = Rect2(702,158,444,62)
+		# Tighten the title lane to keep story text in the upper half of the
+		# right-hand paper, while preserving room for its single-line heading.
+		bounds = Rect2(702,156,444,48)
 		font_size = 29
 		shown = value.trim_prefix("사건 · ")
 		if shown=="마을": shown="마을 소문"
@@ -272,20 +274,20 @@ func add_source_label(value: String, original: Rect2, points: int) -> Label:
 		elif shown=="왕의 흔적": shown="마물의 왕 추적"
 	elif original.position.y>=525.0 and original.position.y<590.0:
 		role = "narration"
-		bounds = Rect2(702,233,432,78)
+		bounds = Rect2(702,211,432,78)
 		font_size = 20
 	elif original.position.y>=590.0 and original.position.y<647.0:
 		if original.size.x<180.0 and value!="▼":
 			role = "speaker"
-			bounds = Rect2(702,321,432,25)
+			bounds = Rect2(702,300,432,25)
 			font_size = 16
 		else:
 			role = "speech"
-			bounds = Rect2(702,358,432,112)
+			bounds = Rect2(702,333,432,112)
 			font_size = 24
 			var colon := value.find(": ")
 			if colon>0 and colon<20:
-				var speaker := copy(value.left(colon),Rect2(702,321,432,25),16,RED_INK)
+				var speaker := copy(value.left(colon),Rect2(702,300,432,25),16,RED_INK)
 				speaker.set_meta("book_copy_role","speaker")
 				shown = value.substr(colon+2)
 	var label := copy(shown,bounds,font_size)
@@ -315,6 +317,7 @@ func style_action(action: Button, bounds: Rect2, points: int=22) -> void:
 	for state in ["font_hover_color","font_focus_color","font_pressed_color"]: action.add_theme_color_override(state,RED_INK)
 
 func arrange_actions() -> void:
+	# Lift choice text with the prose; keep all original callbacks and hit sizes.
 	var primary: Array[Button] = []
 	var secondary: Array[Button] = []
 	for child in get_children():
@@ -322,17 +325,17 @@ func arrange_actions() -> void:
 			if bool(child.get_meta("story_button_primary")): primary.append(child)
 			else: secondary.append(child)
 	for i in range(primary.size()):
-		var row: float=414+i*46 if primary.size()==3 else (482 if primary.size()==1 else 428+i*54)
+		var row: float=378+i*46 if primary.size()==3 else (458 if primary.size()==1 else 401+i*54)
 		style_action(primary[i],Rect2(700,row,440,44))
 	for i in range(secondary.size()):
 		var width := 440.0 if secondary.size()==1 else 210.0
-		style_action(secondary[i],Rect2(700+i*240,554,width,44),17)
+		style_action(secondary[i],Rect2(700+i*240,518,width,44),17)
 	for child in get_children():
 		if not child is Label or not child.has_meta("book_copy_role") or child.has_meta("book_skip"): continue
 		var role: String = str(child.get_meta("book_copy_role"))
 		var points := 20 if role=="narration" else (24 if role=="speech" else (29 if role=="title" else 16))
 		if role=="speech" and primary.size()>1:
-			child.size.y = 50 if primary.size()==3 else 64
+			child.size.y = 40 if primary.size()==3 else 64
 			points = 20
 		if role=="narration" and not _has_speech(): child.size.y = 160 if primary.size()==3 else 177
 		child.add_theme_font_size_override("font_size",points)

@@ -117,7 +117,7 @@ func run() -> void:
 	await settle()
 	check(actions.plan.selection.monster==1 and actions.plan.selection.rest==1,"direct clicks set actual unsaved quantities")
 	check(w.snapshot()==saved,"draft edits do not touch save, receipts or gameplay RNG")
-	check(int(w.patrol_preview(actions.plan).remaining)==1,"displayed capacity uses the real next board")
+	check(int(w.patrol_preview(actions.plan).remaining)==4,"screen counts remaining choices out of six, independent of physical fit")
 	check(readable_bounds(panel),"Korean text remains within its allocated bounds")
 	check(discovered_names_visible(panel),"all five Korean place names are visible without scrolling")
 	await snapshot("patrol_ko")
@@ -155,30 +155,22 @@ func run() -> void:
 	for step in range(2): actions.route_plus_buttons.rest.pressed.emit()
 	check(actions.plan.selection.rest==2 and actions.route_plus_buttons.rest.disabled,"discovered camp plus two extras disables the fourth camp")
 	check(not actions.route_plus_buttons.rest.tooltip_text.is_empty(),"camp limit provides an explanation at its control")
-	# Restore an old six-extra plan: repair must be possible without minting a second receipt.
+	# A confirmed six-extra plan remains valid: mandatory discovered sites
+	# always take precedence and actual optional placements auto-shrink.
 	map.close_overlay()
 	w.patrol_plan.selection={"monster":6,"rest":0,"forest":0}
 	var receipt: String=session.place_visit_id("patrol",STATE.HOME)
 	if not receipt in w.reward_receipts: w.reward_receipts.append(receipt)
-	check(session.save_world(),"previously confirmed unsafe plan fixture saved")
-	check(not session.patrol_edit_locked(),"unsafe old plan can re-enter HOME editor for repair")
-	map.show_home(true)
-	await settle()
-	var repair_entry: Button=map.overlay.get_node_or_null("LocationAction_patrol")
-	check(is_instance_valid(repair_entry) and repair_entry.visible and not repair_entry.disabled,"real HOME repair entry stays visible instead of falling away")
-	repair_entry.pressed.emit()
-	await settle()
-	actions=map.overlay
-	panel=editor()
-	check(actions.action_button.disabled,"invalid old plan cannot be reconfirmed unchanged")
-	var receipts_before: int=w.reward_receipts.size()
-	for step in range(3): actions.route_minus_buttons.monster.pressed.emit()
-	check(not actions.action_button.disabled and actions.plan.selection.monster==3,"reducing to real capacity enables safe confirmation")
-	actions.action_button.pressed.emit()
-	await settle()
-	check(w.patrol_plan.selection.monster==3 and w.reward_receipts.size()==receipts_before,"repair persists without a duplicate visit receipt")
-	check(session.leave_home(),"repaired plan departs through the actual session path")
-	check(w.tiles.size()==24 and w.tiles.count("unknown")==1 and w.tiles.count("altar")==1 and w.tiles.count("graveyard")==2,"next map keeps every earned location and exactly24 slots")
+	check(session.save_world(),"confirmed full six-choice plan saved")
+	var before_road: Dictionary=w.patrol_preview(w.patrol_plan)
+	check(session.patrol_edit_locked() and before_road.valid
+		and before_road.selected==6 and before_road.applied<6
+		and before_road.trimmed==6-int(before_road.applied),
+		"confirmed full-six plan remains valid with displayed actual placement")
+	check(session.leave_home(),"full six choices depart with automatic site priority")
+	check(w.tiles.size()==24 and w.tiles.count("unknown")==1 and w.tiles.count("altar")==1
+		and w.tiles.count("graveyard")==2 and w.patrol_plan.selection.monster==6,
+		"next map preserves every earned site and original selection")
 	map.queue_free()
 	await process_frame
 	var drain: int=Time.get_ticks_msec()+5000

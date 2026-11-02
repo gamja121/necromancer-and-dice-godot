@@ -42,6 +42,60 @@ func check_catalog() -> void:
 	check(not English.has_korean(tr("빙결 독 보호 2")),"joined status captions translate")
 	check(tr("My Ghoul 17")=="My Ghoul 17","Latin player nickname passes through unchanged")
 
+## Catch unlocalized Korean UI text added after the original English catalog.
+## The picker autonym "한국어" deliberately remains Korean in both languages.
+func source_literals(source: String) -> Array[String]:
+	var values: Array[String]=[]
+	for line in source.split("\n"):
+		var quote: String=""
+		var escaped:=false
+		var value: String=""
+		for i in range(line.length()):
+			var character: String=line.substr(i,1)
+			if quote.is_empty():
+				if character=="#": break
+				if character=="\"" or character=="'":
+					quote=character
+					value=""
+			elif escaped:
+				if character=="n": value+="\n"
+				elif character=="t": value+="\t"
+				else: value+=character
+				escaped=false
+			elif character=="\\": escaped=true
+			elif character==quote:
+				if English.has_korean(value): values.append(value)
+				quote=""
+			else: value+=character
+	return values
+
+func scan_catalog_data(value: Variant, path: String, catalog: Dictionary, missing: Array[String]) -> void:
+	if value is String:
+		if English.has_korean(value) and not catalog.has(value):
+			missing.append(path+": "+str(value).left(80))
+	elif value is Array:
+		for item in value: scan_catalog_data(item,path,catalog,missing)
+	elif value is Dictionary:
+		for item in value.values(): scan_catalog_data(item,path,catalog,missing)
+
+func check_source_catalog() -> void:
+	var catalog: Dictionary=language.english.catalog
+	var paths: Array[String]=[
+		"res://title.gd","res://main.gd","res://map.gd","res://battlefield.gd",
+		"res://title.tscn","res://intro.tscn","res://main.tscn","res://map.tscn","res://battlefield.tscn"
+	]
+	for name in DirAccess.get_files_at("res://systems"):
+		if name.ends_with(".gd"): paths.append("res://systems/"+name)
+	var missing: Array[String]=[]
+	for path in paths:
+		for literal in source_literals(FileAccess.get_file_as_string(path)):
+			if literal=="한국어": continue
+			if not catalog.has(literal): missing.append(path+": "+literal.left(80))
+	for path in ["res://data/interface.json","res://data/intro_dialogue.json","res://data/units.json"]:
+		var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
+		scan_catalog_data(parsed,path,catalog,missing)
+	check(missing.is_empty(),"all Korean production UI literals and data have English translations: "+str(missing.slice(0,8)))
+
 func check_options() -> void:
 	var title=load("res://title.tscn").instantiate()
 	root.add_child(title)
@@ -206,6 +260,7 @@ func run() -> void:
 	check(label.text=="설정" and label.tr(label.text)=="Settings" and label.get_total_character_count()==8,"Godot renders English while canonical source text is unchanged")
 	label.queue_free()
 	check_catalog()
+	check_source_catalog()
 	await check_options()
 	await check_story()
 	await check_cards()

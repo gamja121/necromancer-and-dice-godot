@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "scripts/test_p4_natural_home_lap.gd"
+      - "scripts/test_map_shuffle_home_exit.gd"
       - ".github/workflows/p4-natural-home-lap.yml"
       - "map.gd"
       - "systems/map_state.gd"
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - "scripts/test_p4_natural_home_lap.gd"
+      - "scripts/test_map_shuffle_home_exit.gd"
       - ".github/workflows/p4-natural-home-lap.yml"
       - "map.gd"
       - "systems/map_state.gd"
@@ -49,6 +51,16 @@ jobs:
           set -euo pipefail
           godot --headless --path . --editor --quit 2>&1 | tee p4-natural-home-import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' p4-natural-home-import.log; then
+            exit 1
+          fi
+
+      - name: Home departure invalid patrol and save-failure recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 100s godot --headless --path . --script res://scripts/test_map_shuffle_home_exit.gd 2>&1 | tee home-exit-recovery.log
+          grep -E '^MAP_SHUFFLE_HOME_EXIT: [0-9]+ passed, 0 failed$' home-exit-recovery.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Invalid call|^FAIL shuffle-home:' home-exit-recovery.log; then
             exit 1
           fi
 

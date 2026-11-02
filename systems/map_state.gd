@@ -161,7 +161,7 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 	var reserved: int=maxi(0,RoutePlan.RESERVED_SWAMP_ROADS-swamps)
 	var discoveries: int=0
 	for kind in Discovery.ORDER:
-		if event_flags.get(Discovery.unlock_flag(kind),false)==true: discoveries+=1
+		if event_flags.get(Discovery.unlock_flag(kind),false)==true or Discovery.is_pending(self,kind): discoveries+=1
 	var requested_conversion: int=2 if level>=80 else (1 if level>=40 else 0)
 	if not modern:
 		# Reclaim legacy optional quantities only when earned places/automatic tiles need room.
@@ -173,7 +173,7 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 			counts.basic+=reclaimed
 			deficit-=reclaimed
 	for kind in Discovery.ORDER:
-		if event_flags.get(Discovery.unlock_flag(kind),false)==true:
+		if event_flags.get(Discovery.unlock_flag(kind),false)==true or Discovery.is_pending(self,kind):
 			counts.basic-=1
 			counts[kind]+=1
 	var conversion: int=mini(requested_conversion,maxi(0,int(counts.basic)-reserved))
@@ -181,14 +181,20 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 	counts.monster+=conversion
 	var capacity: int=mini(RoutePlan.OPTIONAL_CAPACITY,maxi(0,int(counts.basic)-reserved))
 	var selected: int=RoutePlan.total_selected(plan) if modern else 0
+	var applied: int=0
+	var applied_by_kind: Dictionary={"monster":0,"rest":0,"forest":0}
 	if modern:
 		# Keep unsafe stored intent, but never drop earned places from generated boards.
 		var room: int=capacity
 		for kind in RoutePlan.CHOICES:
-			var applied: int=mini(room,maxi(0,int(plan.selection.get(kind,0))))
-			counts.basic-=applied
-			counts[kind]+=applied
-			room-=applied
+			var slot_count: int=mini(room,maxi(0,int(plan.selection.get(kind,0))))
+			counts.basic-=slot_count
+			counts[kind]+=slot_count
+			applied_by_kind[kind]=slot_count
+			room-=slot_count
+		# Preserve the six requested selections; only the number that fits
+		# after mandatory story places and swamp reserves goes onto the board.
+		applied=capacity-room
 	# Escalate the number of rare encounters at corruption 20 / 30 / 40.
 	# Bosses retain one dedicated stone; each rare stone replaces a normal
 	# monster stone, never an extra fight, road or event.
@@ -203,7 +209,7 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 	complete.village=1
 	complete.home=1
 	complete.boss=1 if has_boss else 0
-	return {"pool":counts,"counts":complete,"capacity":capacity if modern else RoutePlan.OPTIONAL_CAPACITY,"selected":selected,"boss":has_boss}
+	return {"pool":counts,"counts":complete,"capacity":capacity if modern else RoutePlan.OPTIONAL_CAPACITY,"selected":selected,"applied":applied if modern else selected,"applied_by_kind":applied_by_kind,"reserved_roads":reserved,"boss":has_boss}
 
 ## Forecast the next actual HOME exit without RNG, save or serial changes.
 func patrol_preview(plan: Dictionary) -> Dictionary:
@@ -214,11 +220,15 @@ func patrol_preview(plan: Dictionary) -> Dictionary:
 	var manifest: Dictionary=_patrol_manifest(source,level,completed)
 	var selected: int=int(manifest.selected)
 	var capacity: int=int(manifest.capacity)
-	var valid: bool=structural and selected<=capacity
+	var valid: bool=structural and (not RoutePlan.is_new(source) or selected<=RoutePlan.OPTIONAL_CAPACITY)
+	var applied: int=int(manifest.applied)
+	var trimmed: int=maxi(0,selected-applied) if RoutePlan.is_new(source) else 0
 	var reason: String=""
 	if not structural: reason="순찰경로의 해금 상태와 수량 제한을 확인하세요."
-	elif selected>capacity: reason="발견한 장소와 고정 타일을 유지하려면 추가 타일을 %d칸 이하로 줄여주세요." % capacity
-	return {"capacity":capacity,"selected":selected,"remaining":capacity-selected,"contamination":level,"counts":manifest.counts,"valid":valid,"reason":reason}
+	return {"capacity":capacity,"selected":selected,"remaining":RoutePlan.OPTIONAL_CAPACITY-selected if RoutePlan.is_new(source) else capacity-selected,
+		"applied":applied,"applied_by_kind":manifest.applied_by_kind,"trimmed":trimmed,"reserved_roads":int(manifest.reserved_roads),
+		"basic_roads":int(manifest.counts.basic),"contamination":level,
+		"counts":manifest.counts,"valid":valid,"reason":reason}
 
 func generate() -> void:
 	map_serial += 1
@@ -239,6 +249,17 @@ func generate() -> void:
 		elif i==HOME: tiles.append("home")
 		elif i==BOSS_TILE_INDEX and bool(manifest.boss): tiles.append("boss")
 		else: tiles.append(pool.pop_back())
+	# The story-place reservation is awarded only once a real stone exists.
+	# Persisted by the caller with the newly generated board in one save.
+	for kind in Discovery.MAIN_STORY_ORDER:
+		if not Discovery.is_pending(self,kind): continue
+		if kind not in tiles: continue
+		event_flags[Discovery.pending_flag(kind)] = false
+		event_flags[Discovery.unlock_flag(kind)] = true
+		event_flags[Discovery.receipt_flag(kind)] = true
+		event_flags[Discovery.home_flag(kind)] = true
+		event_flags["ui:unlock:%s:tile_pending" % kind] = true
+		event_flags["ui:unlock:%s:action_pending" % kind] = true
 	cleared = []
 	scout = {"scouted":false,"intel":[]}
 	lap_ready = false

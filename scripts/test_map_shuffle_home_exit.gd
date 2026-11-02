@@ -4,6 +4,8 @@ extends SceneTree
 
 const MapScene = preload("res://map.tscn")
 const MapState = preload("res://systems/map_state.gd")
+const RoutePlan = preload("res://systems/route_plan.gd")
+const Discovery = preload("res://systems/location_discoveries.gd")
 var passed := 0
 var failed := 0
 
@@ -27,6 +29,12 @@ func wait_for_shuffle(map: Control, timeout_msec: int = 12000) -> bool:
 		await process_frame
 	return not map.moving
 
+
+func panel_button(map: Control, title: String) -> Button:
+	if not is_instance_valid(map.overlay): return null
+	for child in map.overlay.get_children():
+		if child is Button and child.text==title: return child
+	return null
 
 func _run() -> void:
 	var session = root.get_node_or_null("RunSession")
@@ -95,8 +103,47 @@ func _run() -> void:
 	check(not map.moving and map.dice.disabled, "failed save releases motion lock but home retry modal blocks die input")
 	check(is_instance_valid(map.overlay), "failed save restores home window for retry")
 	check(map.status.text.contains("저장"), "failed save shows a storage error")
+	var saving_warning: Control=map.overlay.get_node_or_null("HomeDepartureFeedback")
+	check(saving_warning!=null and saving_warning.get_node("HomeDepartureReason").text.contains("저장"),
+		"save rejection is visible directly inside the home painting")
 	map.close_overlay()
 	check(not map.dice.disabled, "closing retry modal returns map die input")
+
+	# A saved six-stone patrol can become over capacity when earned places and
+	# swamp reservations appear. The player must see WHY exit is blocked and
+	# enter the route editor directly, without changing or resetting the save.
+	session.save_file_path=test_save_path
+	var world = session.world
+	world.position=MapState.HOME
+	world.lap_ready=true
+	world.contamination=30
+	world.patrol_plan=RoutePlan.default_plan()
+	world.patrol_plan.selection.monster=6
+	for kind in ["forest","unknown","altar"]:
+		world.event_flags[Discovery.unlock_flag(kind)]=true
+	var invalid_preview: Dictionary=world.patrol_preview(world.patrol_plan)
+	check(not bool(invalid_preview.valid) and int(invalid_preview.selected)>int(invalid_preview.capacity),
+		"earned locations reduce usable optional capacity below an older six-stone plan")
+	var invalid_before: Dictionary=world.snapshot().duplicate(true)
+	map.show_home()
+	var depart: Button=panel_button(map,"다음 바퀴 출발")
+	check(depart!=null and not depart.disabled,"blocked route still shows a clickable departure button")
+	if depart!=null:
+		depart.pressed.emit()
+		check(is_instance_valid(map.overlay) and not map.moving,
+			"invalid departure keeps the house open and does not lock input")
+		var warning: Control=map.overlay.get_node_or_null("HomeDepartureFeedback")
+		check(warning!=null and warning.get_node("HomeDepartureReason").text.contains(str(invalid_preview.reason)),
+			"patrol rejection reason is readable above the home actions")
+		var repair: Button=panel_button(map,"순찰경로 수정")
+		check(repair!=null and not repair.disabled,"home provides direct repair for an invalid patrol")
+		check(world.snapshot()==invalid_before,"invalid departure preserves map, RNG and all saved game state")
+		if repair!=null:
+			repair.pressed.emit()
+			check(is_instance_valid(map.overlay) and map.overlay.get_script()!=null
+				and map.overlay.get_script().resource_path.ends_with("exploration_actions.gd"),
+				"repair button enters the actual home route editor")
+			map.close_overlay()
 	map.queue_free()
 	session.save_file_path = initial_save_path
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_save_path))

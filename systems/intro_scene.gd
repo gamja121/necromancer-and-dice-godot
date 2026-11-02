@@ -120,28 +120,39 @@ func _build_dialogue() -> void:
 	dialogue_stage.add_child(backdrop)
 	hero = _portrait("res://assets/intro/necromancer.webp",Vector2(51.2,14.4),Vector2(512,518.4))
 	commander = _portrait("res://assets/intro/knight_commander.webp",Vector2(678.4,-28.8),Vector2(588.8,561.6),true)
-	var box = Control.new()
+	# Use the original hand-painted intro dialogue frame rather than the
+	# shared event parchment or a stack of synthetic gilt decorations.
+	var box := Control.new()
+	box.name = "IntroDialogueBox"
 	box.position = Vector2(102.4,489.6)
 	box.size = Vector2(1075.2,216)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dialogue_stage.add_child(box)
-	var frame = TextureRect.new()
-	frame.texture = load("res://assets/map/ui/shared_dialogue_panel.svg")
-	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	frame.stretch_mode = TextureRect.STRETCH_SCALE
+	var frame := NinePatchRect.new()
+	frame.name = "IntroOriginalDialogueFrame"
+	frame.texture = load("res://assets/intro/dialogue_frame.webp")
 	frame.size = box.size
+	# Preserve hand-drawn corner and side ornaments at original proportions
+	# while spreading the paper center across the 16:9 game dialogue width.
+	frame.patch_margin_left = 32
+	frame.patch_margin_right = 32
+	frame.patch_margin_top = 28
+	frame.patch_margin_bottom = 28
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(frame)
-	speaker_label = _label(box,"",box.size*Vector2(0.1,0.17),Vector2(850,30),19,Color("3a2819"))
-	text_label = _label(box,"",box.size*Vector2(0.1,0.42),Vector2(860,95),24,Color("21150d"))
+	speaker_label = _label(box,"",Vector2(72,38),Vector2(870,29),19,Color("513723"))
+	speaker_label.name = "IntroSpeakerName"
+	text_label = _label(box,"",Vector2(72,82),Vector2(890,91),24,Color("21150d"))
+	text_label.name = "IntroDialogueText"
 	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialogue_typewriter = StoryTypewriter.new()
 	dialogue_typewriter.name = "IntroTypewriter"
 	dialogue_stage.add_child(dialogue_typewriter)
-	var arrow = _label(box,"▼",Vector2(box.size.x*0.92-20,box.size.y*0.85-22),Vector2(22,24),18,Color("5e4329"))
-	var baseline = arrow.position.y
-	var bob = arrow.create_tween().set_loops().set_parallel(true)
-	bob.tween_property(arrow,"position:y",baseline+4,0.45).set_trans(Tween.TRANS_SINE)
+	var arrow := _label(box,"▼",Vector2(1007,164),Vector2(24,26),17,Color("69482b"))
+	arrow.name = "IntroContinueArrow"
+	var baseline := arrow.position.y
+	var bob := arrow.create_tween().set_loops().set_parallel(true)
+	bob.tween_property(arrow,"position:y",baseline+3,0.45).set_trans(Tween.TRANS_SINE)
 	bob.tween_property(arrow,"modulate:a",1.0,0.45).from(0.45)
 	bob.chain().tween_property(arrow,"position:y",baseline,0.45).set_trans(Tween.TRANS_SINE)
 	bob.parallel().tween_property(arrow,"modulate:a",0.45,0.45)

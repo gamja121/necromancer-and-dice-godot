@@ -208,7 +208,8 @@ func _build() -> void:
 	budget.add_theme_constant_override("separation",12)
 	left.add_child(budget)
 	_image(budget,"BudgetRoad","res://assets/map/tiles/basic.png",Vector2(50,36))
-	budget_label=_label(budget,"PatrolBudget","",20,"body",true)
+	budget_label=_label(budget,"PatrolBudget","",19,"body",true)
+	budget_label.custom_minimum_size.y=49
 	_rule(body,true)
 	var right:=VBoxContainer.new()
 	right.name="NextMap"
@@ -239,7 +240,7 @@ func _build() -> void:
 	# Keep remaining capacity visible even when long localized body copy scrolls.
 	budget.reparent(column)
 	status_label=_label(column,"PatrolStatus","",17)
-	status_label.custom_minimum_size.y=34
+	status_label.custom_minimum_size.y=48
 	_rule(column)
 	var footer:=HBoxContainer.new()
 	footer.name="PatrolFooter"
@@ -356,21 +357,25 @@ func refresh() -> void:
 		elif kind=="forest" and not is_unlocked: _copy(station_hints[kind],"사건에서 발견 후 편성 가능")
 		elif kind=="rest": _copy(station_hints[kind],"숙영 해금 후 편성 가능")
 		else: _copy(station_hints[kind],"추가 수량")
+		# Surface exactly which optional type gets reduced by mandatory sites.
+		var actually_placed: int=int(preview.applied_by_kind.get(kind,0))
+		if count>actually_placed and not reason.begins_with(tr("사건에서 발견 후 편성 가능")):
+			_copy(station_hints[kind],"이번 지도 {placed}/{chosen}칸 배치",
+				{"placed":actually_placed,"chosen":count})
 	var unlock_allowed: Dictionary=actions.session.rest_unlock_allowed()
 	unlock_button.visible=not bool(actions.plan.get("rest_unlocked",false))
 	_button_state(unlock_button,locked or not bool(unlock_allowed.get("ok",false)),tr(str(unlock_allowed.get("reason","숙영 해금"))))
-	if bool(preview.valid):
-		_copy(budget_label,"추가 가능 {count}칸",{"count":int(preview.remaining)})
-		budget_label.add_theme_color_override("font_color",INK)
-	else:
-		_copy(budget_label,"선택 {selected}칸 · 편성 가능 {capacity}칸",{"selected":int(preview.selected),"capacity":int(preview.capacity)})
-		budget_label.add_theme_color_override("font_color",Color("843f2a"))
+	_copy(budget_label,"선택 {selected}/6 · 실제 배치 {applied}/{selected}\n일반 길 {roads}칸 · 늪지 예약 {reserved}칸",
+		{"selected":int(preview.selected),"applied":int(preview.applied),
+			"roads":int(preview.basic_roads),"reserved":int(preview.reserved_roads)})
+	budget_label.add_theme_color_override("font_color",Color("843f2a") if int(preview.trimmed)>0 else INK)
 	for kind in summary_labels: summary_labels[kind].text=str(int(preview.counts.get(kind,0)))
 	var visible_places: int=0
 	for kind in Discovery.ORDER:
-		var found: bool=actions.session.event_flag_is_set(Discovery.unlock_flag(str(kind)))
+		var found: bool=actions.session.event_flag_is_set(Discovery.unlock_flag(str(kind))) or Discovery.is_pending(actions.session.world,str(kind))
 		discovery_cells[kind].visible=found
-		discovery_badges[kind].visible=found and actions.session.event_flag_is_set(Discovery.home_flag(str(kind)))
+		discovery_badges[kind].visible=found and (Discovery.is_pending(actions.session.world,str(kind)) or actions.session.event_flag_is_set(Discovery.home_flag(str(kind))))
+		discovery_badges[kind].tooltip_text=tr("다음 바퀴 배치 예약") if Discovery.is_pending(actions.session.world,str(kind)) else tr("신규")
 		if found: visible_places+=1
 	discovery_grid.visible=visible_places>0
 	empty_discovery.visible=visible_places==0
@@ -378,9 +383,14 @@ func refresh() -> void:
 	_button_state(reset_button,locked)
 	_button_state(back_button,false)
 	var feedback: String=str(actions.route_feedback)
+	var trim_notice: String=""
+	if int(preview.trimmed)>0:
+		trim_notice=tr("필수 장소 우선 · 추가 타일 {trimmed}칸은 이번 지도에서 제외").format({
+			"trimmed":int(preview.trimmed)})
 	if not feedback.is_empty(): _copy(status_label,feedback)
-	elif locked: _copy(status_label,"이번 방문의 편성을 확정했습니다.")
 	elif not bool(preview.valid): _copy(status_label,str(preview.reason))
+	elif not trim_notice.is_empty(): _copy(status_label,trim_notice)
+	elif locked: _copy(status_label,"이번 방문의 편성을 확정했습니다.")
 	else: _copy(status_label,"")
 	status_label.visible=not status_label.text.is_empty()
 	if is_instance_valid(previous_focus) and previous_focus is BaseButton and previous_focus.disabled:

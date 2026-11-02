@@ -41,7 +41,7 @@ func _run() -> void:
 	check(typewriter != null,"typewriter attached once to shared story panel")
 	check(narrative.visible_characters == 0 and speech.visible_characters == 0,"narration and dialogue start concealed")
 	check(narrative.text.contains("달빛") and speech.text.contains("돌아가라"),"original full copy stays intact")
-	check(speech.position==Vector2(702,358) and panel.get_children().any(func(n): return n is Label and n.text=="기사단장"),"speaker and dialogue occupy separate book lanes")
+	check(speech.position==Vector2(702,333) and panel.get_children().any(func(n): return n is Label and n.text=="기사단장" and n.position==Vector2(702,300)),"speaker and dialogue occupy separate lifted book lanes")
 	check(narrative.mouse_filter == Control.MOUSE_FILTER_IGNORE and speech.mouse_filter == Control.MOUSE_FILTER_IGNORE,"copy never blocks touch on story panel")
 	var backdrops = panel.get_children().filter(func(n):return n is ColorRect and n.get_meta("ui_backdrop",false))
 	check(backdrops.size() == 1 and backdrops[0].mouse_filter == Control.MOUSE_FILTER_PASS,"story backdrop bubbles taps for reveal")
