@@ -1159,5 +1159,6 @@
   "현재 지도에 빈 길이 없어 다음 바퀴에 먼저 배치합니다.": "No safe road on this map · The site will be placed first on the next lap.",
   "다음 바퀴 필수 장소 배치 예약": "Mandatory story site reserved for next lap",
   "%s 발견 예약 · 다음 바퀴에 확정 배치됩니다.": "%s reserved · Guaranteed placement on the next lap",
-  "필수 장소 발견 · 다음 바퀴에 확정 배치됩니다.": "Story site discovered · Guaranteed placement on the next lap"
+  "필수 장소 발견 · 다음 바퀴에 확정 배치됩니다.": "Story site discovered · Guaranteed placement on the next lap",
+  "이번 지도 {placed}/{chosen}칸 배치": "This lap: {placed}/{chosen} stones placed"
 }
