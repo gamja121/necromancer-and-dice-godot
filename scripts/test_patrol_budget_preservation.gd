@@ -33,7 +33,9 @@ func run() -> void:
 		var saved: Dictionary=w.snapshot().duplicate(true)
 		var p: Dictionary=w.patrol_preview(w.patrol_plan)
 		check(w.snapshot()==saved,"preview is pure at %d" % level)
-		check(int(p.capacity)==int(caps[level]) and int(p.remaining)<0 and not bool(p.valid),"unsafe six-pick budget is rejected at %d" % level)
+		check(int(p.capacity)==int(caps[level]) and int(p.remaining)==0 and bool(p.valid)
+			and int(p.applied)==int(p.capacity) and int(p.trimmed)==6-int(p.capacity),
+			"six selections are preserved while physical placement auto-fits at %d" % level)
 		var requested: Dictionary=w.patrol_plan.duplicate(true)
 		w.generate()
 		check(preserves(w),"every earned place, event and anchor survives at %d" % level)
@@ -76,19 +78,19 @@ func run() -> void:
 	w.reward_receipts.append(visit)
 	check(session.save_world(),"old unsafe confirmed plan stored in isolated save")
 	var before: Dictionary=w.snapshot().duplicate(true)
-	check(not session.patrol_edit_locked(),"only unsafe stored plan reopens confirmed visit for repair")
-	check(not session.leave_home() and w.snapshot()==before,"unsafe actual session departure refuses without state mutation")
-	check(not bool(session.confirm_patrol(w.patrol_plan).get("ok",false)) and w.snapshot()==before,"unsafe repeated confirmation refuses atomically")
-	var repaired: Dictionary=w.patrol_plan.duplicate(true)
-	repaired.selection.monster=int(w.patrol_preview(repaired).capacity)
-	session.save_file_path="user://missing_patrol_budget_%d/save.json" % OS.get_process_id()
-	check(not bool(session.confirm_patrol(repaired).get("ok",false)) and w.snapshot()==before,"failed repair save restores choices and the original receipt")
-	session.save_file_path=scratch
-	check(bool(session.confirm_patrol(repaired).get("ok",false)),"explicit safe repair succeeds")
-	check(w.reward_receipts.count(visit)==1 and session.patrol_edit_locked(),"repair retains one receipt and locks the now-safe visit")
-	check(not bool(session.confirm_patrol(repaired).get("ok",false)),"safe confirmed visit cannot be confirmed repeatedly")
+	check(session.patrol_edit_locked(),"valid six-choice confirmed plan remains locked")
+	check(not bool(session.confirm_patrol(w.patrol_plan).get("ok",false)) and w.snapshot()==before,
+		"confirmed valid six-choice plan cannot be reconfirmed")
+	var predicted: Dictionary=w.patrol_preview(w.patrol_plan)
+	check(predicted.valid and predicted.selected==6 and predicted.applied<6 and predicted.trimmed>0,
+		"preview displays protected story locations and actual reduction")
+	check(session.leave_home(),"six saved optional choices never block HOME departure")
+	check(w.patrol_plan.selection.monster==6 and preserves(w),
+		"actual map saves mandatory locations and keeps six requested slots")
+	check(w.reward_receipts.count(visit)==1,"no duplicated confirmation receipt")
 	session.reload_world()
-	check(session.world.patrol_plan==repaired and session.world.reward_receipts.count(visit)==1,"repair survives restart exactly once")
+	check(session.world.patrol_plan.selection.monster==6 and session.world.reward_receipts.count(visit)==1,
+		"auto-fit without changing player intent survives restart")
 	session.save_file_path=old_path
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(scratch+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
