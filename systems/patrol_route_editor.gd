@@ -208,7 +208,8 @@ func _build() -> void:
 	budget.add_theme_constant_override("separation",12)
 	left.add_child(budget)
 	_image(budget,"BudgetRoad","res://assets/map/tiles/basic.png",Vector2(50,36))
-	budget_label=_label(budget,"PatrolBudget","",20,"body",true)
+	budget_label=_label(budget,"PatrolBudget","",19,"body",true)
+	budget_label.custom_minimum_size.y=49
 	_rule(body,true)
 	var right:=VBoxContainer.new()
 	right.name="NextMap"
@@ -364,8 +365,9 @@ func refresh() -> void:
 	var unlock_allowed: Dictionary=actions.session.rest_unlock_allowed()
 	unlock_button.visible=not bool(actions.plan.get("rest_unlocked",false))
 	_button_state(unlock_button,locked or not bool(unlock_allowed.get("ok",false)),tr(str(unlock_allowed.get("reason","숙영 해금"))))
-	_copy(budget_label,"선택 {selected}/6 · 실제 배치 {applied}/{selected}",
-		{"selected":int(preview.selected),"applied":int(preview.applied)})
+	_copy(budget_label,"선택 {selected}/6 · 실제 배치 {applied}/{selected}\n일반 길 {roads}칸 · 늪지 예약 {reserved}칸",
+		{"selected":int(preview.selected),"applied":int(preview.applied),
+			"roads":int(preview.basic_roads),"reserved":int(preview.reserved_roads)})
 	budget_label.add_theme_color_override("font_color",Color("843f2a") if int(preview.trimmed)>0 else INK)
 	for kind in summary_labels: summary_labels[kind].text=str(int(preview.counts.get(kind,0)))
 	var visible_places: int=0
@@ -381,16 +383,15 @@ func refresh() -> void:
 	_button_state(reset_button,locked)
 	_button_state(back_button,false)
 	var feedback: String=str(actions.route_feedback)
-	var space: String=tr("일반 길 {roads}칸 · 늪지 예약 {reserved}칸").format({
-		"roads":int(preview.basic_roads),"reserved":int(preview.reserved_roads)})
+	var trim_notice: String=""
 	if int(preview.trimmed)>0:
-		space += " · " + tr("필수 장소 우선 · 추가 타일 {trimmed}칸은 이번 지도에서 제외").format({
+		trim_notice=tr("필수 장소 우선 · 추가 타일 {trimmed}칸은 이번 지도에서 제외").format({
 			"trimmed":int(preview.trimmed)})
-	if not feedback.is_empty(): _copy(status_label,feedback + " · " + space)
+	if not feedback.is_empty(): _copy(status_label,feedback)
 	elif not bool(preview.valid): _copy(status_label,str(preview.reason))
-	else: _copy(status_label,space)
-	if locked and int(preview.trimmed)==0 and feedback.is_empty():
-		_copy(status_label,"이번 방문의 편성을 확정했습니다. · {space}",{"space":space})
+	elif not trim_notice.is_empty(): _copy(status_label,trim_notice)
+	elif locked: _copy(status_label,"이번 방문의 편성을 확정했습니다.")
+	else: _copy(status_label,"")
 	status_label.visible=not status_label.text.is_empty()
 	if is_instance_valid(previous_focus) and previous_focus is BaseButton and previous_focus.disabled:
 		for kind in plus_buttons:
