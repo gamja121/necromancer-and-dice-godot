@@ -186,10 +186,10 @@ func _patrol_manifest(plan: Dictionary, level: int, completed_laps: int) -> Dict
 		# Keep unsafe stored intent, but never drop earned places from generated boards.
 		var room: int=capacity
 		for kind in RoutePlan.CHOICES:
-			var applied: int=mini(room,maxi(0,int(plan.selection.get(kind,0))))
-			counts.basic-=applied
-			counts[kind]+=applied
-			room-=applied
+			var slot_count: int=mini(room,maxi(0,int(plan.selection.get(kind,0))))
+			counts.basic-=slot_count
+			counts[kind]+=slot_count
+			room-=slot_count
 		# Preserve the six requested selections; only the number that fits
 		# after mandatory story places and swamp reserves goes onto the board.
 		applied=capacity-room
