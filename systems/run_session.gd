@@ -150,13 +150,23 @@ func discover_location_on_event(index: int,kind: String) -> Dictionary:
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var converted: int = world.reveal_discovered_location(kind)
 	if converted<0:
-		return {"ok":false,"reason":"보호 길을 제외한 빈 칸이 없어 해금을 보류합니다."}
+		if not kind in Discovery.MAIN_STORY_ORDER:
+			return {"ok":false,"reason":"보호 길을 제외한 빈 칸이 없어 해금을 보류합니다."}
+		_queue_story_discovery(kind)
+		world.reward_receipts.append(_event_visit_id(index))
+		if not persist_change(before): return {"ok":false,"reason":notice}
+		return {"ok":true,"pending":true,"kind":kind,"reason":"필수 장소 발견 · 다음 바퀴에 확정 배치됩니다."}
 	_apply_discovery_flags(kind)
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"index":converted,"kind":kind}
 
 ## Reuse the same original unlock transaction for the optional
 ## discovery path, without paying another RNG roll after selecting the event.
+func _queue_story_discovery(kind: String) -> void:
+	# This is a saved, single-use story discovery, NOT a granted tile.
+	# The real unlock receipt is committed with the next generated map.
+	world.event_flags[Discovery.pending_flag(kind)] = true
+
 func _apply_discovery_flags(kind: String) -> void:
 	world.event_flags[Discovery.unlock_flag(kind)] = true
 	world.event_flags[Discovery.receipt_flag(kind)] = true
@@ -202,8 +212,14 @@ func begin_story_free_event(index: int) -> Dictionary:
 			world.reward_receipts.append(receipt)
 			if not persist_change(before): return {"ok":false,"reason":notice}
 			return {"ok":true,"type":"discovery","location":possible,"index":converted}
-		# No free road: safely fall back to a routine instead of awarding a
-		# phantom place or overwriting a boss/story/protected swamp slot.
+		# Eligible main story sites must not silently disappear into ordinary
+		# random incidents when all free roads are already protected/occupied.
+		if guaranteed_story and possible in Discovery.MAIN_STORY_ORDER:
+			_queue_story_discovery(possible)
+			world.reward_receipts.append(receipt)
+			if not persist_change(before): return {"ok":false,"reason":notice}
+			return {"ok":true,"type":"discovery_pending","location":possible}
+		# Optional sites keep their original ordinary-event fallback.
 	var event_id: String = Routine.choose(world.rng)
 	var definition: Dictionary = Routine.details(event_id)
 	var offered: Dictionary = {}
