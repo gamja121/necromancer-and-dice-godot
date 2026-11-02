@@ -57,3 +57,5 @@ Constraints: Same character identities and same illustration quality as supplied
 Prophet Story Event CI에서 새 분기와 양언어 캡처를 기존 회귀 검사에 추가했다.
 
 로컬 최종 결과: 임포트 오류0. 새 분기153·실제 양언어 GPU1349, 첫 불신92, 언어89, 예언가160, 공통 배치30, 기존 제단 전투110, 부활 의식235, 전체 사건책337로 **9개 검사2,555항목 통과**. 실제8장과 영문 도장의 한 단어 표시를 확인했다. 기존 제단 전투 검사는 마지막 장면의 로딩·오디오를 배출한 뒤 종료하도록 정리하여 엄격한 종료 누수 검사도 통과했다.
+
+CI에서 기존 기사단장 검사의 `if not Commander` 부분 문자열이 정상 production 모듈 `CommanderInquiryEntry`까지 오탐한 것을 확인했다. 금지 대상인 실제 테스트 별칭 `Commander.`의 멤버 접근 경계로 좁혔다. 기능 검사와 원래 별칭 독립성 조건은 유지한다. 수정 후 기존 기사단장 대화308항목도 통과하여 로컬은 **10개 검사2,863항목 통과**다.
