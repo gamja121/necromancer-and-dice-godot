@@ -29,6 +29,12 @@ const LOCATIONS = {
 static func unlock_flag(kind: String) -> String:
 	return "event:discovery:%s:unlocked" % kind
 
+static func pending_flag(kind: String) -> String:
+	return "event:discovery:%s:pending" % kind
+
+static func is_pending(world,kind: String) -> bool:
+	return exists(kind) and world.event_flags.get(pending_flag(kind),false)==true
+
 static func receipt_flag(kind: String) -> String:
 	return "event:discovery:%s:card_shown" % kind
 
@@ -48,7 +54,7 @@ static func is_unlocked(world,kind: String) -> bool:
 	return world.event_flags.get(unlock_flag(kind),false)==true
 
 static func eligible(world,kind: String) -> bool:
-	if not exists(kind) or is_unlocked(world,kind): return false
+	if not exists(kind) or is_unlocked(world,kind) or is_pending(world,kind): return false
 	match kind:
 		"forest":
 			return world.laps>=1
