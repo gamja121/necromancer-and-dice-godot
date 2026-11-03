@@ -1,0 +1,39 @@
+name: Preview Actual Unit Info Readability
+on:
+  pull_request:
+    paths:
+      - "scripts/capture_unit_info_readability.gd"
+      - ".github/workflows/capture-unit-info-readability.yml"
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import the unchanged Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210s godot --headless --path . --editor --quit 2>&1 | tee unit-info-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' unit-info-import.log; then exit 1; fi
+      - name: Capture real unit info top and scrolled effect panels
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/capture_unit_info_readability.gd 2>&1 | tee unit-info-capture.log
+          grep -E '^UNIT_INFO_REAL_CAPTURE: [0-9]+ passed, 0 failed$' unit-info-capture.log
+          for p in unit_info_actual_01_same_top.webp unit_info_actual_02_same_bottom.webp unit_info_actual_03_mixed_top.webp unit_info_actual_04_mixed_bottom.webp; do test -s "$p"; done
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL unit-info-capture:' unit-info-capture.log; then exit 1; fi
+      - name: Upload unedited genuine Godot framebuffers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-info-effects-current-actual-godot
+          path: unit_info_actual_*.webp
+          if-no-files-found: warn
