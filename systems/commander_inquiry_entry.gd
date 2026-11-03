@@ -18,6 +18,9 @@ static func progress_flag(index: int) -> String:
 	if index<1 or index>=Beats.count(): return ""
 	return "event:%s:beat:%d" % [EVENT_ID,index]
 
+static func finished_visit_flag(session, index: int) -> String:
+	return session.place_visit_id("inquiry-finished",index)
+
 static func checkpoint(session) -> int:
 	if session==null or session.world==null: return -1
 	var prefix: String="event:%s:beat:" % EVENT_ID
@@ -110,6 +113,7 @@ static func advance(session, index: int, shown_index: int) -> bool:
 		var decision: String=session.get_story_event(EVENT_ID).choice
 		session.world.story_events[EVENT_ID]={"status":"complete","choice":decision,"battle_result":""}
 		session.world.event_flags[COMPLETE_FLAG]=true
+		session.world.event_flags[finished_visit_flag(session,index)]=true
 		for key in ([TESTIMONY_FLAG,DEFERRED_FLAG] if decision=="explain" else [WITHHELD_FLAG,WATCH_FLAG,ESCALATED_FLAG]):
 			session.world.event_flags[key]=true
 	else:

@@ -3,9 +3,14 @@ on:
   pull_request:
     paths:
       - 'map.gd'
+      - 'systems/run_session.gd'
       - 'systems/prophet_story_*.gd'
       - 'systems/village_mistrust_*.gd'
       - 'systems/commander_inquiry_*.gd'
+      - 'systems/witch_hunt_*.gd'
+      - 'scripts/test_witch_hunt_*.gd'
+      - 'scripts/witch_hunt_fixture.gd'
+      - 'assets/map/events/manuscript_witch_hunt_*.png*'
       - 'scripts/test_commander_inquiry_*.gd'
       - 'assets/map/events/manuscript_commander_inquiry_*.png*'
       - 'systems/cultist_altar_*.gd'
@@ -26,9 +31,14 @@ on:
   push:
     branches: [main]
     paths:
+      - 'systems/run_session.gd'
       - 'systems/prophet_story_*.gd'
       - 'systems/village_mistrust_*.gd'
       - 'systems/commander_inquiry_*.gd'
+      - 'systems/witch_hunt_*.gd'
+      - 'scripts/test_witch_hunt_*.gd'
+      - 'scripts/witch_hunt_fixture.gd'
+      - 'assets/map/events/manuscript_witch_hunt_*.png*'
       - 'scripts/test_commander_inquiry_*.gd'
       - 'assets/map/events/manuscript_commander_inquiry_*.png*'
       - 'systems/cultist_altar_*.gd'
@@ -74,7 +84,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in test_prophet_story_entry test_cultist_mistrust_branch test_commander_inquiry_branch test_cultist_altar_entry test_cultist_altar_choice test_cultist_altar_followup test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
+          for test in test_prophet_story_entry test_cultist_mistrust_branch test_commander_inquiry_branch test_witch_hunt_branch test_cultist_altar_entry test_cultist_altar_choice test_cultist_altar_followup test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
             timeout 180s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
             grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
@@ -97,6 +107,27 @@ jobs:
             prophet_story_*.png
             capture.log
             test_prophet_story_entry.log
+          if-no-files-found: warn
+      - name: Witness, mob and home outcomes in Korean and English
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 360s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --verbose --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --script res://scripts/test_witch_hunt_capture.gd 2>&1 | tee witch-hunt-capture.log
+          grep -E '^WITCH_HUNT_CAPTURE: [0-9]+ passed, 0 failed$' witch-hunt-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' witch-hunt-capture.log; then exit 1; fi
+          for locale in ko en; do
+            for scene in stage0_choice stage1_choice stage2_choice protected damaged burned ruins; do
+              test -s "witch_hunt_${scene}_${locale}.png"
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: witch-hunt-rendered
+          path: |
+            witch_hunt_*.png
+            witch-hunt-capture.log
+            test_witch_hunt_branch.log
           if-no-files-found: warn
       - name: Commander inquiry responses in Korean and English
         shell: bash

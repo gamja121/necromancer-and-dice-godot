@@ -245,6 +245,9 @@ func set_heading(value: String) -> void:
 		"광신도의 의식", "광신도": information = ["여섯 번째 기록","광신도의 의식","밤의 제단",11]
 		"와전된 소문": information = ["엇갈린 기록","와전된 소문","마을",11]
 		"기사단장의 추궁": information = ["증언의 기록","기사단장의 추궁","마을 길목",11]
+		"증언의 대조": information = ["대조의 기록",heading,"마을 길목",13]
+		"집으로 향하는 사람들": information = ["동요의 기록",heading,"마을",15]
+		"문 앞의 횃불": information = ["불씨의 기록",heading,"우리집",17]
 		"마물의 왕 부활 의식": information = ["일곱 번째 기록",heading,"의식의 폐허",13]
 		"왕의 흔적": information = ["여덟 번째 기록","마물의 왕 추적","세계수",15]
 	if _record == null:

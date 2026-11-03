@@ -1,5 +1,6 @@
 extends Node
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
+const WitchHunt = preload("res://systems/witch_hunt_entry.gd")
 const MapGearShift = preload("res://systems/map_gear_shift.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
@@ -856,6 +857,7 @@ func resolve_owned_card(instance_id: String, context: Dictionary, rng: RandomNum
 
 func prepare_map_roll(instance_id: String = "") -> Dictionary:
 	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
 	if not encounter.is_empty() or not world.pending_reward.is_empty(): return {"ok":false,"reason":"지금은 이동할 수 없습니다."}
 	if not world.pending_move.is_empty(): return {"ok":false,"reason":"이전 이동을 먼저 완료하세요."}
 	var before: Dictionary = world.snapshot().duplicate(true)
@@ -927,8 +929,16 @@ func checkpoint_battle(battle, phase: String) -> bool:
 func home_visit_id() -> String:
 	return place_visit_id("inheritance",MapState.HOME)
 
+func home_services_allowed() -> Dictionary:
+	if world==null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	if WitchHunt.home_burned(self): return {"ok":false,"reason":"집이 전소되어 회복·계승·순찰 기능을 이용할 수 없습니다."}
+	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
+	return {"ok":true}
+
 func home_action_allowed() -> Dictionary:
 	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	var services: Dictionary=home_services_allowed()
+	if not services.ok: return services
 	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty():
 		return {"ok":false,"reason":"이동·전투·보상을 먼저 완료하세요."}
 	if home_visit_id() in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 계승은 완료했습니다."}
@@ -936,6 +946,10 @@ func home_action_allowed() -> Dictionary:
 
 func enter_home() -> bool:
 	if world == null or not world.run_result.is_empty(): return false
+	var services: Dictionary=home_services_allowed()
+	if not services.ok:
+		notice=services.reason
+		return false
 	if not encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty(): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	for unit in world.roster: unit.current_hp = unit.max_hp
@@ -1019,6 +1033,7 @@ func place_visit_id(kind: String, index: int) -> String:
 
 func place_allowed(index: int, type: String) -> Dictionary:
 	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
 	if index<0 or index>=world.tiles.size() or world.tiles[index]!=type:
 		return {"ok":false,"reason":"이 장소에서는 사용할 수 없습니다."}
 	if not encounter.is_empty() or not world.pending_reward.is_empty() or not world.pending_move.is_empty():
@@ -1251,6 +1266,8 @@ func active_scout_intel() -> Array:
 func rest_unlock_allowed() -> Dictionary:
 	var allowed: Dictionary=place_allowed(MapState.HOME,"home")
 	if not allowed.ok: return allowed
+	var services: Dictionary=home_services_allowed()
+	if not services.ok: return services
 	if RoutePlan.is_new(world.patrol_plan) and bool(world.patrol_plan.get("rest_unlocked",false)):
 		return {"ok":false,"reason":"숙영은 이미 해금됐습니다."}
 	if world.laps<1 and not world.lap_ready:
@@ -1282,6 +1299,8 @@ func patrol_edit_locked() -> bool:
 func confirm_patrol(plan: Dictionary) -> Dictionary:
 	var allowed = place_allowed(MapState.HOME,"home")
 	if not allowed.ok: return allowed
+	var services: Dictionary=home_services_allowed()
+	if not services.ok: return services
 	var visit = place_visit_id("patrol",MapState.HOME)
 	if patrol_edit_locked(): return {"ok":false,"reason":"이번 방문의 순찰경로는 확정했습니다."}
 	if not RoutePlan.valid(plan): return {"ok":false,"reason":"추가 6칸 제한과 타일별 해금·수량 제한을 확인하세요."}
@@ -1344,6 +1363,9 @@ func warp_from(index: int) -> Dictionary:
 
 func leave_home() -> bool:
 	if not place_allowed(MapState.HOME,"home").ok: return false
+	if WitchHunt.home_in_progress(self):
+		notice="집 앞의 사건을 먼저 확인하세요."
+		return false
 	var preview: Dictionary=world.patrol_preview(world.patrol_plan)
 	if not bool(preview.valid):
 		notice=str(preview.reason)
