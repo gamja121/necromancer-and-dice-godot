@@ -28,6 +28,8 @@ const VillageMistrustEntry = preload("res://systems/village_mistrust_entry.gd")
 const VillageMistrustBeats = preload("res://systems/village_mistrust_beats.gd")
 const CommanderInquiryEntry = preload("res://systems/commander_inquiry_entry.gd")
 const CommanderInquiryBeats = preload("res://systems/commander_inquiry_beats.gd")
+const WitchHuntEntry = preload("res://systems/witch_hunt_entry.gd")
+const WitchHuntBeats = preload("res://systems/witch_hunt_beats.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const ProphetStoryEntry = preload("res://systems/prophet_story_entry.gd")
@@ -345,7 +347,7 @@ func _ready() -> void:
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
 	elif world.tiles[world.position]=="boss" and not world.position in world.cleared: call_deferred("show_tile",world.position)
-	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp"]: call_deferred("resume_village_rumor_if_unfinished")
+	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp","home"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -618,6 +620,13 @@ func render() -> void:
 		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
+		if world.tiles[i]=="home" and WitchHuntEntry.home_burned(session):
+			node.self_modulate=Color("77716c")
+			node.tooltip_text+=" · 전소 · 집 기능 봉쇄"
+			var blockade=label_at(node,"봉쇄",Vector2(10,38),Vector2(90,28),16)
+			blockade.name="HomeBlockadeBadge"
+			blockade.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+			blockade.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		if (world.tiles[i]=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING)) or (Discovery.exists(str(world.tiles[i])) and session.event_flag_is_set("ui:unlock:%s:tile_pending" % world.tiles[i])):
 			UnlockNoticeBadge.attach(node,"신규")
 			node.tooltip_text += " · 새로 해금된 장소"
@@ -1083,6 +1092,10 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 		if after.is_valid(): after.call())
 
 func show_tile(index: int, actual_landing: bool = false) -> void:
+	# Closing the home book is not permission to use a remote warp or battle.
+	if WitchHuntEntry.home_in_progress(session):
+		show_witch_hunt_beat(2,world.position)
+		return
 	if not world.run_result.is_empty(): return
 	var type: String = world.tiles[index]
 	# Dispatch the earliest available story before generic location actions.
@@ -1149,6 +1162,13 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		if actual_landing or session.get_story_event(CommanderInquiryEntry.EVENT_ID).status in ["seen","active"]:
 			if CommanderInquiryEntry.begin(session,index):
 				show_commander_inquiry_beat(index)
+				return
+			status.text=session.notice
+	var hunt_stage: int=WitchHuntEntry.eligible_stage(session,index)
+	if hunt_stage>=0:
+		if actual_landing or session.get_story_event(WitchHuntEntry.IDS[hunt_stage]).status in ["seen","active"]:
+			if WitchHuntEntry.begin(session,hunt_stage,index):
+				show_witch_hunt_beat(hunt_stage,index)
 				return
 			status.text=session.notice
 	# P1-05J-1: the forest (or event wildcard) reveals the portal only
@@ -1933,6 +1953,12 @@ func location_scene_image(parent: Control, path: String) -> TextureRect:
 	return scene_art
 
 func show_home(interior: bool = false) -> void:
+	if WitchHuntEntry.home_in_progress(session):
+		show_witch_hunt_beat(2,world.position)
+		return
+	if WitchHuntEntry.home_burned(session):
+		show_burned_home()
+		return
 	var panel = modal(false)
 	var home_art = location_scene_image(panel,"res://assets/map/events/home-interior.jpg" if interior else "res://assets/map/events/home.jpg")
 	# The home exterior opens with ink; entering the house shows interior art instantly.
@@ -2042,6 +2068,18 @@ func show_home(interior: bool = false) -> void:
 			var hint = label_at(panel,str(allowed.reason),Vector2(350,665),Vector2(580,30),15)
 			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
+func show_burned_home() -> void:
+	var panel=modal(false)
+	panel.name="BurnedHomePanel"
+	location_scene_image(panel,WitchHuntBeats.RUINS_ART)
+	var notice: Dictionary=preload("res://systems/location_notice_strip.gd").build(panel)
+	notice.text.text="우리집 · 전소"
+	notice.detail.text="회복·계승·순찰 불가 · 다음 바퀴 출발 가능"
+	notice.detail.show()
+	location_button(panel,"다음 바퀴 출발",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
+	location_button(panel,"돌아가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():dismiss_overlay(render),4)
+	if not home_departure_feedback.is_empty(): _show_home_departure_feedback(panel,home_departure_feedback)
+
 func _show_home_departure_feedback(panel: Control, reason: String) -> void:
 	# Readable, non-interactive parchment ink panel above the existing actions.
 	# Its bounds do not overlap the departure/inheritance/patrol hit targets.
@@ -2117,6 +2155,9 @@ func resume_graveyard_dig() -> void:
 	show_exploration_actions(world.position)
 
 func show_exploration_actions(index: int) -> void:
+	if index==MapState.HOME and not session.home_services_allowed().ok:
+		show_home()
+		return
 	var panel = ExplorationActions.new()
 	stage.add_child(panel)
 	overlay = panel
@@ -2320,6 +2361,10 @@ func resume_village_rumor_if_unfinished() -> void:
 		if session.get_story_event(CommanderInquiryEntry.EVENT_ID).status in ["seen","active"]:
 			show_commander_inquiry_beat(index)
 			return
+	var hunt_stage: int=WitchHuntEntry.eligible_stage(session,index)
+	if hunt_stage>=0 and session.get_story_event(WitchHuntEntry.IDS[hunt_stage]).status in ["seen","active"]:
+		show_witch_hunt_beat(hunt_stage,index)
+		return
 	# Saved portal intervention or acknowledged epilogue resumes at its tile;
 	# reconnect never starts combat or concludes the quest automatically.
 	if RitualPortalEntry.can_enter(session,index):
@@ -3062,6 +3107,52 @@ func choose_commander_inquiry(index: int, shown_beat: int, decision: String) -> 
 		status.text="기사단장 선택 저장 실패 · 다시 시도하세요."
 		return
 	show_commander_inquiry_beat(index)
+
+func show_witch_hunt_beat(story_stage: int, index: int) -> void:
+	if not WitchHuntEntry.can_enter(session,story_stage,index): return
+	var current: int=WitchHuntEntry.current_beat(session,story_stage)
+	var beat: Dictionary=WitchHuntEntry.current_scene(session,story_stage)
+	if beat.is_empty(): return
+	var panel=story_modal()
+	var picture=image(panel,str(beat.art),TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	picture.name="WitchHuntScene"
+	if current==0: InkSceneReveal.play(picture)
+	shared_story_frame(panel)
+	label_at(panel,"사건 · "+str(WitchHuntBeats.TITLES[story_stage]),Vector2(350,84),Vector2(582,42),24)
+	label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,62),17)
+	if not str(beat.dialogue).is_empty(): label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,610),Vector2(710,50),16)
+	if current==WitchHuntBeats.CHOICE_INDEX:
+		for option in range(2):
+			var decision: String=WitchHuntBeats.DECISIONS[story_stage][option]
+			location_button(panel,WitchHuntBeats.CHOICES[story_stage][option],Vector2(463+188*option,653),Vector2(171,48),func():
+				if WitchHuntEntry.choose(session,story_stage,index,current,decision): show_witch_hunt_beat(story_stage,index)
+				else: status.text="후속 사건 선택 저장 실패 · 다시 시도하세요."
+			,option+1)
+	else:
+		var final_scene: bool=current==WitchHuntBeats.count()-1
+		if final_scene:
+			var seal: String="증언" if story_stage==0 else ("동행" if story_stage==1 else "생환")
+			if story_stage==2 and str(beat.art)==WitchHuntBeats.FIRE_ART: seal="전소"
+			panel.show_seal(seal)
+		location_button(panel,"마치기" if final_scene else "계속",Vector2(463,653),Vector2(171,48),func():
+			if not WitchHuntEntry.advance(session,story_stage,index,current):
+				status.text="후속 사건 장면 저장 실패 · 다시 시도하세요."
+				return
+			if final_scene:
+				close_overlay()
+				render()
+				if story_stage==2: show_home()
+				else: status.text="사건 기록을 저장했습니다. 이후 방문에서 상황이 이어집니다."
+			else: show_witch_hunt_beat(story_stage,index)
+		,1)
+	if current==WitchHuntBeats.CHOICE_INDEX+1:
+		location_button(panel,"선택 변경",Vector2(651,653),Vector2(194,48),func():
+			if WitchHuntEntry.reconsider(session,story_stage,index): show_witch_hunt_beat(story_stage,index)
+			else: status.text="후속 사건 선택 변경 실패 · 다시 시도하세요."
+		,4)
+	elif story_stage<2:
+		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func():dismiss_overlay(func():show_location(index)),4)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func():dismiss_overlay(render),4)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
