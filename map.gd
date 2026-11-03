@@ -3132,6 +3132,7 @@ func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 		var final_scene: bool=current==WitchHuntBeats.count()-1
 		if final_scene:
 			var seal: String="증언" if story_stage==0 else ("동행" if story_stage==1 else "생환")
+			if story_stage==1 and session.get_story_event(WitchHuntEntry.IDS[story_stage]).choice=="alone": seal="단독"
 			if story_stage==2 and str(beat.art)==WitchHuntBeats.FIRE_ART: seal="전소"
 			panel.show_seal(seal)
 		location_button(panel,"마치기" if final_scene else "계속",Vector2(463,653),Vector2(171,48),func():
