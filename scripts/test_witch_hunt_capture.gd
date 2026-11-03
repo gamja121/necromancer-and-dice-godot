@@ -47,6 +47,9 @@ func play_stage(locale: String, story_stage: int, decision: String, tag: String)
 	for beat in range(4,HUNT_BEATS.count()):
 		if not await settle(locale): return
 		check(HUNT.current_beat(session,story_stage)==beat and not HUNT.completed(session,story_stage),"outcome waits for final acknowledgement")
+		if story_stage==1 and beat==HUNT_BEATS.count()-1:
+			var expected_seal: String="동행" if decision=="escort" else "단독"
+			check(map.overlay.find_children("*","Label",true,false).any(func(label):return label.text==expected_seal),"final seal agrees with the saved escort decision")
 		if beat==5:
 			check(button("선택 변경")==null,"performed action locks choice")
 			before=session.world.snapshot().duplicate(true)
