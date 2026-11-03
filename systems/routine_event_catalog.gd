@@ -35,8 +35,21 @@ const CARDS = {
 static func valid(card_id: String) -> bool:
 	return CARDS.has(card_id)
 
+## Each routine scene may have its own approved original illustration.
+## The archive delivered on 2026-10-14 contains routine_wounded_soldier.png.
+## Other dedicated originals must be supplied separately; NEVER show another
+## routine's artwork as a substitute. Uninstalled art preserves the old fallback.
+static func dedicated_art_path(card_id: String) -> String:
+	if not valid(card_id): return ""
+	return "res://assets/map/events/routine_%s.png" % card_id
+
 static func details(card_id: String) -> Dictionary:
-	return CARDS.get(card_id,{}).duplicate(true)
+	var result: Dictionary = CARDS.get(card_id,{}).duplicate(true)
+	if result.is_empty(): return result
+	var original: String = dedicated_art_path(card_id)
+	if ResourceLoader.exists(original):
+		result["illustration"] = original
+	return result
 
 static func choose(rng: RandomNumberGenerator) -> String:
 	return str(ORDER[rng.randi_range(0, ORDER.size()-1)])
