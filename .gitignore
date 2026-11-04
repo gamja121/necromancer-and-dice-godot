@@ -7,7 +7,12 @@ source_assets/
 .env.*
 !.env.example
 
-tests/
+# Preserve only the two explicitly approved, portable remaster regressions.
+tests/*
+!tests/goblin_commoner_remaster.gd
+!tests/goblin_commoner_remaster.gd.uid
+!tests/lich_remaster.gd
+!tests/lich_remaster.gd.uid
 
 __pycache__/
 *.pyc
