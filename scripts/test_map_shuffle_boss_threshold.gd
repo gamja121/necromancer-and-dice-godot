@@ -45,11 +45,11 @@ func _run() -> void:
 	for corruption in [80,100]:
 		state.contamination=corruption
 		state.generate()
-		check(state.tiles[23]!="boss" and not state.boss_available(),"even max contamination cannot bypass the final story")
+		check(state.tiles[23]=="boss" and state.current_boss_stage()==60 and not state.final_dragon_available(),"locked final story preserves revealed intermediate boss")
 	StoryFixture.seed_completed_final_hunt(state,false)
 	state.contamination=80
 	state.generate()
-	check(state.tiles[23]!="boss","final quest is not enough before last scene Finish")
+	check(not state.final_dragon_available() and state.current_boss_stage()==60,"final quest is not enough before last scene Finish; existing boss stays")
 	state.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=true
 	for corruption in [80,81,99,100]:
 		state.contamination = corruption
@@ -58,6 +58,8 @@ func _run() -> void:
 		check(state.tiles.size() == 24 and state.tiles[0] == "fortune-teller-camp" and state.tiles[8] == "village" and state.tiles[15] == "home", "24-slot geometry unchanged at %d" % corruption)
 		check(state.tiles.count("monster") >= 4, "one existing monster slot replaced; no missing tiles at %d" % corruption)
 
+	state = MapState.new(definitions,1202)
+	StoryFixture.seed_completed_final_hunt(state)
 	state.mark_boss_defeated(60)
 	state.contamination = 79
 	state.generate()
@@ -73,11 +75,11 @@ func _run() -> void:
 	var pre_hide: Array = state.tiles.duplicate(true)
 	var saved_rng: int = state.rng.state
 	state.contamination = 79
-	check(state.conceal_boss_below_threshold(),"purification immediately hides boss under 80")
-	check(state.tiles[23]=="monster" and state.tiles.slice(0,23)==pre_hide.slice(0,23),"retirement replaces only boss stone with a monster")
-	check(state.rng.state==saved_rng and not state.conceal_boss_below_threshold(),"no reroll or duplicate replacement when retiring")
+	check(not state.conceal_boss_below_threshold(),"purification cannot hide an already revealed final boss")
+	check(state.tiles==pre_hide and state.final_dragon_available(),"same final boss remains visible and playable below eighty")
+	check(state.rng.state==saved_rng and not state.conceal_boss_below_threshold(),"retaining boss is idempotent and consumes no RNG")
 	state.contamination = 80
-	check(state.reveal_boss_at_threshold(),"returning to 80 reveals boss again")
+	check(not state.reveal_boss_at_threshold(),"returning to eighty does not repeat the reveal")
 	var snapshot: Dictionary = state.snapshot().duplicate(true)
 	var restored = MapState.new(definitions,999)
 	check(restored.restore(snapshot) and restored.tiles[23] == "boss", "boss reveal survives snapshot restore")
@@ -115,7 +117,8 @@ func _run() -> void:
 	session.reload_world()
 	check(session.world.contamination == 80 and session.world.tiles[23] == "boss", "boss tile persists across full session reload")
 
-	# Old 20-79 saves may contain a premature boss: remove it without reroll.
+	# Independent legacy cleared-boss migration fixture.
+	session.start_new_world()
 	session.world.contamination = 24
 	session.world.generate()
 	session.world.tiles[23] = "boss"
@@ -128,6 +131,8 @@ func _run() -> void:
 	check(session.world.map_serial == original_serial, "migration does not generate a new board")
 
 	# A failed write must undo contamination AND boss appearance atomically.
+	session.start_new_world()
+	StoryFixture.seed_completed_final_hunt(session.world)
 	session.world.contamination = 79
 	session.world.generate()
 	var before_failure: Dictionary = session.world.snapshot().duplicate(true)

@@ -439,13 +439,13 @@ func rescue_and_king(session: Node, victor: String) -> void:
 		press_story_action(next)
 		await process_frame
 	check(HUNT.completed(session) and not session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG),label+":king-hunt reveals sealed ruins but final acknowledgment still open")
-	check(not session.world.boss_available() and session.world.tiles[STATE.BOSS_TILE_INDEX]!="boss",label+":unacknowledged final story cannot trigger boss even at high contamination")
+	check(not session.world.final_dragon_available() and session.world.current_boss_stage()<80,label+":unacknowledged final story cannot trigger dragon; revealed intermediate bosses remain")
 	var last: Button=ui_button(map,"마치기")
 	check(last!=null,label+":fifth canonical source beat requires final Finish")
 	if last==null: return
 	press_story_action(last)
 	check(session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG) and HUNT.completed(session),label+":king-hunt final acknowledgement persists and cannot restart")
-	check(session.world.boss_available()==(session.world.contamination>=STATE.BOSS_CONTAMINATION),label+":real final acknowledgment activates remaining contamination condition")
+	check(session.world.final_dragon_available()==(session.world.contamination>=STATE.BOSS_CONTAMINATION),label+":first real final acknowledgment activates remaining contamination condition")
 	check((session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss")==session.world.boss_available(),label+":boss tile follows both final story and contamination without an extra lap")
 	check(session.event_flag_is_set(HUNT.FINAL_BATTLE_FLAG) and session.event_flag_is_set(HUNT.SEALED_RUINS_FLAG),label+":final battle quest ready; dragon boss is gated by story + contamination")
 	check(PORTAL.completed(session) and ALTAR.completed(session) and session.get_story_event(CHILD.EVENT_ID).status=="complete",label+":entire eight-event predecessor history survives end of chain")
