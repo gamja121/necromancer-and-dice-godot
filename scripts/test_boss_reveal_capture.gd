@@ -65,12 +65,20 @@ func run() -> void:
 		await dispose()
 	language.set_language(original_locale,false)
 	var audio:Node=root.get_node_or_null("GameAudio")
-	if audio!=null: audio.queue_free()
+	if audio!=null:
+		var audio_ref:WeakRef=weakref(audio)
+		audio.queue_free()
+		check(await until(func():return audio_ref.get_ref()==null),"audio service exits before capture teardown")
+	# Dummy audio mixing releases the deck-entry MP3 on its own thread.
+	# Match the established native UI capture cleanup before quitting.
+	await create_timer(0.20).timeout
 	await process_frame
 	session.world=null
 	session.encounter={}
 	session.save_file_path=original_path
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(isolated+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(isolated+suffix))
+	call_deferred("complete")
+func complete() -> void:
 	print("BOSS_REVEAL_CAPTURE: %d passed, %d failed"%[passed,failed])
 	quit(0 if failed==0 else 1)

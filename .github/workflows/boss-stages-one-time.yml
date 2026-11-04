@@ -70,7 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 160s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --resolution 1280x720 --script res://scripts/test_boss_reveal_capture.gd 2>&1 | tee boss-capture.log
+          timeout 160s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --verbose --fixed-fps 30 --resolution 1280x720 --script res://scripts/test_boss_reveal_capture.gd 2>&1 | tee boss-capture.log
           grep -E 'BOSS_REVEAL_CAPTURE: [0-9]+ passed, 0 failed' boss-capture.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL' boss-capture.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
