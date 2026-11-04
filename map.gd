@@ -73,6 +73,7 @@ const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 
 const ExplorationActions = preload("res://systems/exploration_actions.gd")
 const PlaceActions = preload("res://systems/place_actions.gd")
+const AltarRitualPanel = preload("res://systems/altar_ritual_panel.gd")
 const HomeInheritance = preload("res://systems/home_inheritance.gd")
 const MapState = preload("res://systems/map_state.gd")
 const HeroFacingPolicy = preload("res://systems/hero_facing_policy.gd")
@@ -343,6 +344,7 @@ func _ready() -> void:
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
+	elif world.pending_reward.get("kind","")=="altar_boon": call_deferred("resume_altar_boon")
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
@@ -1092,6 +1094,9 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 		if after.is_valid(): after.call())
 
 func show_tile(index: int, actual_landing: bool = false) -> void:
+	if world.pending_reward.get("kind","")=="altar_boon":
+		show_place_actions(world.position)
+		return
 	# Closing the home book is not permission to use a remote warp or battle.
 	if WitchHuntEntry.home_in_progress(session):
 		show_witch_hunt_beat(2,world.position)
@@ -2130,7 +2135,11 @@ func show_home_inheritance() -> void:
 	panel.closed.connect(func(): dismiss_overlay(func(): show_home(true)))
 
 func show_place_actions(index: int) -> void:
-	var panel = PlaceActions.new()
+	if world.pending_reward.get("kind","")=="altar_boon":
+		index=world.position
+		if is_instance_valid(overlay) and overlay is AltarRitualPanel: return
+	if is_instance_valid(overlay): close_overlay(false)
+	var panel = AltarRitualPanel.new() if world.tiles[index]=="altar" else PlaceActions.new()
 	stage.add_child(panel)
 	overlay = panel
 	panel.setup(self,index)
@@ -2146,6 +2155,11 @@ func show_place_actions(index: int) -> void:
 		else:
 			presentation.refresh()
 			show_location(index)))
+
+## A committed sacrifice always resumes the same stored boon.
+func resume_altar_boon() -> void:
+	if world.pending_reward.get("kind","")!="altar_boon": return
+	if not is_instance_valid(overlay): show_place_actions(world.position)
 
 ## Resume an interrupted full-hand graveyard find without rerolling it.
 func resume_graveyard_dig() -> void:

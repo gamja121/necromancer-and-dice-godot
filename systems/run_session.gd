@@ -1,4 +1,5 @@
 extends Node
+const AltarBoons = preload("res://systems/altar_boon_catalog.gd")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const WitchHunt = preload("res://systems/witch_hunt_entry.gd")
 const MapGearShift = preload("res://systems/map_gear_shift.gd")
@@ -1040,26 +1041,73 @@ func place_allowed(index: int, type: String) -> Dictionary:
 		return {"ok":false,"reason":"이동·전투·보상을 먼저 완료하세요."}
 	return {"ok":true}
 
-func altar_ritual(index: int, donor_id: String, receiver_id: String) -> Dictionary:
-	var allowed = place_allowed(index,"altar")
+## Sacrifice and boon draw persist together before presentation.
+func altar_sacrifice(index: int, donor_id: String) -> Dictionary:
+	if world==null or not world.run_result.is_empty(): return {"ok":false,"reason":"제단을 확인할 수 없습니다."}
+	var allowed: Dictionary = place_allowed(index,"altar")
 	if not allowed.ok: return allowed
-	var receipt = place_visit_id("ritual",index)
+	if index!=world.position or not world.active_encounter.is_empty():
+		return {"ok":false,"reason":"현재 제단에 도착했을 때만 의식할 수 있습니다."}
+	var receipt: String = place_visit_id("ritual",index)
 	if receipt in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 의식은 완료했습니다."}
-	var donor = owned_unit(donor_id)
-	var receiver = owned_unit(receiver_id)
-	if donor.is_empty() or receiver.is_empty() or donor_id==receiver_id:
-		return {"ok":false,"reason":"서로 다른 재물과 강화 대상을 선택하세요."}
-	if int(receiver.get("altar_enhancements",0))>=3:
+	var donor: Dictionary = owned_unit(donor_id)
+	if donor.is_empty(): return {"ok":false,"reason":"제물로 바칠 마물을 선택하세요."}
+	var eligible: bool = false
+	for unit in world.roster:
+		if str(unit.id)!=donor_id and int(unit.get("altar_enhancements",0))<AltarBoons.LIMIT:
+			eligible=true
+			break
+	if not eligible: return {"ok":false,"reason":"제물 외에 강화할 수 있는 마물이 필요합니다."}
+	var before: Dictionary = world.snapshot().duplicate(true)
+	var boon: Dictionary = AltarBoons.draw(world.rng)
+	world.pending_reward={"kind":"altar_boon","id":receipt,"index":index,"donor":donor.duplicate(true),"boon":boon.duplicate(true)}
+	world.roster=world.roster.filter(func(unit):return str(unit.id)!=donor_id)
+	if not persist_change(before): return {"ok":false,"reason":notice}
+	return {"ok":true,"reason":"제물을 바쳤습니다. 강화할 마물을 선택하세요.","donor":donor.duplicate(true),"boon":boon.duplicate(true)}
+
+func altar_boon(index: int) -> Dictionary:
+	if world==null or index!=world.position or world.pending_reward.get("kind","")!="altar_boon": return {}
+	if not AltarBoons.valid_pending(world.snapshot(),world.definitions): return {}
+	return world.pending_reward.duplicate(true)
+
+func altar_apply_boon(index: int, receiver_id: String) -> Dictionary:
+	if world==null or not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty():
+		return {"ok":false,"reason":"이동·전투를 먼저 완료하세요."}
+	var pending: Dictionary = altar_boon(index)
+	if pending.is_empty(): return {"ok":false,"reason":"먼저 제물을 바치고 축복을 확인하세요."}
+	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
+	var receiver: Dictionary = owned_unit(receiver_id)
+	if receiver.is_empty() or receiver_id==str(pending.donor.id):
+		return {"ok":false,"reason":"축복을 받을 다른 마물을 선택하세요."}
+	if int(receiver.get("altar_enhancements",0))>=AltarBoons.LIMIT:
 		return {"ok":false,"reason":"이 마물은 강화 한도 3회에 도달했습니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
-	receiver.attack = int(receiver.attack)+1
-	receiver.max_hp = int(receiver.max_hp)+2
-	receiver.current_hp = mini(receiver.max_hp,int(receiver.current_hp)+2)
-	receiver.altar_enhancements = int(receiver.get("altar_enhancements",0))+1
-	world.roster = world.roster.filter(func(u): return str(u.id)!=donor_id)
-	world.reward_receipts.append(receipt)
+	var boon: Dictionary = pending.boon
+	receiver.attack=int(receiver.attack)+int(boon.attack)
+	receiver.max_hp=int(receiver.max_hp)+int(boon.hp)
+	receiver.current_hp=mini(int(receiver.max_hp),int(receiver.current_hp)+int(boon.hp))
+	receiver.speed=int(receiver.speed)+int(boon.speed)
+	receiver.altar_enhancements=int(receiver.get("altar_enhancements",0))+1
+	world.reward_receipts.append(str(pending.id))
+	world.pending_reward={}
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"reason":"%s 강화 완료 · 공격력 +1 · 최대 체력 +2 · 강화 %d/3" % [receiver.name,receiver.altar_enhancements]}
+	return {"ok":true,"reason":"%s 강화 완료 · 공격 +%d · 체력 +%d · 속도 +%d · 강화 %d/3"%[receiver.name,int(boon.attack),int(boon.hp),int(boon.speed),int(receiver.altar_enhancements)],"receiver":receiver.duplicate(true),"boon":boon.duplicate(true),"donor_id":str(pending.donor.id)}
+
+func altar_ritual(index: int, donor_id: String, receiver_id: String) -> Dictionary:
+	if world==null: return {"ok":false,"reason":"제단을 확인할 수 없습니다."}
+	var receiver: Dictionary = owned_unit(receiver_id)
+	if receiver.is_empty() or donor_id==receiver_id:
+		return {"ok":false,"reason":"서로 다른 제물과 강화 대상을 선택하세요."}
+	if int(receiver.get("altar_enhancements",0))>=AltarBoons.LIMIT:
+		return {"ok":false,"reason":"이 마물은 강화 한도 3회에 도달했습니다."}
+	var pending: Dictionary = altar_boon(index)
+	if pending.is_empty():
+		var sacrificed: Dictionary = altar_sacrifice(index,donor_id)
+		if not sacrificed.ok: return sacrificed
+	elif str(pending.donor.id)!=donor_id:
+		return {"ok":false,"reason":"이미 바친 제물의 축복을 먼저 적용하세요."}
+	return altar_apply_boon(index,receiver_id)
+
 
 ## Offer a different species of the donor's grade. Offering a monster is a
 ## one-for-one trade, not a free new card or a change to its inherited brands.

@@ -1,4 +1,5 @@
 extends RefCounted
+const AltarBoons = preload("res://systems/altar_boon_catalog.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
@@ -463,6 +464,7 @@ func restore(saved: Dictionary) -> bool:
 			for offer in shop.offers[id]:
 				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand","unit"] or not offer.get("item") is Dictionary: return false
 	var reward: Dictionary = saved.get("pending_reward",{})
+	if reward.get("kind","")=="altar_boon" and not AltarBoons.valid_pending(saved,definitions): return false
 	if reward.get("kind","")=="routine":
 		var index: int = int(reward.get("index",-1))
 		if index<0 or index>=24 or int(saved.position)!=index or saved.tiles[index]!="event": return false
@@ -503,6 +505,7 @@ func restore(saved: Dictionary) -> bool:
 		for k in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			run_result[k] = int(run_result[k])
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
+	if pending_reward.get("kind","")=="altar_boon": AltarBoons.normalize(pending_reward)
 	if pending_reward.get("kind","") in ["routine","grave-dig"]:
 		pending_reward["index"] = int(pending_reward.get("index",-1))
 	# The unopened 10% mimic chest is a durable reward like a treasure.
