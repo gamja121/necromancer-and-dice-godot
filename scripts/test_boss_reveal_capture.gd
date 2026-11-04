@@ -62,6 +62,7 @@ func run() -> void:
 		map.overlay.toggle_unit(str(session.world.roster[0].id))
 		check(not map.overlay.confirm_button.disabled,"original deck accepts a real owned card "+locale)
 		await shot(locale+"_04_boss_deck")
+		check(await until(func():return not map.overlay.entry_audio.playing),"original deck entry cue finishes before teardown "+locale)
 		await dispose()
 	language.set_language(original_locale,false)
 	var audio:Node=root.get_node_or_null("GameAudio")
