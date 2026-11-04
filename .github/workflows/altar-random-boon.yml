@@ -1,0 +1,67 @@
+name: Altar Random Boon (Godot)
+on:
+  pull_request:
+    paths:
+      - "map.gd"
+      - "systems/altar_*.gd"
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "data/localization/en.json"
+      - "assets/map/ui/altar_fire_inkpaint_8frames.png"
+      - "scripts/test_altar_random*.gd"
+      - "scripts/test_ui_altar_ritual_stage5n.gd"
+      - ".github/workflows/altar-random-boon.yml"
+  push:
+    branches: [main]
+    paths:
+      - "map.gd"
+      - "systems/altar_*.gd"
+      - "systems/run_session.gd"
+      - "systems/map_state.gd"
+      - "scripts/test_altar_random*.gd"
+      - ".github/workflows/altar-random-boon.yml"
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  altar-random-boon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import runtime assets and scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 330s godot --headless --path . --editor --quit 2>&1 | tee altar-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|Failed loading resource' altar-import.log; then exit 1; fi
+      - name: Saved random boons, UI, and related regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in test_altar_random_boon test_ui_altar_ritual_stage5n test_game_language test_shop_treasure_no_brand_rewards test_shop_ui_parity test_location_art_continuity test_inheritance_brand_transfer test_fortune_direct_flow; do
+            timeout 200s godot --headless --path . --audio-driver Dummy --script "res://scripts/$script.gd" 2>&1 | tee "$script.log"
+            grep -E '[0-9]+ passed, 0 failed' "$script.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL' "$script.log"; then exit 1; fi
+          done
+      - name: Actual Korean and English fire and boon screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --fixed-fps 30 --resolution 1280x720 --script res://scripts/test_altar_random_capture.gd 2>&1 | tee altar-capture.log
+          grep -E 'ALTAR_RANDOM_CAPTURE: [0-9]+ passed, 0 failed' altar-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL' altar-capture.log; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: actual-altar-random-boon
+          path: |
+            altar_random_*.png
+            *.log
+          if-no-files-found: error
