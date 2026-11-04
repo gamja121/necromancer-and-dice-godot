@@ -1,0 +1,99 @@
+{
+  "source_stash": "508d1b28066e70a0b52ec870f4563ec29c2d65ce",
+  "source_tree": "cd881080473e7eb47c53d3a6817a655582b3711b",
+  "recovered_on": "2026-11-04",
+  "policy": "Historical documents are verbatim, dated records; current rules and current runtime take precedence. Tests and their UIDs are restored byte-for-byte and must pass against current main before publication.",
+  "files": [
+    {
+      "source_path": "docs/animation_sheet_standard_2026_10_09.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/animation_sheet_standard_2026_10_09.md",
+      "source_blob": "49206794343cf67c759f95563a39b5fd9661a6f6",
+      "sha256": "74823b46cd429c2f619c2fc1c33b40586617d64a9494319644658707b78368c4",
+      "bytes": 5436
+    },
+    {
+      "source_path": "docs/book_battle_lock.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/book_battle_lock.md",
+      "source_blob": "71423e73137be3a15a81c230c906378520808bd2",
+      "sha256": "9e65c031f0035a75f6917f80dcae267570e6917331caede754f5823c90652a9f",
+      "bytes": 1781
+    },
+    {
+      "source_path": "docs/goblin_commoner_remaster_2026_10_09.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/goblin_commoner_remaster_2026_10_09.md",
+      "source_blob": "470a9cf1a959a115ce50372f9a6ce2f6e9c4fbca",
+      "sha256": "a5585046a7cdc6bffe89c13f4c23dc2b413164ba1a121ed8d24b68486eb5f277",
+      "bytes": 5634
+    },
+    {
+      "source_path": "docs/hydra_remaster_2026_10_08.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/hydra_remaster_2026_10_08.md",
+      "source_blob": "8327c7c5691c5107138b0e8fa4bb71d6baa5e295",
+      "sha256": "f278687a2b0189d252bdce1cd39325b4546a4e5e8a687c40649feb2e3fd6738d",
+      "bytes": 5544
+    },
+    {
+      "source_path": "docs/hydra_remaster_2026_10_09.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/hydra_remaster_2026_10_09.md",
+      "source_blob": "cbaac6eae707fd16ff72eb29fccb1c060812f4ca",
+      "sha256": "79d96f19872487bd3b212a46cd24209c6f3e3e4155e8ea11801275f52b9a3452",
+      "bytes": 1636
+    },
+    {
+      "source_path": "docs/lich_remaster_2026_10_09.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/lich_remaster_2026_10_09.md",
+      "source_blob": "78fe75ac48bac45e7c57a8cf69e214c3a39a90ad",
+      "sha256": "211601d2da751fddac9d1cbcde6a381ff90e3c913eecea47e6be752c5601ccd0",
+      "bytes": 4954
+    },
+    {
+      "source_path": "docs/texture_quality_audit_2026_10_07.csv",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/texture_quality_audit_2026_10_07.csv",
+      "source_blob": "4ed19a7ca2b9f4633ff39a86b968ea2062a417df",
+      "sha256": "2d46d1cdde003c06b6aebca58d6a2d373daf0d6ff9098a031e6437b86608fcd7",
+      "bytes": 3700
+    },
+    {
+      "source_path": "docs/texture_quality_review_2026_10_07.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/texture_quality_review_2026_10_07.md",
+      "source_blob": "ce76d5b63aa112181d1db822971a911e1b17dc1a",
+      "sha256": "ea20f515a00ddc624fec83c4ff68b4eb0ddefcda801051cf4c609d767da3b559",
+      "bytes": 4083
+    },
+    {
+      "source_path": "docs/vampire_remaster_2026_10_08.md",
+      "restored_path": "docs/archive/pc_pending_20261019/docs/vampire_remaster_2026_10_08.md",
+      "source_blob": "7ee199c39aefe4c4f2a4fff2d444d49f8d4d4bec",
+      "sha256": "5db4471ec856dd46d61c47388e8baa71c1f272bc1f8d4780f0301117f8153d03",
+      "bytes": 6188
+    },
+    {
+      "source_path": "tests/goblin_commoner_remaster.gd",
+      "restored_path": "tests/goblin_commoner_remaster.gd",
+      "source_blob": "ad09bb2d73f5833f85cb2465682a4ce3864b009c",
+      "sha256": "1297c5293c0c5366bf5fa1e4ab1970c611996caa3bc90d0f3329260911cb90ac",
+      "bytes": 3346
+    },
+    {
+      "source_path": "tests/goblin_commoner_remaster.gd.uid",
+      "restored_path": "tests/goblin_commoner_remaster.gd.uid",
+      "source_blob": "7900ddac0e315d6cf60c392274b4b33c4f1da101",
+      "sha256": "db85323f76d12e441b3c81c86477ae6e99dd405380d97d99115fa8d8ae7a3aca",
+      "bytes": 20
+    },
+    {
+      "source_path": "tests/lich_remaster.gd",
+      "restored_path": "tests/lich_remaster.gd",
+      "source_blob": "41f260d91d0af4dd513ad90029548f0c7bf9bf37",
+      "sha256": "81f46a0568f070b6aac4282802feefe1d2ab1a71ce2a07b9973328edd010af50",
+      "bytes": 1871
+    },
+    {
+      "source_path": "tests/lich_remaster.gd.uid",
+      "restored_path": "tests/lich_remaster.gd.uid",
+      "source_blob": "917842bcec0c9806dedcd66109ef06286ed4375a",
+      "sha256": "7e91795ead01459eb794d581f9a69ab804068bf6786ed2fb4cc75c7462eea177",
+      "bytes": 20
+    }
+  ]
+}
