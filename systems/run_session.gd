@@ -76,7 +76,7 @@ func ensure_world() -> void:
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
 			# Old versions may have a cleared boss cell without a persistent
 			# stage receipt. Preserve that win instead of respawning it on load.
-			var boss_migrated: bool = false
+			var boss_migrated: bool = world.remember_visible_boss_stage()
 			if str(parsed.tiles[MapState.BOSS_TILE_INDEX])=="boss" and MapState.BOSS_TILE_INDEX in world.cleared:
 				var old_stage: int = world.current_boss_stage()
 				if old_stage in [20,40,60,80] and not BossStages.defeated(world.event_flags,old_stage):
@@ -658,10 +658,9 @@ func persist_change(before: Dictionary) -> bool:
 	world.max_contamination_reached = maxi(int(world.max_contamination_reached),int(world.contamination))
 	if world.roster.any(func(unit): return int(unit.current_hp)<int(unit.max_hp)):
 		world.event_flags["discovery:ever_injured"] = true
-	# Tier bosses at 20/40/60, then the final-story dragon at contamination 80.
-	# acknowledged fifth king-hunt story scene. This also reacts when the
-	# Stage defeat flags prevent respawn, even after pollution rises again.
-	# Persist tile reveal or concealment with the SAME story transaction.
+	# Appearance receipts keep already revealed bosses available after
+	# purification. Stage defeat receipts still retire them once per run.
+	# Save the tile, appearance and story change in the SAME transaction.
 	if world.boss_available():
 		world.reveal_boss_at_threshold()
 	else:

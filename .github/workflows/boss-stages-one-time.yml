@@ -14,6 +14,8 @@ on:
       - "systems/ritual_portal_enemies.gd"
       - "systems/story_battle_registry.gd"
       - "scripts/test_staged_boss_one_time.gd"
+      - "scripts/test_boss_reveal_persistence.gd"
+      - "scripts/test_boss_reveal_capture.gd"
       - "scripts/test_final_dragon_boss_stats.gd"
       - "scripts/test_map_shuffle_boss_threshold.gd"
       - "scripts/test_web_unit_catalog_parity.gd"
@@ -25,6 +27,8 @@ on:
       - "systems/map_state.gd"
       - "systems/run_session.gd"
       - "scripts/test_staged_boss_one_time.gd"
+      - "scripts/test_boss_reveal_persistence.gd"
+      - "scripts/test_boss_reveal_capture.gd"
       - "scripts/test_web_unit_catalog_parity.gd"
       - ".github/workflows/boss-stages-one-time.yml"
   workflow_dispatch:
@@ -55,6 +59,29 @@ jobs:
           timeout 145s godot --headless --path . --script res://scripts/test_staged_boss_one_time.gd 2>&1 | tee stages.log
           grep -E 'STAGED_BOSS: [0-9]+ passed, 0 failed' stages.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FAIL staged-boss:' stages.log; then exit 1; fi
+      - name: Revealed bosses survive real purification, HOME and restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --audio-driver Dummy --script res://scripts/test_boss_reveal_persistence.gd 2>&1 | tee boss-persistence.log
+          grep -E 'BOSS_REVEAL_PERSISTENCE: [0-9]+ passed, 0 failed' boss-persistence.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL' boss-persistence.log; then exit 1; fi
+      - name: Actual Korean and English purification maps and boss deck
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 160s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --audio-driver Dummy --verbose --fixed-fps 30 --resolution 1280x720 --script res://scripts/test_boss_reveal_capture.gd 2>&1 | tee boss-capture.log
+          grep -E 'BOSS_REVEAL_CAPTURE: [0-9]+ passed, 0 failed' boss-capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked|^FAIL' boss-capture.log; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: actual-boss-persistence
+          path: |
+            boss_retained_*.png
+            boss-persistence.log
+            boss-capture.log
+          if-no-files-found: error
       - name: Existing boss tile geometry and save migration
         shell: bash
         run: |

@@ -122,6 +122,7 @@ func _run() -> void:
 	for slug in BossStages.CANDIDATES:
 		if not slug in selected:
 			check(seen_random.has(slug),"unchosen boss candidate %s actually appears in real rare-tile battles" % slug)
+	var stage_fixture: Dictionary=world.snapshot().duplicate(true)
 	for pollution in [0,10,19]:
 		world.contamination=pollution
 		world.generate()
@@ -130,6 +131,7 @@ func _run() -> void:
 		world.contamination=pollution
 		world.generate()
 		check(world.tiles[23]=="boss","new tier %d has a boss before defeat" % pollution)
+	check(world.restore(stage_fixture),"independent stage preview fixtures restore before actual fights")
 	# 20 wins are one-time even when pollution returns to 20 from above.
 	world.contamination=20
 	world.generate()

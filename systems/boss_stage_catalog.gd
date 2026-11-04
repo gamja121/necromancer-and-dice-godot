@@ -33,6 +33,16 @@ static func current_stage(contamination: int) -> int:
 static func stage_flag(stage: int) -> String:
 	return "%s%d:defeated" % [PREFIX,stage]
 
+## Actual appearances, not historical pollution peaks, survive purification.
+static func revealed_flag(stage: int) -> String:
+	return "%s%d:revealed" % [PREFIX,stage]
+
+static func highest_revealed(flags: Dictionary) -> int:
+	var highest: int = 0
+	for stage in [20,40,60,80]:
+		if flags.get(revealed_flag(stage),false)==true: highest=stage
+	return highest
+
 static func defeated(flags: Dictionary, stage: int) -> bool:
 	return flags.get(stage_flag(stage),false)==true
 

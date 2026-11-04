@@ -65,6 +65,7 @@ func _run() -> void:
 	check(w._patrol_manifest(w.patrol_plan,w.contamination,1).counts["rare-monster"]==1,"home patrol forecast includes rare stone on lap two")
 	# Every threshold upgrades combat quality, not combat quantity. Tiles
 	# remain visually truthful, and previews use the same stage quota.
+	var independent_low_stage: Dictionary=w.snapshot().duplicate(true)
 	var last_count: int=0
 	for level in [0,19,20,29,30,39,40,60,80]:
 		w.contamination=level
@@ -79,6 +80,7 @@ func _run() -> void:
 		check(w.tiles.size()==24 and w.tiles.count("event")==2,"corruption %d never increases tile or story-event budget" % level)
 		check(int(w._patrol_manifest(w.patrol_plan,level,w.laps).counts["rare-monster"])==rare_count,"corruption %d patrol preview matches real rare stones" % level)
 		last_count=rare_count
+	check(w.restore(independent_low_stage),"restore independent low-corruption rare-migration fixture without prior boss appearances")
 	w.contamination=0
 	w.generate()
 	for grade in ["normal","rare"]:

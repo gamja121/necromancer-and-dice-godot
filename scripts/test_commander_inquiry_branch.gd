@@ -45,9 +45,10 @@ func scenario(decision: String) -> void:
 	s.world.restore(old)
 	s.world.move_serial+=1
 	s.world.contamination=0
-	# Normalize the existing low-corruption boss layout before comparison.
-	# Restart/rollback correctly removes a boss left by the high-level fixture.
-	check(s.world.conceal_boss_below_threshold(),"low-corruption fixture normalized")
+	# Purification preserves a boss already revealed by the source fixture.
+	var existing_boss_tile: String=s.world.tiles[23]
+	s.world.conceal_boss_below_threshold()
+	check(s.world.tiles[23]==existing_boss_tile,"low-corruption inquiry preserves the existing boss layout")
 	check(s.save_world() and Inquiry.can_enter(s,at),"later village visit has no invented contamination threshold")
 	var original_events: Dictionary=s.world.story_events.duplicate(true)
 	var original_flags: Dictionary=s.world.event_flags.duplicate(true)

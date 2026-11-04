@@ -115,8 +115,31 @@ static func required_swamp_count(level: int) -> int:
 ## 20/40/60 corruption stage bosses can be won only once per stage.
 ## The dragon at 80 still requires the acknowledged final king-hunt event.
 ## All flags persist in the existing event_flags save dictionary.
+func _boss_stage_at(level: int) -> int:
+	var candidate: int = BossStages.current_stage(level)
+	# A locked final chapter must not replace an already revealed stage.
+	# Historical pollution alone never records an actual dragon appearance.
+	if candidate==BossStages.FINAL and not FinalBossStoryGate.ready(self): candidate=0
+	return maxi(candidate,BossStages.highest_revealed(event_flags))
+
 func current_boss_stage() -> int:
-	return BossStages.current_stage(contamination)
+	return _boss_stage_at(contamination)
+
+func remember_boss_revealed(stage: int) -> bool:
+	if stage not in [20,40,60,80]: return false
+	var flag: String = BossStages.revealed_flag(stage)
+	if event_flags.get(flag,false)==true: return false
+	event_flags[flag]=true
+	return true
+
+## Upgrade an actually saved old boss; never infer one from a pollution peak.
+## Called inside the ordinary load migration transaction, not snapshot restore.
+func remember_visible_boss_stage() -> bool:
+	if tiles.size()!=24 or tiles[BOSS_TILE_INDEX]!="boss" or BossStages.highest_revealed(event_flags)>0: return false
+	var stage: int = int(active_encounter.get("boss_stage",0)) if active_encounter.get("type","")=="boss" else 0
+	if stage not in [20,40,60,80]: stage=BossStages.current_stage(contamination)
+	if stage==BossStages.FINAL and not FinalBossStoryGate.ready(self): return false
+	return remember_boss_revealed(stage)
 
 func current_boss_slug() -> String:
 	return BossStages.boss_slug(current_boss_stage(),boss_assignments)
@@ -137,7 +160,7 @@ func mark_boss_defeated(stage: int) -> void:
 
 func _boss_available_at(level: int) -> bool:
 	if FinalDragonProgress.cleared(self): return false
-	var stage: int=BossStages.current_stage(level)
+	var stage: int=_boss_stage_at(level)
 	if stage==0 or BossStages.defeated(event_flags,stage): return false
 	if stage==BOSS_CONTAMINATION: return FinalBossStoryGate.ready(self)
 	return BossStages.valid(definitions,boss_assignments)
@@ -250,6 +273,7 @@ func generate() -> void:
 		elif i==HOME: tiles.append("home")
 		elif i==BOSS_TILE_INDEX and bool(manifest.boss): tiles.append("boss")
 		else: tiles.append(pool.pop_back())
+	if bool(manifest.boss): remember_boss_revealed(current_boss_stage())
 	# The story-place reservation is awarded only once a real stone exists.
 	# Persisted by the caller with the newly generated board in one save.
 	for kind in Discovery.MAIN_STORY_ORDER:
@@ -291,8 +315,14 @@ func restore_missing_rare_stone() -> bool:
 func reveal_boss_at_threshold() -> bool:
 	if not boss_available() or tiles.size() != 24:
 		return false
+	var newly_revealed: bool = remember_boss_revealed(current_boss_stage())
 	if tiles[BOSS_TILE_INDEX] == "boss":
-		return false
+		if newly_revealed:
+			# A higher stage is a new boss even when it reuses the same stone.
+			cleared.erase(BOSS_TILE_INDEX)
+			if scout.get("intel",[]) is Array:
+				scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
+		return newly_revealed
 	# A mid-lap boss reveal must not swallow one of the two guaranteed
 	# event locations if the random board originally put it at slot 23.
 	# Move that event onto an existing, unoccupied monster tile instead:
@@ -315,9 +345,9 @@ func reveal_boss_at_threshold() -> bool:
 	return true
 
 
-## Once a stage is won or contamination changes out of the eligible band,
-## remove the boss tile immediately. Restore its ordinary monster stone;
-## the next stage can reveal a DIFFERENT assigned boss later. Keep cleared status;
+## Retire a defeated boss. Purification cannot close a revealed stage:
+## availability uses its saved appearance floor, including after HOME/reload.
+## The next higher stage can reveal a different assigned boss. Keep cleared status;
 ## drop only stale scout intelligence for the changed tile.
 func conceal_boss_below_threshold() -> bool:
 	if boss_available() or tiles.size()!=24: return false

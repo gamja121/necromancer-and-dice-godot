@@ -1,5 +1,12 @@
 # Necromancer and Dice
 
+## Persistent revealed bosses — 2026-11-04 user correction
+
+- Once a boss stage has actually appeared, purification cannot hide it, regress its species/stage, or block the encounter. Preserve it through save/restart and HOME map generation until defeated; existing higher-stage upgrades remain.
+- Use saved `boss:contamination:<stage>:revealed` booleans, not historical pollution peaks. A final dragon that never appeared still requires its current contamination/story gate. Revealed intermediate bosses remain when the final story is locked.
+- Preserve one-time stage defeat receipts, the existing single-boss encounter composition, assignments/RNG and v1 save compatibility. See `docs/boss_tile_persistence_20261104.md`.
+- Retained development order and this urgent override: `docs/development_work_order_20261104.md`.
+
 ## Latest shared discovery and patrol rules — 2026-11-01
 
 - The current rule in [docs/location_unlock_conditions.md](docs/location_unlock_conditions.md) supersedes the older blanket discovery-40% notes below: an eligible undiscovered **world tree (`unknown`), altar (`altar`) or hill (`forest`)** is guaranteed on the next genuine story-free event arrival, without the routine/discovery RNG draw. Existing main-story events still take priority. Optional camp/additional-graveyard discovery retains the original 40% discovery / 60% routine draw.
