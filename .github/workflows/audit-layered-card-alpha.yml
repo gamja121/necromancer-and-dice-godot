@@ -1,0 +1,30 @@
+name: Audit Monster Card Original Alpha
+on:
+  pull_request:
+    paths:
+      - "scripts/audit_layered_card_alpha.py"
+      - ".github/workflows/audit-layered-card-alpha.yml"
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install read-only imaging dependencies
+        run: python3 -m pip install --disable-pip-version-check --break-system-packages pillow numpy scipy
+      - name: Analyze all active layered card originals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit_layered_card_alpha.py | tee alpha-report.log
+          grep -E '^ALPHA_AUDIT_COMPLETE [0-9]+$' alpha-report.log
+          test -s card_alpha_audit/all_portrait_metrics.csv
+          test -s card_alpha_audit/most_suspicious_sheet.jpg
+      - name: Upload metrics and contact sheets for manual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-monster-card-alpha-audit
+          path: card_alpha_audit/*
+          if-no-files-found: error
