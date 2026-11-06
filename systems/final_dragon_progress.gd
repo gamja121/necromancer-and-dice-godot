@@ -14,8 +14,25 @@ static func quest_reached(flags: Dictionary) -> bool:
 
 static func is_final_encounter(encounter: Dictionary) -> bool:
 	if encounter.get("type","")!="boss" or not str(encounter.get("event_id","")).is_empty(): return false
-	var enemies: Array = encounter.get("enemies",[])
-	return enemies.size()==1 and enemies[0].get("slug","")=="dragon" and enemies[0].get("final_boss",false)==true
+	var enemies = encounter.get("enemies",[])
+	return enemies is Array and enemies.size()==1 and enemies[0] is Dictionary and enemies[0].get("slug","")=="dragon" and enemies[0].get("final_boss",false)==true
+
+## Builds before the ending stored a final win in the waiting harvest.
+static func legacy_harvest_encounter_id(reward: Dictionary) -> String:
+	var receipt: String = str(reward.get("id",""))
+	if reward.get("kind","")!="capture" or not receipt.begins_with("capture-encounter-"): return ""
+	var corpses = reward.get("corpses",[])
+	var battle = reward.get("battle",{})
+	if not corpses is Array or corpses.size()!=1 or not corpses[0] is Dictionary or not battle is Dictionary: return ""
+	var corpse: Dictionary = corpses[0]
+	var corpse_id: String = str(corpse.get("id",""))
+	var units = battle.get("units",[])
+	if corpse_id.is_empty() or not units is Array: return ""
+	for unit in units:
+		if not unit is Dictionary or unit.get("id","")!=corpse_id or unit.get("team","")!="enemy": continue
+		if unit.get("slug","")=="dragon" and unit.get("final_boss",false)==true and unit.get("alive",true)==false and not unit.get("is_summon",false):
+			return receipt.trim_prefix("capture-")
+	return ""
 
 static func record_victory(world, encounter: Dictionary) -> void:
 	world.event_flags[ACTIVE] = false

@@ -74,15 +74,11 @@ func ensure_world() -> void:
 			# Normalize saves written by the temporary incorrect 20-contamination
 			# rule. Keep all other stones in place and preserve the RNG.
 			var before_upgrade: Dictionary = world.snapshot().duplicate(true)
-			# Old versions may have a cleared boss cell without a persistent
-			# stage receipt. Preserve that win instead of respawning it on load.
 			var boss_migrated: bool = world.remember_visible_boss_stage()
-			if str(parsed.tiles[MapState.BOSS_TILE_INDEX])=="boss" and MapState.BOSS_TILE_INDEX in world.cleared:
-				var old_stage: int = world.current_boss_stage()
-				if old_stage in [20,40,60,80] and not BossStages.defeated(world.event_flags,old_stage):
-					world.mark_boss_defeated(old_stage)
-					boss_migrated=true
+			if world.run_result.is_empty() and world.active_encounter.is_empty() and world.pending_move.is_empty():
+				boss_migrated = _migrate_saved_boss_clear(parsed.has("boss_assignments")) or boss_migrated
 			var boss_upgraded: bool = world.reveal_boss_at_threshold()
+			var warp_upgraded: bool = world.restore_missing_boss_warp()
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
 			var rare_upgraded: bool = world.restore_missing_rare_stone()
@@ -96,7 +92,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_migrated or boss_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded) and not save_world():
+			if (boss_migrated or boss_upgraded or warp_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
@@ -445,11 +441,33 @@ func start_story_encounter(event_id: String, index: int, selected_ids: Array) ->
 	if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,spec): return false
 	return _start_encounter(index,selected_ids,event_id)
 
+func _migrate_saved_boss_clear(has_boss_assignments: bool) -> bool:
+	var harvest_encounter_id: String = FinalDragonProgress.legacy_harvest_encounter_id(world.pending_reward)
+	if not harvest_encounter_id.is_empty():
+		world.remember_boss_revealed(BossStages.FINAL)
+		world.mark_boss_defeated(BossStages.FINAL)
+		FinalDragonProgress.record_victory(world,{"id":harvest_encounter_id})
+		return true
+
+	var boss_index: int = MapState.BOSS_TILE_INDEX
+	if world.tiles[boss_index]!="boss" or not boss_index in world.cleared: return false
+	# Early staged builds could store a real final defeat without an ending.
+	if BossStages.defeated(world.event_flags,BossStages.FINAL): return false
+	var old_stage: int = BossStages.highest_revealed(world.event_flags)
+	if old_stage in BossStages.STAGES and not BossStages.defeated(world.event_flags,old_stage):
+		world.mark_boss_defeated(old_stage)
+		return true
+	if has_boss_assignments or old_stage!=BossStages.FINAL: return false
+	if BossStages.STAGES.any(func(stage): return BossStages.defeated(world.event_flags,stage)): return false
+	# A surviving cleared cell from the sole-boss build retires that boss.
+	# There is no ending record to restore after the old harvest is gone.
+	world.mark_boss_defeated(BossStages.FINAL)
+	return true
+
 ## Acknowledging/ skipping the book is cosmetic: no encounter or RNG is created.
 func acknowledge_final_dragon_intro(index: int) -> bool:
 	if world == null or not world.run_result.is_empty(): return false
-	if index!=world.position or index<0 or index>=world.tiles.size() or world.tiles[index]!="boss": return false
-	if not world.final_dragon_available() or index in world.cleared: return false
+	if index<0 or index!=world.position or index!=world.final_dragon_location(): return false
 	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return false
 	return set_event_flag(FinalDragonProgress.INTRO_SEEN)
 
@@ -467,7 +485,9 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story:
 		if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,story_spec): return false
 	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
-	if not story and not mimic and world.tiles[index]=="boss" and not world.boss_available(): return false
+	if not story and not mimic and world.tiles[index]=="boss":
+		if not world.boss_available(): return false
+		if world.final_dragon_available() and (index!=world.position or index!=world.final_dragon_location()): return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var allies: Array = []
@@ -609,10 +629,11 @@ func finish_encounter(battle) -> bool:
 				notice += " · 구울 영혼 수확"
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
+		var final_victory: bool = FinalDragonProgress.is_final_encounter(encounter)
 		if encounter.type=="boss":
-			# A stage boss is one-time per run, including across save/reload and
-			# later pollution increases. The next stage has its own monster.
-			world.mark_boss_defeated(int(encounter.get("boss_stage",world.current_boss_stage())))
+			# Old checkpoints can identify the final dragon without a stage field.
+			var stage: int = BossStages.FINAL if final_victory else int(encounter.get("boss_stage",world.current_boss_stage()))
+			world.mark_boss_defeated(stage)
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
 		for unit in battle.units:
@@ -629,7 +650,7 @@ func finish_encounter(battle) -> bool:
 		if not corpses.is_empty():
 			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
 		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
-		if FinalDragonProgress.is_final_encounter(encounter):
+		if final_victory:
 			FinalDragonProgress.record_victory(world,encounter)
 			notice = "최종 드래곤 격파 · 마지막 영혼 수확 후 원정 기록을 마칩니다."
 	else: notice = "전투 패배 · 원정 종료"
@@ -665,6 +686,7 @@ func persist_change(before: Dictionary) -> bool:
 		world.reveal_boss_at_threshold()
 	else:
 		world.conceal_boss_below_threshold()
+	world.restore_missing_boss_warp()
 	# Keep the same fixed 15/30 swamp count when saving AND reloading.
 	# A story overlay may consume an ordinary stone during a high-pollution
 	# expedition; restoring only on reload changes the saved map unexpectedly.
