@@ -52,11 +52,145 @@ func capture_seed(s: Node, success: bool) -> void:
 			return
 	check(false,"deterministic capture fixture exists")
 
+func check_legacy_boss_board(s: Node) -> void:
+	s.start_new_world()
+	var w = s.world
+	var index: int = MapState.BOSS_TILE_INDEX
+	w.contamination=60
+	w.generate()
+	w.contamination=80
+	w.generate()
+	check(w.tiles[index]=="boss" and w.tiles.count("warp")==2 and w.current_boss_stage()==60,"legacy fixed board contains a real stage-60 boss and two warps")
+	Fixture.seed_completed_final_hunt(w)
+	w.cleared.append(index)
+	var before: Dictionary = w.snapshot().duplicate(true)
+	check(s.save_world(),"legacy cleared boss board written to disk")
+	s.reload_world()
+	w=s.world
+	check(w.event_flags.get(MapState.BossStages.stage_flag(60),false),"legacy clear retains the stage-60 victory")
+	check(not w.event_flags.get(MapState.BossStages.stage_flag(80),false) and not Progress.cleared(w),"legacy cleared cell does not imply a final victory")
+	check(w.final_dragon_location()==index and not index in w.cleared,"newly eligible final dragon can use the shared boss cell")
+	check(w.tiles==before.tiles and w.rng.state==int(before.rng_state) and w.map_serial==int(before.map_serial) and w.position==int(before.position),"boss migration preserves board, warp pair, RNG and position")
+	var migrated: String = FileAccess.get_file_as_string(scratch)
+	s.reload_world()
+	w=s.world
+	check(FileAccess.get_file_as_string(scratch)==migrated,"boss migration is idempotent on restart")
+
+	var selected: Array = [w.roster[0].id]
+	check(not s.start_encounter(index,selected),"final combat cannot start from HOME")
+	var false_entrance: int = w.tiles.find("monster")
+	w.tiles[false_entrance]="boss"
+	w.position=false_entrance
+	check(not s.acknowledge_final_dragon_intro(false_entrance) and not s.start_encounter(false_entrance,selected),"a duplicate boss tile cannot open a second final entrance")
+
+	check(w.restore(before),"reload the board for the old explicit defeat receipt")
+	w.event_flags[MapState.BossStages.stage_flag(80)]=true
+	w.tiles[index]="monster"
+	check(s.save_world(),"old explicit final defeat without ending saves")
+	s.reload_world()
+	w=s.world
+	check(w.final_dragon_location()==-1 and w.event_flags.get(MapState.BossStages.stage_flag(80),false) and w.run_result.is_empty(),"ambiguous explicit old defeat remains retired without inventing an ending")
+
+func check_pre_ending_harvest(s: Node) -> void:
+	prepare_encounter(s)
+	check(s.finish_encounter(defeated_rules(s)),"real dragon victory supplies the old harvest fixture")
+	var legacy: Dictionary = s.world.snapshot().duplicate(true)
+	legacy.erase("boss_assignments")
+	legacy.run_result={}
+	for flag in [Progress.COMPLETE,Progress.DEFEATED,MapState.BossStages.revealed_flag(80),MapState.BossStages.stage_flag(80)]:
+		legacy.event_flags.erase(flag)
+	legacy.event_flags[Progress.ACTIVE]=true
+	legacy.pending_reward.corpses[0].erase("unit")
+	var file := FileAccess.open(scratch,FileAccess.WRITE)
+	file.store_string(JSON.stringify(legacy))
+	file.close()
+	var old_harvest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(scratch)).pending_reward
+	s.reload_world()
+	var w = s.world
+	check(JSON.parse_string(JSON.stringify(w.pending_reward))==old_harvest and w.run_result.get("reason","")==Progress.REASON,"original pre-ending soul harvest survives and restores its proven victory")
+	check(w.final_dragon_location()==-1 and w.run_result.get("encounter_id","")==str(old_harvest.id).trim_prefix("capture-"),"legacy final harvest has one encounter and no replay")
+	capture_seed(s,true)
+	check(s.roll_capture().get("success",false) and s.claim_reward().get("ok",false),"old harvest can be claimed through the normal transaction")
+	s.reload_world()
+	check(Progress.cleared(s.world) and s.world.pending_reward.is_empty(),"ending remains after closing the historical harvest")
+
+	legacy.pending_reward={}
+	legacy.contamination=80
+	if not MapState.BOSS_TILE_INDEX in legacy.cleared: legacy.cleared.append(MapState.BOSS_TILE_INDEX)
+	legacy.tiles[MapState.BOSS_TILE_INDEX]="boss"
+	file=FileAccess.open(scratch,FileAccess.WRITE)
+	file.store_string(JSON.stringify(legacy))
+	file.close()
+	s.reload_world()
+	w=s.world
+	check(w.final_dragon_location()==-1 and w.event_flags.get(MapState.BossStages.stage_flag(80),false) and w.run_result.is_empty(),"already-harvested sole boss stays retired without creating an ending")
+
+func check_legacy_wounded_dragon(s: Node) -> void:
+	prepare_encounter(s)
+	var rules = Rules.new(s.world.definitions)
+	check(rules.restore(s.encounter.checkpoint) and s.prepare_battle_roll(rules).ok,"old final battle has a rolled checkpoint")
+	rules.damage(rules.find_id("enemy-0"),9999)
+	check(s.checkpoint_battle(rules,"actions"),"wounded final dragon checkpoint saves")
+	var w = s.world
+	w.contamination=0
+	w.event_flags.erase(MapState.BossStages.revealed_flag(80))
+	w.event_flags[MapState.BossStages.revealed_flag(40)]=true
+	w.active_encounter.erase("boss_stage")
+	check(s.save_world(),"legacy checkpoint without the final stage receipt saves")
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(scratch))
+	s.reload_world()
+	w=s.world
+	check(s.encounter==saved.active_encounter and w.active_encounter==saved.active_encounter,"checkpoint identity, roll and phase survive migration")
+	check(w.final_dragon_location()==MapState.BOSS_TILE_INDEX and w.event_flags.get(MapState.BossStages.revealed_flag(80),false),"actual saved final dragon restores the appearance below threshold")
+	check(rules.restore(s.encounter.checkpoint) and rules.find_id("enemy-0").hp==1 and rules.find_id("enemy-0").undying_used,"resumed dragon retains its wound and spent undying ability")
+	check(s.finish_encounter(defeated_rules(s)) and Progress.cleared(w) and w.event_flags.get(MapState.BossStages.stage_flag(80),false),"resumed victory settles the actual final stage")
+	check(w.pending_reward.get("id","")=="capture-"+str(saved.active_encounter.id),"resumed victory grants the original encounter's soul harvest")
+
+func check_boss_warp_pair(s: Node) -> void:
+	s.start_new_world()
+	var w = s.world
+	var index: int = MapState.BOSS_TILE_INDEX
+	w.contamination=19
+	w.generate()
+	if w.tiles[index]!="warp":
+		var first: int = w.tiles.find("warp")
+		w.tiles[first]=w.tiles[index]
+		w.tiles[index]="warp"
+	var survivor: int = w.tiles.find("warp")
+	check(s.save_world(),"pre-reveal warp at the boss coordinate is saved")
+	s.reload_world()
+	w=s.world
+	w.contamination=20
+	w.position=index
+	check(not w.reveal_boss_at_threshold() and w.tiles[index]=="warp","boss waits while the hero occupies the warp")
+	w.position=MapState.HOME
+	w.pending_move={"origin":index,"path":[survivor],"landed":survivor}
+	check(not w.reveal_boss_at_threshold() and w.tiles[index]=="warp","boss waits for committed movement to finish")
+	w.pending_move={}
+	var before: Dictionary = w.snapshot().duplicate(true)
+	check(s.persist_change(before) and w.tiles[index]=="boss" and w.tiles.count("warp")==2,"boss reveal preserves a complete warp pair")
+	check(w.tiles[survivor]=="warp" and w.rng.state==int(before.rng_state) and w.map_serial==int(before.map_serial) and w.position==int(before.position),"displacement preserves the other warp, RNG, board serial and position")
+
+	var displaced: int = w.tiles.find("warp") if w.tiles.find("warp")!=survivor else w.tiles.rfind("warp")
+	w.tiles[displaced]="monster"
+	check(s.save_world(),"legacy save with a swallowed warp is written")
+	s.reload_world()
+	w=s.world
+	check(w.tiles[survivor]=="warp" and w.tiles.count("warp")==2 and w.tiles[index]=="boss","reload repairs the missing warp without replacing its surviving endpoint")
+	check(w.rng.state==int(before.rng_state) and w.map_serial==int(before.map_serial),"warp repair consumes no RNG or map generation")
+	var repaired: String = FileAccess.get_file_as_string(scratch)
+	s.reload_world()
+	check(FileAccess.get_file_as_string(scratch)==repaired,"warp repair is idempotent on restart")
+
 func _run() -> void:
 	var s: Node = root.get_node("RunSession")
 	var prior: String = s.save_file_path
 	scratch = "user://final_clear_%d.json" % OS.get_process_id()
 	s.save_file_path = scratch
+	check_legacy_boss_board(s)
+	check_pre_ending_harvest(s)
+	check_legacy_wounded_dragon(s)
+	check_boss_warp_pair(s)
 	prepare_encounter(s)
 	var rules = defeated_rules(s)
 	var before: Dictionary = s.world.snapshot().duplicate(true)

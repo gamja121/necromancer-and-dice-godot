@@ -1221,7 +1221,7 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		show_home()
 		return
 	if type=="boss" and not index in world.cleared and index!=world.position:
-		status.text = "최후의 드래곤 · 보스 타일에 도착하면 마지막 장이 열립니다." if world.final_dragon_available() else "단계 보스 · 보스 타일에 도착하면 전투를 준비합니다."
+		status.text = "최후의 드래곤 · 보스 타일에 도착하면 마지막 장이 열립니다." if index==world.final_dragon_location() else "단계 보스 · 보스 타일에 도착하면 전투를 준비합니다."
 		return
 	if type in ["monster","rare-monster","boss"] and not index in world.cleared:
 		show_battle_deck(index)
@@ -1599,7 +1599,7 @@ func confirm_new_run() -> void:
 
 func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	if not world.run_result.is_empty(): return
-	if story_event_id.is_empty() and world.tiles[index]=="boss" and world.final_dragon_available() and not world.event_flags.get(FinalDragonProgress.INTRO_SEEN,false):
+	if story_event_id.is_empty() and index==world.final_dragon_location() and not world.event_flags.get(FinalDragonProgress.INTRO_SEEN,false):
 		show_final_dragon_intro(index)
 		return
 	if world.roster.is_empty():
@@ -1753,7 +1753,7 @@ func _fly_selected_cards_to_battle(battle: Control, selected: Dictionary) -> voi
 
 # Present the preserved book before committing a real final encounter.
 func show_final_dragon_intro(index: int) -> void:
-	if index!=world.position or not world.final_dragon_available(): return
+	if index<0 or index!=world.position or index!=world.final_dragon_location(): return
 	if is_instance_valid(overlay): close_overlay()
 	var book := FinalChapterScreen.new()
 	stage.add_child(book)

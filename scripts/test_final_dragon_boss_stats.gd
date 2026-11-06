@@ -31,6 +31,7 @@ func battle_at(session: Node, pollution: int, lap: int) -> bool:
 		# Stage-60 boss is permitted at 79; only the FINAL dragon must wait.
 		var started: bool=session.start_encounter(23,ids)
 		return not started or (session.encounter.get("type","")=="boss" and session.encounter.get("enemies",[]).all(func(u): return str(u.slug)!="dragon"))
+	w.position=23
 	return session.start_encounter(23,ids)
 
 func test_stats_and_spawn(session: Node) -> void:
