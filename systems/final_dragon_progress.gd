@@ -45,6 +45,7 @@ static func record_victory(world, encounter: Dictionary) -> void:
 		"lost_monsters":world.graveyard_corpses.size(),
 		"surviving_monsters":world.roster.size()
 	}
+	if encounter.has("entry"): world.run_result["entry"]=encounter.entry
 
 static func valid_record(saved: Dictionary) -> bool:
 	var record: Dictionary = saved.get("run_result",{})

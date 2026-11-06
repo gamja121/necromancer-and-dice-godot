@@ -1,4 +1,7 @@
 extends SceneTree
+const Wormhole = preload("res://systems/king_portal_encounter.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
+const StoryBook = preload("res://systems/main_story_book.gd")
 const MAP = preload("res://map.tscn")
 const Fixture = preload("res://scripts/boss_story_test_fixture.gd")
 const Progress = preload("res://systems/final_dragon_progress.gd")
@@ -25,8 +28,23 @@ func until_ready(predicate: Callable, seconds: float = 25.0) -> bool:
 
 func capture(label: String) -> void:
 	if screenshots.is_empty() or DisplayServer.get_name()=="headless": return
+	if label in ["wormhole-scene-1","wormhole-scene-2"]: await create_timer(0.72).timeout
+	if label=="wormhole-deck": await create_timer(0.88).timeout
 	await RenderingServer.frame_post_draw
 	check(root.get_texture().get_image().save_png(screenshots.path_join(label+".png"))==OK,"native image "+label)
+
+func action(book: Control, title: String) -> Button:
+	for child in book.get_children():
+		if child is Button and child.text==title: return child
+	return null
+
+func press_story(map: Control, title: String) -> void:
+	var panel: Control = map.overlay
+	await until_ready(func(): return panel.typewriter!=null and panel.typewriter.is_inside_tree())
+	map._reveal_story_text(panel)
+	var button: Button=action(panel,title)
+	check(button!=null,"story button "+title)
+	if button!=null: button.pressed.emit()
 
 func _run() -> void:
 	for arg in OS.get_cmdline_user_args():
@@ -47,7 +65,7 @@ func _run() -> void:
 		current_scene=stage_map
 		await process_frame
 		check(await until_ready(func(): return is_instance_valid(stage_map.overlay) and stage_map.overlay is BattleDeck),"stage %d opens ordinary battle selection" % stage_value)
-		check(not stage_map.overlay is Book and not s.world.event_flags.get(Progress.INTRO_SEEN,false),"stage %d never consumes the final book" % stage_value)
+		check(not stage_map.overlay is StoryBook and not s.world.event_flags.get(Wormhole.SEEN,false),"stage %d never consumes the final book" % stage_value)
 		stage_map.queue_free()
 		await process_frame
 	s.start_new_world()
@@ -62,30 +80,37 @@ func _run() -> void:
 	s.world.dice_visual_position = [811,274]
 	s.world.dice_visual_face = 4
 	s.world.dice_visual_rotation = 28
-	check(s.world.boss_available() and s.save_world(),"existing final gate is ready")
+	s.world.refresh_final_wormhole()
+	var target: int=s.world.final_dragon_location()
+	check(target>=0 and s.save_world(),"existing final gate is ready")
 	var map: Control = MAP.instantiate()
 	root.add_child(map)
 	current_scene = map
 	await process_frame
-	var rng_before: int = s.world.rng.state
-	map.show_tile(23)
-	check(not is_instance_valid(map.overlay) and s.encounter.is_empty(),"remote boss preview cannot start book or battle")
-	s.world.position = 23 # Test-only approach relocation, never new story receipts.
-	check(s.save_world(),"approach saved before cinematic")
-	map.show_tile(23,true)
-	check(map.overlay is Book and map.overlay.mode=="intro","actual boss arrival opens preserved moving book")
-	var book: Control = map.overlay
-	check(book.action_button.disabled and not book.skip_button.disabled,"battle is not automatic during intro")
-	book.skip_button.pressed.emit()
-	check(not book.action_button.disabled and not book.skip_button.visible,"skip reveals explicit text action")
-	check(s.world.rng.state==rng_before and s.encounter.is_empty(),"skip does not consume RNG or create encounter")
-	var before_return: Dictionary=s.world.snapshot().duplicate(true)
-	book.return_requested.emit()
-	check(not is_instance_valid(map.overlay) and not map.map_music.stream_paused,"returning from boss book restores the map and its music")
-	check(s.world.snapshot()==before_return and s.encounter.is_empty(),"book return does not acknowledge the boss, consume RNG or start battle")
-	map.show_tile(23,true)
-	book=map.overlay
-	check(book is Book and book.mode=="intro","unacknowledged boss book remains available after return")
+	var before_preview: Dictionary=s.world.snapshot().duplicate(true)
+	map.show_tile(target)
+	map.show_tile(s.world.warp_destination(target))
+	check(not is_instance_valid(map.overlay) and s.world.snapshot()==before_preview,"remote clicks on both warp stones cannot move the hero or start an encounter")
+	await capture("wormhole-map")
+
+	s.world.position=(target+23)%24
+	var probe:=RandomNumberGenerator.new()
+	for seed_value in range(100):
+		probe.seed=seed_value
+		if probe.randi_range(1,6)==1:
+			s.world.rng.seed=seed_value
+			break
+	map.render()
+	check(s.save_world(),"approach to the wormhole saved")
+	var previous_move: int=s.world.move_serial
+	await map.roll_move()
+	check(s.world.position==target and s.world.move_serial==previous_move+1 and s.world.pending_move.is_empty(),"actual map die arrives directly at the marked warp")
+	check(map.overlay is StoryBook and Wormhole.beat(s.world)==0 and s.encounter.is_empty(),"actual arrival opens the first story scene before combat")
+	await until_ready(func(): return map.overlay.typewriter!=null)
+	map._reveal_story_text(map.overlay)
+	await capture("wormhole-scene-1")
+	await press_story(map,"계속")
+	check(Wormhole.beat(s.world)==1,"first explicit continue is saved")
 	current_scene = null
 	map.queue_free()
 	await process_frame
@@ -93,21 +118,30 @@ func _run() -> void:
 	map = MAP.instantiate()
 	root.add_child(map)
 	current_scene = map
-	await process_frame
-	await process_frame
-	check(map.overlay is Book and map.overlay.mode=="intro","unacknowledged book restarts safely on load")
-	book = map.overlay
-	check(await until_ready(func(): return not book.action_button.disabled,9.0),"natural intro finishes")
-	check(book.action_button.has_focus(),"keyboard focus reaches text action")
-	await capture("final-intro")
+	check(await until_ready(func(): return map.overlay is StoryBook),"saved second scene reopens after restart")
+	check(Wormhole.beat(s.world)==1 and map.tile_path(target)==KingPortalTile.PATHS.back(),"reload keeps the second scene and transformed stone")
+	await until_ready(func(): return map.overlay.typewriter!=null)
+	map._reveal_story_text(map.overlay)
+	await capture("wormhole-scene-2")
+	await press_story(map,"계속")
+	check(Wormhole.beat(s.world)==2,"second explicit continue reaches the last scene")
+	await until_ready(func(): return map.overlay.typewriter!=null)
+	map._reveal_story_text(map.overlay)
+	await capture("wormhole-scene-3")
+	var before_deck: int=s.world.rng.state
+	var last_book: Control=map.overlay
 	s.save_file_path = "user://missing_final_chapter_directory/save.json"
-	book.action_button.pressed.emit()
-	check(map.overlay==book and not book.hint.text.is_empty() and not s.event_flag_is_set(Progress.INTRO_SEEN),"failed intro acknowledgement remains retryable on book")
+	await press_story(map,"전투 준비")
+	check(map.overlay==last_book and not s.event_flag_is_set(Wormhole.ACK),"failed acknowledgement remains retryable")
 	s.save_file_path = scratch
-	book.action_button.pressed.emit()
-	check(map.overlay!=book and s.event_flag_is_set(Progress.INTRO_SEEN) and s.encounter.is_empty(),"acknowledgement saves then opens deck without starting combat")
+	await press_story(map,"전투 준비")
+	check(map.overlay is BattleDeck and s.event_flag_is_set(Wormhole.ACK) and s.encounter.is_empty() and s.world.rng.state==before_deck,"explicit confirmation opens deck without starting combat")
+	check(map.stage.get_node_or_null("MainStoryBook")==null,"the story book closes before the deck can receive input")
+	await capture("wormhole-deck")
 	var deck: Control = map.overlay
 	var real_die: TextureButton = map.dice
+	var saved_face: int=s.world.dice_visual_face
+	var saved_angle: float=real_die.rotation_degrees
 	for unit in s.world.roster.slice(0,2): deck.toggle_unit(str(unit.id))
 	deck.confirm_button.pressed.emit()
 	check(await until_ready(func(): return is_instance_valid(map.embedded_battle) and not map.embedded_battle.entry_summon_active),"selected deck summons into real boss battle")
@@ -116,7 +150,8 @@ func _run() -> void:
 		battle.brand_reference.close()
 		check(await until_ready(func(): return not is_instance_valid(battle.brand_reference)),"entry reference closes")
 	check(battle.external_main_dice==real_die and battle.dice==real_die,"battle uses identical physical die")
-	check(s.world.dice_visual_face==4 and is_equal_approx(real_die.rotation_degrees,28.0),"entry preserves die result and angle (face %d, angle %.8f)" % [s.world.dice_visual_face,real_die.rotation_degrees])
+	check(Progress.is_final_encounter(s.encounter) and s.encounter.get("entry","")==Wormhole.ENTRY,"one real dragon fight is saved at the wormhole")
+	check(s.world.dice_visual_face==saved_face and is_equal_approx(real_die.rotation_degrees,saved_angle),"entry preserves die result and angle (face %d, angle %.8f)" % [s.world.dice_visual_face,real_die.rotation_degrees])
 	var obstacle: Rect2 = map.final_dragon_die_exclusion()
 	var radius: float = real_die.size.length()*0.55
 	check(obstacle.has_area() and not obstacle.grow(radius).has_point(real_die.position+real_die.size*0.5),"saved overlap is moved outside dragon canvas")

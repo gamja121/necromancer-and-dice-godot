@@ -1,4 +1,5 @@
 extends SceneTree
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 ## Staged boss tiles at contamination 20/40/60, with story-locked final at 80:
 ## persistence migration, no duplicates and safe disk rollback.
 ## Run: godot --headless --path . --script res://scripts/test_map_shuffle_boss_threshold.gd
@@ -54,7 +55,8 @@ func _run() -> void:
 	for corruption in [80,81,99,100]:
 		state.contamination = corruption
 		state.generate()
-		check(state.tiles[23] == "boss" and boss_count(state.tiles) == 1, "exactly one boss tile at contamination %d" % corruption)
+		state.refresh_final_wormhole()
+		check(state.final_dragon_location()>=0 and state.tiles.count("warp")==2 and boss_count(state.tiles)==0,"one painted entrance and two warp stones at contamination %d" % corruption)
 		check(state.tiles.size() == 24 and state.tiles[0] == "fortune-teller-camp" and state.tiles[8] == "village" and state.tiles[15] == "home", "24-slot geometry unchanged at %d" % corruption)
 		check(state.tiles.count("monster") >= 4, "one existing monster slot replaced; no missing tiles at %d" % corruption)
 
@@ -64,14 +66,13 @@ func _run() -> void:
 	state.contamination = 79
 	state.generate()
 	state.cleared.append(23)
-	state.scout = {"scouted":true,"intel":[{"index":23,"type":state.tiles[23],"count":1,"grade":"normal","legion":"skeleton"}]}
+	state.scout = {"scouted":true,"intel":[{"index":state.tiles.find("monster"),"type":"monster","count":1,"grade":"normal","legion":"skeleton"}]}
 	var before_conversion: Array = state.tiles.duplicate(true)
-	var unchanged: Array = state.tiles.slice(0,23).duplicate()
 	state.contamination = 80
-	check(state.reveal_boss_at_threshold(), "crossing threshold reveals boss in current lap")
-	check(state.tiles[23]=="boss" and state.tiles.count("event")==before_conversion.count("event") and state.tiles[0]=="fortune-teller-camp" and state.tiles[8]=="village" and state.tiles[15]=="home","midlap conversion preserves existing event count and fixed tiles even when relocating an event from the new boss slot")
-	check(not 23 in state.cleared and state.scout.intel.is_empty(), "stale cleared/scout data removed at converted slot")
-	check(not state.reveal_boss_at_threshold() and boss_count(state.tiles) == 1, "second threshold check is idempotent")
+	check(state.refresh_final_wormhole(), "crossing threshold reveals final wormhole in current lap")
+	check(state.tiles==before_conversion and state.tiles.count("warp")==2,"midlap reveal keeps all tiles and both warp endpoints")
+	check(23 in state.cleared and state.scout.intel.size()==1,"an unrelated fixed-slot clear and scout record are preserved")
+	check(not state.refresh_final_wormhole() and boss_count(state.tiles)==0,"second threshold check is idempotent")
 	var pre_hide: Array = state.tiles.duplicate(true)
 	var saved_rng: int = state.rng.state
 	state.contamination = 79
@@ -82,7 +83,7 @@ func _run() -> void:
 	check(not state.reveal_boss_at_threshold(),"returning to eighty does not repeat the reveal")
 	var snapshot: Dictionary = state.snapshot().duplicate(true)
 	var restored = MapState.new(definitions,999)
-	check(restored.restore(snapshot) and restored.tiles[23] == "boss", "boss reveal survives snapshot restore")
+	check(restored.restore(snapshot) and restored.final_dragon_location()==state.final_dragon_location(),"wormhole reveal survives snapshot restore")
 	check(restored.rng.state == state.rng.state, "boss conversion does not reroll RNG")
 
 	var session = root.get_node_or_null("RunSession")
@@ -105,17 +106,18 @@ func _run() -> void:
 	var success: bool = session.leave_home()
 	check(success, "home exit commits across contamination 80")
 	check(session.world.contamination == 80 and session.world.laps == before_laps + 1, "contamination reaches 80 on expected lap")
-	check(session.world.tiles[23] == "boss" and boss_count(session.world.tiles) == 1, "boss appears automatically in newly shuffled layout")
+	var target: int=session.world.final_dragon_location()
+	check(target>=0 and session.world.tiles[target]=="warp" and boss_count(session.world.tiles)==0,"wormhole automatically appears on the fully composed shuffle")
 	check(session.world.map_serial == old_serial + 1, "map serial increases just once")
 	var map = MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
-	check(map.buttons.size() == 24 and map.buttons[23].texture_normal == map.texture("res://assets/map/tiles/boss.png"), "live Godot map draws correct boss texture")
-	check(map.buttons[23].tooltip_text.contains("보스"), "boss tile presents correct readable tooltip")
+	check(map.buttons.size()==24 and map.buttons[target].texture_normal==map.texture(KingPortalTile.PATHS.back()),"live Godot map draws the transformed warp texture")
+	check(map.buttons[target].tooltip_text.contains("웜홀"),"transformed stone has a readable map tooltip")
 	map.queue_free()
 	await process_frame
 	session.reload_world()
-	check(session.world.contamination == 80 and session.world.tiles[23] == "boss", "boss tile persists across full session reload")
+	check(session.world.contamination==80 and session.world.final_dragon_location()==target,"wormhole coordinate persists across full session reload")
 
 	# Independent legacy cleared-boss migration fixture.
 	session.start_new_world()

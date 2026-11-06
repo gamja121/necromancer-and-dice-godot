@@ -29,8 +29,9 @@ static func ready(world) -> bool:
 	# Require a coherent pre-existing portal ending: a lone hand-written
 	# final-quest flag cannot open the dragon fight.
 	var portal: Dictionary = world.story_events.get(PORTAL_ID,{})
-	if portal.get("status","")!="complete" or portal.get("choice","")!="intervene": return false
-	if portal.get("battle_result","") not in ["won","lost"]: return false
+	if portal.get("status","")!="complete" or portal.get("choice","") not in ["intervene","allow"]: return false
+	var fought: bool = portal.choice=="intervene"
+	if portal.get("battle_result","") not in (["won","lost"] if fought else [""]): return false
 	var won: bool = portal.battle_result=="won"
 	for key in [
 		"event:ritual_portal_trace_01:complete",
@@ -40,7 +41,11 @@ static func ready(world) -> bool:
 	]:
 		if f.get(key,false)!=true: return false
 	if f.get("battle:ritual_portal_trace_01:won",false)!=won: return false
-	if f.get("battle:ritual_portal_trace_01:lost",false)==won: return false
+	if f.get("battle:ritual_portal_trace_01:lost",false)!=(fought and not won): return false
+	if not fought:
+		if f.get("event:ritual_portal_trace_01:choice_intervene",false)==true: return false
+		for beat in [1,2,3,4]:
+			if f.get("event:ritual_portal_trace_01:beat:%d" % beat,false)!=true: return false
 	if f.get("story:monster_king:revival_weakened",false)!=won: return false
 	if f.get("story:monster_king:revival_complete",false)==won: return false
 	return true

@@ -28,12 +28,14 @@ func prepare(stage:int) -> int:
 	w.tiles[at]="unknown"
 	w.position=at
 	w.rng.seed=six_seed()
-	check(session.save_world(),"%d: baseline saved"%stage)
+	check(session.persist_change(w.snapshot().duplicate(true)),"%d: baseline saved"%stage)
 	return at
 func persistence(stage:int) -> void:
 	var at:int=prepare(stage)
 	var w=session.world
 	var slug:String=w.current_boss_slug()
+	var stone:int=w.final_dragon_location() if stage==80 else State.BOSS_TILE_INDEX
+	var stone_type:String="warp" if stage==80 else "boss"
 	var before:Dictionary=w.snapshot().duplicate(true)
 	var rng=RandomNumberGenerator.new()
 	rng.state=w.rng.state
@@ -46,20 +48,22 @@ func persistence(stage:int) -> void:
 	check(w.reward_receipts.count(session.place_visit_id("purify",at))==1,"%d: exactly one real prayer receipt"%stage)
 	session.reload_world()
 	w=session.world
-	check(w.tiles[23]=="boss" and w.current_boss_stage()==stage and w.current_boss_slug()==slug and w.boss_available(),"%d: disk restart preserves boss identity"%stage)
+	check(w.tiles[stone]==stone_type and w.current_boss_stage()==stage and w.current_boss_slug()==slug and w.boss_available(),"%d: disk restart preserves boss identity"%stage)
 	before=w.snapshot().duplicate(true)
 	w.contamination=0
-	check(session.persist_change(before) and w.tiles[23]=="boss" and w.current_boss_stage()==stage,"%d: even zero pollution keeps already revealed stage"%stage)
+	check(session.persist_change(before) and w.tiles[stone]==stone_type and w.current_boss_stage()==stage,"%d: even zero pollution keeps already revealed stage"%stage)
 	var preview_before:Dictionary=w.snapshot().duplicate(true)
 	var preview:Dictionary=w.patrol_preview(w.patrol_plan)
-	check(preview.valid and int(preview.counts.boss)==1 and w.snapshot()==preview_before,"%d: pure HOME preview reserves the retained boss"%stage)
+	check(preview.valid and int(preview.counts.boss)==(0 if stage==80 else 1) and w.snapshot()==preview_before,"%d: pure HOME preview reserves the retained boss"%stage)
 	w.position=State.HOME
 	w.lap_ready=false
 	check(session.leave_home(),"%d: real HOME departure regenerates board"%stage)
-	check(w.contamination==0 and w.tiles.size()==24 and w.tiles.count("boss")==1 and w.current_boss_slug()==slug,"%d: shuffled board keeps same boss at zero pollution"%stage)
-	w.position=23
+	check(w.contamination==0 and w.tiles.size()==24 and w.tiles.count("boss")==int(preview.counts.boss) and w.current_boss_slug()==slug,"%d: shuffled board keeps same boss at zero pollution"%stage)
+	stone=w.final_dragon_location() if stage==80 else State.BOSS_TILE_INDEX
+	if stage==80: check(Fixture.acknowledge_wormhole(session),"purified final wormhole opens the three scenes")
+	else: w.position=stone
 	var selected:Array=[str(w.roster[0].id),str(w.roster[1].id)]
-	check(session.start_encounter(23,selected),"%d: actual boss battle can start after purification"%stage)
+	check(session.start_encounter(stone,selected),"%d: actual boss battle can start after purification"%stage)
 	if session.encounter.is_empty(): return
 	check(int(session.encounter.get("boss_stage",0))==stage and session.encounter.enemies.size()==1 and str(session.encounter.enemies[0].slug)==slug,"%d: actual enemy and stored stage remain unchanged"%stage)
 	var fight_before:Dictionary=JSON.parse_string(JSON.stringify(session.encounter))
@@ -71,7 +75,7 @@ func persistence(stage:int) -> void:
 	for enemy in battle.units:
 		if enemy.team=="enemy": enemy.hp=0; enemy.alive=false
 	check(session.finish_encounter(battle),"%d: actual victory saves below threshold"%stage)
-	check(Stages.defeated(w.event_flags,stage) and w.tiles[23]!="boss","%d: only victory retires original stage"%stage)
+	check(Stages.defeated(w.event_flags,stage) and not w.boss_available(),"%d: only victory retires original stage"%stage)
 	check([20,40,60,80].all(func(other):return other==stage or not Stages.defeated(w.event_flags,other)),"%d: no different stage receives defeat receipt"%stage)
 	if stage!=80:
 		w.pending_reward={}

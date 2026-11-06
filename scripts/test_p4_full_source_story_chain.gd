@@ -24,10 +24,12 @@ const PORTAL = preload("res://systems/ritual_portal_entry.gd")
 const PORTAL_ENEMIES = preload("res://systems/ritual_portal_enemies.gd")
 const HUNT = preload("res://systems/monster_king_hunt_entry.gd")
 const HUNT_BEATS = preload("res://systems/monster_king_hunt_beats.gd")
+const KingTile = preload("res://systems/king_portal_tile.gd")
 
 var passed: int = 0
 var failed: int = 0
 var paths: Array[String] = []
+var ritual_choice_save: Dictionary = {}
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -110,7 +112,7 @@ func prepare_dice_target(session: Node, kind: String, label: String) -> int:
 	for seed_number in range(1,400):
 		dice.seed=seed_number
 		var target: int=STATE.HOME+dice.randi_range(1,6)
-		if target not in [STATE.HOME,STATE.BOSS_TILE_INDEX] and world.tiles[target]!="home":
+		if target not in [STATE.HOME,STATE.BOSS_TILE_INDEX] and world.tiles[target]!="home" and target!=KingTile.target(world):
 			world.rng.seed=seed_number
 			candidate=target
 			break
@@ -384,7 +386,8 @@ func rescue_and_king(session: Node, victor: String) -> void:
 		press_story_action(next)
 		await process_frame
 		check(PORTAL.current_beat(session)==i+1,label+":portal sequential scene %d saved by original Continue" % (i+1))
-	check(ui_button(map,"저지한다")!=null,label+":portal canonical fifth-beat Intervene offered")
+	check(ui_button(map,"저지한다")!=null and ui_button(map,"저지하지 않는다")!=null,label+":both deliberate choices appear on the fifth ritual scene")
+	if victor=="ally": ritual_choice_save=session.world.snapshot().duplicate(true)
 	press_story_action(ui_button(map,"저지한다"))
 	check(session.get_story_event(PORTAL.EVENT_ID).choice=="intervene" and not session.event_flag_is_set(PORTAL.HUNT_FLAG),label+":portal decision saved with no premature resurrection")
 	var deck_ready: bool=await until_ready(func(): return is_deck(map),8000)
@@ -425,9 +428,48 @@ func rescue_and_king(session: Node, victor: String) -> void:
 	check(session.event_flag_is_set(PORTAL.HUNT_FLAG) and not session.event_flag_is_set(PORTAL.TRACKING_FLAG),label+":portal confirmation atomically transfers tracking quest to king hunt")
 	await close_and_reload(session,map,label+":portal")
 
-	a=await arrive(session,"unknown",label+":king-hunt")
+	await follow_king_hunt(session,label,won)
+
+func observe_ritual(session: Node) -> void:
+	if ritual_choice_save.is_empty():
+		check(false,"observation branch requires the real fifth-scene save")
+		return
+	var scratch: String="user://p4_full_chain_%d_allow.json" % OS.get_process_id()
+	paths.append(scratch)
+	session.save_file_path=scratch
+	session.start_new_world()
+	check(session.world.restore(ritual_choice_save) and session.save_world(),"load the genuine branch point for ritual observation")
+	var map: Control=MAP.instantiate()
+	root.add_child(map)
+	check(await until_ready(func(): return ui_button(map,"저지하지 않는다")!=null),"fifth ritual scene resumes before the choice")
+	var old_rng: int=session.world.rng.state
+	press_story_action(ui_button(map,"저지하지 않는다"))
+	check(PORTAL.aftermath_ready(session,session.world.position) and not PORTAL.completed(session),"choosing to observe saves the aftermath checkpoint")
+	check(not session.event_flag_is_set(PORTAL.REVIVED_FLAG) and KingTile.target(session.world)==-1,"observation waits for Finish before revival and the warp omen")
+	check(session.world.rng.state==old_rng and session.encounter.is_empty(),"choosing to observe consumes no RNG and starts no combat")
+	await close_and_reload(session,map,"observe:aftermath")
+	map=MAP.instantiate()
+	root.add_child(map)
+	var resumed: bool=await until_ready(func(): return ui_button(map,"마치기")!=null)
+	check(resumed,"observed ritual aftermath resumes after reload")
+	if not resumed:
+		map.queue_free()
+		return
+	press_story_action(ui_button(map,"마치기"))
+	var w=session.world
+	check(PORTAL.completed(session) and ALTAR.completed(session) and w.event_flags.get(PORTAL.FULL_REVIVAL_FLAG,false),"observed ritual grants full revival and keeps the altar history")
+	check(not w.event_flags.get(PORTAL.BATTLE_WON_FLAG,false) and not w.event_flags.get(PORTAL.BATTLE_LOST_FLAG,false),"observation has no fabricated victory or defeat")
+	var painted: int=KingTile.target(w)
+	check(painted>=0 and w.tiles[painted]=="warp" and w.tiles.count("warp")==2 and w.final_dragon_location()==-1,"early painted warp is still a paired warp before the final hunt")
+	await close_and_reload(session,map,"observe:portal")
+	check(KingTile.target(session.world)==painted,"painted omen restores at the same warp")
+	await follow_king_hunt(session,"observe",false)
+	check(session.world.final_dragon_location()==painted,"the same omen becomes the usable entrance after the final hunt")
+
+func follow_king_hunt(session: Node,label: String,won: bool) -> void:
+	var a: Dictionary=await arrive(session,"unknown",label+":king-hunt")
 	if a.is_empty(): return
-	map=a.map
+	var map: Control=a.map
 	check(HUNT.revival_mode(session)==("weakened" if won else "full"),label+":real king-hunt scene reads source portal outcome")
 	for beat in range(4):
 		var next: Button=ui_button(map,"계속")
@@ -446,7 +488,7 @@ func rescue_and_king(session: Node, victor: String) -> void:
 	press_story_action(last)
 	check(session.event_flag_is_set(HUNT.FINAL_SCENE_ACK_FLAG) and HUNT.completed(session),label+":king-hunt final acknowledgement persists and cannot restart")
 	check(session.world.final_dragon_available()==(session.world.contamination>=STATE.BOSS_CONTAMINATION),label+":first real final acknowledgment activates remaining contamination condition")
-	check((session.world.tiles[STATE.BOSS_TILE_INDEX]=="boss")==session.world.boss_available(),label+":boss tile follows both final story and contamination without an extra lap")
+	check((session.world.final_dragon_location()>=0)==session.world.final_dragon_available(),label+":marked warp follows both final story and contamination without an extra lap")
 	check(session.event_flag_is_set(HUNT.FINAL_BATTLE_FLAG) and session.event_flag_is_set(HUNT.SEALED_RUINS_FLAG),label+":final battle quest ready; dragon boss is gated by story + contamination")
 	check(PORTAL.completed(session) and ALTAR.completed(session) and session.get_story_event(CHILD.EVENT_ID).status=="complete",label+":entire eight-event predecessor history survives end of chain")
 	check(session.world.pending_reward.is_empty() and session.encounter.is_empty(),label+":full chain leaves no pending battle/reward/duplicate treasure")
@@ -462,6 +504,7 @@ func _run() -> void:
 		root.add_child(session)
 	var previous_path: String=session.save_file_path
 	await rescue_and_king(session,"ally")
+	await observe_ritual(session)
 	await rescue_and_king(session,"enemy")
 	await abandoned_branch(session)
 	session.save_file_path=previous_path
