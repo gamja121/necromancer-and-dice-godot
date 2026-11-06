@@ -9,6 +9,7 @@ const Discovery = preload("res://systems/location_discoveries.gd")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -135,9 +136,9 @@ func remember_boss_revealed(stage: int) -> bool:
 ## Upgrade an actually saved old boss; never infer one from a pollution peak.
 ## Called inside the ordinary load migration transaction, not snapshot restore.
 func remember_visible_boss_stage() -> bool:
-	if tiles.size()!=24 or tiles[BOSS_TILE_INDEX]!="boss": return false
 	if FinalDragonProgress.is_final_encounter(active_encounter):
 		return remember_boss_revealed(BossStages.FINAL)
+	if tiles.size()!=24 or tiles[BOSS_TILE_INDEX]!="boss": return false
 	if active_encounter.get("type","")=="boss":
 		var stage: int = int(active_encounter.get("boss_stage",0))
 		if stage in BossStages.STAGES: return remember_boss_revealed(stage)
@@ -159,10 +160,23 @@ func boss_available() -> bool:
 func final_dragon_available() -> bool:
 	return current_boss_stage()==BossStages.FINAL and current_boss_slug()=="dragon" and boss_available()
 
-## A final encounter has exactly one playable entrance on the current board.
+## The painted warp becomes an entrance only after a real final reveal.
 func final_dragon_location() -> int:
-	if not run_result.is_empty() or tiles.size()!=24 or tiles[BOSS_TILE_INDEX]!="boss" or BOSS_TILE_INDEX in cleared: return -1
-	return BOSS_TILE_INDEX if final_dragon_available() else -1
+	if not run_result.is_empty() or not final_dragon_available(): return -1
+	if not event_flags.get(BossStages.revealed_flag(BossStages.FINAL),false): return -1
+	return KingPortalTile.target(self)
+
+func refresh_final_wormhole() -> bool:
+	if not tiles.has("warp") or not run_result.is_empty(): return false
+	if not active_encounter.is_empty() or not pending_move.is_empty() or not pending_reward.is_empty(): return false
+	var final_ready: bool = final_dragon_available()
+	var ritual: Dictionary = story_events.get(FinalBossStoryGate.PORTAL_ID,{})
+	var omen: bool = ritual.get("status","")=="complete" and ritual.get("choice","")=="allow"
+	if not final_ready and not omen: return false
+	var painted: bool = KingPortalTile.paint(self)
+	if final_ready and KingPortalTile.target(self)>=0:
+		return remember_boss_revealed(BossStages.FINAL) or painted
+	return painted
 
 func mark_boss_defeated(stage: int) -> void:
 	if stage in [20,40,60,80]:
@@ -171,8 +185,7 @@ func mark_boss_defeated(stage: int) -> void:
 func _boss_available_at(level: int) -> bool:
 	if FinalDragonProgress.cleared(self): return false
 	var stage: int=_boss_stage_at(level)
-	if stage==0 or BossStages.defeated(event_flags,stage): return false
-	if stage==BOSS_CONTAMINATION: return FinalBossStoryGate.ready(self)
+	if stage not in BossStages.STAGES or BossStages.defeated(event_flags,stage): return false
 	return BossStages.valid(definitions,boss_assignments)
 
 ## Shared pure count budget; earned places precede optional picks.
@@ -339,9 +352,9 @@ func _place_boss_displaced_warp() -> bool:
 	return false
 
 func reveal_boss_at_threshold() -> bool:
-	if not boss_available() or tiles.size()!=24 or not active_encounter.is_empty() or not run_result.is_empty(): return false
+	if not _boss_available_at(contamination) or tiles.size()!=24 or not active_encounter.is_empty() or not run_result.is_empty(): return false
 	if tiles[BOSS_TILE_INDEX]=="warp":
-		if position==BOSS_TILE_INDEX or not _place_boss_displaced_warp(): return false
+		if position==BOSS_TILE_INDEX or KingPortalTile.target(self)==BOSS_TILE_INDEX or not _place_boss_displaced_warp(): return false
 	var newly_revealed: bool = remember_boss_revealed(current_boss_stage())
 	if tiles[BOSS_TILE_INDEX] == "boss":
 		if newly_revealed:
@@ -377,8 +390,10 @@ func reveal_boss_at_threshold() -> bool:
 ## The next higher stage can reveal a different assigned boss. Keep cleared status;
 ## drop only stale scout intelligence for the changed tile.
 func conceal_boss_below_threshold() -> bool:
-	if boss_available() or tiles.size()!=24 or not active_encounter.is_empty(): return false
-	if tiles[BOSS_TILE_INDEX]!="boss": return false
+	if tiles.size()!=24 or tiles[BOSS_TILE_INDEX]!="boss" or not active_encounter.is_empty(): return false
+	if boss_available():
+		# Keep the old fixed stone until its replacement is durably usable.
+		if final_dragon_location()<0 or not pending_move.is_empty() or not pending_reward.is_empty(): return false
 	tiles[BOSS_TILE_INDEX]="monster"
 	if scout.get("intel",[]) is Array:
 		scout["intel"]=scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
@@ -438,10 +453,10 @@ func move_path(face: int) -> Array:
 			break
 	return path
 
-func warp_destination() -> int:
+func warp_destination(origin: int) -> int:
 	for i in range(tiles.size()):
-		if i!=position and tiles[i]=="warp": return i
-	return position
+		if i!=origin and tiles[i]=="warp": return i
+	return origin
 
 func leave_home() -> void:
 	if lap_ready:

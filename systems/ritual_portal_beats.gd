@@ -31,6 +31,12 @@ const AFTER_BATTLE = {
 		"speaker":"시스템",
 		"visual":"omen"
 	},
+	"allow":{
+		"effect":"석문이 끝까지 열렸다. 거대한 형체가 숲으로 사라지자 흙 위로 드러난 뿌리가 하나씩 검게 물들었다. 검은 자국은 세계수까지 이어져 있었다.",
+		"dialogue":"",
+		"speaker":"",
+		"visual":"omen"
+	},
 	"lost":{
 		"effect":"저지선이 무너지자 전이문이 완전히 열린다. 마물의 왕은 온전한 힘을 되찾은 채 현세에 모습을 드러내고, 곧 어둠 속으로 사라진다.",
 		"dialogue":"[완전히 부활한 마물의 왕을 추적합니다.]",
@@ -40,7 +46,7 @@ const AFTER_BATTLE = {
 }
 
 static func aftermath(result: String) -> Dictionary:
-	if result not in ["won","lost"]: return {}
+	if not AFTER_BATTLE.has(result): return {}
 	return AFTER_BATTLE[result].duplicate(true)
 
 static func layer_for(visual: String) -> String:

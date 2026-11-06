@@ -250,6 +250,7 @@ func set_heading(value: String) -> void:
 		"문 앞의 횃불": information = ["불씨의 기록",heading,"우리집",17]
 		"마물의 왕 부활 의식": information = ["일곱 번째 기록",heading,"의식의 폐허",13]
 		"왕의 흔적": information = ["여덟 번째 기록","마물의 왕 추적","세계수",15]
+		"봉인 폐허의 균열", "왕의 응시", "최후의 대면": information = ["아홉 번째 기록",heading,"봉인 폐허",17]
 	if _record == null:
 		_record = copy(str(information[0]),Rect2(118,126,450,30),18,Color("775b3d"))
 		_chapter = copy("제1장 · "+str(information[2]),Rect2(702,124,444,25),14,Color("81684b"))
