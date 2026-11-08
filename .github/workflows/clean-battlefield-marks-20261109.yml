@@ -1,0 +1,35 @@
+name: Clean original battlefield background marks
+on:
+  push:
+    branches:
+      - fix/battle-background-marks-20261109
+
+permissions:
+  contents: write
+
+jobs:
+  clean-originals:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install image inpainting dependency
+        run: python -m pip install "opencv-python-headless==4.10.0.84" "numpy==1.26.4"
+      - name: Patch only the original watermark locations
+        run: python scripts/clean_battlefield_marks.py
+      - name: Commit three corrected originals on review branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/battle/backgrounds/dark-forest.jpg assets/battle/backgrounds/snow-forest.jpg assets/battle/backgrounds/lava-forest.jpg
+          if git diff --cached --quiet; then
+            echo "No image changes to commit"
+            exit 0
+          fi
+          git commit -m "Remove lower-right marks from original battle background JPEGs"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
