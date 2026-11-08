@@ -1,68 +1,82 @@
 #!/usr/bin/env python3
-"""Remove only the small four-point Gemini marks from the three ORIGINAL
-battlefield JPEGs. Never redraw, crop, resize, or recolor the compositions.
+"""Precisely remove three small 4-point lower-right source-watermarks.
 
-Source reference: 1280x575, verified against GitHub original images.
-Run: python scripts/clean_battlefield_marks.py
+Recreate each image from the actual reviewed MAIN ORIGINAL (never the
+previously patched output). Preserve its exact 1280x575 hand-inked composition.
+Only stamp a tiny patch of equivalent surrounding ground texture into the logo.
 """
 from pathlib import Path
+import subprocess
 import sys
 
 import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-BACKGROUNDS = ROOT / "assets" / "battle" / "backgrounds"
-REFERENCE_WIDTH = 1280
-REFERENCE_HEIGHT = 575
-# Each existing painting has one white diamond watermark in the lower-right.
-# Center in ORIGINAL pixel coordinates, and mask only the logo plus 2-3px edge.
+ORIGINAL_COMMIT = "e492e57008493a1fa4e42f8499c3f6bfb7a7ed45"
+WIDTH, HEIGHT = 1280, 575
+
+# (x, y, ellipse half-width, half-height, source offset x, source offset y)
+# White 4-ray marks near the bottom right, not the intended snowflakes/runes.
 MARKS = {
-    "dark-forest.jpg": (1193, 475, 27, 29),
-    "snow-forest.jpg": (1193, 509, 27, 29),
-    "lava-forest.jpg": (1193, 535, 27, 29),
+    "dark-forest.jpg": (1193, 507, 32, 32, -67, 0),
+    "snow-forest.jpg": (1193, 509, 32, 32, -67, 0),
+    "lava-forest.jpg": (1193, 535, 32, 32, -67, 0),
 }
 
-def clean(path: Path, spec: tuple[int, int, int, int]) -> None:
-    original = cv2.imread(str(path), cv2.IMREAD_COLOR)
-    if original is None:
-        raise RuntimeError(f"Cannot read {path}")
-    height, width = original.shape[:2]
-    if (width, height) != (REFERENCE_WIDTH, REFERENCE_HEIGHT):
-        raise RuntimeError(
-            f"{path.name}: dimensions {width}x{height}, expected "
-            f"{REFERENCE_WIDTH}x{REFERENCE_HEIGHT}; refuse unreviewed edit"
-        )
-    cx, cy, rx, ry = spec
-    mask = np.zeros((height, width), dtype=np.uint8)
-    cv2.ellipse(mask, (cx, cy), (rx, ry), 0, 0, 360, 255, -1)
-    # The neighboring dirt/snow/ash is sampled at the rim of a small mask.
-    # All architecture, framing trees, background, and battle floor outside
-    # the localized logo region remain unchanged in composition and content.
-    cleaned = cv2.inpaint(original, mask, 5, cv2.INPAINT_TELEA)
-    if not cv2.imwrite(str(path), cleaned, [cv2.IMWRITE_JPEG_QUALITY, 96]):
-        raise RuntimeError(f"Cannot save {path}")
-    reloaded = cv2.imread(str(path), cv2.IMREAD_COLOR)
-    if reloaded is None or reloaded.shape != original.shape:
-        raise RuntimeError(f"Invalid output for {path}")
-    outside_mask = mask == 0
-    mean_difference = float(
-        np.abs(reloaded.astype(np.int16) - original.astype(np.int16))
-        [outside_mask].mean()
+def load_reviewed_original(rel_path: str) -> np.ndarray:
+    data = subprocess.check_output(
+        ["git", "show", f"{ORIGINAL_COMMIT}:{rel_path}"], cwd=ROOT
     )
-    if mean_difference >= 7.0:
-        raise RuntimeError(
-            f"Unexpected edit beyond localized logo: "
-            f"{path.name} outside-mask mean difference {mean_difference:.3f}"
-        )
-    print(
-        f"{path.name}: {width}x{height}, centered removal at ({cx},{cy}), "
-        f"ellipse {rx}x{ry}, outside-mask JPEG-only MAE {mean_difference:.3f}"
-    )
+    img = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if img is None or img.shape[:2] != (HEIGHT, WIDTH):
+        raise RuntimeError(f"Original missing or unexpected size: {rel_path}")
+    return img
+
+def clone_small_patch(original: np.ndarray, cfg: tuple[int, ...]) -> np.ndarray:
+    cx, cy, rx, ry, dx, dy = cfg
+    corrected = original.copy()
+    # Composite a source patch from adjacent unmarked ground:
+    # full-opacity within 80% of the ellipse, smoothly fade the outer 20%.
+    # The rest of the source scene is pixel-identical until JPEG re-encoding.
+    for y in range(max(0, cy - ry), min(HEIGHT, cy + ry + 1)):
+        for x in range(max(0, cx - rx), min(WIDTH, cx + rx + 1)):
+            d = ((x-cx)/rx)**2 + ((y-cy)/ry)**2
+            if d >= 1.0:
+                continue
+            if x+dx < 0 or x+dx >= WIDTH or y+dy < 0 or y+dy >= HEIGHT:
+                raise RuntimeError("Patch sampling escapes canvas")
+            r = d ** .5
+            a = 1.0 if r <= .80 else (1.0 - r) / .20
+            corrected[y, x] = np.clip(
+                original[y+dy, x+dx].astype(float)*a
+                + original[y, x].astype(float)*(1.0-a),
+                0, 255,
+            ).astype(np.uint8)
+    return corrected
 
 def main() -> int:
-    for name, spec in MARKS.items():
-        clean(BACKGROUNDS / name, spec)
+    for name, cfg in MARKS.items():
+        rel = f"assets/battle/backgrounds/{name}"
+        original = load_reviewed_original(rel)
+        new = clone_small_patch(original, cfg)
+        out = ROOT / rel
+        if not cv2.imwrite(str(out), new, [cv2.IMWRITE_JPEG_QUALITY, 97]):
+            raise RuntimeError(f"Failed to write {rel}")
+        roundtrip = cv2.imread(str(out), cv2.IMREAD_COLOR)
+        if roundtrip is None or roundtrip.shape != original.shape:
+            raise RuntimeError(f"Invalid output {rel}")
+        x, y, rx, ry, _, _ = cfg
+        # Audit: only ordinary JPEG re-encoding should change outside patch.
+        ys, xs = np.ogrid[:HEIGHT, :WIDTH]
+        outside = ((xs-x)/rx)**2+((ys-y)/ry)**2 >= 1.0
+        mean_diff = np.abs(
+            roundtrip.astype(np.int16)-original.astype(np.int16)
+        )[outside].mean()
+        if mean_diff > 6.0:
+            raise RuntimeError(f"Outside-logo change too large: {name}, {mean_diff:.3f}")
+        print(f"{name}: original {WIDTH}x{HEIGHT} retained; "
+              f"logo patch at ({x},{y}), outside change {mean_diff:.3f}")
     return 0
 
 if __name__ == "__main__":
