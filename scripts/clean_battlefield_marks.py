@@ -19,8 +19,8 @@ WIDTH, HEIGHT = 1280, 575
 # (x, y, ellipse half-width, half-height, source offset x, source offset y)
 # White 4-ray marks near the bottom right, not the intended snowflakes/runes.
 MARKS = {
-    "dark-forest.jpg": (1193, 507, 32, 32, -67, 0),
-    "snow-forest.jpg": (1193, 509, 32, 32, -67, 0),
+    "dark-forest.jpg": (1182, 477, 28, 28, -80, 0),
+    "snow-forest.jpg": (1183, 509, 30, 30, -103, -18),
     "lava-forest.jpg": (1193, 535, 32, 32, -67, 0),
 }
 
