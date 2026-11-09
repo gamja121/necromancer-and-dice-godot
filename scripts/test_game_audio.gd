@@ -90,4 +90,4 @@ func run() -> void:
 	service.streams.clear()
 	await create_timer(0.15).timeout
 	print("GAME_AUDIO: %d passed, %d failed"%[passed,failed])
-	quit(0 if failed==0 else 1)
+	call_deferred("quit",0 if failed==0 else 1)
