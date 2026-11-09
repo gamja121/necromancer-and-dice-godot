@@ -178,7 +178,8 @@ func portal(session: Node) -> void:
 		map=await map_restart(session,map,"portal-beat-%d" % (beat+1))
 		var expected: String="저지한다" if beat==3 else "계속"
 		check(button_in(map,expected)!=null,"portal: forest reload restores scene %d with original action" % (beat+1))
-		check(scene_text_visible(map,str(PORTAL_BEATS.beat(beat+1).effect)),"portal: original source narrative resumes beat %d" % (beat+1))
+		var narration: String = PORTAL_BEATS.CHOICE_EFFECT if beat==3 else str(PORTAL_BEATS.beat(beat+1).effect)
+		check(scene_text_visible(map,narration),"portal: saved narrative resumes beat %d" % (beat+1))
 	check(button_in(map,"저지한다")!=null,"portal: final scene offers deliberate intervention")
 	press_story_action(button_in(map,"저지한다"))
 	check(session.get_story_event(PORTAL.EVENT_ID).choice=="intervene","portal: original intervention choice saved without battle")

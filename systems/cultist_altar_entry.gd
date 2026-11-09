@@ -77,7 +77,8 @@ static func completed(session) -> bool:
 	# method incorrectly returned false as soon as the portal finished.
 	if flags.get(RITUAL_TRACKING_FLAG,false)!=true:
 		var portal: Dictionary=session.get_story_event("ritual_portal_trace_01")
-		if portal.status!="complete" or portal.choice!="intervene" or portal.battle_result not in ["won","lost"]: return false
+		if portal.status!="complete" or portal.choice not in ["intervene","allow"]: return false
+		if portal.battle_result not in (["won","lost"] if portal.choice=="intervene" else [""]): return false
 		if flags.get("event:ritual_portal_trace_01:complete",false)!=true: return false
 		if flags.get("quest:ritual_site_tracking:complete",false)!=true: return false
 		if flags.get("battle:ritual_portal_trace_01:won",false)!=(portal.battle_result=="won"): return false

@@ -25,14 +25,13 @@ func battle_at(session: Node, pollution: int, lap: int) -> bool:
 	w.contamination=pollution
 	StoryFixture.seed_completed_final_hunt(w)
 	w.generate()
-	check((w.tiles[23]=="boss")==(pollution>=20),"early stage at 20/40/60 and final dragon at 80, independent of laps")
+	check((w.tiles[23]=="boss")==(pollution>=20 and pollution<80),"fixed stages stay below 80, independent of laps")
 	var ids: Array=[w.roster[0].id,w.roster[1].id]
 	if pollution<80:
 		# Stage-60 boss is permitted at 79; only the FINAL dragon must wait.
 		var started: bool=session.start_encounter(23,ids)
 		return not started or (session.encounter.get("type","")=="boss" and session.encounter.get("enemies",[]).all(func(u): return str(u.slug)!="dragon"))
-	w.position=23
-	return session.start_encounter(23,ids)
+	return w.refresh_final_wormhole() and StoryFixture.acknowledge_wormhole(session) and session.start_encounter(w.position,ids)
 
 func test_stats_and_spawn(session: Node) -> void:
 	var data: Dictionary=session.world.definitions
@@ -53,7 +52,7 @@ func test_stats_and_spawn(session: Node) -> void:
 	check(Hunt.completed(session) and world.tiles[23]!="boss","completed fifth scene without explicit Finish is still locked")
 	world.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=true
 	world.generate()
-	check(world.tiles[23]=="boss" and world.boss_available(),"fifth-scene Finish unlocks boss at already-high contamination")
+	check(world.refresh_final_wormhole() and world.final_dragon_location()>=0 and world.tiles[23]!="boss","fifth-scene Finish unlocks wormhole at already-high contamination")
 	world.event_flags["event:monster_king_hunt_trace_01:final_acknowledged"]=false
 	check(not world.boss_available(),"removing explicit final acknowledgment relocks boss")
 	check(battle_at(session,79,60),"lap 60 cannot grant dragon at contamination 79")

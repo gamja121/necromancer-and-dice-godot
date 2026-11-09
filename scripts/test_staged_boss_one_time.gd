@@ -161,10 +161,10 @@ func _run() -> void:
 	world.generate()
 	check(world.tiles[23]!="boss","80+ dragon still needs acknowledged final story")
 	StoryFixture.seed_completed_final_hunt(world)
-	check(world.reveal_boss_at_threshold() and world.tiles[23]=="boss","real existing final-story prerequisite unlocks dragon")
+	check(world.refresh_final_wormhole() and world.final_dragon_location()>=0 and world.tiles[23]!="boss","real final-story prerequisite unlocks the wormhole")
 	check(BossStages.boss_slug(80,world.boss_assignments)=="dragon" and not BossStages.defeated(world.event_flags,80),"dragon remains separate one-time final stage")
 	world.mark_boss_defeated(80)
-	check(world.conceal_boss_below_threshold(),"final boss can be retired after victory")
+	check(world.final_dragon_location()==-1,"final encounter retires after victory")
 	world.generate()
 	check(world.tiles[23]!="boss","defeated dragon cannot reappear on later maps")
 	session.save_file_path=old_path

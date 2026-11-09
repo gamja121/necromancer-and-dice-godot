@@ -1,4 +1,5 @@
 extends RefCounted
+const Wormhole = preload("res://systems/king_portal_encounter.gd")
 ## TEST-ONLY synthetic save receipt for dedicated map/boss gate unit tests.
 ## Real main-story integration still uses explicit original event buttons.
 ## Never import this into production game scripts.
@@ -35,3 +36,10 @@ static func seed_completed_final_hunt(world, acknowledged: bool = true) -> void:
 	f["story:ritual_portal_trace_01:result_pending"]=false
 	f["battle:ritual_portal_trace_01:lost"]=false
 	f["story:monster_king:revival_complete"]=false
+
+## Combat-only fixtures bypass map animation. UI tests use the real dice path.
+static func acknowledge_wormhole(session) -> bool:
+	var index: int = session.world.final_dragon_location()
+	if index<0: return false
+	session.world.position=index
+	return Wormhole.begin(session,index) and Wormhole.advance(session,index,0) and Wormhole.advance(session,index,1) and Wormhole.acknowledge(session,index)

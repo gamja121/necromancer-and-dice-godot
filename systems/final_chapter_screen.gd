@@ -152,14 +152,17 @@ func show_storage_error(message: String) -> void:
 	action_button.disabled = false
 	action_button.grab_focus()
 
-func show_ending(result: Dictionary, instant: bool=false) -> void:
+func show_ending(result: Dictionary, instant: bool=false, continue_expedition: Callable=Callable()) -> void:
 	mode = "ending"
 	record = result.duplicate(true)
 	_new_book(instant)
-	book.copy("마지막 기록",Rect2(118,126,450,30),18,Color("775b3d"))
-	book.copy("마지막 장",Rect2(702,124,444,25),14,Color("81684b"))
+	var continuing: bool = continue_expedition.is_valid()
+	book.copy("폐허의 기록" if continuing else "마지막 기록",Rect2(118,126,450,30),18,Color("775b3d"))
+	book.copy("봉인 폐허" if continuing else "마지막 장",Rect2(702,124,444,25),14,Color("81684b"))
 	title = book.copy("드래곤을 쓰러뜨렸다.",Rect2(702,158,444,43),29)
-	narrative = book.copy("거대한 날갯짓이 멎고,\n폐허에는 다시 고요가 내려앉았다.\n\n이 원정의 마지막 전투가 끝났다.",Rect2(702,233,432,110),20)
+	var ending_text := "거대한 날갯짓이 멎고,\n폐허에는 다시 고요가 내려앉았다.\n\n이 원정의 마지막 전투가 끝났다."
+	if continuing: ending_text = "거대한 날갯짓이 멎고,\n폐허에는 다시 고요가 내려앉았다.\n\n돌아갈 길은 아직 남아 있었다."
+	narrative = book.copy(ending_text,Rect2(702,233,432,110),20)
 	var background := TextureRect.new()
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background.texture = load("res://assets/battle/backgrounds/haunted-forest-ruins-battlefield.jpg")
@@ -199,10 +202,10 @@ func show_ending(result: Dictionary, instant: bool=false) -> void:
 		var y := 366.0+72.0*float(i/2)
 		book.copy(rows[i][0],Rect2(x,y,200,22),16,Color("81684b"))
 		book.copy("%d" % int(record.get(rows[i][1],0)),Rect2(x,y+25,200,32),26)
-	book.copy("원정 완료 · 기록이 저장되었습니다.",Rect2(702,514,432,24),15,Color("81684b"))
+	hint = book.copy("고룡 격파 · 기록이 저장되었습니다." if continuing else "원정 완료 · 기록이 저장되었습니다.",Rect2(702,514,432,24),15,Color("81684b"))
 	book.copy("19",Rect2(118,564,30,24),13,Color("9a805d"))
 	book.copy("20",Rect2(1149,564,30,24),13,Color("9a805d"))
-	action_button = _action("책을 덮고 타이틀로",Rect2(700,548,440,44),_request_title)
+	action_button = _action("원정 계속" if continuing else "책을 덮고 타이틀로",Rect2(700,548,440,44),func(): _finish_ending(continue_expedition))
 	action_button.name = "CloseFinalChapter"
 	action_button.disabled = not instant
 	book.opened.connect(func():
@@ -222,12 +225,19 @@ func show_ending(result: Dictionary, instant: bool=false) -> void:
 				action_button.grab_focus())
 	)
 
-func _request_title() -> void:
+func _finish_ending(continue_expedition: Callable) -> void:
 	if leaving or action_button.disabled or book.opening: return
+	var continuing: bool = continue_expedition.is_valid()
+	if continuing and not continue_expedition.call():
+		hint.add_theme_color_override("font_color",Book.RED_INK)
+		show_storage_error("원정 계속 저장에 실패했습니다. 다시 시도하세요.")
+		return
 	Sound.cue(self,"book_confirm")
 	leaving = true
 	action_button.disabled = true
-	book.closed.connect(func(): title_requested.emit(),CONNECT_ONE_SHOT)
+	book.closed.connect(func():
+		if continuing: return_requested.emit()
+		else: title_requested.emit(),CONNECT_ONE_SHOT)
 	book.close_book()
 
 func _unhandled_key_input(event: InputEvent) -> void:

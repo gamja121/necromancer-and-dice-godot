@@ -12,6 +12,8 @@ const DiceControl = preload("res://systems/dice_control.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
+const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -77,8 +79,9 @@ func ensure_world() -> void:
 			var boss_migrated: bool = world.remember_visible_boss_stage()
 			if world.run_result.is_empty() and world.active_encounter.is_empty() and world.pending_move.is_empty():
 				boss_migrated = _migrate_saved_boss_clear(parsed.has("boss_assignments")) or boss_migrated
-			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var warp_upgraded: bool = world.restore_missing_boss_warp()
+			var wormhole_upgraded: bool = world.refresh_final_wormhole()
+			var boss_upgraded: bool = world.reveal_boss_at_threshold()
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
 			var rare_upgraded: bool = world.restore_missing_rare_stone()
@@ -92,7 +95,7 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_migrated or boss_upgraded or warp_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded) and not save_world():
+			if (boss_migrated or boss_upgraded or warp_upgraded or wormhole_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
@@ -464,13 +467,6 @@ func _migrate_saved_boss_clear(has_boss_assignments: bool) -> bool:
 	world.mark_boss_defeated(BossStages.FINAL)
 	return true
 
-## Acknowledging/ skipping the book is cosmetic: no encounter or RNG is created.
-func acknowledge_final_dragon_intro(index: int) -> bool:
-	if world == null or not world.run_result.is_empty(): return false
-	if index<0 or index!=world.position or index!=world.final_dragon_location(): return false
-	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty(): return false
-	return set_event_flag(FinalDragonProgress.INTRO_SEEN)
-
 func start_encounter(index: int, selected_ids: Array) -> bool:
 	return _start_encounter(index,selected_ids)
 
@@ -481,13 +477,16 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if not event_id.is_empty() and not story: return false
 	var mimic: bool = not story and world.pending_reward.get("kind","")=="mimic" and int(world.pending_reward.get("index",-1))==index
 	if (not world.pending_reward.is_empty() and not mimic) or not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
-	if index<0 or index>=world.tiles.size() or (not mimic and not story and index in world.cleared): return false
+	if index<0 or index>=world.tiles.size(): return false
+	var final_wormhole: bool = not story and not mimic and index==world.final_dragon_location()
 	if story:
 		if not StoryBattleRegistry.can_start(world,get_story_event(event_id),index,story_spec): return false
-	elif not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
-	if not story and not mimic and world.tiles[index]=="boss":
-		if not world.boss_available(): return false
-		if world.final_dragon_available() and (index!=world.position or index!=world.final_dragon_location()): return false
+	elif final_wormhole:
+		if not KingPortalEncounter.battle_ready(self,index): return false
+	else:
+		if not world.tiles[index] in (["gem"] if mimic else ["monster","rare-monster","boss"]): return false
+		if not mimic and index in world.cleared: return false
+		if world.tiles[index]=="boss" and (index!=MapState.BOSS_TILE_INDEX or not world.boss_available() or world.final_dragon_available()): return false
 	if selected_ids.is_empty() or selected_ids.size()>4: return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var allies: Array = []
@@ -501,7 +500,10 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		used.append(id)
 		allies.append(unit.duplicate(true))
 	var rules = load("res://systems/battlefield_rules.gd").new(world.definitions,world.rng.randi())
-	var type: String = str(story_spec.encounter_type) if story else ("mimic" if mimic else world.tiles[index])
+	var type: String = world.tiles[index]
+	if story: type = str(story_spec.encounter_type)
+	elif mimic: type = "mimic"
+	elif final_wormhole: type = "boss"
 	var slugs: Array = []
 	if story:
 		# The altar fight rolls its 4 unique enemies only when an actual
@@ -535,7 +537,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	var enemies: Array = []
 	for i in range(slugs.size()):
 		var enemy: Dictionary = rules.individual(slugs[i],"enemy-"+str(i))
-		if type=="boss" and world.boss_available() and str(enemy.slug)=="dragon":
+		if final_wormhole:
 			# Only this enemy has two simultaneous existing passives.
 			# Other monsters, including any later captured dragon, have one.
 			enemy.passive = "bone"
@@ -563,6 +565,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
 	if type=="boss": encounter["boss_stage"]=world.current_boss_stage()
+	if final_wormhole: encounter["entry"]=KingPortalEncounter.ENTRY
 	if story: encounter["event_id"] = event_id
 	if mimic:
 		world.reward_receipts.append(world.pending_reward.id)
@@ -628,7 +631,8 @@ func finish_encounter(battle) -> bool:
 				world.pending_reward = {"id":"capture-"+str(encounter.id),"kind":"capture","corpses":story_corpses,"selected":0,"locked":false,"max_attempts":attempts,"attempts":attempts,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
 				notice += " · 구울 영혼 수확"
 	elif battle.winner()=="ally":
-		if encounter.type in ["monster","rare-monster","boss"] and not encounter.index in world.cleared: world.cleared.append(encounter.index)
+		if encounter.type in ["monster","rare-monster","boss"] and encounter.get("entry","")!=KingPortalEncounter.ENTRY and not encounter.index in world.cleared:
+			world.cleared.append(encounter.index)
 		var final_victory: bool = FinalDragonProgress.is_final_encounter(encounter)
 		if encounter.type=="boss":
 			# Old checkpoints can identify the final dragon without a stage field.
@@ -682,11 +686,10 @@ func persist_change(before: Dictionary) -> bool:
 	# Appearance receipts keep already revealed bosses available after
 	# purification. Stage defeat receipts still retire them once per run.
 	# Save the tile, appearance and story change in the SAME transaction.
-	if world.boss_available():
-		world.reveal_boss_at_threshold()
-	else:
-		world.conceal_boss_below_threshold()
 	world.restore_missing_boss_warp()
+	world.refresh_final_wormhole()
+	world.reveal_boss_at_threshold()
+	world.conceal_boss_below_threshold()
 	# Keep the same fixed 15/30 swamp count when saving AND reloading.
 	# A story overlay may consume an ordinary stone during a high-pollution
 	# expedition; restoring only on reload changes the saved map unexpectedly.
@@ -865,6 +868,15 @@ func dismiss_failed_capture() -> bool:
 	world.pending_reward = {}
 	return persist_change(before)
 
+func continue_after_final_ending() -> bool:
+	if not FinalDragonProgress.can_continue(world): return false
+	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.event_flags[FinalDragonProgress.ENDING_ACK] = true
+	world.run_result = {}
+	KingPortalTile.clear(world)
+	return persist_change(before)
+
 func dice_context(battle: bool = false) -> Dictionary:
 	return {"previous_roll":int(encounter.get("previous_roll",0)),"previous_card":str(encounter.get("previous_card",""))} if battle else {"previous_roll":world.previous_map_roll,"previous_card":world.previous_map_card}
 
@@ -896,7 +908,7 @@ func prepare_map_roll(instance_id: String = "") -> Dictionary:
 	# First full circuit unlocks the cemetery; announce it at HOME once.
 	if landed == MapState.HOME and world.lap_ready and world.laps == 0:
 		world.event_flags["ui:unlock:graveyard:home_pending"] = true
-	if world.tiles[landed]=="warp": world.position = world.warp_destination()
+	if world.tiles[landed]=="warp" and landed!=world.final_dragon_location(): world.position = world.warp_destination(landed)
 	elif world.tiles[landed]=="swamp":
 		for unit in world.roster: unit.current_hp = maxi(1,unit.current_hp-1)
 	world.pending_move = {"face":int(result.face),"label":str(result.label),"origin":origin,"path":path,"landed":landed}
@@ -1297,8 +1309,8 @@ func prepare_hill_move(index: int, steps: int) -> Dictionary:
 	# A chosen stride is not a rolled face or a dice-control-card use.
 	world.last_face = int(before.last_face)
 	var landed: int = world.position
-	if world.tiles[landed] == "warp":
-		world.position = world.warp_destination()
+	if world.tiles[landed]=="warp" and landed!=world.final_dragon_location():
+		world.position = world.warp_destination(landed)
 	elif world.tiles[landed] == "swamp":
 		for unit in world.roster:
 			unit.current_hp = maxi(1,int(unit.current_hp)-1)
@@ -1419,12 +1431,12 @@ func heal_at_rest(index: int) -> Dictionary:
 func warp_from(index: int) -> Dictionary:
 	var allowed = place_allowed(index,"warp")
 	if not allowed.ok: return allowed
+	var destination: int = world.warp_destination(index)
+	if destination==index: return {"ok":false,"reason":"연결된 워프가 없습니다."}
+	var entrance: int = world.final_dragon_location()
+	if index==entrance or (destination==entrance and index!=world.position):
+		return {"ok":false,"reason":"변형 웜홀에 실제로 도착해야 합니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
-	world.position = index
-	var destination = world.warp_destination()
-	if destination==index:
-		world.restore(before)
-		return {"ok":false,"reason":"연결된 워프가 없습니다."}
 	world.position = destination
 	world.move_serial += 1
 	if not persist_change(before): return {"ok":false,"reason":notice}

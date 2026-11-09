@@ -92,6 +92,8 @@ const Battlefield = preload("res://battlefield.tscn")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalDragonDieLayout = preload("res://systems/final_dragon_die_layout.gd")
 const FinalChapterScreen = preload("res://systems/final_chapter_screen.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
+const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
 const GameOverScreen = preload("res://systems/game_over_screen.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
@@ -340,7 +342,7 @@ func _ready() -> void:
 	if world.run_result.get("reason","")=="battle_defeat":
 		call_deferred("show_game_over",true)
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
-	elif FinalDragonProgress.cleared(world): call_deferred("show_final_ending",true)
+	elif FinalDragonProgress.ending_pending(world): call_deferred("show_final_ending",true)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
@@ -348,6 +350,7 @@ func _ready() -> void:
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
+	elif world.position==world.final_dragon_location(): call_deferred("show_tile",world.position,true)
 	elif world.tiles[world.position]=="boss" and not world.position in world.cleared: call_deferred("show_tile",world.position)
 	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp","home"]: call_deferred("resume_village_rumor_if_unfinished")
 
@@ -512,6 +515,7 @@ func center(index: int) -> Vector2:
 	return MapState.centers()[index]*Vector2(12.8,7.2)
 
 func tile_path(index: int) -> String:
+	if index==KingPortalTile.target(world): return KingPortalTile.PATHS.back()
 	var id: String = world.tiles[index]
 	# The frozen web map retains a separate rare-monster-cleared tile silhouette.
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
@@ -619,7 +623,7 @@ func render() -> void:
 		install_board_depth_test(node,node.texture_normal)
 		apply_board_depth_top_light(node)
 		node.pivot_offset = node.size/2
-		node.tooltip_text = "%d번 · %s%s" % [i+1,MapState.NAMES[world.tiles[i]]," · 처치 완료" if i in world.cleared else ""]
+		node.tooltip_text = "%d번 · %s%s" % [i+1,("변형 웜홀" if i==KingPortalTile.target(world) else MapState.NAMES[world.tiles[i]])," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
 		if world.tiles[i]=="home" and WitchHuntEntry.home_burned(session):
@@ -1009,6 +1013,7 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 		if play_arrival_sound: sound("swamp_hit")
 		status.text = "오염된 늪지대 · 보유 마물 HP -1 · HP 1 보호"
 		await presentation.swamp_hit()
+	var previous_wormhole: int = KingPortalTile.target(world)
 	if not session.complete_map_move():
 		status.text = "이동 완료 저장 실패 · 주사위를 눌러 다시 저장하세요"
 		moving = false
@@ -1016,8 +1021,10 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 		return
 	moving = false
 	dice.disabled = false
+	if KingPortalTile.target(world)!=previous_wormhole: render()
 	var type: String = world.tiles[world.position]
-	if type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
+	if world.position==world.final_dragon_location(): show_tile(world.position,true)
+	elif type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
 	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
 
 func select_tile(index: int) -> void:
@@ -1221,7 +1228,7 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		show_home()
 		return
 	if type=="boss" and not index in world.cleared and index!=world.position:
-		status.text = "최후의 드래곤 · 보스 타일에 도착하면 마지막 장이 열립니다." if index==world.final_dragon_location() else "단계 보스 · 보스 타일에 도착하면 전투를 준비합니다."
+		status.text = "단계 보스 · 보스 타일에 도착하면 전투를 준비합니다."
 		return
 	if type in ["monster","rare-monster","boss"] and not index in world.cleared:
 		show_battle_deck(index)
@@ -1230,7 +1237,10 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		show_treasure(index)
 		return
 	if type=="warp":
-		use_warp(index)
+		if index==world.final_dragon_location():
+			if index==world.position: show_king_portal_encounter(index)
+			else: status.text = "변형 웜홀 · 도착하면 봉인 폐허로 들어갑니다."
+		else: use_warp(index)
 		return
 	if type in EVENT_IMAGES:
 		show_location(index)
@@ -1599,8 +1609,8 @@ func confirm_new_run() -> void:
 
 func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	if not world.run_result.is_empty(): return
-	if story_event_id.is_empty() and index==world.final_dragon_location() and not world.event_flags.get(FinalDragonProgress.INTRO_SEEN,false):
-		show_final_dragon_intro(index)
+	if story_event_id.is_empty() and index==world.final_dragon_location() and not KingPortalEncounter.battle_ready(session,index):
+		show_king_portal_encounter(index)
 		return
 	if world.roster.is_empty():
 		status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
@@ -1751,40 +1761,80 @@ func _fly_selected_cards_to_battle(battle: Control, selected: Dictionary) -> voi
 		battle.entry_card_transfer_pending=false
 		battle.entry_cards_landed.emit()
 
-# Present the preserved book before committing a real final encounter.
-func show_final_dragon_intro(index: int) -> void:
-	if index<0 or index!=world.position or index!=world.final_dragon_location(): return
-	if is_instance_valid(overlay): close_overlay()
-	var book := FinalChapterScreen.new()
-	stage.add_child(book)
-	overlay = book
-	map_music.stream_paused = true
-	book.show_intro()
-	book.return_requested.connect(func():
-		if overlay!=book: return
-		map_music.stream_paused = false
-		dismiss_overlay(render))
-	book.battle_requested.connect(func():
-		if overlay!=book: return
-		if not session.acknowledge_final_dragon_intro(index):
-			book.show_storage_error("저장에 실패했습니다. 전투 편성을 다시 눌러 주세요.")
+func show_king_portal_encounter(index: int) -> void:
+	if not KingPortalEncounter.can_enter(session,index): return
+	if KingPortalEncounter.battle_ready(session,index):
+		show_battle_deck(index)
+		return
+	if not KingPortalEncounter.begin(session,index):
+		status.text = session.notice
+		return
+	var beat_index: int = KingPortalEncounter.beat(world)
+	var beat: Dictionary = KingPortalEncounter.BEATS[beat_index]
+	var panel = story_modal()
+	if beat_index==0:
+		var art = image(panel,RitualPortalBeats.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+		InkSceneReveal.play(art)
+		var bounds: Rect2 = RitualPortalLayerMotion.source_rect(TILE_EVENT_SCENE_RECT)
+		var layer = image(panel,RitualPortalBeats.ENERGY_ART,bounds.position,bounds.size)
+		RitualPortalLayerMotion.play(layer,true)
+	else:
+		var ruins = image(panel.art,"res://assets/battle/backgrounds/haunted-forest-ruins-battlefield.jpg",Vector2.ZERO,panel.art.size)
+		ruins.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		ruins.modulate = Color(0.75,0.68,0.57)
+		var dragon_path := "res://assets/battle/final_dragon/final_dragon.png"
+		if beat_index==1:
+			# The existing full sprite extends off the clipped page to frame the gaze.
+			var gaze = image(panel.art,dragon_path,Vector2(-282,-29),Vector2(750,340))
+			gaze.modulate = Color(0.73,0.78,0.81)
+			RitualPortalLayerMotion.play(gaze,true)
+		else:
+			image(panel.art,dragon_path,Vector2(7,14),panel.art.size-Vector2(14,28))
+	shared_story_frame(panel)
+	label_at(panel,str(beat.title),Vector2(350,84),Vector2(582,42),24)
+	label_at(panel,str(beat.effect),Vector2(285,548),Vector2(710,65),18)
+	var storage_hint: Label = panel.copy("",Rect2(702,370,432,42),16,StoryBook.RED_INK)
+	location_button(panel,"계속" if beat_index<2 else "전투 준비",Vector2(651,653),Vector2(171,48),func():
+		if overlay!=panel: return
+		var saved: bool = KingPortalEncounter.advance(session,index,beat_index) if beat_index<2 else KingPortalEncounter.acknowledge(session,index)
+		if not saved:
+			storage_hint.text = session.notice
 			return
-		close_overlay()
-		show_battle_deck(index))
+		if beat_index<2: show_king_portal_encounter(index)
+		else:
+			close_overlay()
+			show_battle_deck(index),1)
+	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+
+func play_king_portal_emergence(index: int) -> void:
+	if index<0 or index>=buttons.size(): return
+	var stone: TextureButton = buttons[index]
+	for frame in KingPortalTile.PATHS:
+		if not is_instance_valid(stone) or stone.is_queued_for_deletion(): return
+		stone.texture_normal = texture(frame)
+		await get_tree().create_timer(0.16).timeout
 
 func show_final_ending(instant: bool = false) -> void:
-	if not FinalDragonProgress.cleared(world) or not world.pending_reward.is_empty(): return
-	if is_instance_valid(final_chapter_screen): return
+	if not FinalDragonProgress.ending_pending(world) or is_instance_valid(final_chapter_screen): return
 	close_overlay()
-	final_chapter_screen = FinalChapterScreen.new()
-	stage.add_child(final_chapter_screen)
-	overlay = final_chapter_screen
+	var chapter := FinalChapterScreen.new()
+	final_chapter_screen = chapter
+	stage.add_child(chapter)
+	overlay = chapter
 	dice.disabled = true
 	dice.hide()
 	map_music.stream_paused = true
-	final_chapter_screen.show_ending(world.run_result,instant)
-	final_chapter_screen.title_requested.connect(func():
+	var continue_expedition := Callable(session,"continue_after_final_ending") if FinalDragonProgress.can_continue(world) else Callable()
+	chapter.show_ending(world.run_result,instant,continue_expedition)
+	chapter.title_requested.connect(func():
 		get_tree().change_scene_to_file("res://title.tscn"))
+	chapter.return_requested.connect(func():
+		if overlay!=chapter: return
+		close_overlay()
+		final_chapter_screen = null
+		map_music.stream_paused = false
+		render()
+		status.text = "원정을 이어갑니다.")
 
 # Defeat is a separate terminal path; victory must never shatter the die.
 func show_game_over(instant: bool = false) -> void:
@@ -1884,7 +1934,7 @@ func finish_embedded_battle() -> void:
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
-	if FinalDragonProgress.cleared(world):
+	if FinalDragonProgress.ending_pending(world):
 		show_final_ending()
 	elif not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
 		show_story_battle_result(completed_story_event_id)
@@ -2691,6 +2741,10 @@ func show_monster_king_hunt_beat(index: int) -> void:
 	var beat_index: int=MonsterKingHuntEntry.current_beat(session)
 	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))
 	if beat.is_empty(): return
+	if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="allow":
+		if beat_index==0: beat.effect="의식터에서 봤던 검은 자국이 세계수의 뿌리까지 이어져 있었다."
+		if beat_index==3: beat.dialogue="왕이 지나간 흔적이야. 이 뿌리는 숲 너머 봉인 폐허까지 뻗어 있어."
+	if beat_index==4: beat.effect="폐허로 향하던 흔적이 웜홀 앞에서 끊겼다. 웜홀 안쪽에서 뿌리에 남은 것과 같은 빛이 새어 나온다."
 	var panel=story_modal()
 	if beat.get("locationKnown",false): panel.show_seal("위치")
 	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
@@ -2736,11 +2790,17 @@ func advance_monster_king_hunt(index: int, shown_beat: int) -> void:
 	show_monster_king_hunt_beat(index)
 
 func acknowledge_monster_king_hunt(index: int) -> void:
+	var painted_before: int = KingPortalTile.target(world)
 	if not MonsterKingHuntEntry.acknowledge_completion(session,index):
 		status.text="봉인 폐허 확인 저장 실패 · 다시 시도하세요."
 		return
 	close_overlay()
-	if world.tiles[index]=="unknown": show_location(index)
+	var entrance: int = world.final_dragon_location()
+	if entrance>=0:
+		render()
+		status.text="변형 웜홀 · 봉인 폐허로 가는 길이 열렸습니다."
+		if painted_before!=entrance: play_king_portal_emergence(entrance)
+	elif world.tiles[index]=="unknown": show_location(index)
 	else: render()
 
 func show_ritual_portal_intro(index: int) -> void:
@@ -2759,6 +2819,9 @@ func show_ritual_portal_beat(index: int) -> void:
 	if beat.is_empty(): return
 	var scene_state: Dictionary=session.get_story_event(RitualPortalEntry.EVENT_ID)
 	var intervening: bool=scene_state.status=="active" and scene_state.choice=="intervene"
+	if beat_index==4 and scene_state.status=="seen":
+		beat.effect=RitualPortalBeats.CHOICE_EFFECT
+		beat.dialogue=""
 	var panel=story_modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
 	if beat_index==0: InkSceneReveal.play(art)
@@ -2789,6 +2852,9 @@ func show_ritual_portal_beat(index: int) -> void:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="forest" else Vector2(651,653),Vector2(171,48),func(): advance_ritual_portal(index,beat_index),1)
 	elif scene_state.status=="seen" and beat.get("battleReady",false)==true:
 		location_button(panel,"저지한다",Vector2(455,653),Vector2(183,48),func(): choose_ritual_portal_intervention(index,beat_index),1)
+		location_button(panel,"저지하지 않는다",Vector2(651,653),Vector2(194,48),func():
+			if RitualPortalEntry.choose_allow(session,index,beat_index): show_ritual_portal_aftermath(index)
+			else: status.text=session.notice,1)
 	elif intervening and scene_state.battle_result=="":
 		if not world.roster.is_empty():
 			location_button(panel,"출전 마물 선택",Vector2(455,653),Vector2(183,48),func(): show_story_battle_deck(RitualPortalEntry.EVENT_ID,index),1)
@@ -2822,7 +2888,8 @@ func choose_ritual_portal_intervention(index: int, shown_beat: int) -> void:
 ## outcome on reconnect. Completing the portal needs an explicit Finish press.
 func show_ritual_portal_aftermath(index: int) -> void:
 	if not RitualPortalEntry.aftermath_ready(session,index): return
-	var result: String=str(session.get_story_event(RitualPortalEntry.EVENT_ID).battle_result)
+	var state: Dictionary=session.get_story_event(RitualPortalEntry.EVENT_ID)
+	var result: String="allow" if state.choice=="allow" else str(state.battle_result)
 	var beat: Dictionary=RitualPortalBeats.aftermath(result)
 	if beat.is_empty(): return
 	var panel=story_modal()
@@ -2841,10 +2908,12 @@ func show_ritual_portal_aftermath(index: int) -> void:
 	effect.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	effect.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	effect.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var speech=label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,619),Vector2(710,34),16)
-	speech.add_theme_color_override("font_color", Color("271a10"))
-	speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if not str(beat.dialogue).is_empty():
+		var speech=label_at(panel,"%s: %s" % [beat.speaker,beat.dialogue],Vector2(285,619),Vector2(710,34),16)
+		speech.add_theme_color_override("font_color", Color("271a10"))
+		speech.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	location_button(panel,"마치기",Vector2(463,653),Vector2(171,48),func(): finish_ritual_portal(index),1)
 	if world.tiles[index]=="forest":
 		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
@@ -2855,10 +2924,11 @@ func finish_ritual_portal(index: int) -> void:
 		status.text="마물의 왕 부활 결과 저장 실패 · 다시 시도하세요."
 		return
 	close_overlay()
-	if world.tiles[index]=="forest":
-		show_location(index)
-	else:
+	if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="allow":
 		render()
+		play_king_portal_emergence(KingPortalTile.target(world))
+	elif world.tiles[index]=="forest": show_location(index)
+	else: render()
 	status.text="전이문 의식 종료 · 마물의 왕 추적 시작"
 
 func show_cultist_altar_intro(index: int) -> void:
@@ -3523,6 +3593,7 @@ func use_warp(index: int) -> void:
 	status.text = "%d번 워프로 이동 완료" % (world.position+1)
 	dice.disabled = false
 	moving = false
+	if world.position==world.final_dragon_location(): show_tile(world.position,true)
 
 func exit_home() -> void:
 	if moving: return

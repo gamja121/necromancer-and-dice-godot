@@ -21,6 +21,7 @@ static func beat(index: int) -> Dictionary:
 	if index<0 or index>=BEATS.size(): return {}
 	return BEATS[index].duplicate(true)
 
+const CHOICE_EFFECT = "지금 광신도들에게 달려들면 완전한 부활을 막을 수 있다. 이대로 지켜보면 문이 끝까지 열린다."
 const INTERVENTION_EFFECT = "광신도들이 남은 힘을 전이문에 쏟아붓는다. 완전한 부활을 막기 위한 마지막 저지전이 시작된다."
 
 ## The original battle-return scene, not a new sixth portal beat.
@@ -29,6 +30,12 @@ const AFTER_BATTLE = {
 		"effect":"의식의 핵심을 파괴했다. 하지만 이미 넘어온 왕의 존재까지 되돌리지는 못했다. 불완전한 육체로 현세에 떨어진 마물의 왕이 어둠 속으로 사라진다.",
 		"dialogue":"[불완전하게 부활한 마물의 왕을 추적합니다.]",
 		"speaker":"시스템",
+		"visual":"omen"
+	},
+	"allow":{
+		"effect":"석문이 끝까지 열렸다. 거대한 형체가 숲으로 사라지자 흙 위로 드러난 뿌리가 하나씩 검게 물들었다. 검은 자국은 세계수까지 이어져 있었다.",
+		"dialogue":"",
+		"speaker":"",
 		"visual":"omen"
 	},
 	"lost":{
@@ -40,7 +47,7 @@ const AFTER_BATTLE = {
 }
 
 static func aftermath(result: String) -> Dictionary:
-	if result not in ["won","lost"]: return {}
+	if not AFTER_BATTLE.has(result): return {}
 	return AFTER_BATTLE[result].duplicate(true)
 
 static func layer_for(visual: String) -> String:

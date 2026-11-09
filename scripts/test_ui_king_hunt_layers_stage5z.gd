@@ -2,6 +2,7 @@ extends SceneTree
 ## Stage 5Z: authentic source quest chain, both king revival outcomes,
 ## five hunt images, source CSS geometry/motion, restart, acknowledgement.
 ## World positions alone are shortened to reach valid story destinations.
+const BattleResources=preload("res://systems/battle_resources.gd")
 const MAP=preload("res://map.tscn")
 const SESSION=preload("res://systems/run_session.gd")
 const CHILD=preload("res://systems/story_event_entry.gd")
@@ -74,11 +75,16 @@ func _run()->void:
 		await verify_route(session,mode)
 	session.save_file_path=previous
 	if created:session.queue_free()
-	print("UI_KING_HUNT_STAGE5Z: %d passed, %d failed"%[passed,failed])
-	# Drain stopped book audio after the queued scene has been freed.
+	# Exited maps leave completed background requests to a bounded drain.
+	# Wait for that existing owner to release before terminating the engine.
 	root.get_node("GameAudio").queue_free()
-	await create_timer(0.10).timeout
-	quit(0 if failed==0 else 1)
+	await process_frame
+	var deadline: int=Time.get_ticks_msec()+8000
+	while not BattleResources.PendingLoads.active.is_empty() and Time.get_ticks_msec()<deadline:
+		await process_frame
+	check(BattleResources.PendingLoads.active.is_empty(),"exited-map background resources have drained")
+	print("UI_KING_HUNT_STAGE5Z: %d passed, %d failed"%[passed,failed])
+	call_deferred("quit",0 if failed==0 else 1)
 
 func verify_route(session:Node,mode:String)->void:
 	var tag:String=mode+": "
