@@ -2126,7 +2126,7 @@ func show_home(interior: bool = false) -> void:
 func show_burned_home() -> void:
 	var panel=modal(false)
 	panel.name="BurnedHomePanel"
-	location_scene_image(panel,WitchHuntBeats.RUINS_ART)
+	location_scene_image(panel,"res://assets/map/events/home_burned.png")
 	var notice: Dictionary=preload("res://systems/location_notice_strip.gd").build(panel)
 	notice.text.text="우리집 · 전소"
 	notice.detail.text="회복·계승·순찰 불가 · 다음 바퀴 출발 가능"
