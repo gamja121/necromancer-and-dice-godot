@@ -21,6 +21,7 @@ static func beat(index: int) -> Dictionary:
 	if index<0 or index>=BEATS.size(): return {}
 	return BEATS[index].duplicate(true)
 
+const CHOICE_EFFECT = "지금 광신도들에게 달려들면 완전한 부활을 막을 수 있다. 이대로 지켜보면 문이 끝까지 열린다."
 const INTERVENTION_EFFECT = "광신도들이 남은 힘을 전이문에 쏟아붓는다. 완전한 부활을 막기 위한 마지막 저지전이 시작된다."
 
 ## The original battle-return scene, not a new sixth portal beat.

@@ -208,26 +208,82 @@ func _run() -> void:
 		await battle.capture_panel.roll()
 	check(await until_ready(func(): return is_instance_valid(map.final_chapter_screen) and not map.battle_returning),"actual harvest returns cards and opens book ending")
 	check(not map.dice.visible and map.dice.disabled and not is_instance_valid(map.game_over_screen),"ending hides and blocks shared die, no defeat shatter")
-	check(not s.prepare_map_roll().ok,"ending cannot continue expedition")
+	check(not s.prepare_map_roll().ok,"unconfirmed ending locks map movement")
 	check(await until_ready(func(): return not map.final_chapter_screen.action_button.disabled,6.0),"ending book and illustration finish before closing")
+	check(map.final_chapter_screen.action_button.text=="원정 계속","the wormhole victory offers Continue Expedition")
 	await capture("final-ending")
-	var final_record: Dictionary = s.world.run_result.duplicate(true)
-	var roster_count: int = s.world.roster.size()
-	# Button goes to real title; Continue returns the same book and record.
-	map.final_chapter_screen.action_button.pressed.emit()
-	check(await until_ready(func(): return current_scene!=null and current_scene.scene_file_path=="res://title.tscn",4.0),"closing the physical book reaches title once" )
-	check(current_scene!=null and current_scene.scene_file_path=="res://title.tscn","book close reaches title")
-	var title: Control = current_scene
-	title.continue_button.pressed.emit()
-	await process_frame
-	await process_frame
-	map = current_scene
-	check(map!=null and map.scene_file_path=="res://map.tscn","title Continue returns saved run")
-	check(await until_ready(func(): return is_instance_valid(map.final_chapter_screen),5.0),"title Continue restores completed ending")
-	check(s.world.run_result==final_record and s.world.roster.size()==roster_count and s.world.pending_reward.is_empty(),"title round trip does not duplicate reward or erase clear")
-	await capture("final-ending-resumed")
+	var ending_state: Dictionary = s.world.snapshot().duplicate(true)
 	current_scene = null
 	map.queue_free()
+	await process_frame
+	s.reload_world()
+	map = MAP.instantiate()
+	root.add_child(map)
+	current_scene = map
+	check(await until_ready(func(): return is_instance_valid(map.final_chapter_screen) and not map.final_chapter_screen.action_button.disabled),"restart before confirmation restores the same ending")
+	var chapter: Control = map.final_chapter_screen
+	check(chapter.record==ending_state.run_result,"reopened book displays the same victory summary")
+	s.save_file_path = "user://missing_final_chapter_directory/save.json"
+	chapter.action_button.pressed.emit()
+	check(map.overlay==chapter and not chapter.book.closing and not chapter.action_button.disabled and "실패" in chapter.hint.text,"save failure gives a visible retry and keeps the book open")
+	check(Progress.ending_pending(s.world) and not s.event_flag_is_set(Progress.ENDING_ACK),"failed confirmation keeps the saved ending pending")
+	s.save_file_path = scratch
+	chapter.action_button.pressed.emit()
+	var disk: Dictionary=JSON.parse_string(FileAccess.get_file_as_string(scratch))
+	check(chapter.book.closing and disk.run_result.is_empty() and disk.event_flags.get(Progress.ENDING_ACK,false),"continue saves before the book finishes closing")
+	check(await until_ready(func(): return not is_instance_valid(map.final_chapter_screen),4.0),"physical book closes back onto the current map")
+	check(current_scene==map and not is_instance_valid(map.overlay) and map.dice.visible and not map.dice.disabled and not map.map_music.stream_paused,"same map resumes with die, controls and music")
+	check(s.world.position==int(ending_state.position) and s.world.map_serial==int(ending_state.map_serial) and s.world.rng.state==int(ending_state.rng_state),"returning to the map preserves location, board and RNG")
+	check(s.world.dice_visual_face==ending_state.dice_visual_face and is_equal_approx(map.dice.rotation_degrees,float(ending_state.dice_visual_rotation)),"restored map die uses the same saved face and angle")
+	check(s.world.roster==ending_state.roster and s.world.reward_receipts==ending_state.reward_receipts,"continuation preserves the roster and one harvest receipt")
+	check(map.tile_path(target)=="res://assets/map/tiles/warp.png","the settled entrance displays a regular warp")
+	await capture("continued-expedition")
+
+	check(change_scene_to_file("res://title.tscn")==OK,"return to title after continuing")
+	check(await until_ready(func(): return current_scene!=null and current_scene.scene_file_path=="res://title.tscn"),"title loaded for restart check")
+	var title: Control = current_scene
+	title.continue_button.pressed.emit()
+	check(await until_ready(func(): return current_scene!=null and current_scene.scene_file_path=="res://map.tscn"),"title Continue opens the saved expedition")
+	map=current_scene
+	check(not is_instance_valid(map.final_chapter_screen) and not is_instance_valid(map.overlay) and map.dice.visible and not map.dice.disabled,"reopened continued run goes straight to the map")
+	check(s.world.reward_receipts==ending_state.reward_receipts and Progress.cleared(s.world),"restart cannot duplicate the reward or erase the dragon defeat")
+	var ordinary_index: int=s.world.tiles.find("monster")
+	s.world.position=ordinary_index
+	var ordinary_started: bool=s.start_encounter(ordinary_index,[s.world.roster[0].id])
+	check(ordinary_started,"the continued run starts a real ordinary encounter")
+	if ordinary_started:
+		map.open_embedded_battle(false)
+		var ordinary_battle: Control=map.embedded_battle
+		for unit in ordinary_battle.rules.units:
+			if unit.team=="enemy": ordinary_battle.rules.damage(unit,9999)
+		check(s.finish_encounter(ordinary_battle.rules),"ordinary victory settles after the final chapter")
+		for attempt in range(3):
+			if s.world.pending_reward.is_empty(): break
+			var rolled: Dictionary=s.roll_capture()
+			if rolled.get("success",false): s.claim_reward()
+			elif s.world.pending_reward.get("phase","")=="failed": s.dismiss_failed_capture()
+		check(s.world.pending_reward.is_empty(),"the later ordinary harvest resolves normally")
+		await map.finish_embedded_battle()
+		check(not is_instance_valid(map.final_chapter_screen),"a later battle return cannot reopen the acknowledged ending")
+
+	# The old fixed-slot ending still closes to the real title.
+	ending_state.run_result.erase("entry")
+	ending_state.position=23
+	check(s.world.restore(ending_state) and s.save_world(),"save a genuine victory summary without wormhole provenance")
+	current_scene=null
+	map.queue_free()
+	await process_frame
+	s.reload_world()
+	map=MAP.instantiate()
+	root.add_child(map)
+	current_scene=map
+	check(await until_ready(func(): return is_instance_valid(map.final_chapter_screen) and not map.final_chapter_screen.action_button.disabled),"legacy terminal ending still opens")
+	check(map.final_chapter_screen.action_button.text=="책을 덮고 타이틀로","legacy book retains its title action")
+	map.final_chapter_screen.action_button.pressed.emit()
+	check(await until_ready(func(): return current_scene!=null and current_scene.scene_file_path=="res://title.tscn",4.0),"legacy ending still returns to title")
+	check(Progress.ending_pending(s.world) and not Progress.can_continue(s.world),"legacy title action keeps the old terminal record")
+	current_scene.queue_free()
+	current_scene=null
 	await process_frame
 	s.save_file_path = original_path
 	for suffix in ["",".tmp"]:

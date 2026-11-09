@@ -167,7 +167,7 @@ func final_dragon_location() -> int:
 	return KingPortalTile.target(self)
 
 func refresh_final_wormhole() -> bool:
-	if not tiles.has("warp") or not run_result.is_empty(): return false
+	if not tiles.has("warp") or not run_result.is_empty() or FinalDragonProgress.cleared(self): return false
 	if not active_encounter.is_empty() or not pending_move.is_empty() or not pending_reward.is_empty(): return false
 	var final_ready: bool = final_dragon_available()
 	var ritual: Dictionary = story_events.get(FinalBossStoryGate.PORTAL_ID,{})
@@ -486,10 +486,10 @@ func restore(saved: Dictionary) -> bool:
 	for field in ["pending_reward","pending_move","active_encounter","prophecy","last_prophecy","shop_trade","patrol_plan","scout","prayer_result","event_flags","story_events","run_result"]:
 		if saved.has(field) and not saved[field] is Dictionary: return false
 	if int(saved.get("enemies_defeated",0))<0: return false
+	if not FinalDragonProgress.valid_record(saved): return false
 	var terminal: Dictionary = saved.get("run_result",{})
 	if not terminal.is_empty():
 		if terminal.get("reason","") not in ["battle_defeat",FinalDragonProgress.REASON] or terminal.get("ended",false)!=true: return false
-		if not FinalDragonProgress.valid_record(saved): return false
 		for value in ["laps","contamination","enemies_defeated","lost_monsters","surviving_monsters"]:
 			if not terminal.has(value) or int(terminal[value])<0: return false
 	# Old saves had fixed 20/40/60 species; do not reroll an ongoing run.

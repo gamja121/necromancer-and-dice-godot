@@ -33,8 +33,12 @@ static func paint(world) -> bool:
 	# A legacy board may have one remaining warp and no safe repair tile.
 	if chosen<0: chosen=world.tiles.find("warp")
 	if chosen<0: return false
-	for key in world.event_flags.keys():
-		if str(key).begins_with(TARGET_PREFIX): world.event_flags.erase(key)
+	clear(world)
 	world.event_flags[ACTIVE_FLAG]=true
 	world.event_flags[TARGET_PREFIX+str(chosen)]=true
 	return true
+
+static func clear(world) -> void:
+	world.event_flags.erase(ACTIVE_FLAG)
+	for key in world.event_flags.keys():
+		if str(key).begins_with(TARGET_PREFIX): world.event_flags.erase(key)

@@ -68,12 +68,18 @@ func _run() -> void:
 		check(s.claim_reward().get("ok",false),"last reward claimed through ordinary transaction")
 		check(s.world.pending_reward.is_empty() and not s.world.run_result.is_empty(),"ending remains durable after claim")
 	elif phase=="ending":
-		check(Progress.cleared(s.world) and s.world.pending_reward.is_empty() and s.encounter.is_empty(),"final process resumes ending only")
+		check(Progress.ending_pending(s.world) and Progress.can_continue(s.world) and s.encounter.is_empty(),"reopened process resumes the continuable ending")
 		check(s.world.event_flags.get(Progress.COMPLETE,false) and not s.world.event_flags.get(Progress.ACTIVE,true),"completed final quest remains closed")
 		var receipt := "capture-"+str(s.world.run_result.encounter_id)
-		check(s.world.reward_receipts.count(receipt)==1,"exactly one reward receipt across six processes")
-		check(s.world.roster.filter(func(u): return u.slug=="dragon").size()==1,"exactly one captured dragon across six processes")
-		check(not s.prepare_map_roll().ok and not s.world.boss_available(),"completed run cannot move or respawn boss")
+		check(s.world.reward_receipts.count(receipt)==1,"exactly one reward receipt before continuation")
+		check(s.world.roster.filter(func(u): return u.slug=="dragon").size()==1,"exactly one captured dragon before continuation")
+		check(not s.prepare_map_roll().ok and not s.world.boss_available(),"pending book blocks movement and boss replay")
+		check(s.continue_after_final_ending(),"ending acknowledgement commits before the next process")
+	elif phase=="continued":
+		check(s.world.run_result.is_empty() and s.world.event_flags.get(Progress.ENDING_ACK,false) and not Progress.ending_pending(s.world),"new process reopens the same map without the book")
+		check(Progress.cleared(s.world) and s.world.final_dragon_location()==-1 and not s.world.boss_available(),"dragon defeat remains durable without a terminal lock")
+		check(s.world.roster.filter(func(u): return u.slug=="dragon").size()==1 and s.world.reward_receipts.filter(func(id): return str(id).begins_with("capture-")).size()==1,"one dragon and one harvest receipt survive continuation")
+		check(s.prepare_map_roll().ok and s.complete_map_move(),"continued expedition can really move after process exit")
 		for suffix in ["",".tmp"]:
 			if FileAccess.file_exists(SAVE+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE+suffix))
 	elif phase!="approach":

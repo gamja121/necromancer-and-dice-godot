@@ -64,11 +64,11 @@ jobs:
             grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
           done
-      - name: Six separate Godot processes restore final progress
+      - name: Seven separate Godot processes restore final progress and continuation
         shell: bash
         run: |
           set -euo pipefail
-          for phase in approach battle victory harvest claim ending; do
+          for phase in approach battle victory harvest claim ending continued; do
             timeout 60s godot --headless --path . --script res://scripts/test_final_dragon_restart.gd -- "$phase" 2>&1 | tee "restart-$phase.log"
             grep -E '^FINAL_DRAGON_RESTART: [0-9]+ passed, 0 failed$' "restart-$phase.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "restart-$phase.log"; then exit 1; fi

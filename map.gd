@@ -342,7 +342,7 @@ func _ready() -> void:
 	if world.run_result.get("reason","")=="battle_defeat":
 		call_deferred("show_game_over",true)
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
-	elif FinalDragonProgress.cleared(world): call_deferred("show_final_ending",true)
+	elif FinalDragonProgress.ending_pending(world): call_deferred("show_final_ending",true)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
@@ -1815,18 +1815,26 @@ func play_king_portal_emergence(index: int) -> void:
 		await get_tree().create_timer(0.16).timeout
 
 func show_final_ending(instant: bool = false) -> void:
-	if not FinalDragonProgress.cleared(world) or not world.pending_reward.is_empty(): return
-	if is_instance_valid(final_chapter_screen): return
+	if not FinalDragonProgress.ending_pending(world) or is_instance_valid(final_chapter_screen): return
 	close_overlay()
-	final_chapter_screen = FinalChapterScreen.new()
-	stage.add_child(final_chapter_screen)
-	overlay = final_chapter_screen
+	var chapter := FinalChapterScreen.new()
+	final_chapter_screen = chapter
+	stage.add_child(chapter)
+	overlay = chapter
 	dice.disabled = true
 	dice.hide()
 	map_music.stream_paused = true
-	final_chapter_screen.show_ending(world.run_result,instant)
-	final_chapter_screen.title_requested.connect(func():
+	var continue_expedition := Callable(session,"continue_after_final_ending") if FinalDragonProgress.can_continue(world) else Callable()
+	chapter.show_ending(world.run_result,instant,continue_expedition)
+	chapter.title_requested.connect(func():
 		get_tree().change_scene_to_file("res://title.tscn"))
+	chapter.return_requested.connect(func():
+		if overlay!=chapter: return
+		close_overlay()
+		final_chapter_screen = null
+		map_music.stream_paused = false
+		render()
+		status.text = "원정을 이어갑니다.")
 
 # Defeat is a separate terminal path; victory must never shatter the die.
 func show_game_over(instant: bool = false) -> void:
@@ -1926,7 +1934,7 @@ func finish_embedded_battle() -> void:
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
-	if FinalDragonProgress.cleared(world):
+	if FinalDragonProgress.ending_pending(world):
 		show_final_ending()
 	elif not completed_story_event_id.is_empty() and session.story_battle_result_pending(completed_story_event_id):
 		show_story_battle_result(completed_story_event_id)
@@ -2812,7 +2820,7 @@ func show_ritual_portal_beat(index: int) -> void:
 	var scene_state: Dictionary=session.get_story_event(RitualPortalEntry.EVENT_ID)
 	var intervening: bool=scene_state.status=="active" and scene_state.choice=="intervene"
 	if beat_index==4 and scene_state.status=="seen":
-		beat.effect="지금 광신도들에게 달려들면 완전한 부활을 막을 수 있다. 이대로 지켜보면 문이 끝까지 열린다."
+		beat.effect=RitualPortalBeats.CHOICE_EFFECT
 		beat.dialogue=""
 	var panel=story_modal()
 	var art=image(panel,RitualPortalEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))

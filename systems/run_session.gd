@@ -13,6 +13,7 @@ const Catalog = preload("res://systems/reward_catalog.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const MapState = preload("res://systems/map_state.gd")
 const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
+const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
@@ -865,6 +866,15 @@ func dismiss_failed_capture() -> bool:
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.reward_receipts.append(world.pending_reward.id)
 	world.pending_reward = {}
+	return persist_change(before)
+
+func continue_after_final_ending() -> bool:
+	if not FinalDragonProgress.can_continue(world): return false
+	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.event_flags[FinalDragonProgress.ENDING_ACK] = true
+	world.run_result = {}
+	KingPortalTile.clear(world)
 	return persist_change(before)
 
 func dice_context(battle: bool = false) -> Dictionary:

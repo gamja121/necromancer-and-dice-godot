@@ -1,13 +1,21 @@
 extends RefCounted
-## One durable final victory; unrelated tile clears never imply a completed run.
+## The defeat record outlives the ending and any resumed expedition.
+const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
 const REASON = "final_dragon_defeated"
 const ACTIVE = "quest:monster_king_final_battle:active"
 const COMPLETE = "quest:monster_king_final_battle:complete"
 const DEFEATED = "story:final_dragon:defeated"
 const INTRO_SEEN = "presentation:final_dragon:acknowledged"
+const ENDING_ACK = "presentation:final_dragon:ending_acknowledged"
 
 static func cleared(world) -> bool:
 	return world != null and (world.event_flags.get(DEFEATED,false)==true or world.run_result.get("reason","")==REASON)
+
+static func ending_pending(world) -> bool:
+	return world != null and world.run_result.get("reason","")==REASON and world.pending_reward.is_empty()
+
+static func can_continue(world) -> bool:
+	return ending_pending(world) and world.run_result.get("entry","")==KingPortalEncounter.ENTRY
 
 static func quest_reached(flags: Dictionary) -> bool:
 	return flags.get(ACTIVE,false)==true or (flags.get(COMPLETE,false)==true and flags.get(DEFEATED,false)==true)
@@ -49,9 +57,13 @@ static func record_victory(world, encounter: Dictionary) -> void:
 
 static func valid_record(saved: Dictionary) -> bool:
 	var record: Dictionary = saved.get("run_result",{})
-	if record.get("reason","")!=REASON: return true
 	var flags: Dictionary = saved.get("event_flags",{})
+	var final_result: bool = record.get("reason","")==REASON
+	var acknowledged: bool = flags.get(ENDING_ACK,false)==true
+	if not final_result and not acknowledged: return true
 	if flags.get(ACTIVE,false)!=false or flags.get(COMPLETE,false)!=true or flags.get(DEFEATED,false)!=true: return false
+	# After acknowledgement, an unrelated later defeat is still a valid result.
+	if acknowledged: return not final_result
 	if str(record.get("encounter_id","")).is_empty(): return false
 	if not saved.get("active_encounter",{}).is_empty() or not saved.get("pending_move",{}).is_empty(): return false
 	var pending: Dictionary = saved.get("pending_reward",{})

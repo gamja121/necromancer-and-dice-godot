@@ -147,6 +147,7 @@ func check_wormhole_transport(s: Node) -> void:
 	w.position=11
 	check(s.persist_change(w.snapshot().duplicate(true)) and w.final_dragon_location()==target,"slot 23 is a valid marked warp")
 	var other: int=w.warp_destination(target)
+	w.position=MapState.HOME
 	var before: Dictionary=w.snapshot().duplicate(true)
 	check(not s.warp_from(other).ok and not s.warp_from(target).ok and w.snapshot()==before,"neither remote endpoint can manufacture an arrival")
 	w.position=other
@@ -270,6 +271,45 @@ func check_boss_warp_pair(s: Node) -> void:
 	s.reload_world()
 	check(FileAccess.get_file_as_string(scratch)==repaired,"warp repair is idempotent on restart")
 
+func check_ending_continuation(s: Node, receipt: String, captured: bool) -> void:
+	var world=s.world
+	var before: Dictionary=world.snapshot().duplicate(true)
+	check(Progress.ending_pending(world) and Progress.can_continue(world),"settled wormhole harvest resumes at the continuable book")
+	if captured:
+		var old: Dictionary=before.duplicate(true)
+		old.run_result.erase("entry")
+		check(world.restore(old) and s.save_world(),"old fixed-boss ending saves without wormhole provenance")
+		s.reload_world()
+		world=s.world
+		check(Progress.ending_pending(world) and not s.continue_after_final_ending() and not s.prepare_map_roll().ok,"legacy final record retains the terminal book and title route")
+		check(world.restore(before) and s.save_world(),"restore real wormhole ending")
+	var disk: String=FileAccess.get_file_as_string(scratch)
+	s.save_file_path = "user://missing_final_clear_directory/save.json"
+	check(not s.continue_after_final_ending() and world.snapshot()==before,"failed ending confirmation restores terminal lock, flags and map")
+	check(FileAccess.get_file_as_string(scratch)==disk,"failed ending confirmation leaves previous disk bytes")
+	s.save_file_path=scratch
+	check(s.continue_after_final_ending(),"confirming the ending resumes the expedition")
+	var resumed: Dictionary=world.snapshot().duplicate(true)
+	check(resumed.run_result.is_empty() and resumed.event_flags.get(Progress.ENDING_ACK,false) and Progress.cleared(world),"only the temporary lock is released and the defeat remains durable")
+	check(not Progress.ending_pending(world) and not s.continue_after_final_ending() and world.snapshot()==resumed,"acknowledgement cannot be repeated")
+	check(KingPortalTile.target(world)==-1 and world.final_dragon_location()==-1,"the old entrance returns to an ordinary warp")
+	for key in ["tiles","position","map_serial","move_serial","rng_state","roster","graveyard_corpses","dice_cards","reward_receipts","story_events","dice_visual_position","dice_visual_rotation","dice_visual_face","contamination","laps"]:
+		check(resumed[key]==before[key],"continuation preserves "+key)
+	s.reload_world()
+	world=s.world
+	check(world.run_result.is_empty() and not Progress.ending_pending(world) and world.reward_receipts.count(receipt)==1,"restarting opens the same expedition with one harvest receipt")
+	check(Hunt.completed(s) and Portal.completed(s),"continuation preserves earlier story receipts")
+	check(s.prepare_map_roll().ok and s.complete_map_move(),"map movement works after reopening the continued save")
+	world.contamination=100
+	world.position=MapState.HOME
+	check(s.leave_home() and world.final_dragon_location()==-1 and KingPortalTile.target(world)==-1 and world.tiles.count("warp")==2,"high corruption and a HOME shuffle cannot reopen the boss or paint a new omen")
+	if captured:
+		var index: int=world.tiles.find("monster")
+		world.position=index
+		check(s.start_encounter(index,[world.roster[0].id]) and s.finish_encounter(defeated_rules(s,false)),"a later ordinary battle can still end in defeat")
+		s.reload_world()
+		check(s.world.run_result.get("reason","")=="battle_defeat" and Progress.cleared(s.world) and not Progress.ending_pending(s.world),"later defeat reloads as defeat with the historical dragon victory intact")
+
 func _run() -> void:
 	var s: Node = root.get_node("RunSession")
 	var prior: String = s.save_file_path
@@ -298,7 +338,8 @@ func _run() -> void:
 	check(s.world.pending_reward.kind=="capture" and s.encounter.is_empty(),"same save retains last soul harvest and retires battle")
 	var committed: Dictionary = s.world.snapshot().duplicate(true)
 	check(s.finish_encounter(rules) and s.world.snapshot()==committed,"duplicate settlement cannot reward or count twice")
-	check(not s.prepare_map_roll().ok and not s.enter_home() and not s.leave_home(),"terminal expedition cannot move or regenerate")
+	check(not s.continue_after_final_ending() and not Progress.ending_pending(s.world),"unresolved soul harvest blocks the book and continuation")
+	check(not s.prepare_map_roll().ok and not s.enter_home() and not s.leave_home(),"the pending finale blocks movement and map generation")
 	check(not s.open_treasure() and not s.place_allowed(s.world.position,"monster").ok,"terminal expedition cannot start place actions")
 	check(not s.start_encounter(23,[s.world.roster[0].id]),"terminal expedition cannot replay fight")
 	s.reload_world()
@@ -350,6 +391,7 @@ func _run() -> void:
 		s.reload_world()
 		check(Progress.cleared(s.world) and s.world.pending_reward.is_empty(),"completed harvest resumes at ending")
 		check(s.world.reward_receipts.count(committed.pending_reward.id)==1,"exactly one harvest receipt")
+		check_ending_continuation(s,str(committed.pending_reward.id),success)
 	# Shared main now has three intermediate bosses. Each win must remain
 	# a resumable expedition with its own stage receipt and ordinary harvest.
 	for stage_value in [20,40,60]:
