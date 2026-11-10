@@ -517,6 +517,7 @@ func center(index: int) -> Vector2:
 func tile_path(index: int) -> String:
 	if index==KingPortalTile.target(world): return KingPortalTile.PATHS.back()
 	var id: String = world.tiles[index]
+	if id=="home" and WitchHuntEntry.home_burned(session): return "res://assets/map/tiles/home_burned.png"
 	# The frozen web map retains a separate rare-monster-cleared tile silhouette.
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
 	return "res://assets/map/tiles/"+id+".png"
@@ -627,7 +628,6 @@ func render() -> void:
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
 		if world.tiles[i]=="home" and WitchHuntEntry.home_burned(session):
-			node.self_modulate=Color("77716c")
 			node.tooltip_text+=" · 전소 · 집 기능 봉쇄"
 			var blockade=label_at(node,"봉쇄",Vector2(10,38),Vector2(90,28),16)
 			blockade.name="HomeBlockadeBadge"
