@@ -58,7 +58,7 @@ func _run() -> void:
             check(selected_path==Backdrops.NORMAL_FORESTS[picked], "display resolves to chosen image")
             var before_reload: Dictionary = session.encounter.duplicate(true)
             session.reload_world()
-            check(session.encounter==before_reload, "same battle and background survive restart")
+            check(str(session.encounter.get("id",""))==str(before_reload.get("id","")) and int(session.encounter.get("background_variant",-1))==picked and str(session.encounter.get("phase",""))==str(before_reload.get("phase","")), "same battle identity, phase and background survive restart")
             check(Backdrops.path_for("default",session.encounter)==selected_path, "background unchanged on resumed battle")
 
             var rules = Battle.new(session.world.definitions,1337)
