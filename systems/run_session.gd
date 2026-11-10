@@ -1,4 +1,5 @@
 extends Node
+const BattleBackgrounds = preload("res://systems/battle_backgrounds.gd")
 const AltarBoons = preload("res://systems/altar_boon_catalog.gd")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const WitchHunt = preload("res://systems/witch_hunt_entry.gd")
@@ -564,6 +565,8 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story and get_story_event(event_id).battle_result == "lost":
 		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
+	# One normal-background choice per committed encounter, with no combat RNG draw.
+	if world.region=="default": encounter["background_variant"]=BattleBackgrounds.choose_variant(str(encounter.id),int(world.rng.seed))
 	if type=="boss": encounter["boss_stage"]=world.current_boss_stage()
 	if final_wormhole: encounter["entry"]=KingPortalEncounter.ENTRY
 	if story: encounter["event_id"] = event_id
@@ -628,7 +631,7 @@ func finish_encounter(battle) -> bool:
 				story_corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6),"unit":original.duplicate(true)})
 			if not story_corpses.is_empty():
 				var attempts: int = 2 if battle.active("ally","corpse") else 1
-				world.pending_reward = {"id":"capture-"+str(encounter.id),"kind":"capture","corpses":story_corpses,"selected":0,"locked":false,"max_attempts":attempts,"attempts":attempts,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
+				world.pending_reward = {"id":"capture-"+str(encounter.id),"kind":"capture","corpses":story_corpses,"selected":0,"locked":false,"max_attempts":attempts,"attempts":attempts,"phase":"choose","battle":battle.snapshot(),"face":battle.face,"background_variant":int(encounter.get("background_variant",0))}
 				notice += " · 구울 영혼 수확"
 	elif battle.winner()=="ally":
 		if encounter.type in ["monster","rare-monster","boss"] and encounter.get("entry","")!=KingPortalEncounter.ENTRY and not encounter.index in world.cleared:
@@ -652,7 +655,7 @@ func finish_encounter(battle) -> bool:
 						break
 				corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6),"unit":original.duplicate(true)})
 		if not corpses.is_empty():
-			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face}
+			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face,"background_variant":int(encounter.get("background_variant",0))}
 		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
 		if final_victory:
 			FinalDragonProgress.record_victory(world,encounter)
