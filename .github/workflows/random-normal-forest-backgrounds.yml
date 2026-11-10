@@ -1,0 +1,48 @@
+name: Random normal forest battlefield backgrounds
+on:
+  pull_request:
+    paths:
+      - "assets/battle/backgrounds/**"
+      - "systems/battle_backgrounds.gd"
+      - "systems/run_session.gd"
+      - "battlefield.gd"
+      - "scripts/test_random_normal_forest_backgrounds.gd"
+      - ".github/workflows/random-normal-forest-backgrounds.yml"
+  push:
+    branches: [main, feat/random-normal-forest-battle-backgrounds-20261110]
+    paths:
+      - "assets/battle/backgrounds/**"
+      - "systems/battle_backgrounds.gd"
+      - "systems/run_session.gd"
+      - "battlefield.gd"
+      - "scripts/test_random_normal_forest_backgrounds.gd"
+      - ".github/workflows/random-normal-forest-backgrounds.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import original hand-drawn backdrops
+        run: |
+          set -euo pipefail
+          timeout 200s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SHADER ERROR' import.log; then exit 1; fi
+      - name: Test random pick and save and harvest continuity
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_random_normal_forest_backgrounds.gd 2>&1 | tee backgrounds.log
+          grep -E '^FOREST_BACKDROP_TESTS pass=[0-9]+ fail=0$' backgrounds.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|^FAIL forest-backdrops:' backgrounds.log; then exit 1; fi
+      - name: Verify patch whitespace
+        run: git diff --check
