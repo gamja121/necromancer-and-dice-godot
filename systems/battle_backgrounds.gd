@@ -4,8 +4,8 @@ extends RefCounted
 ## The independent RNG prevents background picks from altering combat rolls.
 const NORMAL_FORESTS: Array[String] = [
     "res://assets/battle/backgrounds/dark-forest.jpg",
-    "res://assets/battle/backgrounds/castle-forest.png",
-    "res://assets/battle/backgrounds/graveyard-forest.png",
+    "res://assets/battle/backgrounds/castle-forest.jpg",
+    "res://assets/battle/backgrounds/graveyard-forest.jpg",
 ]
 const WINTER = "res://assets/battle/backgrounds/snow-forest.jpg"
 const HELL = "res://assets/battle/backgrounds/lava-forest.jpg"
