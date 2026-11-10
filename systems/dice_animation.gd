@@ -81,22 +81,23 @@ func resolve_wall_bounce(previous: Vector2, proposed: Vector2, velocity: Vector2
 	return {"center":location,"velocity":motion,"bounced":true}
 
 ## Keep restored poses inside the rotating die's safe painted footprint.
-func safe_rest_position(position: Vector2, die_size: Vector2, area: Rect2, collision_wall: Rect2 = Rect2()) -> Vector2:
+func safe_rest_position(position: Vector2, die_size: Vector2, area: Rect2, collision_wall: Rect2 = Rect2(), additional_wall: Rect2 = Rect2()) -> Vector2:
 	var radius: float = die_size.length()*0.55
 	var minimum: Vector2 = area.position+Vector2.ONE*radius
 	var maximum: Vector2 = area.end-Vector2.ONE*radius
 	var center: Vector2 = (position+die_size*0.5).clamp(minimum,maximum)
-	if collision_wall.has_area() and collision_wall.grow(radius).has_point(center):
-		center = (Vector2(602,308)+die_size*0.5).clamp(minimum,maximum)
+	for wall in [collision_wall,additional_wall]:
+		if wall.has_area() and wall.grow(radius).has_point(center):
+			center = (Vector2(602,308)+die_size*0.5).clamp(minimum,maximum)
 	return center-die_size*0.5
 
-func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callable, play_sound: Callable, collision_wall: Rect2 = Rect2()) -> void:
+func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callable, play_sound: Callable, collision_wall: Rect2 = Rect2(), additional_wall: Rect2 = Rect2()) -> void:
 	button.pivot_offset = button.size*0.5
 	var radius = button.size.length()*0.55
 	var minimum = area.position+Vector2.ONE*radius
 	var maximum = area.end-Vector2.ONE*radius
-	var center = button.position+button.size*0.5
-	center = center.clamp(minimum,maximum)
+	# A newly visible gear must never trap a restored die against the arena edge.
+	var center = safe_rest_position(button.position,button.size,area,Rect2(),additional_wall)+button.size*0.5
 	var angle = visual_rng.randf_range(0,TAU)
 	if absf(cos(angle))<0.28: angle += 0.45
 	var base_speed = 1280.0*visual_rng.randf_range(0.62,0.78)
@@ -134,13 +135,14 @@ func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callab
 			center.y = maximum.y
 			velocity.y = -absf(velocity.y)*0.78
 			bounced = true
-		# The compact corruption HUD acts like a solid wall for this
-		# *visual* die. Map die face and save state were decided beforehand.
-		var wall_hit: Dictionary=resolve_wall_bounce(previous_center,center,velocity,radius,collision_wall)
-		center=wall_hit["center"]
-		velocity=wall_hit["velocity"]
-		center=center.clamp(minimum,maximum)
-		bounced=bounced or bool(wall_hit["bounced"])
+		# The HUD (or dragon) and visible settings gear are simultaneous
+		# obstacles for the visual die; the gameplay face is already decided.
+		for wall in [collision_wall,additional_wall]:
+			var wall_hit: Dictionary=resolve_wall_bounce(previous_center,center,velocity,radius,wall)
+			center=wall_hit["center"]
+			velocity=wall_hit["velocity"]
+			center=center.clamp(minimum,maximum)
+			bounced=bounced or bool(wall_hit["bounced"])
 		if bounced and sound_clock>0.085 and play_sound.is_valid():
 			play_sound.call("dice-tick")
 			sound_clock = 0.0

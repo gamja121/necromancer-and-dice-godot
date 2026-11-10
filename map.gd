@@ -142,6 +142,15 @@ var status: Label
 func final_dragon_die_exclusion() -> Rect2:
 	return FinalDragonDieLayout.exclusion(embedded_battle,stage)
 
+# Fixed layout footprint, independent of the gear's hover scale/rotation.
+# Convert the audio parent's layout to the die's stage coordinates.
+func options_dice_wall_rect() -> Rect2:
+	if not is_instance_valid(map_audio) or not map_audio.is_visible_in_tree(): return Rect2()
+	var options: Button = map_audio.options_button
+	if not is_instance_valid(options) or not options.is_visible_in_tree(): return Rect2()
+	var transform: Transform2D = stage.get_global_transform_with_canvas().affine_inverse()*map_audio.get_global_transform_with_canvas()
+	return (transform*Rect2(options.position,options.size)).grow(8.0)
+
 func shared_dice_position() -> Vector2:
 	var stored := Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
 	var wall: Rect2 = Rect2()
@@ -149,7 +158,7 @@ func shared_dice_position() -> Vector2:
 		wall = presentation.gauge.dice_wall_rect()
 	# Legacy saves may have a pose over a tile or the corruption HUD.
 	# Correct only the cosmetic button position; never rewrite the saved roll.
-	return dice_animation.safe_rest_position(stored,Vector2(76,76),SHARED_DIE_AREA,wall)
+	return dice_animation.safe_rest_position(stored,Vector2(76,76),SHARED_DIE_AREA,wall,options_dice_wall_rect())
 
 func remember_shared_die() -> void:
 	if not is_instance_valid(dice): return
@@ -158,7 +167,7 @@ func remember_shared_die() -> void:
 	var wall: Rect2 = Rect2()
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		wall = presentation.gauge.dice_wall_rect()
-	var safe: Vector2 = dice_animation.safe_rest_position(dice.position,dice.size,SHARED_DIE_AREA,wall)
+	var safe: Vector2 = dice_animation.safe_rest_position(dice.position,dice.size,SHARED_DIE_AREA,wall,options_dice_wall_rect())
 	safe = FinalDragonDieLayout.rest_position(safe,dice.size,SHARED_DIE_AREA,final_dragon_die_exclusion())
 	var stopped := Vector2(roundf(safe.x),roundf(safe.y))
 	dice.position = stopped
@@ -184,7 +193,7 @@ func roll_shared_die(face: int, battle_area: bool = false) -> void:
 	var owner_ref:WeakRef=weakref(self)
 	var die_ref:WeakRef=weakref(dice)
 	var world_ref:WeakRef=weakref(world)
-	await dice_animation.roll_map(dice,face,SHARED_DIE_AREA,texture,sound,wall)
+	await dice_animation.roll_map(dice,face,SHARED_DIE_AREA,texture,sound,wall,options_dice_wall_rect())
 	var owner:Node=owner_ref.get_ref()
 	if not is_instance_valid(owner) or not owner.is_inside_tree() or owner.is_queued_for_deletion(): return
 	owner.shared_die_busy=false
@@ -660,7 +669,6 @@ func render() -> void:
 	# battlefield return, board redraw, or save/reload.
 	# Establish the same pivot BEFORE assigning the restored rotation.
 	dice.pivot_offset = dice.size*0.5
-	dice.position = shared_dice_position()
 	dice.rotation_degrees = world.dice_visual_rotation
 	dice.z_index = DIE_FOREGROUND_Z
 	dice.tooltip_text = "주사위 · 멈춘 자리에서 다시 누르기"
@@ -745,6 +753,8 @@ func render() -> void:
 	painted_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	options.add_child(painted_icon)
 	add_button_effect(options,false)
+	# Restore only after the new settings button exists, including on redraw.
+	dice.position = shared_dice_position()
 	dice.disabled = moving
 	_sync_map_chrome()
 	highlight(world.position)
