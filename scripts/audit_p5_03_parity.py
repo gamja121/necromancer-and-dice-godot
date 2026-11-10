@@ -29,7 +29,7 @@ REVIEW_PENDING_BLOBS = {
     "assets/map/events/knight-commander-upperbody-hd.webp": "7710370f7462cf12da98f9721b054500d5b43c4e",
     "assets/map/events/necromancer-upperbody-hd.webp": "c707c93a5ca3feeca9a51c7baa1fd2252ea58970",
 }
-# Owner requested the five location paintings be restored to their
+# Owner-approved runtime tile art. The five location paintings were restored to their
 # pre-2026-10-13 replacement versions (commit 585c2bd). These entries pin
 # those exact historical Git blobs, not the discarded new paintings.
 # Preserve the immutable 791-row source ledger, presentation frame and UI.
@@ -41,6 +41,8 @@ OWNER_APPROVED_TILE_SCENE_ART = {
     "assets/map/events/altar.jpg": ("8ac0a1cd4ba270326030163b4bbdc4a3476338d5", 252740),
     "assets/map/events/home.jpg": ("616260406a18488f0d7a7e4a0c5772df946717de", 954098),
     "assets/map/events/fortune-teller.jpg": ("effcf0425a5a3fb9d015b7046a9a9500132134e9", 984867),
+    # Owner-approved stone walls, 2026-11-10; docs/stone_home_tile_20261110.md.
+    "assets/map/tiles/home.png": ("645a9c78c27b4511fe1fa8c0ebd360f4d83176b5", 2349680),
 }
 # Stage 5H repaired corrupt source PNGs into decodeable *runtime* copies.
 # The immutable 791-row historical ledger deliberately still records the old
@@ -241,7 +243,7 @@ def inspect(root: Path, tracked: dict[str, tuple[str, int]]) -> dict:
                 if approved_animations.get(godot_path) == (sha, size):
                     pass  # Owner-reviewed replacement; keep the historical source mapping intact.
                 elif godot_path in OWNER_APPROVED_TILE_SCENE_ART and (sha, size) == OWNER_APPROVED_TILE_SCENE_ART[godot_path]:
-                    pass  # Owner-selected, hash-pinned previous artwork restored from Git history.
+                    pass  # Owner-selected, hash-pinned runtime artwork; historical ledger stays intact.
                 elif godot_path in REVIEW_PENDING_BLOBS and sha == REVIEW_PENDING_BLOBS[godot_path]:
                     observed_review.add(godot_path)
                     review.append({"web_path": original, "godot_path": godot_path,

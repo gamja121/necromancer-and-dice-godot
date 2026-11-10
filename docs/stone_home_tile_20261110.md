@@ -16,3 +16,5 @@ Use case: precise-object-edit. Asset type: one transparent PNG terrain tile for 
 ## 검증
 
 Godot 가져오기와 기존 test_contamination_gui_capture의 실제 Windows 보드 화면으로 정상 타일 크기와 가독성을 확인한다. 개인 저장은 격리하며 새로운 검사 파일은 만들지 않는다. 최종 검사와 동기화 결과는 작업 Issue에 남긴다.
+
+원화 대조 목록의 기존 승인 원화 항목에 이번 home.png의 Git blob 645a9c78c27b4511fe1fa8c0ebd360f4d83176b5와 크기 2349680을 함께 고정했다. 과거 웹 원화 대조 TSV와 다른 미승인 그림의 검토 상태는 보존하며, 이후 이미지가 달라지면 기존 엄격한 SHA/크기 검사로 다시 검출한다.
