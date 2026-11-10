@@ -15,6 +15,7 @@ extends Control
 @export var click_scale: Vector2 = Vector2(0.96,0.96)
 @export_range(0.02,0.5,0.01) var click_duration: float = 0.10
 
+var contact_shadow_enabled: bool = true
 var _contact_shadow: Panel
 var _button: BaseButton
 var _tween: Tween
@@ -46,7 +47,7 @@ func _ready() -> void:
 	_button.pivot_offset_ratio = Vector2(0.5,0.5)
 	_was_disabled = _button.disabled
 	_rng.randomize() # Independent from the battle RNG.
-	_install_contact_shadow()
+	if contact_shadow_enabled: _install_contact_shadow()
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
 	_button.pressed.connect(_on_pressed)

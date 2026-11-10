@@ -503,10 +503,11 @@ func button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, c
 	if not parent is StoryBook: add_button_effect(node)
 	return node
 
-func add_button_effect(node: BaseButton) -> void:
+func add_button_effect(node: BaseButton, contact_shadow_enabled: bool = true) -> void:
 	if node.has_node("ButtonEffectsModule"): return
 	var effect = ButtonEffects.new()
 	effect.name = "ButtonEffectsModule"
+	effect.contact_shadow_enabled = contact_shadow_enabled
 	effect.hover_scale = Vector2(1.04,1.04)
 	effect.hover_rotation_degrees = 0.6
 	node.add_child(effect)
@@ -684,7 +685,7 @@ func render() -> void:
 	book.pressed.connect(show_roster)
 	book_button = book
 	stage.add_child(book)
-	add_button_effect(book)
+	add_button_effect(book,false)
 	var book_feedback: ButtonEffectsModule = book.get_node("ButtonEffectsModule")
 	book_feedback.use_hover_rotation = false
 	book_feedback.hover_scale = Vector2(1.025,1.025)
@@ -706,7 +707,7 @@ func render() -> void:
 		else:
 			show_inventory("dice"))
 	stage.add_child(deck_button)
-	add_button_effect(deck_button)
+	add_button_effect(deck_button,false)
 	var deck_feedback: ButtonEffectsModule = deck_button.get_node("ButtonEffectsModule")
 	deck_feedback.use_hover_rotation = false
 	deck_feedback.hover_scale = Vector2(1.025,1.025)
@@ -730,7 +731,7 @@ func render() -> void:
 	options.mouse_filter = Control.MOUSE_FILTER_STOP
 	options.z_index = 41
 	options.tooltip_text = "설정 · 배경음악 / 효과음"
-	for state in ["normal","hover","pressed","disabled","focus"]: options.add_theme_stylebox_override(state,StyleBoxEmpty.new())
+	for state in ["normal","hover","pressed","hover_pressed","disabled","focus"]: options.add_theme_stylebox_override(state,StyleBoxEmpty.new())
 	var painted_icon = TextureRect.new()
 	painted_icon.name = "PaintedSettingsGear"
 	painted_icon.texture = BrushSettingsArt.painted_texture("icon")
@@ -743,7 +744,7 @@ func render() -> void:
 	painted_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	painted_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	options.add_child(painted_icon)
-	add_button_effect(options)
+	add_button_effect(options,false)
 	dice.disabled = moving
 	_sync_map_chrome()
 	highlight(world.position)
