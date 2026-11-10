@@ -1,4 +1,5 @@
 extends Control
+const BattleBackgrounds = preload("res://systems/battle_backgrounds.gd")
 const RewardCatalog = preload("res://systems/reward_catalog.gd")
 
 signal finished
@@ -436,9 +437,11 @@ func refresh_after_entry_capture() -> void:
 	if is_instance_valid(capture_panel): capture_panel.refresh()
 
 func battle_background_path() -> String:
-	var region = session.world.region if map_mode else "winter"
-	var names = {"default":"dark-forest","winter":"snow-forest","hell":"lava-forest"}
-	return "res://assets/battle/backgrounds/%s.jpg" % names.get(region,"dark-forest")
+	if not map_mode: return BattleBackgrounds.WINTER
+	# A persisted encounter/harvest receipt keeps its original background.
+	# No reroll on animation reset, save reload or returning from a battle.
+	var receipt: Dictionary = session.encounter if not session.encounter.is_empty() else session.world.pending_reward
+	return BattleBackgrounds.path_for(str(session.world.region),receipt)
 
 func unit_floor_y() -> float:
 	return 390.0 if embedded else 570.0
