@@ -1,7 +1,10 @@
 name: Correct JPEG signatures of uploaded battle art
 on:
-  push:
-    branches: [feat/random-normal-forest-battle-backgrounds-20261110]
+  pull_request:
+    paths:
+      - 'assets/battle/backgrounds/**'
+      - '.github/workflows/normalize-battle-background-extensions.yml'
+      - 'systems/battle_backgrounds.gd'
 permissions:
   contents: write
 jobs:
@@ -10,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
       - name: Check bytes and commit accurate extensions
         shell: bash
         run: |
@@ -31,4 +36,4 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m "Rename source JPEG-encoded battle art to proper JPG extensions"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:${{ github.head_ref }}"
