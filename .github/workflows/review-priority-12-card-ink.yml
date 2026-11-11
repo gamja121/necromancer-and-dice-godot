@@ -1,0 +1,29 @@
+name: Priority 12 Card Ink Candidates
+on:
+  pull_request:
+    paths:
+      - "scripts/candidate_12_card_ink_alpha_recovery.py"
+      - ".github/workflows/review-priority-12-card-ink.yml"
+permissions:
+  contents: read
+jobs:
+  batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install inspection packages
+        run: python3 -m pip install --disable-pip-version-check --break-system-packages pillow numpy scipy
+      - name: Generate original-preserving review and safe variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/candidate_12_card_ink_alpha_recovery.py | tee candidates.log
+          grep '^CARD_INK_CANDIDATES_12_COMPLETE 12$' candidates.log
+          test "$(find card_repair_candidates_12 -name '*_review_mask.png' | wc -l)" -eq 12
+      - name: Upload reversible candidates — do not replace game originals
+        uses: actions/upload-artifact@v4
+        with:
+          name: priority12-ink-review-safe-and-mask
+          path: card_repair_candidates_12/*
+          if-no-files-found: error

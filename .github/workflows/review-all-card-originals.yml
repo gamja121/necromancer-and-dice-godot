@@ -1,0 +1,35 @@
+name: Review All Card Originals Visually
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/review-all-card-originals.yml"
+permissions:
+  contents: read
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect only live card portrait originals
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, zipfile
+          source=pathlib.Path("systems/layered_unit_card.gd").read_text()
+          defs=source.split("const PORTRAITS :=",1)[1].split("const BACKGROUNDS :=",1)[0]
+          names=re.findall(r'"[^"]+"\s*:\s*ROOT\s*\+\s*"([^"]+\.webp)"',defs)
+          assert len(names)==47,(len(names),names)
+          paths=[pathlib.Path("assets/cards/layered")/n for n in names]+[pathlib.Path("assets/battle/frames/dragon/attack-01.png")]
+          with zipfile.ZipFile("original_48_portraits.zip","w",zipfile.ZIP_DEFLATED,compresslevel=5) as z:
+              for p in paths:
+                  assert p.is_file(),p
+                  z.write(p)
+          print("SOURCE_ORIGINALS",len(paths))
+          PY
+      - name: Export unmodified originals to art QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-48-live-portraits-for-alpha-review
+          path: original_48_portraits.zip
+          if-no-files-found: error
