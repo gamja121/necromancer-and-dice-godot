@@ -1,0 +1,44 @@
+name: Capture Real Fortune Teller In Game
+
+on:
+  pull_request:
+    paths:
+      - "scripts/capture_fortune_teller_current.gd"
+      - ".github/workflows/capture-fortune-teller-current.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fortune-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import production Godot assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 220s godot --headless --path . --editor --quit 2>&1 | tee fortune-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' fortune-import.log; then exit 1; fi
+      - name: Render actual fortune tent and live prophecy
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run
+          timeout 210s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/capture_fortune_teller_current.gd 2>&1 | tee fortune-capture.log
+          grep -F 'FORTUNE_ACTUAL_SCREENSHOT: 3 rendered, 1280x720, live map and prophecy, 0 failures' fortune-capture.log
+          for image in fortune_actual_00_location.webp fortune_actual_01_before_roll.webp fortune_actual_02_after_roll.webp; do test -s "$image"; done
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|FORTUNE_CAPTURE_FAILURE' fortune-capture.log; then exit 1; fi
+      - name: Upload actual 1280x720 game frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fortune-teller-current-real-godot-frames
+          path: fortune_actual_*.webp
+          if-no-files-found: warn
