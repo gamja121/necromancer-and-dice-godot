@@ -1,0 +1,56 @@
+name: Capture Actual Monster Swap Screen
+
+on:
+  pull_request:
+    paths:
+      - "scripts/capture_monster_swap_actual.gd"
+      - ".github/workflows/capture-monster-swap-actual.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import real assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee monster-swap-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' monster-swap-import.log; then exit 1; fi
+      - name: Screenshot actual Godot graphical runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run
+          timeout 240s xvfb-run -a -s '-screen 0 1600x900x24' godot --path . --rendering-method gl_compatibility --script res://scripts/capture_monster_swap_actual.gd 2>&1 | tee actual-swap.log
+          grep -F 'SWAP_SCREENSHOT_REAL_GODOT: 2 rendered, 1280x720, 0 failures' actual-swap.log
+          test -s monster_swap_unselected.webp
+          test -s monster_swap_selected.webp
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|SWAP_SCREENSHOT_FAILURE' actual-swap.log; then exit 1; fi
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          for kind in ("unselected","selected"):
+              path = Path(f"monster_swap_{kind}.webp")
+              raw = path.read_bytes()
+              print(f"SWAP_IMAGE_{kind.upper()}_BYTES: {len(raw)}")
+              print(f"SWAP_IMAGE_{kind.upper()}_BASE64: {base64.b64encode(raw).decode()}")
+          PY
+      - name: Upload real screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-godot-monster-swap-screenshots
+          path: |
+            monster_swap_unselected.webp
+            monster_swap_selected.webp
+          if-no-files-found: warn
