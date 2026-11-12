@@ -60,7 +60,7 @@ func stage_run(stage: int, decision: String, exhaustive: bool) -> void:
 		check(not Hunt.begin(s,stage,at),"genuine inquiry provenance required")
 		s.world.restore(valid)
 		s.world.position=s.world.tiles.find("event")
-		check(not Hunt.can_enter(s,stage,at) and not Hunt.can_enter(s,stage,s.world.position),"remote place and generic event blocked")
+		check(not Hunt.can_enter(s,stage,at) and Hunt.can_enter(s,stage,s.world.position)==(stage==1),"only riot may begin on a different occupied tile")
 		s.world.restore(valid)
 		failed_save(func():return Hunt.begin(s,stage,at),"entry")
 	check(Hunt.begin(s,stage,at),"deliberate entry")
@@ -99,6 +99,11 @@ func stage_run(stage: int, decision: String, exhaustive: bool) -> void:
 		after=s.world.snapshot().duplicate(true)
 		check(not Hunt.reconsider(s,stage,at) and not Hunt.advance(s,stage,at,beat) and s.world.snapshot()==after,"action cannot rewind or double advance")
 	check(Hunt.completed(s,stage) and not Hunt.begin(s,stage,at),"completed story never repeats")
+	if stage==1:
+		# Preserve coverage of the old v1 save, before the live riot existed.
+		s.world.riot.clear()
+		s.world.rng.state=int(initial.rng_state)
+		check(s.save_world(),"legacy pending HOME story snapshot saved")
 	check(gameplay()==initial,"story preserves all gameplay fields")
 	reload_same("completed stage")
 func scenario(explained: bool, first: String, second: String, last: String) -> void:

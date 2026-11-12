@@ -31,6 +31,7 @@ const CommanderInquiryBeats = preload("res://systems/commander_inquiry_beats.gd"
 const WitchHuntEntry = preload("res://systems/witch_hunt_entry.gd")
 const WitchHuntBeats = preload("res://systems/witch_hunt_beats.gd")
 const VillageMobMarch = preload("res://systems/witch_hunt_board_march.gd")
+const Riot = preload("res://systems/witch_hunt_riot.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const ProphetStoryEntry = preload("res://systems/prophet_story_entry.gd")
@@ -264,6 +265,7 @@ var overlay: Control:
 		call_deferred("_reset_location_art_if_absent")
 var selected = -1
 var moving = false
+var riot_pawn: Control
 var textures: Dictionary = {}
 var _last_location_art_path: String = ""
 var _last_location_art_world: WeakRef
@@ -359,10 +361,11 @@ func _ready() -> void:
 	elif world.pending_reward.get("kind","")=="altar_boon": call_deferred("resume_altar_boon")
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
+	elif not world.riot.get("pending", {}).is_empty(): call_deferred("_resume_riot_opening")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
 	elif world.position==world.final_dragon_location(): call_deferred("show_tile",world.position,true)
 	elif world.tiles[world.position]=="boss" and not world.position in world.cleared: call_deferred("show_tile",world.position)
-	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp","home"]: call_deferred("resume_village_rumor_if_unfinished")
+	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp","home"] or session.get_story_event(WitchHuntEntry.IDS[1]).status in ["seen", "active"]: call_deferred("resume_village_rumor_if_unfinished")
 
 func texture(path: String) -> Texture2D:
 	if not textures.has(path): textures[path] = load(path)
@@ -659,6 +662,7 @@ func render() -> void:
 	hero_art_path = ""
 	set_hero_pose(HeroFacingPolicy.for_arrival())
 	_create_hero_shadow()
+	_refresh_riot_pawn()
 	dice = TextureButton.new()
 	dice.ignore_texture_size = true
 	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % shared_dice_face())
@@ -983,6 +987,9 @@ func roll_move(instance_id: String = "") -> void:
 	if not world.pending_move.is_empty():
 		await resume_map_move()
 		return
+	if not world.riot.get("pending", {}).is_empty():
+		await _resume_riot_opening()
+		return
 	moving = true
 	dice.disabled = true
 	var result: Dictionary = session.prepare_map_roll(instance_id)
@@ -1026,16 +1033,21 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 		status.text = "오염된 늪지대 · 보유 마물 HP -1 · HP 1 보호"
 		await presentation.swamp_hit()
 	var previous_wormhole: int = KingPortalTile.target(world)
+	var riot_plan: Dictionary = world.riot.get("pending", {}).duplicate(true)
+	await _animate_riot_turn(riot_plan)
 	if not session.complete_map_move():
+		if not riot_plan.is_empty(): _refresh_riot_pawn()
 		status.text = "이동 완료 저장 실패 · 주사위를 눌러 다시 저장하세요"
 		moving = false
 		dice.disabled = false
 		return
-	moving = false
-	dice.disabled = false
 	if KingPortalTile.target(world)!=previous_wormhole: render()
+	await _show_riot_turn_result(riot_plan)
+	moving = false
+	refresh_shared_die_input()
 	var type: String = world.tiles[world.position]
 	if world.position==world.final_dragon_location(): show_tile(world.position,true)
+	elif WitchHuntEntry.can_enter(session, 1, world.position): show_tile(world.position,true)
 	elif type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
 	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
 
@@ -3209,6 +3221,71 @@ func choose_commander_inquiry(index: int, shown_beat: int, decision: String) -> 
 		return
 	show_commander_inquiry_beat(index)
 
+func _riot_foot(tile: int) -> Vector2:
+	var foot := center(tile) + Vector2(0, HERO_BASE_ABOVE_TILE_CENTER)
+	if tile == world.position:
+		foot += Vector2(-34, -8)
+	return foot
+
+
+func _refresh_riot_pawn() -> void:
+	if is_instance_valid(riot_pawn):
+		riot_pawn.queue_free()
+		riot_pawn.hide()
+	riot_pawn = null
+	if not Riot.active(world): return
+	riot_pawn = VillageMobMarch.new()
+	riot_pawn.name = "VillageRiotPawn"
+	riot_pawn.z_index = 17
+	stage.add_child(riot_pawn)
+	riot_pawn.setup(HERO_TOKEN_SIZE, _riot_foot(int(world.riot.index)), int(world.riot.face))
+
+
+func _animate_riot_turn(plan: Dictionary) -> void:
+	if int(plan.get("face", 0)) == 0: return
+	if not is_instance_valid(riot_pawn): _refresh_riot_pawn()
+	if not is_instance_valid(riot_pawn): return
+	var route := PackedVector2Array([_riot_foot(int(world.riot.index))])
+	for tile in plan.path:
+		route.append(_riot_foot(int(tile)))
+	var input_lock: Control = presentation.effect(true)
+	await riot_pawn.play_turn(int(plan.face), route)
+	if is_instance_valid(input_lock): input_lock.free()
+
+
+func _show_riot_turn_result(plan: Dictionary) -> void:
+	match str(plan.get("state", "")):
+		"burned":
+			render()
+			status.text = "주민들이 집에 도착했습니다. 집이 전소되었습니다."
+		"stopped":
+			_refresh_riot_pawn()
+			status.text = "주민들을 막았습니다. 집을 지켰습니다."
+		_:
+			return
+	var input_lock: Control = presentation.effect(true)
+	await get_tree().create_timer(0.9).timeout
+	if is_instance_valid(input_lock): input_lock.free()
+
+
+func _resume_riot_opening() -> void:
+	if moving or is_instance_valid(overlay): return
+	var plan: Dictionary = world.riot.get("pending", {}).duplicate(true)
+	if plan.is_empty(): return
+	moving = true
+	refresh_shared_die_input()
+	status.text = "마을에 폭동이 일어났습니다. 주민들이 집으로 향합니다."
+	await _animate_riot_turn(plan)
+	if session.complete_riot_opening():
+		if Riot.active(world): status.text = "주민을 따라잡거나 집 앞을 먼저 막으세요."
+		await _show_riot_turn_result(plan)
+	else:
+		_refresh_riot_pawn()
+		status.text = "주민 이동 저장 실패 · 주사위를 눌러 다시 시도하세요."
+	moving = false
+	refresh_shared_die_input()
+
+
 func _play_village_mob_march(home_index: int) -> void:
 	var village: int = world.tiles.find("village")
 	if village < 0:
@@ -3240,6 +3317,11 @@ func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 	var current: int=WitchHuntEntry.current_beat(session,story_stage)
 	var beat: Dictionary=WitchHuntEntry.current_scene(session,story_stage)
 	if beat.is_empty(): return
+	if story_stage == 1:
+		if current == 0 and world.tiles[index] != "village":
+			beat.effect = "마을에서 온 전령이 주민들이 집을 향해 모여든다고 전한다."
+		elif current == WitchHuntBeats.count() - 1:
+			beat.effect = "횃불을 든 주민들이 마을을 떠난다. 주민들이 먼저 도착하면 집이 전소된다."
 	var panel=story_modal()
 	var picture=image(panel,str(beat.art),TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
 	picture.name="WitchHuntScene"
@@ -3270,6 +3352,7 @@ func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 				close_overlay()
 				render()
 				if story_stage==2: show_home()
+				elif story_stage==1: _resume_riot_opening()
 				else: status.text="사건 기록을 저장했습니다. 이후 방문에서 상황이 이어집니다."
 			else: show_witch_hunt_beat(story_stage,index)
 		,1)
@@ -3634,6 +3717,7 @@ func use_warp(index: int) -> void:
 	set_hero_pose(HeroFacingPolicy.for_arrival())
 	highlight(world.position)
 	status.text = "%d번 워프로 이동 완료" % (world.position+1)
+	if result.get("riot_stopped", false): await _show_riot_turn_result({"state":"stopped"})
 	dice.disabled = false
 	moving = false
 	if world.position==world.final_dragon_location(): show_tile(world.position,true)

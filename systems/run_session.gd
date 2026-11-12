@@ -3,6 +3,7 @@ const BattleBackgrounds = preload("res://systems/battle_backgrounds.gd")
 const AltarBoons = preload("res://systems/altar_boon_catalog.gd")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const WitchHunt = preload("res://systems/witch_hunt_entry.gd")
+const Riot = preload("res://systems/witch_hunt_riot.gd")
 const MapGearShift = preload("res://systems/map_gear_shift.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
@@ -897,6 +898,7 @@ func prepare_map_roll(instance_id: String = "") -> Dictionary:
 	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
 	if not encounter.is_empty() or not world.pending_reward.is_empty(): return {"ok":false,"reason":"지금은 이동할 수 없습니다."}
 	if not world.pending_move.is_empty(): return {"ok":false,"reason":"이전 이동을 먼저 완료하세요."}
+	if not world.riot.get("pending", {}).is_empty(): return {"ok":false,"reason":"주민 이동을 먼저 마쳐야 합니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var result: Dictionary = {"ok":true,"face":0,"label":""}
 	if not instance_id.is_empty():
@@ -915,13 +917,22 @@ func prepare_map_roll(instance_id: String = "") -> Dictionary:
 	elif world.tiles[landed]=="swamp":
 		for unit in world.roster: unit.current_hp = maxi(1,unit.current_hp-1)
 	world.pending_move = {"face":int(result.face),"label":str(result.label),"origin":origin,"path":path,"landed":landed}
+	Riot.prepare_turn(world, path)
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return world.pending_move.merged({"ok":true})
 
 func complete_map_move() -> bool:
 	if world.pending_move.is_empty(): return true
 	var before: Dictionary = world.snapshot().duplicate(true)
+	Riot.commit_turn(world)
 	world.pending_move = {}
+	return persist_change(before)
+
+func complete_riot_opening() -> bool:
+	if world == null or not world.pending_move.is_empty(): return false
+	if world.riot.get("pending", {}).is_empty(): return true
+	var before: Dictionary = world.snapshot().duplicate(true)
+	if not Riot.commit_turn(world): return false
 	return persist_change(before)
 
 func prepare_battle_roll(battle, instance_id: String = "") -> Dictionary:
@@ -1295,6 +1306,7 @@ func dig_graveyard(index: int) -> Dictionary:
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"overflow":false,"item":item.duplicate(true),"reason":"%s 발굴 성공 · 주사위 제어 카드 %d/%d" % [str(item.label),world.dice_cards.size(),Catalog.DICE_CAPACITY]}
 func prepare_hill_move(index: int, steps: int) -> Dictionary:
+	if world != null and not world.riot.get("pending", {}).is_empty(): return {"ok":false,"reason":"주민 이동을 먼저 마쳐야 합니다."}
 	var allowed: Dictionary = place_allowed(index,"forest")
 	if not allowed.ok: return allowed
 	if world.position != index:
@@ -1322,6 +1334,7 @@ func prepare_hill_move(index: int, steps: int) -> Dictionary:
 		"source":"hill","face":steps,"label":"언덕 지정 이동",
 		"origin":index,"path":path,"landed":landed
 	}
+	Riot.prepare_turn(world, path, false)
 	if not persist_change(before):
 		return {"ok":false,"reason":notice}
 	return world.pending_move.merged({"ok":true})
@@ -1440,13 +1453,19 @@ func warp_from(index: int) -> Dictionary:
 	if index==entrance or (destination==entrance and index!=world.position):
 		return {"ok":false,"reason":"변형 웜홀에 실제로 도착해야 합니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)
+	if not world.riot.get("pending", {}).is_empty(): return {"ok":false,"reason":"주민 이동을 먼저 마쳐야 합니다."}
 	world.position = destination
 	world.move_serial += 1
+	Riot.prepare_turn(world, [], false)
+	var caught: bool = Riot.commit_turn(world)
 	if not persist_change(before): return {"ok":false,"reason":notice}
-	return {"ok":true,"origin":index,"destination":destination}
+	return {"ok":true,"origin":index,"destination":destination,"riot_stopped":caught}
 
 func leave_home() -> bool:
 	if not place_allowed(MapState.HOME,"home").ok: return false
+	if not world.riot.get("pending", {}).is_empty():
+		notice = "주민 이동을 먼저 마쳐야 합니다."
+		return false
 	if WitchHunt.home_in_progress(self):
 		notice="집 앞의 사건을 먼저 확인하세요."
 		return false

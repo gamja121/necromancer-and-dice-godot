@@ -1,6 +1,7 @@
 extends RefCounted
 const Inquiry=preload("res://systems/commander_inquiry_entry.gd")
 const Beats=preload("res://systems/witch_hunt_beats.gd")
+const Riot=preload("res://systems/witch_hunt_riot.gd")
 const IDS=["witness_confrontation_01","village_mob_01","home_arson_01"]
 const PUBLIC_FLAG="story:witness_confrontation_01:public_account"
 const REFUSED_FLAG="story:witness_confrontation_01:confrontation_refused"
@@ -76,7 +77,9 @@ static func can_enter(session, stage: int, index: int) -> bool:
 	if not valid_state(session,stage): return false
 	var w=session.world
 	if not w.run_result.is_empty(): return false
-	if index<0 or index>=w.tiles.size() or w.position!=index or w.tiles[index]!=("home" if stage==2 else "village"): return false
+	if index<0 or index>=w.tiles.size() or w.position!=index: return false
+	if stage==0 and w.tiles[index]!="village": return false
+	if stage==2 and (w.tiles[index]!="home" or not w.riot.is_empty()): return false
 	if not session.encounter.is_empty() or not w.active_encounter.is_empty() or not w.pending_move.is_empty() or not w.pending_reward.is_empty(): return false
 	var state: Dictionary=session.get_story_event(IDS[stage])
 	if state.status=="complete": return false
@@ -124,11 +127,13 @@ static func advance(session, stage: int, index: int, shown_index: int) -> bool:
 		session.world.event_flags[flag(stage,"complete")]=true
 		session.world.event_flags[finished_visit_flag(session,stage,index)]=true
 		for key in outcome_flags(session,stage,decision): session.world.event_flags[key]=true
+		if stage == 1: Riot.start(session.world)
 	else: session.world.event_flags[progress_flag(stage,current+1)]=true
 	return session.persist_change(before)
 static func home_in_progress(session) -> bool:
 	return valid_state(session,2) and session.get_story_event(IDS[2]).status in ["seen","active"]
 static func home_burned(session) -> bool:
+	if session != null and session.world != null and session.world.riot.get("state", "") == "burned": return true
 	return completed(session,2) and session.world.event_flags.get(BURNED_FLAG,false)==true
 static func current_scene(session, stage: int) -> Dictionary:
 	var current: int=current_beat(session,stage)

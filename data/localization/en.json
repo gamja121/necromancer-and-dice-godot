@@ -1367,5 +1367,13 @@
   "고룡 격파 · 기록이 저장되었습니다.": "Dragon defeated · Record saved.",
   "원정 계속": "Continue Expedition",
   "원정 계속 저장에 실패했습니다. 다시 시도하세요.": "Could not save the expedition. Please try again.",
-  "원정을 이어갑니다.": "The expedition continues."
+  "원정을 이어갑니다.": "The expedition continues.",
+  "주민 이동을 먼저 마쳐야 합니다.": "Finish the villagers’ movement first.",
+  "주민들이 집에 도착했습니다. 집이 전소되었습니다.": "The mob reached your home. It has burned down.",
+  "주민들을 막았습니다. 집을 지켰습니다.": "You stopped the mob and protected your home.",
+  "마을에 폭동이 일어났습니다. 주민들이 집으로 향합니다.": "A riot broke out. The villagers are heading for your home.",
+  "주민 이동 저장 실패 · 주사위를 눌러 다시 시도하세요.": "Could not save the mob’s move. Press the die to retry.",
+  "마을에서 온 전령이 주민들이 집을 향해 모여든다고 전한다.": "A messenger reports that villagers are gathering and heading for your home.",
+  "횃불을 든 주민들이 마을을 떠난다. 주민들이 먼저 도착하면 집이 전소된다.": "A torch-bearing mob is leaving the village. If they arrive first, your home will burn.",
+  "주민을 따라잡거나 집 앞을 먼저 막으세요.": "Catch the mob or reach home first to block them."
 }
