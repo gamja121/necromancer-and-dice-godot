@@ -30,6 +30,7 @@ const CommanderInquiryEntry = preload("res://systems/commander_inquiry_entry.gd"
 const CommanderInquiryBeats = preload("res://systems/commander_inquiry_beats.gd")
 const WitchHuntEntry = preload("res://systems/witch_hunt_entry.gd")
 const WitchHuntBeats = preload("res://systems/witch_hunt_beats.gd")
+const VillageMobMarch = preload("res://systems/witch_hunt_board_march.gd")
 const KnightCommanderEntry = preload("res://systems/knight_commander_entry.gd")
 const MonsterHunterEntry = preload("res://systems/monster_hunter_entry.gd")
 const ProphetStoryEntry = preload("res://systems/prophet_story_entry.gd")
@@ -291,7 +292,7 @@ func _sync_map_chrome() -> void:
 	var world_tree_prayer: bool = has_overlay and overlay is ExplorationActions and overlay.type=="unknown"
 	var foreground_die: bool = not has_overlay or central_battle or fortune_prophecy or world_tree_prayer
 	var show_board_controls: bool = not has_overlay or overlay is InventoryPanel
-	var show_die: bool = not (overlay is BattleDeck or overlay is HomeInheritance)
+	var show_die: bool = not (overlay is BattleDeck or overlay is HomeInheritance or overlay is VillageMobMarch)
 	for control in map_chrome:
 		if not is_instance_valid(control): continue
 		var battle_book_or_deck: bool = control == book_button or control == deck_button or control == dice_count_label
@@ -1112,6 +1113,7 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 		if after.is_valid(): after.call())
 
 func show_tile(index: int, actual_landing: bool = false) -> void:
+	if overlay is VillageMobMarch: return
 	if world.pending_reward.get("kind","")=="altar_boon":
 		show_place_actions(world.position)
 		return
@@ -1189,9 +1191,13 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 			status.text=session.notice
 	var hunt_stage: int=WitchHuntEntry.eligible_stage(session,index)
 	if hunt_stage>=0:
-		if actual_landing or session.get_story_event(WitchHuntEntry.IDS[hunt_stage]).status in ["seen","active"]:
+		var event_status: String = session.get_story_event(WitchHuntEntry.IDS[hunt_stage]).status
+		if actual_landing or event_status in ["seen","active"]:
 			if WitchHuntEntry.begin(session,hunt_stage,index):
-				show_witch_hunt_beat(hunt_stage,index)
+				if hunt_stage == 2 and event_status == "unseen":
+					_play_village_mob_march(index)
+				else:
+					show_witch_hunt_beat(hunt_stage,index)
 				return
 			status.text=session.notice
 	# P1-05J-1: the forest (or event wildcard) reveals the portal only
@@ -3202,6 +3208,30 @@ func choose_commander_inquiry(index: int, shown_beat: int, decision: String) -> 
 		status.text="기사단장 선택 저장 실패 · 다시 시도하세요."
 		return
 	show_commander_inquiry_beat(index)
+
+func _play_village_mob_march(home_index: int) -> void:
+	var village: int = world.tiles.find("village")
+	if village < 0:
+		show_witch_hunt_beat(2, home_index)
+		return
+	var route := PackedVector2Array()
+	var steps := posmod(home_index - village, world.tiles.size())
+	for step in range(steps + 1):
+		var tile: int = (village + step) % world.tiles.size()
+		route.append(center(tile) + Vector2(0, HERO_BASE_ABOVE_TILE_CENTER))
+
+	var march := VillageMobMarch.new()
+	march.name = "VillageMobMarch"
+	march.size = stage.size
+	march.z_index = 18
+	march.mouse_filter = Control.MOUSE_FILTER_STOP
+	stage.add_child(march)
+	overlay = march
+	await march.play(route)
+	if overlay == march:
+		close_overlay(false)
+		show_witch_hunt_beat(2, home_index)
+
 
 func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 	if not WitchHuntEntry.can_enter(session,story_stage,index): return
