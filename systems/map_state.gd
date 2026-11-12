@@ -1,5 +1,6 @@
 extends RefCounted
 const AltarBoons = preload("res://systems/altar_boon_catalog.gd")
+const Riot = preload("res://systems/witch_hunt_riot.gd")
 
 const RoutePlan = preload("res://systems/route_plan.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
@@ -72,6 +73,7 @@ var map_serial = 0
 var previous_map_roll = 0
 var previous_map_card = ""
 var pending_move: Dictionary = {}
+var riot: Dictionary = {}
 var active_encounter: Dictionary = {}
 var prophecy: Dictionary = {"rolls":[]}
 var last_prophecy: Dictionary = {}
@@ -466,7 +468,9 @@ func leave_home() -> void:
 	generate()
 
 func snapshot() -> Dictionary:
-	return {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"boss_assignments":boss_assignments.duplicate(true),"story_events":story_events.duplicate(true)}
+	var state: Dictionary = {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"boss_assignments":boss_assignments.duplicate(true),"story_events":story_events.duplicate(true)}
+	if not riot.is_empty(): state["riot"] = riot.duplicate(true)
+	return state
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -475,6 +479,7 @@ func restore(saved: Dictionary) -> bool:
 	for tile in saved.tiles:
 		if not NAMES.has(tile): return false
 	if saved.tiles[0]!="fortune-teller-camp" or saved.tiles[8]!="village" or saved.tiles[15]!="home": return false
+	if not Riot.valid(saved.get("riot", {}), saved.tiles.find("village"), HOME): return false
 	for u in saved.roster:
 		if not u is Dictionary or not definitions.has(u.get("slug","")) or not u.has("current_hp") or not u.has("brands"): return false
 		if u.current_hp<1 or u.current_hp>u.max_hp: return false
@@ -633,6 +638,7 @@ func restore(saved: Dictionary) -> bool:
 	previous_map_roll = int(saved.get("previous_map_roll",saved.get("last_face",0) if move_serial>0 else 0))
 	previous_map_card = str(saved.get("previous_map_card",""))
 	pending_move = saved.get("pending_move",{}).duplicate(true)
+	riot = Riot.normalized(saved.get("riot", {}))
 	active_encounter = saved.get("active_encounter",{}).duplicate(true)
 	# Godot JSON parses all numbers as floats. Source prophecy faces and
 	# accumulated effects are integer game counts; normalize on reload so

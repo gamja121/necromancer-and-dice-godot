@@ -95,6 +95,16 @@ func play_stage(locale: String, story_stage: int, decision: String, tag: String)
 		if story_stage==2 and beat==HUNT_BEATS.count()-1: await snap(tag+"_"+locale)
 		if not await press("마치기" if beat==HUNT_BEATS.count()-1 else "계속"): return
 	check(HUNT.completed(session,story_stage),"actual Finish commits stage once")
+	if story_stage==1:
+		var pawn: Node = map.stage.get_node_or_null("VillageRiotPawn")
+		var mini_die: TextureRect = pawn.find_child("VillagerCrowdDie", true, false) as TextureRect if pawn != null else null
+		check(mini_die != null and mini_die.size.x < map.dice.size.x and map.moving, "live riot shows a small separate die while the board is locked")
+		if tag=="burned" and locale=="ko": await snap("riot_opening_die")
+		check(await until(func(): return not map.moving, 15000) and session.world.riot.face in [1,2,3], "opening riot roll finishes on the live board")
+		# Keep the already-in-progress v1 HOME event and all three outcomes covered.
+		session.world.riot.clear()
+		check(session.save_world(),"legacy HOME fixture saved")
+		map.render()
 	if story_stage<2:
 		before=session.world.snapshot().duplicate(true)
 		map.show_tile(at,true)
@@ -139,6 +149,8 @@ func play_case(locale: String, escorted: bool) -> void:
 func damaged_case(locale: String) -> void:
 	root.get_node("GameLanguage").set_language(locale,false)
 	if not check(HF.prepare(session) and HF.arrive(session,0) and HF.finish_stage(session,0,"confront") and HF.arrive(session,1) and HF.finish_stage(session,1,"alone"),"genuine unescorted source for fire-first result"): return
+	session.world.riot.clear()
+	if not check(session.save_world(), "legacy damaged fixture saved"): return
 	await create_map()
 	await play_stage(locale,2,"extinguish","damaged")
 	check(session.event_flag_is_set(HUNT.DAMAGED_FLAG) and session.event_flag_is_set(HUNT.INJURED_FLAG) and not HUNT.home_burned(session),"fire-first outcome keeps house and records resident injury")
@@ -159,7 +171,7 @@ func run() -> void:
 	for frame in range(3): await process_frame
 	var deadline: int=Time.get_ticks_msec()+250
 	while Time.get_ticks_msec()<deadline: await process_frame
-	if DisplayServer.get_name()!="headless": check(captures==17,"fourteen book captures plus three board march frames")
+	if DisplayServer.get_name()!="headless": check(captures==18,"fourteen book captures, three legacy march frames and one live riot die")
 	session.world=null
 	session.save_file_path=original
 	clean()

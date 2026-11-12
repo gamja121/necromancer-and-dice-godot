@@ -84,7 +84,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in test_prophet_story_entry test_cultist_mistrust_branch test_commander_inquiry_branch test_witch_hunt_branch test_cultist_altar_entry test_cultist_altar_choice test_cultist_altar_followup test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
+          for test in test_prophet_story_entry test_cultist_mistrust_branch test_commander_inquiry_branch test_witch_hunt_branch test_witch_hunt_riot test_cultist_altar_entry test_cultist_altar_choice test_cultist_altar_followup test_knight_commander_entry test_knight_commander_dialogue test_monster_hunter_entry test_cultist_rumor_entry test_story_contamination_thresholds; do
             timeout 180s godot --headless --path . --script "res://scripts/$test.gd" 2>&1 | tee "$test.log"
             grep -E '^[A-Z0-9_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|SHADER ERROR|Failed loading resource|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
