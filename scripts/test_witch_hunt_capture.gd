@@ -14,31 +14,34 @@ func snap(tag: String) -> void:
 	await RenderingServer.frame_post_draw
 	var shot: Image=root.get_texture().get_image()
 	if check(shot.get_size()==Vector2i(1280,720) and shot.save_png("res://witch_hunt_%s.png" % tag)==OK,"actual framebuffer "+tag): captures+=1
-func pawn_near(pawn: TextureRect, tile: int) -> bool:
+func pawn_near(pawn: TextureRect, tile: int, distance: float = 57.0) -> bool:
 	if not is_instance_valid(pawn): return false
 	var foot := pawn.position + pawn.size * Vector2(0.5, 1.0)
-	return foot.distance_to(map.center(tile) + Vector2(0, map.HERO_BASE_ABOVE_TILE_CENTER)) < 57.0
+	return foot.distance_to(map.center(tile) + Vector2(0, map.HERO_BASE_ABOVE_TILE_CENTER)) < distance
 
 
 func check_board_march(at: int, take_captures: bool) -> bool:
 	var march: Control = map.overlay
 	if not check(is_instance_valid(march) and march.name == "VillageMobMarch", "first HOME arrival starts on the board"): return false
-	var pawns := march.get_children()
-	if not check(pawns.size() == 3 and pawns.all(func(pawn): return pawn is TextureRect and pawn.mouse_filter == Control.MOUSE_FILTER_IGNORE), "three visible pawns have no click targets"): return false
+	if not check(march.get_child_count() == 1, "the villagers share one board pawn"): return false
+	var pawn := march.get_child(0) as TextureRect
+	if not check(pawn != null and pawn.mouse_filter == Control.MOUSE_FILTER_IGNORE, "the crowd pawn has no click target"): return false
+	check(pawn.size == map.hero.size, "crowd pawn uses the protagonist pawn size")
 	var village: int = session.world.tiles.find("village")
-	check(pawns.all(func(pawn): return pawn_near(pawn, village)), "pawns depart together from the village tile")
+	check(pawn_near(pawn, village), "the crowd pawn departs from the village tile")
 	check(march.mouse_filter == Control.MOUSE_FILTER_STOP and map.dice.disabled and not map.dice.visible, "march blocks board controls")
 	var before: Dictionary = session.world.snapshot().duplicate(true)
 	var bytes := FileAccess.get_file_as_bytes(save)
 	map.show_tile(at, true)
 	check(map.overlay == march, "repeated HOME dispatch cannot skip or restart the march")
 	if take_captures:
-		if not check(await until(func(): return is_instance_valid(march) and pawns.all(func(pawn): return pawn.modulate.a >= 0.99), 15000), "all pawns fade in"): return false
-		await snap("board_march_departure")
-	if not check(await until(func(): return pawn_near(pawns[0], village + 3), 15000), "pawns travel down the right-hand tile path"): return false
-	if take_captures: await snap("board_march_corner")
-	if not check(await until(func(): return pawns.all(func(pawn): return pawn_near(pawn, at)), 15000), "all pawns reach the house"): return false
-	if take_captures: await snap("board_march_arrival")
+		if not check(await until(func(): return is_instance_valid(march) and pawn.modulate.a >= 0.99, 15000), "the crowd pawn fades in"): return false
+		await snap("board_crowd_departure")
+	if not check(await until(func(): return pawn_near(pawn, village + 3), 15000), "the crowd pawn travels down the right-hand tile path"): return false
+	if take_captures: await snap("board_crowd_corner")
+	if not check(await until(func(): return pawn_near(pawn, at, 74.0), 15000), "the crowd pawn reaches the house"): return false
+	check(pawn.position.x - map.hero.position.x > pawn.size.x * 0.5, "crowd arrives alongside the hero")
+	if take_captures: await snap("board_crowd_arrival")
 	if not check(await until(func(): return map.overlay is BOOK, 15000), "arson book opens when the march finishes"): return false
 	check(session.world.snapshot() == before and FileAccess.get_file_as_bytes(save) == bytes, "march leaves the saved encounter, player position and RNG intact")
 	return true

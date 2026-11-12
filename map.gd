@@ -3219,6 +3219,8 @@ func _play_village_mob_march(home_index: int) -> void:
 	for step in range(steps + 1):
 		var tile: int = (village + step) % world.tiles.size()
 		route.append(center(tile) + Vector2(0, HERO_BASE_ABOVE_TILE_CENTER))
+	# Settle beside the hero so both pieces stay visible at the house.
+	route[route.size() - 1] += Vector2(64, -16)
 
 	var march := VillageMobMarch.new()
 	march.name = "VillageMobMarch"
@@ -3227,7 +3229,7 @@ func _play_village_mob_march(home_index: int) -> void:
 	march.mouse_filter = Control.MOUSE_FILTER_STOP
 	stage.add_child(march)
 	overlay = march
-	await march.play(route)
+	await march.play(route, HERO_TOKEN_SIZE)
 	if overlay == march:
 		close_overlay(false)
 		show_witch_hunt_beat(2, home_index)
