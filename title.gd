@@ -4,6 +4,8 @@ const MAP_SCENE := "res://map.tscn"
 const INTRO_SCENE := "res://intro.tscn"
 const BASE_SIZE := Vector2(1280.0, 720.0)
 const AudioSettings = preload("res://systems/audio_settings.gd")
+const DemoEndingScreen = preload("res://systems/demo_ending_screen.gd")
+const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const TITLE_MUSIC := "res://assets/title/music/title-theme.mp3"
 # 큰 패럴랙스 이동에도 빈 가장자리가 보이지 않도록 넉넉하게 확보.
 # 1672x941 원화를 1520x860 정도로 축소 표시하므로 업스케일 없이 선명도를 유지한다.
@@ -37,6 +39,7 @@ var base_positions: Dictionary = {}
 # Production uses the same ConfigFile as map and battlefield. A test may
 # assign an isolated save path before adding this scene to the tree.
 var audio_save_path: String = AudioSettings.SAVE
+var demo_record: Control
 
 func _ready() -> void:
 	# Match the same persistent Music/SFX bus preferences used on map and battlefield.
@@ -163,6 +166,9 @@ func _load_menu_art() -> void:
 	]
 	for entry in buttons:
 		var button: Button = entry[0]
+		if button == continue_button and get_node("/root/RunSession").has_demo_record():
+			button.text = "원정 기록"
+			continue
 		var path: String = "res://assets/title/menu/" + str(entry[1])
 		if not ResourceLoader.exists(path):
 			continue
@@ -263,6 +269,18 @@ func _continue_run() -> void:
 		return
 	if not session.reload_world():
 		_show_save_error(session.notice)
+		return
+	if session.demo_mode and session.event_flag_is_set(FinalDragonProgress.DEMO_ENDING_ACK):
+		if not is_instance_valid(demo_record):
+			demo_record = DemoEndingScreen.new()
+			$TitleUI.add_child(demo_record)
+			$TitleUI/MenuPanel.hide()
+			demo_record.show_demo_ending(session.world, true)
+			demo_record.title_requested.connect(func():
+				demo_record.queue_free()
+				demo_record = null
+				$TitleUI/MenuPanel.show()
+				continue_button.grab_focus())
 		return
 	get_tree().change_scene_to_file(MAP_SCENE)
 

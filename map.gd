@@ -94,6 +94,7 @@ const Battlefield = preload("res://battlefield.tscn")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalDragonDieLayout = preload("res://systems/final_dragon_die_layout.gd")
 const FinalChapterScreen = preload("res://systems/final_chapter_screen.gd")
+const DemoEndingScreen = preload("res://systems/demo_ending_screen.gd")
 const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
 const GameOverScreen = preload("res://systems/game_over_screen.gd")
@@ -356,7 +357,7 @@ func _ready() -> void:
 	if world.run_result.get("reason","")=="battle_defeat":
 		call_deferred("show_game_over",true)
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
-	elif FinalDragonProgress.ending_pending(world): call_deferred("show_final_ending",true)
+	elif FinalDragonProgress.ending_pending(world): call_deferred("show_final_ending",not session.demo_mode)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
@@ -1849,15 +1850,19 @@ func play_king_portal_emergence(index: int) -> void:
 func show_final_ending(instant: bool = false) -> void:
 	if not FinalDragonProgress.ending_pending(world) or is_instance_valid(final_chapter_screen): return
 	close_overlay()
-	var chapter := FinalChapterScreen.new()
+	var chapter := DemoEndingScreen.new() if session.demo_mode else FinalChapterScreen.new()
 	final_chapter_screen = chapter
 	stage.add_child(chapter)
 	overlay = chapter
 	dice.disabled = true
 	dice.hide()
 	map_music.stream_paused = true
-	var continue_expedition := Callable(session,"continue_after_final_ending") if FinalDragonProgress.can_continue(world) else Callable()
-	chapter.show_ending(world.run_result,instant,continue_expedition)
+	if session.demo_mode:
+		var archived: bool = session.event_flag_is_set(FinalDragonProgress.DEMO_ENDING_ACK)
+		chapter.show_demo_ending(world, archived, Callable(session, "complete_demo_ending"))
+	else:
+		var continue_expedition := Callable(session,"continue_after_final_ending") if FinalDragonProgress.can_continue(world) else Callable()
+		chapter.show_ending(world.run_result,instant,continue_expedition)
 	chapter.title_requested.connect(func():
 		get_tree().change_scene_to_file("res://title.tscn"))
 	chapter.return_requested.connect(func():

@@ -7,6 +7,7 @@ const COMPLETE = "quest:monster_king_final_battle:complete"
 const DEFEATED = "story:final_dragon:defeated"
 const INTRO_SEEN = "presentation:final_dragon:acknowledged"
 const ENDING_ACK = "presentation:final_dragon:ending_acknowledged"
+const DEMO_ENDING_ACK = "presentation:final_dragon:demo_ending_acknowledged"
 
 static func cleared(world) -> bool:
 	return world != null and (world.event_flags.get(DEFEATED,false)==true or world.run_result.get("reason","")==REASON)
@@ -60,6 +61,8 @@ static func valid_record(saved: Dictionary) -> bool:
 	var flags: Dictionary = saved.get("event_flags",{})
 	var final_result: bool = record.get("reason","")==REASON
 	var acknowledged: bool = flags.get(ENDING_ACK,false)==true
+	if flags.get(DEMO_ENDING_ACK,false) and (not final_result or not saved.get("pending_reward",{}).is_empty()):
+		return false
 	if not final_result and not acknowledged: return true
 	if flags.get(ACTIVE,false)!=false or flags.get(COMPLETE,false)!=true or flags.get(DEFEATED,false)!=true: return false
 	# After acknowledgement, an unrelated later defeat is still a valid result.

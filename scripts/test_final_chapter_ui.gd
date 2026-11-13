@@ -5,6 +5,7 @@ const StoryBook = preload("res://systems/main_story_book.gd")
 const MAP = preload("res://map.tscn")
 const Fixture = preload("res://scripts/boss_story_test_fixture.gd")
 const Progress = preload("res://systems/final_dragon_progress.gd")
+const Demo = preload("res://systems/demo_ending_screen.gd")
 const DieLayout = preload("res://systems/final_dragon_die_layout.gd")
 const Book = preload("res://systems/final_chapter_screen.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
@@ -266,6 +267,9 @@ func _run() -> void:
 		await map.finish_embedded_battle()
 		check(not is_instance_valid(map.final_chapter_screen),"a later battle return cannot reopen the acknowledged ending")
 
+	var demo_state := ending_state.duplicate(true)
+	check_demo_matrix()
+
 	# The old fixed-slot ending still closes to the real title.
 	ending_state.run_result.erase("entry")
 	ending_state.position=23
@@ -285,6 +289,7 @@ func _run() -> void:
 	current_scene.queue_free()
 	current_scene=null
 	await process_frame
+	await check_demo_scene(s, scratch, demo_state)
 	s.save_file_path = original_path
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(scratch+suffix): DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
@@ -294,3 +299,82 @@ func _run() -> void:
 	await create_timer(0.10).timeout
 	print("FINAL_CHAPTER_UI: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
+
+func check_demo_matrix() -> void:
+	var variants := [
+		Demo.chapter_for({}, ""),
+		Demo.chapter_for({}, "stopped"),
+		Demo.chapter_for({}, "burned"),
+		Demo.chapter_for({Demo.Hunt.DAMAGED_FLAG:true}, ""),
+		Demo.chapter_for({}, "active")
+	]
+	check(variants.map(func(branch): return branch.id) == ["quiet","protected","burned","damaged","unresolved"],
+		"demo keeps all five house outcomes distinct")
+	check(Demo.chapter_for({Demo.Hunt.PROTECTED_FLAG:true}, "").id == "protected"
+		and Demo.chapter_for({Demo.Hunt.BURNED_FLAG:true}, "").id == "burned"
+		and Demo.chapter_for({}, "", true).id == "unresolved", "legacy home and unfinished fire outcomes remain readable")
+	var art_paths: Array = variants.map(func(branch): return branch.art)
+	check(art_paths.all(func(path): return ResourceLoader.exists(path)) and variants.map(func(branch): return branch.title).count(variants[0].title) == 1,
+		"every demo house outcome has an existing image")
+	var route := Demo.chapter_for({Demo.Rumor.ABANDONED_FLAG:true, Demo.Altar.INFILTRATE_FLAG:true,
+		Demo.Inquiry.WATCH_FLAG:true, Demo.Ritual.FULL_REVIVAL_FLAG:true, Demo.Hunt.RESCUED_FLAG:true}, "burned")
+	check(route.trail.size() == 5 and "부활 의식은 끝까지 이어졌다." in route.trail,
+		"demo epilogue keeps all compatible story outcomes together")
+	var alternate := Demo.chapter_for({Demo.Rumor.RESCUED_FLAG:true, Demo.Altar.FIGHT_FLAG:true,
+		Demo.Inquiry.TESTIMONY_FLAG:true, Demo.Ritual.WEAKENED_FLAG:true}, "")
+	check(alternate.trail == ["공동묘지에서 아이를 구했다.", "제단에서 광신도와 맞섰다.",
+		"기사단에 진술을 남겼다.", "부활 의식의 힘을 약화했다."], "alternate choices produce different journal lines")
+	check(Demo.chapter_for({Demo.Altar.PASS_FLAG:true}, "").trail == ["제단을 지나 의식의 흔적을 추적했다."],
+		"passing the altar has its own journal entry")
+	check(Demo.chapter_for({Demo.Hunt.PUBLIC_FLAG:true, Demo.Hunt.ESCORT_FLAG:true}, "stopped").village
+		== ["목격자와 공개 대면했다.", "경비의 동행을 요청했다."], "public testimony and escort appear in the chapter")
+	check(Demo.chapter_for({Demo.Hunt.REFUSED_FLAG:true, Demo.Hunt.ALONE_FLAG:true}, "burned").village
+		== ["목격자와의 대면을 거절했다.", "경비 없이 집으로 향했다."], "refusal and traveling alone remain visible")
+
+func check_demo_scene(s: Node, scratch: String, state: Dictionary) -> void:
+	s.demo_mode = true
+	state.riot = {"state":"burned","index":15,"face":2,"pending":{}}
+	state.event_flags.erase(Demo.Rumor.RESCUED_FLAG)
+	state.event_flags[Demo.Rumor.ABANDONED_FLAG] = true
+	state.event_flags.erase(Demo.Ritual.WEAKENED_FLAG)
+	state.event_flags[Demo.Ritual.FULL_REVIVAL_FLAG] = true
+	check(s.world.restore(state) and s.save_world() and s.reload_world(), "demo final victory saves and reloads before acknowledgement")
+	var map = MAP.instantiate()
+	root.add_child(map)
+	current_scene = map
+	var ready := await until_ready(func(): return is_instance_valid(map.final_chapter_screen) and not map.final_chapter_screen.action_button.disabled, 7.0)
+	check(ready, "demo book completes its illustration and brief fissure animation")
+	if not ready:
+		map.queue_free()
+		current_scene = null
+		s.demo_mode = false
+		return
+	var chapter: Control = map.final_chapter_screen
+	check(chapter.hint.modulate.a > 0.99, "fissure line has faded in before completion")
+	check(chapter is Demo and chapter.epilogue.id == "burned" and chapter.title.text == "재가 남은 길", "real demo scene shows the saved burned-house epilogue")
+	check(chapter.action_button.text == "체험판 완료" and not s.continue_after_final_ending(), "demo stops at the chapter rather than continuing the board")
+	await capture("demo-ending-burned")
+	s.save_file_path = "user://missing_demo_ending_directory/save.json"
+	chapter.action_button.pressed.emit()
+	check(not chapter.book.closing and not s.event_flag_is_set(Progress.DEMO_ENDING_ACK) and "저장하지 못했습니다" in chapter.hint.text, "demo shows a retry when acknowledgement cannot be stored")
+	s.save_file_path = scratch
+	chapter.action_button.pressed.emit()
+	check(chapter.book.closing and s.has_demo_record() and s.world.run_result == state.run_result, "demo acknowledgement saves before close and preserves the victory")
+	check(await until_ready(func(): return current_scene != null and current_scene.scene_file_path == "res://title.tscn", 4.0), "demo ends at the real title")
+	var title_scene = current_scene
+	check(title_scene.continue_button.text == "원정 기록" and title_scene.continue_button.icon == null, "completed demo has a visible Expedition Record title action")
+	var bytes := FileAccess.get_file_as_bytes(scratch)
+	title_scene.continue_button.pressed.emit()
+	check(is_instance_valid(title_scene.demo_record) and title_scene.demo_record.epilogue == chapter_for_test(s), "title reopens the same epilogue in read-only mode")
+	check(FileAccess.get_file_as_bytes(scratch) == bytes and s.world.reward_receipts == state.reward_receipts, "record viewing does not write the save or duplicate harvest")
+	if is_instance_valid(title_scene.demo_record):
+		await until_ready(func(): return not title_scene.demo_record.book.opening)
+		title_scene.demo_record.action_button.pressed.emit()
+		check(await until_ready(func(): return not is_instance_valid(title_scene.demo_record), 4.0), "archived book closes back to title")
+	title_scene.queue_free()
+	current_scene = null
+	await process_frame
+	s.demo_mode = false
+
+func chapter_for_test(s: Node) -> Dictionary:
+	return Demo.chapter_for(s.world.event_flags, str(s.world.riot.state))

@@ -23,12 +23,14 @@ const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
 const StoryBattleOutcomes = preload("res://systems/story_battle_outcomes.gd")
 const SAVE = "user://map_run_v1.json"
+const DEMO_SAVE = "user://map_run_demo_v1.json"
 const RIOT_REMOTE_HOME_REASON = "폭동 중에는 집에 직접 도착해야 합니다."
 const SAVE_LOAD_FAILED = "저장된 원정을 읽을 수 없습니다. 기존 저장은 보존했습니다."
 const SHOP_OFFER_COUNT = 3
 const SHOP_TRADE_LIMIT = 3
 # Tests use a separate user:// path; production keeps the canonical path by default.
-var save_file_path: String = SAVE
+var demo_mode := OS.has_feature("demo") or OS.get_cmdline_user_args().has("--demo")
+var save_file_path: String = DEMO_SAVE if demo_mode else SAVE
 const RITUAL_EVENT_ID = "ritual_portal_trace_01"
 const HUNT_EVENT_ID = "monster_king_hunt_trace_01"
 const GRAVEYARD_EVENT_ID = "graveyard_child_ambush_01"
@@ -40,6 +42,17 @@ var unreadable_save_path := ""
 
 func has_save() -> bool:
 	return FileAccess.file_exists(save_file_path)
+
+func has_demo_record() -> bool:
+	if not demo_mode or not has_save(): return false
+	var save_json := JSON.new()
+	if save_json.parse(FileAccess.get_file_as_string(save_file_path)) != OK: return false
+	var data: Variant = save_json.data
+	if not data is Dictionary: return false
+	var flags: Variant = data.get("event_flags", {})
+	var result: Variant = data.get("run_result", {})
+	var reward: Variant = data.get("pending_reward", {})
+	return flags is Dictionary and flags.get(FinalDragonProgress.DEMO_ENDING_ACK, false) == true and result is Dictionary and result.get("reason", "") == FinalDragonProgress.REASON and reward is Dictionary and reward.is_empty()
 
 func start_new_world() -> bool:
 	var previous_unreadable_path := unreadable_save_path
@@ -918,8 +931,12 @@ func dismiss_failed_capture() -> bool:
 	world.pending_reward = {}
 	return persist_change(before)
 
+func complete_demo_ending() -> bool:
+	if not demo_mode or not FinalDragonProgress.ending_pending(world): return false
+	return set_event_flag(FinalDragonProgress.DEMO_ENDING_ACK)
+
 func continue_after_final_ending() -> bool:
-	if not FinalDragonProgress.can_continue(world): return false
+	if demo_mode or not FinalDragonProgress.can_continue(world): return false
 	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
 	var before: Dictionary = world.snapshot().duplicate(true)
 	world.event_flags[FinalDragonProgress.ENDING_ACK] = true
