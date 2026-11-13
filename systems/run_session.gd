@@ -23,6 +23,8 @@ const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
 const StoryBattleOutcomes = preload("res://systems/story_battle_outcomes.gd")
 const SAVE = "user://map_run_v1.json"
+const RIOT_REMOTE_HOME_REASON = "폭동 중에는 집에 직접 도착해야 합니다."
+const SAVE_LOAD_FAILED = "저장된 원정을 읽을 수 없습니다. 기존 저장은 보존했습니다."
 const SHOP_OFFER_COUNT = 3
 const SHOP_TRADE_LIMIT = 3
 # Tests use a separate user:// path; production keeps the canonical path by default.
@@ -34,22 +36,38 @@ const GRAVEYARD_RESULT_PENDING_FLAG = "story:graveyard_child_ambush_01:result_pe
 var world
 var encounter: Dictionary = {}
 var notice = ""
+var unreadable_save_path := ""
 
 func has_save() -> bool:
 	return FileAccess.file_exists(save_file_path)
 
-func start_new_world() -> void:
+func start_new_world() -> bool:
+	var previous_unreadable_path := unreadable_save_path
+	if unreadable_save_path == save_file_path and has_save():
+		var source := ProjectSettings.globalize_path(save_file_path)
+		var backup := "%s.unreadable-%d.bak" % [source, Time.get_ticks_usec()]
+		if FileAccess.file_exists(backup) or DirAccess.copy_absolute(source, backup) != OK:
+			notice = "기존 저장을 백업하지 못했습니다. 저장 경로를 확인하세요."
+			return false
+	var previous_world = world
+	var previous_encounter := encounter
 	var definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
 	world = MapState.new(definitions,Time.get_ticks_usec())
 	encounter = {}
 	notice = ""
-	save_world()
+	unreadable_save_path = ""
+	if save_world(): return true
+	world = previous_world
+	encounter = previous_encounter
+	unreadable_save_path = previous_unreadable_path
+	return false
 
-func reload_world() -> void:
+func reload_world() -> bool:
 	world = null
 	encounter = {}
 	notice = ""
-	ensure_world()
+	unreadable_save_path = ""
+	return ensure_world()
 
 ## One-time, read-only backup for old saves containing independent brand cards.
 ## Backup is NOT a game item collection and is never parsed as live inventory.
@@ -62,14 +80,21 @@ func backup_retired_brand_cards(parsed: Dictionary) -> bool:
 	var to_path: String = ProjectSettings.globalize_path(backup_path)
 	return DirAccess.copy_absolute(from_path,to_path)==OK
 
-func ensure_world() -> void:
-	if world != null: return
+func ensure_world() -> bool:
+	if world != null: return true
+	if unreadable_save_path == save_file_path: unreadable_save_path = ""
 	var definitions = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
 	world = MapState.new(definitions,Time.get_ticks_usec())
 	if FileAccess.file_exists(save_file_path):
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string(save_file_path))
+		var save_json := JSON.new()
+		var parsed: Variant
+		if save_json.parse(FileAccess.get_file_as_string(save_file_path)) == OK:
+			parsed = save_json.data
 		if not parsed is Dictionary or not world.restore(parsed):
-			notice = "저장된 맵을 읽지 못해 새 원정을 시작했습니다."
+			unreadable_save_path = save_file_path
+			world = null
+			notice = SAVE_LOAD_FAILED
+			return false
 		else:
 			# The original save remains available for manual recovery of retired
 			# card records; the restored world does not retain them in gameplay.
@@ -87,6 +112,10 @@ func ensure_world() -> void:
 			var boss_retired: bool = world.conceal_boss_below_threshold()
 			var swamp_upgraded: int = world.reveal_swamps_for_contamination()
 			var rare_upgraded: bool = world.restore_missing_rare_stone()
+			var riot_upgraded := false
+			if Riot.active(world) and world.position == MapState.HOME and world.pending_move.is_empty() and world.riot.pending.is_empty():
+				Riot.prepare_turn(world, [], false)
+				riot_upgraded = Riot.commit_turn(world)
 			# The 2026-10-14 version saved only card_shown, not a hill.
 			# Retrofit one real road for those existing players instead of
 			# locking them out permanently from the new event-only award.
@@ -97,12 +126,17 @@ func ensure_world() -> void:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_migrated or boss_upgraded or warp_upgraded or wormhole_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded) and not save_world():
+			if (boss_migrated or boss_upgraded or warp_upgraded or wormhole_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded or riot_upgraded) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
+	return true
 
 func save_world() -> bool:
+	if unreadable_save_path == save_file_path:
+		notice = SAVE_LOAD_FAILED
+		return false
+	if world == null: return false
 	var file = FileAccess.open(save_file_path+".tmp",FileAccess.WRITE)
 	if file == null:
 		notice = "저장에 실패했습니다."
@@ -794,6 +828,18 @@ func open_treasure(index: int = -1) -> bool:
 	world.pending_reward = {"id":visit_id,"kind":"treasure","offers":offers,"selected":-1}
 	return persist_change(before)
 
+func retreat_unfightable_mimic() -> bool:
+	if world == null or not world.run_result.is_empty() or not world.roster.is_empty(): return false
+	if not encounter.is_empty() or not world.active_encounter.is_empty() or not world.pending_move.is_empty(): return false
+	var pending: Dictionary = world.pending_reward
+	if pending.get("kind", "") != "mimic": return false
+	var receipt := str(pending.get("id", ""))
+	if receipt.is_empty(): return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	if not receipt in world.reward_receipts: world.reward_receipts.append(receipt)
+	world.pending_reward = {}
+	return persist_change(before)
+
 func select_treasure(index: int) -> bool:
 	if world.pending_reward.get("kind","")!="treasure" or world.pending_reward.has("reward"): return false
 	if index<0 or index>=world.pending_reward.offers.size(): return false
@@ -977,8 +1023,12 @@ func checkpoint_battle(battle, phase: String) -> bool:
 func home_visit_id() -> String:
 	return place_visit_id("inheritance",MapState.HOME)
 
+func home_blocked_by_riot() -> bool:
+	return Riot.active(world) and world.position != MapState.HOME
+
 func home_services_allowed() -> Dictionary:
 	if world==null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	if home_blocked_by_riot(): return {"ok":false,"reason":RIOT_REMOTE_HOME_REASON}
 	if WitchHunt.home_burned(self): return {"ok":false,"reason":"집이 전소되어 회복·계승·순찰 기능을 이용할 수 없습니다."}
 	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
 	return {"ok":true}
@@ -1081,6 +1131,7 @@ func place_visit_id(kind: String, index: int) -> String:
 
 func place_allowed(index: int, type: String) -> Dictionary:
 	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	if type == "home" and home_blocked_by_riot(): return {"ok":false,"reason":RIOT_REMOTE_HOME_REASON}
 	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
 	if index<0 or index>=world.tiles.size() or world.tiles[index]!=type:
 		return {"ok":false,"reason":"이 장소에서는 사용할 수 없습니다."}
@@ -1462,7 +1513,10 @@ func warp_from(index: int) -> Dictionary:
 	return {"ok":true,"origin":index,"destination":destination,"riot_stopped":caught}
 
 func leave_home() -> bool:
-	if not place_allowed(MapState.HOME,"home").ok: return false
+	var allowed := place_allowed(MapState.HOME,"home")
+	if not allowed.ok:
+		notice = allowed.reason
+		return false
 	if not world.riot.get("pending", {}).is_empty():
 		notice = "주민 이동을 먼저 마쳐야 합니다."
 		return false

@@ -71,6 +71,12 @@ func run() -> void:
 	session.save_file_path = save_path
 	check(session.complete_riot_opening() and session.world.riot.index == opening.pending.path.back(), "opening movement commits once")
 	check(session.complete_riot_opening() and session.world.rng.state == opening_rng, "retry after commit draws no die")
+	var active_snapshot: Dictionary = session.world.snapshot().duplicate(true)
+	check(not session.leave_home() and session.notice == session.RIOT_REMOTE_HOME_REASON, "remote HOME cannot bypass the chase")
+	check(not session.enter_home() and not session.home_services_allowed().ok, "remote HOME cannot heal during chase")
+	check(session.world.snapshot() == active_snapshot, "blocked remote HOME changes neither progress nor RNG")
+	session.world.position = HOME
+	check(session.save_world() and session.reload_world() and session.world.riot.state == "stopped", "an older save already at HOME is recovered")
 
 	if prepare_turn(10, 9, 1, 3):
 		var plan: Dictionary = session.world.riot.pending.duplicate(true)
@@ -96,6 +102,18 @@ func run() -> void:
 		session.world.position = HOME
 		session.world.lap_ready = true
 		check(session.leave_home() and Hunt.home_burned(session), "next lap preserves the burnt house")
+
+	if check(Fixture.prepare(session) and Fixture.arrive(session, 0) and Fixture.finish_stage(session, 0, "confront"), "escort fixture is a genuine story route"):
+		session.world.position = 7
+		session.world.move_serial += 1
+		var rng_before_escort: int = session.world.rng.state
+		var village: int = session.world.tiles.find("village")
+		check(Fixture.finish_stage(session, 1, "escort"), "escort begins the riot")
+		check(session.world.riot.index == village and session.world.riot.pending.is_empty() and session.world.rng.state == rng_before_escort, "guards hold the mob without an opening roll")
+		check(session.reload_world() and session.world.riot.index == village and session.world.riot.pending.is_empty(), "restarting does not consume the player's head start")
+		seed_rolls(2)
+		check(session.prepare_map_roll().get("ok", false) and session.world.riot.pending.state == "stopped", "player can catch the mob on the first escorted roll")
+		check(session.complete_map_move(), "escorted capture commits")
 
 	session.free()
 	for suffix in ["", ".tmp"]:

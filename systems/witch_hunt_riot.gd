@@ -6,13 +6,15 @@ static func active(world) -> bool:
 	return world != null and world.riot.get("state", "") == "active"
 
 
-static func start(world) -> bool:
+static func start(world, escorted: bool = false) -> bool:
 	if world == null or not world.riot.is_empty(): return false
 	var village: int = world.tiles.find("village")
 	var home: int = world.tiles.find("home")
 	if village < 0 or village >= home: return false
 	world.riot = {"state":"active", "index":village, "face":0, "pending":{}}
-	prepare_turn(world, [], true, true)
+	# The escort holds the crowd at the village until after the player's first roll.
+	if not escorted or world.position == home:
+		prepare_turn(world, [], true, true)
 	return true
 
 

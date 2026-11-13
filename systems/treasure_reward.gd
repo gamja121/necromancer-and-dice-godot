@@ -1,6 +1,6 @@
 extends "res://systems/reward_ui.gd"
 const Sound = preload("res://systems/game_audio.gd")
-signal finished
+signal finished(message: String)
 signal mimic_revealed(index: int)
 const Overflow = preload("res://systems/reward_overflow.gd")
 var session
@@ -52,7 +52,12 @@ func setup(map_scene) -> void:
 			shake.tween_property(chest,"position:x",380.0+offset,0.06)
 		await shake.finished
 		await get_tree().create_timer(0.36).timeout
-		mimic_revealed.emit(int(session.world.pending_reward.index))
+		if session.world.roster.is_empty():
+			status.text = "출전 가능한 마물이 없어 미믹과 싸울 수 없습니다."
+			var retreat := button(self,"물러나기",Vector2(490,626),Vector2(300,52),_retreat_from_mimic)
+			retreat.name = "MimicRetreatButton"
+		else:
+			mimic_revealed.emit(int(session.world.pending_reward.index))
 		return
 	chest.modulate.a = 0.28
 	status.text = "보상 카드를 선택한 뒤 아래에서 획득을 확정하세요"
@@ -60,6 +65,12 @@ func setup(map_scene) -> void:
 	await animate_offer_entrance()
 	busy = false
 	refresh()
+
+func _retreat_from_mimic() -> void:
+	if session.retreat_unfightable_mimic():
+		finished.emit("미믹에게서 물러났습니다 · 다음 보물상자에서 마물을 확보하세요.")
+	else:
+		status.text = "저장에 실패했습니다. 다시 시도하세요."
 
 # Three successive source cards rise from 22% below, with 110ms staggering.
 # Keep the chest/selection receipt and save pipeline completely separate.
@@ -197,4 +208,4 @@ func receive(index: int) -> void:
 	else:
 		status.text = "신규 보상을 버렸습니다"
 		await get_tree().create_timer(0.22).timeout
-	finished.emit()
+	finished.emit("보물상자 보상을 정리했습니다")

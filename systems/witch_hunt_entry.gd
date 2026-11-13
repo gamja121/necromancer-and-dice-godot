@@ -127,7 +127,7 @@ static func advance(session, stage: int, index: int, shown_index: int) -> bool:
 		session.world.event_flags[flag(stage,"complete")]=true
 		session.world.event_flags[finished_visit_flag(session,stage,index)]=true
 		for key in outcome_flags(session,stage,decision): session.world.event_flags[key]=true
-		if stage == 1: Riot.start(session.world)
+		if stage == 1: Riot.start(session.world, decision == "escort")
 	else: session.world.event_flags[progress_flag(stage,current+1)]=true
 	return session.persist_change(before)
 static func home_in_progress(session) -> bool:

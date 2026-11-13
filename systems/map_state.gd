@@ -557,7 +557,7 @@ func restore(saved: Dictionary) -> bool:
 			if reward.reward.get("kind","")!="dice" or not reward.reward.get("item",{}) is Dictionary: return false
 	if reward.get("kind","")=="grave-dig":
 		var grave_index: int = int(reward.get("index",-1))
-		if grave_index<0 or grave_index>=24 or int(saved.position)!=grave_index or saved.tiles[grave_index]!="graveyard": return false
+		if grave_index<0 or grave_index>=24 or saved.tiles[grave_index]!="graveyard": return false
 		if not str(reward.get("id","")).begins_with("grave-extract-visit:"): return false
 		if reward.id in saved.get("reward_receipts",[]): return false
 		if reward.get("reward",{}).get("kind","")!="dice": return false

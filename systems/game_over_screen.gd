@@ -234,8 +234,8 @@ func _show_results() -> void:
 	title.name="ReturnToTitle"
 
 func _new_run() -> void:
-	session.start_new_world()
-	get_tree().change_scene_to_file("res://intro.tscn")
+	if session.start_new_world():
+		get_tree().change_scene_to_file("res://intro.tscn")
 
 func _back_to_title() -> void:
 	get_tree().change_scene_to_file("res://title.tscn")

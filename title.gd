@@ -250,15 +250,33 @@ func _set_sfx_enabled(enabled: bool) -> void:
 	_save_audio()
 
 func _start_new_run() -> void:
-	get_node("/root/RunSession").start_new_world()
+	var session := get_node("/root/RunSession")
+	if not session.start_new_world():
+		_show_save_error(session.notice)
+		return
 	get_tree().change_scene_to_file(INTRO_SCENE)
 
 func _continue_run() -> void:
-	if not get_node("/root/RunSession").has_save():
+	var session := get_node("/root/RunSession")
+	if not session.has_save():
 		continue_button.disabled = true
 		return
-	get_node("/root/RunSession").reload_world()
+	if not session.reload_world():
+		_show_save_error(session.notice)
+		return
 	get_tree().change_scene_to_file(MAP_SCENE)
+
+func _show_save_error(message: String) -> void:
+	var dialog := get_node_or_null("SaveErrorDialog") as AcceptDialog
+	if dialog == null:
+		dialog = AcceptDialog.new()
+		dialog.name = "SaveErrorDialog"
+		dialog.title = tr("저장 오류")
+		dialog.ok_button_text = tr("확인")
+		dialog.add_theme_font_override("font", preload("res://assets/fonts/nanum_gothic_regular.ttf"))
+		add_child(dialog)
+	dialog.dialog_text = tr(message if not message.is_empty() else "저장에 실패했습니다.")
+	dialog.popup_centered()
 
 func _exit_game() -> void:
 	get_tree().quit()

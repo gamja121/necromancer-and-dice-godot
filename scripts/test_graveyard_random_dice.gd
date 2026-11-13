@@ -52,6 +52,8 @@ func basic_rewards(session: Node) -> void:
 func full_deck(session: Node) -> void:
 	var index: int = open_cemetery(session)
 	var world = session.world
+	var remote_position: int = world.HOME
+	world.position = remote_position
 	for card in CATALOG.dice_cards().slice(0,CATALOG.DICE_CAPACITY):
 		world.dice_cards.append(session.create_item("dice",card))
 	check(world.dice_cards.size()==CATALOG.DICE_CAPACITY,"fixture begins with full dice hand")
@@ -63,7 +65,7 @@ func full_deck(session: Node) -> void:
 	var found_id: String = str(world.pending_reward.reward.item.id)
 	session.reload_world()
 	world = session.world
-	check(str(world.pending_reward.reward.item.id)==found_id and world.pending_reward.index==index,"pending choice and grave index survive reload")
+	check(world.pending_reward.get("reward", {}).get("item", {}).get("id", "")==found_id and world.pending_reward.get("index",-1)==index and world.position==remote_position,"remote reward, grave index and player position survive reload")
 	check(not session.dig_graveyard(index).get("ok",false),"unfinished replacement cannot start another dig")
 	var discard: String = str(world.dice_cards[0].id)
 	var resolved: Dictionary = session.claim_reward(discard)

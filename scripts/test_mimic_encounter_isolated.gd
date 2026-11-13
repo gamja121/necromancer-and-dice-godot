@@ -180,6 +180,45 @@ func snapshot_differences(original: Dictionary, reopened: Dictionary, label: Str
 				" before=",str(original[key]).left(150),
 				" after=",str(reopened.get(key,null)).left(150))
 
+func run_empty_roster_case(session: Node) -> void:
+	var scratch := "user://mimic_empty_roster_%d.json" % OS.get_process_id()
+	session.save_file_path = scratch
+	session.start_new_world()
+	var gem: int = session.world.tiles.find("gem")
+	choose_real_mimic_rng(session)
+	if not session.open_treasure(gem) or session.world.pending_reward.get("kind","") != "mimic":
+		check(false, "empty roster fixture draws a real mimic")
+	else:
+		check(not session.retreat_unfightable_mimic(), "mimic retreat does not bypass battle with available monsters")
+		session.world.roster.clear()
+		check(session.save_world() and session.reload_world(), "existing zero-roster mimic save reloads")
+		var pending: Dictionary = session.world.pending_reward.duplicate(true)
+		var rng_state: int = session.world.rng.state
+		var map: Control = MAP.instantiate()
+		root.add_child(map)
+		var retreat_ready := await until_ready(func(): return is_instance_valid(map.overlay) and map.overlay.has_node("MimicRetreatButton"))
+		check(retreat_ready, "reopened mimic provides a retreat button when no monster can fight")
+		if retreat_ready:
+			var retreat := map.overlay.get_node("MimicRetreatButton") as Button
+			session.save_file_path = "user://mimic_unwritable_%d/save.json" % OS.get_process_id()
+			retreat.pressed.emit()
+			check(session.world.pending_reward == pending and session.world.rng.state == rng_state
+				and is_instance_valid(retreat), "failed retreat save preserves the exact mimic and allows retry")
+			session.save_file_path = scratch
+			retreat.pressed.emit()
+			check(not is_instance_valid(map.overlay) and session.world.pending_reward.is_empty(),
+				"actual retreat returns to the map and clears the pending mimic")
+			check(session.world.reward_receipts.count(pending.id) == 1 and session.world.rng.state == rng_state,
+				"retreat consumes the visit once without rerolling or granting an item")
+			check(session.reload_world() and not session.open_treasure(gem) and session.prepare_map_roll().get("ok", false),
+				"restarted run cannot reopen that chest and can move again")
+		map.queue_free()
+		await process_frame
+	for suffix in ["", ".tmp"]:
+		var target: String = scratch + suffix
+		if FileAccess.file_exists(target):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(target))
+
 func _run() -> void:
 	var session = root.get_node_or_null("RunSession")
 	var own: bool = session == null
@@ -190,6 +229,7 @@ func _run() -> void:
 	var prior_path: String = session.save_file_path
 	await run_case(session,"ally",0,0)
 	await run_case(session,"enemy",80,2)
+	await run_empty_roster_case(session)
 	session.save_file_path = prior_path
 	if own: session.queue_free()
 	print("MIMIC_ISOLATED: %d passed, %d failed" % [passed,failed])

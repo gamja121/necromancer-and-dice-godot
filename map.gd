@@ -325,7 +325,9 @@ func _ready() -> void:
 	DisplayServer.window_set_title("Necromancer and Dice")
 	AudioSettings.apply_saved()
 	session = get_node("/root/RunSession")
-	session.ensure_world()
+	if not session.ensure_world():
+		get_tree().call_deferred("change_scene_to_file", "res://title.tscn")
+		return
 	world = session.world
 	var font = preload("res://assets/fonts/nanum_gothic_regular.ttf")
 	theme = Theme.new()
@@ -349,7 +351,7 @@ func _ready() -> void:
 	if not session.notice.is_empty():
 		status.text = session.notice
 		session.notice = ""
-	if world.roster.is_empty(): status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
+	if world.roster.is_empty(): status.text = "출전 가능한 마물이 없습니다 · 보물상자에서 마물을 확보하세요."
 	session.save_world()
 	if world.run_result.get("reason","")=="battle_defeat":
 		call_deferred("show_game_over",true)
@@ -1035,6 +1037,7 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 	var previous_wormhole: int = KingPortalTile.target(world)
 	var riot_plan: Dictionary = world.riot.get("pending", {}).duplicate(true)
 	await _animate_riot_turn(riot_plan)
+	await _pause_for_riot_turn_result(riot_plan)
 	if not session.complete_map_move():
 		if not riot_plan.is_empty(): _refresh_riot_pawn()
 		status.text = "이동 완료 저장 실패 · 주사위를 눌러 다시 저장하세요"
@@ -1042,7 +1045,7 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 		dice.disabled = false
 		return
 	if KingPortalTile.target(world)!=previous_wormhole: render()
-	await _show_riot_turn_result(riot_plan)
+	_refresh_riot_turn_result(riot_plan)
 	moving = false
 	refresh_shared_die_input()
 	var type: String = world.tiles[world.position]
@@ -1502,10 +1505,10 @@ func show_treasure(index: int = -1) -> void:
 	var panel = TreasureReward.new()
 	stage.add_child(panel)
 	overlay = panel
-	panel.finished.connect(func():
+	panel.finished.connect(func(message: String):
 		close_overlay()
 		render()
-		status.text = "보물상자 보상을 정리했습니다")
+		status.text = message)
 	panel.mimic_revealed.connect(func(index: int):
 		close_overlay()
 		status.text = "보물상자에서 미믹 출현 · 출전 마물을 선택하세요"
@@ -1642,7 +1645,7 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 		show_king_portal_encounter(index)
 		return
 	if world.roster.is_empty():
-		status.text = "출전 가능한 마물이 없습니다 · 새 원정을 시작하세요."
+		status.text = "출전 가능한 마물이 없습니다 · 보물상자에서 마물을 확보하세요."
 		return
 	var deck = BattleDeck.new()
 	deck.z_index = 80
@@ -2037,6 +2040,9 @@ func location_scene_image(parent: Control, path: String) -> TextureRect:
 	return scene_art
 
 func show_home(interior: bool = false) -> void:
+	if session.home_blocked_by_riot():
+		status.text = session.RIOT_REMOTE_HOME_REASON
+		return
 	if WitchHuntEntry.home_in_progress(session):
 		show_witch_hunt_beat(2,world.position)
 		return
@@ -2242,10 +2248,10 @@ func resume_altar_boon() -> void:
 
 ## Resume an interrupted full-hand graveyard find without rerolling it.
 func resume_graveyard_dig() -> void:
-	if str(world.pending_reward.get("kind",""))!="grave-dig": return
-	if world.tiles[world.position]!="graveyard": return
-	if is_instance_valid(overlay): return
-	show_exploration_actions(world.position)
+	if str(world.pending_reward.get("kind",""))!="grave-dig" or is_instance_valid(overlay): return
+	var index: int = int(world.pending_reward.get("index", -1))
+	if index >= 0 and index < world.tiles.size() and world.tiles[index] == "graveyard":
+		show_exploration_actions(index)
 
 func show_exploration_actions(index: int) -> void:
 	if index==MapState.HOME and not session.home_services_allowed().ok:
@@ -3253,16 +3259,27 @@ func _animate_riot_turn(plan: Dictionary) -> void:
 	if is_instance_valid(input_lock): input_lock.free()
 
 
-func _show_riot_turn_result(plan: Dictionary) -> void:
+func _refresh_riot_turn_result(plan: Dictionary) -> void:
 	match str(plan.get("state", "")):
-		"burned":
-			render()
-			status.text = "주민들이 집에 도착했습니다. 집이 전소되었습니다."
-		"stopped":
-			_refresh_riot_pawn()
-			status.text = "주민들을 막았습니다. 집을 지켰습니다."
-		_:
-			return
+		"burned": render()
+		"stopped": _refresh_riot_pawn()
+		_: return
+	_set_riot_result_status(plan)
+
+func _set_riot_result_status(plan: Dictionary) -> void:
+	if plan.get("state", "") == "burned":
+		status.text = "주민들이 집에 도착했습니다. 집이 전소되었습니다."
+	else:
+		status.text = "주민들을 막았습니다. 집을 지켰습니다."
+
+func _show_riot_turn_result(plan: Dictionary) -> void:
+	_refresh_riot_turn_result(plan)
+	await _pause_for_riot_turn_result(plan)
+
+func _pause_for_riot_turn_result(plan: Dictionary) -> void:
+	if plan.get("state", "") not in ["burned", "stopped"]: return
+	# The saved move remains pending during this pause so a restart can dispatch its arrival.
+	_set_riot_result_status(plan)
 	var input_lock: Control = presentation.effect(true)
 	await get_tree().create_timer(0.9).timeout
 	if is_instance_valid(input_lock): input_lock.free()
@@ -3352,7 +3369,11 @@ func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 				close_overlay()
 				render()
 				if story_stage==2: show_home()
-				elif story_stage==1: _resume_riot_opening()
+				elif story_stage==1:
+					if Riot.active(world) and world.riot.pending.is_empty():
+						status.text = "경비가 주민들을 붙잡고 있습니다. 먼저 주사위를 굴리세요."
+					else:
+						_resume_riot_opening()
 				else: status.text="사건 기록을 저장했습니다. 이후 방문에서 상황이 이어집니다."
 			else: show_witch_hunt_beat(story_stage,index)
 		,1)
@@ -3361,7 +3382,7 @@ func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 			if WitchHuntEntry.reconsider(session,story_stage,index): show_witch_hunt_beat(story_stage,index)
 			else: status.text="후속 사건 선택 변경 실패 · 다시 시도하세요."
 		,4)
-	elif story_stage<2:
+	elif story_stage<2 and world.tiles[index]=="village":
 		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func():dismiss_overlay(func():show_location(index)),4)
 	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func():dismiss_overlay(render),4)
 
@@ -3591,6 +3612,7 @@ func show_location(index: int) -> void:
 	if type=="fortune-teller-camp":
 		show_place_actions(index)
 		return
+	if not EVENT_IMAGES.has(type): return
 	var panel = modal(false)
 	if type=="rest":
 		# Match only these ordinary location screens; other modal styles stay local.

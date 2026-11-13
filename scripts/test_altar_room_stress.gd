@@ -113,8 +113,7 @@ func _run() -> void:
 			for chosen in range(7):
 				case_id+=1
 				stress_case(w,level,owned,chosen,case_id)
-	# End-to-end proof: a valid plan with no spendable road turns a
-	# guaranteed main-story altar discovery into an ordinary random event.
+	# A valid plan with no spendable road queues the mandatory altar.
 	var preview: Dictionary=configure(w,20,["unknown","forest"],6)
 	check(bool(preview.valid) and int(preview.counts.basic)==1 and int(preview.capacity)==6,
 		"reproduction uses legal six-stone patrol with one swamp-reserved road")
@@ -126,12 +125,12 @@ func _run() -> void:
 	check(session.save_world(),"save actual input world for dispatcher reproduction")
 	var before: Dictionary=w.snapshot().duplicate(true)
 	var outcome: Dictionary=session.begin_story_free_event(w.position)
-	check(bool(outcome.get("ok",false)) and outcome.get("type","")=="routine",
-		"CONFIRMED: actual event yields routine despite altar priority and sufficient progress")
+	check(bool(outcome.get("ok",false)) and outcome.get("type","")=="discovery_pending" and outcome.get("location","")=="altar",
+		"actual event queues altar when the remaining road is reserved")
 	check(not Discovery.is_unlocked(w,"altar") and w.tiles.count("altar")==0,
 		"CONFIRMED: altar remains absent from map after blocked arrival")
-	check(w.pending_reward.get("kind","")=="routine",
-		"CONFIRMED: failure is presented as ordinary event, not an unlock failure")
+	check(Discovery.is_pending(w,"altar") and w.pending_reward.is_empty(),
+		"altar is reserved without offering a routine reward")
 	print("ALTAR_ROOM_REPRO ",JSON.stringify({
 		"level":20,"unlocked":["unknown","forest"],"selected_monsters":6,
 		"capacity":preview.capacity,"basic":before.tiles.count("basic"),

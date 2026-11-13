@@ -62,9 +62,31 @@ func _run() -> void:
 		failed += 1
 		_cleanup(session,created_session,previous_path,save_path,audio_path)
 		return
-	# Invoke the exact production button signal, not a mocked run initializer.
+	var malformed := '{"version":1'
+	var invalid_save := FileAccess.open(save_path, FileAccess.WRITE)
+	invalid_save.store_string(malformed)
+	invalid_save.close()
+	continue_run.disabled = false
+	continue_run.pressed.emit()
+	await process_frame
+	var save_error := title.get_node_or_null("SaveErrorDialog") as AcceptDialog
+	check(current_scene == title and is_instance_valid(save_error) and save_error.visible,
+		"unreadable save displays an error and remains on the title")
+	check(session.world == null and not session.save_world() and FileAccess.get_file_as_string(save_path) == malformed,
+		"failed Continue and autosave preserve the unreadable source bytes")
+	if is_instance_valid(save_error): save_error.hide()
+	# An explicit New Run archives the unreadable original before replacing it.
 	new_run.pressed.emit()
 	check(session.world != null and session.has_save(),"New Run creates and persists the real world")
+	var backup_prefix := save_path.get_file() + ".unreadable-"
+	var backups := DirAccess.get_files_at("user://")
+	var archive_count := 0
+	for name in backups:
+		if not name.begins_with(backup_prefix): continue
+		var backup := "user://" + name
+		if FileAccess.get_file_as_string(backup) == malformed: archive_count += 1
+		clear_test_path(backup)
+	check(archive_count == 1,"explicit New Run archives the original bytes exactly once")
 	if session.world != null:
 		check(session.world.position == MapState.HOME,"new player spawns at home tile")
 		check(session.world.tiles.size() == 24,"new world has 24 playable tiles")
