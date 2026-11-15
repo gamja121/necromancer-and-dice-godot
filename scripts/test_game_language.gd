@@ -116,7 +116,7 @@ func check_options() -> void:
 	map_options.language_picker.item_selected.emit(1)
 	await settle()
 	check(language.locale=="en" and title.language_picker.selected==1,"in-game selection switches and synchronizes title picker")
-	check(map_options.panel.size.x==256 and map_options.panel.get_global_rect().end.y<720,"language row fits painted settings panel")
+	check(map_options.panel.size.x==map_options.PANEL_RECT.size.x and map_options.panel.get_global_rect().end.y<720,"language row fits painted settings panel")
 	check(title.options_dialog.size.x==410,"title options retain their width")
 	check((session.world==null and before==null) or (session.world!=null and session.world.snapshot()==before),"language switching leaves game progress and RNG untouched")
 	var audio_after:=FileAccess.get_file_as_bytes(Settings.SAVE) if FileAccess.file_exists(Settings.SAVE) else PackedByteArray()

@@ -41,18 +41,23 @@ func _run() -> void:
 	await process_frame
 	check(audio.get_child(0)==audio.options_button and audio.options_button.name=="MapOptionsButton","existing map integration keeps original image button as first child")
 	check(audio.panel.name=="MapAudioOptionsPanel" and not audio.panel.visible,"source OPTION panel starts hidden")
-	check(audio.panel.position.distance_to(Vector2(952.0,268.0))<1.0,"popup is placed below the map gear")
-	check(absf(audio.panel.size.x-256.0)<1.0,"source 20%-wide compact options panel")
+	check(audio.panel.position.distance_to(AudioOptions.PANEL_RECT.position)<1.0,"popup is placed below the map gear")
+	check(is_equal_approx(audio.panel.size.x, AudioOptions.PANEL_RECT.size.x),"options panel fits the reading layout")
 	check(audio.panel.z_index==40 and audio.z_index==90,"source z-index 130 placed above the map only when open")
-	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture and (audio.panel.get_theme_stylebox("panel") as StyleBoxTexture).texture is ImageTexture,"popup uses uneven brush-stroke parchment instead of rectangular style box")
-	check(audio.music_toggle.get_theme_stylebox("normal") is StyleBoxTexture and (audio.music_toggle.get_theme_stylebox("normal") as StyleBoxTexture).texture is ImageTexture,"music toggle has brush-painted border")
+	check(audio.panel.get_theme_stylebox("panel") is StyleBoxFlat and audio.panel.get_theme_stylebox("panel").content_margin_left >= 18,"popup gives labels room inside its frame")
+	check(audio.music_toggle.get_theme_stylebox("normal") is StyleBoxFlat and audio.music_toggle.toggle_mode,"toggle has distinct idle and selected states")
 	check(audio.panel.get_node_or_null("AudioOptionsContent/MapAudioOptionsHeader/AudioOptionsTitle").text=="설정","hand-brushed Korean settings heading exists")
-	check(audio.close_button.text=="×" and audio.close_button.custom_minimum_size==Vector2(28,28),"web 28px close control exists")
+	check(audio.close_button.text=="×" and audio.close_button.custom_minimum_size==Vector2(36,36),"close control has a full 36px hit area")
 	check(audio.music_toggle.text=="ON" and audio.sfx_toggle.text=="ON","both web sound switches reflect live enabled state")
 	check(audio.advanced_content!=null and not audio.advanced_content.visible,"automatic OS output and native master volume remain folded away")
 	check(audio.options_button.pressed.is_connected(Callable(audio,"toggle_panel")),"map options button opens and closes working panel")
 	audio.options_button.pressed.emit()
-	check(audio.panel.visible,"source options opens after the original map button")
+	await process_frame
+	var compact_height: float = audio.panel.size.y
+	check(audio.panel.visible, "original gear opens the options panel")
+	check(is_equal_approx(audio.language_picker.global_position.x, audio.music_toggle.global_position.x)
+		and is_equal_approx(audio.music_toggle.global_position.x, audio.sfx_toggle.global_position.x),
+		"all three settings controls are aligned in one column")
 	audio.music_toggle.pressed.emit()
 	check(AudioServer.is_bus_mute(music_bus) and audio.music_toggle.text=="OFF","BGM off affects real Music audio bus")
 	check(not AudioServer.is_bus_mute(sfx_bus) and audio.sfx_toggle.text=="ON","independent SFX remains on when BGM disabled")
@@ -62,6 +67,9 @@ func _run() -> void:
 	audio.sfx_toggle.pressed.emit()
 	check(audio.sfx_toggle.text=="OFF" and AudioServer.is_bus_mute(sfx_bus),"SFX button independently disables real SFX bus")
 	audio.advanced_button.pressed.emit()
+	await process_frame
+	check(audio.panel.size.y > compact_height and audio.panel.get_rect().end.y < 720,
+		"advanced panel grows within the board viewport")
 	check(audio.advanced_content.visible and audio.output_label!=null and audio.volume_slider!=null,"system default output policy and master volume available under Advanced")
 	check(audio.output_label.text.contains("시스템 기본") and audio.advanced_content.get_node_or_null("MapAudioOutputDevice")==null,"no device-specific selector can bind the game to this PC")
 	# A previously saved Realtek preference must no longer control output or
@@ -72,12 +80,14 @@ func _run() -> void:
 	check(cfg.save(test_file)==OK,"legacy machine-specific output fixture stored")
 	AudioOptions.apply_saved(test_file)
 	audio.volume_slider.value=45
+	check(audio.volume_value.text == "45%", "master volume displays its exact percentage")
 	check(absf(db_to_linear(AudioServer.get_bus_volume_db(0))*100.0-45)<0.2,"advanced master volume still updates actual audio bus")
 	check(cfg.load(test_file)==OK and absf(float(cfg.get_value("audio","volume",0))-0.45)<0.02,"native master volume persists while maintaining source toggles")
 	var migrated_cfg = ConfigFile.new()
 	check(migrated_cfg.load(test_file)==OK and not migrated_cfg.has_section_key("audio","output"),"new audio saves remove legacy machine-specific output device name")
 	audio.advanced_button.pressed.emit()
-	check(not audio.advanced_content.visible,"advanced fold closes without losing source switches")
+	await process_frame
+	check(not audio.advanced_content.visible and is_equal_approx(audio.panel.size.y, compact_height), "advanced section collapses without leaving extra space")
 	audio.close_button.pressed.emit()
 	check(not audio.panel.visible,"web close X dismisses options without changing BGM/SFX")
 	audio.options_button.pressed.emit()
@@ -150,7 +160,7 @@ func _run() -> void:
 	await process_frame
 	check(not actual.panel.visible,"second real GUI click closes settings without interference")
 	actual.options_button.pressed.emit()
-	check(actual.panel.visible and actual.panel.position.distance_to(Vector2(952.0,268.0))<1.0,"real map opens relocated 256px option panel")
+	check(actual.panel.visible and actual.panel.position.distance_to(AudioOptions.PANEL_RECT.position)<1.0,"real map opens settings below the gear")
 	actual.close_button.pressed.emit()
 	check(not actual.panel.visible,"real map close returns to board")
 	map.queue_free()

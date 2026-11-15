@@ -58,9 +58,9 @@ func _run() -> void:
 			break
 	check(button_art != null and button_art.texture is ImageTexture, "painted settings gear remains visible")
 	check(audio.options_button.position == Vector2(1041,175) and audio.options_button.size == Vector2(80,80), "map marked upper-right has an 80px finger tap target")
-	check(audio.panel.get_theme_stylebox("panel") is StyleBoxTexture,"settings popover uses painted parchment panel")
+	check(audio.panel.get_theme_stylebox("panel") is StyleBoxFlat,"settings popover uses a framed panel")
 	var expected_rect = AUDIO.PANEL_RECT
-	check(audio.panel.position.distance_to(expected_rect.position) < 1.0 and absf(audio.panel.size.x-expected_rect.size.x)<1.0, "source OPTION popup coordinates remain unchanged")
+	check(audio.panel.position.distance_to(expected_rect.position) < 1.0 and absf(audio.panel.size.x-expected_rect.size.x)<1.0, "popup is placed below the gear")
 	audio.options_button.pressed.emit()
 	check(audio.panel.visible, "map icon opens original OPTION controls")
 	var before_snapshot: Dictionary = session.world.snapshot().duplicate(true)
