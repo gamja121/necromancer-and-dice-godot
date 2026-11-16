@@ -78,11 +78,13 @@ corner_radius_bottom_left = 4
 
 [sub_resource type="AtlasTexture" id="Atlas_crow_mid"]
 atlas = ExtResource("7")
-region = Rect2(625, 150, 390, 330)
+region = Rect2(697, 197, 291, 301)
+filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Atlas_crow_far"]
 atlas = ExtResource("7")
-region = Rect2(40, 500, 360, 300)
+region = Rect2(69, 524, 264, 274)
+filter_clip = true
 
 [node name="Title" type="Control"]
 layout_mode = 3
@@ -174,20 +176,20 @@ offset_bottom = 790.0
 mouse_filter = 2
 
 [node name="CrowMid" type="TextureRect" parent="ParallaxArt/FlyingCrows"]
-offset_left = 565.0
-offset_top = 185.0
-offset_right = 715.0
-offset_bottom = 312.0
+offset_left = 489.0
+offset_top = 355.0
+offset_right = 579.0
+offset_bottom = 448.0
 mouse_filter = 2
 texture = SubResource("Atlas_crow_mid")
 expand_mode = 1
 stretch_mode = 5
 
 [node name="CrowFar" type="TextureRect" parent="ParallaxArt/FlyingCrows"]
-offset_left = 1015.0
-offset_top = 238.0
-offset_right = 1115.0
-offset_bottom = 322.0
+offset_left = 1133.0
+offset_top = 340.0
+offset_right = 1207.0
+offset_bottom = 417.0
 mouse_filter = 2
 modulate = Color(0.82, 0.82, 0.82, 0.9)
 texture = SubResource("Atlas_crow_far")
