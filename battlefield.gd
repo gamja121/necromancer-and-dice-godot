@@ -29,6 +29,7 @@ var presentation_layout = PresentationLayout.new()
 const BrandReference = preload("res://systems/brand_reference.gd")
 const DiceHand = preload("res://systems/dice_control_hand.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
+const DicePressHint = preload("res://systems/dice_press_hint.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const CorpseCapture = preload("res://systems/corpse_capture.gd")
 const CombatCues = preload("res://systems/combat_cues.gd")
@@ -379,6 +380,7 @@ void fragment() {
 		dice.pressed.connect(on_dice_pressed)
 		dice.tooltip_text = "클릭하여 다음 라운드 진행"
 		layer.add_child(dice)
+		DicePressHint.new().setup(dice,dice_hint_context)
 	render_units(rules.units)
 	var frame_resources = BattleResources.new()
 	frame_resources.name = "BattleFrameResources"
@@ -973,6 +975,15 @@ func toggle_selection(slug: String) -> void:
 	if slug in selection: selection.erase(slug)
 	elif selection.size()<4: selection.append(slug)
 	if is_instance_valid(editing): editing.get_meta("refresh").call()
+
+
+func dice_hint_context() -> Node:
+	if busy or paused or entry_summon_active or entry_brand_auto_open: return null
+	if is_instance_valid(brand_reference) or is_instance_valid(dice_hand) or is_instance_valid(detail) or is_instance_valid(editing):
+		return null
+	if is_instance_valid(audio_settings) and audio_settings.is_open(): return null
+	if is_instance_valid(capture_panel): return capture_panel if not capture_panel.busy else null
+	return self
 
 
 func on_dice_pressed() -> void:

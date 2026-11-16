@@ -2,6 +2,7 @@ extends SceneTree
 ## Actual Godot scene contract for the single persistent die:
 ## map/battle over board; locations and inheritance OVER die; controls OVER art.
 const MAP = preload("res://map.tscn")
+const BATTLEFIELD = preload("res://battlefield.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 var passed: int = 0
 var failed: int = 0
@@ -78,9 +79,31 @@ func _run() -> void:
 	var initial_position: Vector2=die.position
 	var initial_face: int=session.world.dice_visual_face
 	check(die.z_index==map.DIE_FOREGROUND_Z and die.mouse_filter==Control.MOUSE_FILTER_STOP,"normal map retains top clickable die")
+	var hint: TextureRect = map.stage.get_node("DicePressHint")
+	hint.set_process(false)
+	hint._process(2.9)
+	check(not hint.visible,"board die hint waits before three seconds")
+	hint._process(0.2)
+	check(hint.visible and hint.z_index>die.z_index and hint.mouse_filter==Control.MOUSE_FILTER_IGNORE,
+		"waiting board die shows a non-interactive hint above its layer")
+	var original_rotation := die.rotation
+	die.rotation = PI*0.25
+	hint._process(0.3)
+	var die_bounds: Rect2 = die.get_transform()*Rect2(Vector2.ZERO,die.size)
+	check(is_equal_approx(hint.position.x+hint.size.x*0.5,die_bounds.get_center().x)
+		and hint.position.y+hint.size.y<die_bounds.position.y,"hint stays centered over the rotated die without touching it")
+	die.rotation = original_rotation
+	paused = true
+	hint._process(0.0)
+	check(not hint.visible,"global pause hides the hint")
+	paused = false
+	hint._process(2.9)
+	check(not hint.visible,"ending a global pause restarts the wait")
 
 	map.show_home(true)
 	check_location(map,"home interior","낙인 계승")
+	hint._process(3.1)
+	check(not hint.visible,"the home interior never hints at an inactive die")
 	check(find_button(map.overlay,"순찰경로")!=null and find_button(map.overlay,"다음 바퀴 출발")!=null,"all three home actions stay above art")
 	map.close_overlay()
 
@@ -101,8 +124,14 @@ func _run() -> void:
 		map.close_overlay()
 
 	# The direct camp immediately exposes the single shared prophecy die.
+	hint._process(3.1)
+	check(hint.visible,"returning to the board restores its delayed die hint")
 	map.show_location(0)
 	check_location(map,"fortune-teller direct function","맵으로 나가기",true)
+	hint._process(0.1)
+	check(not hint.visible,"switching from board to prophecy restarts the delay even while the die stays enabled")
+	hint._process(3.0)
+	check(hint.visible,"unused prophecy prompts above its shared die after the delay")
 	check(map.overlay.get_script()==preload("res://systems/place_actions.gd") and find_button(map.overlay,"예언")==null,"direct camp has no redundant entry action")
 	map.close_overlay()
 	map.show_place_actions(0)
@@ -129,6 +158,13 @@ func _run() -> void:
 		check(die.visible and die.z_index>map.overlay.z_index and die.mouse_filter==Control.MOUSE_FILTER_STOP,"only actual battlefield lifts die above battle art and makes it clickable")
 		check(map.stage.get_child(map.stage.get_child_count()-1)==die,"battle die is last sibling for real GUI hit testing")
 		check(die.position==initial_position and session.world.dice_visual_face==initial_face,"layer transitions preserve shared die pose and face")
+		hint._process(3.1)
+		check(hint.visible and map.embedded_battle.layer.get_node_or_null("DicePressHint")==null,
+			"embedded battle shows only the shared die hint")
+		map.embedded_battle.show_brand_reference()
+		hint._process(3.1)
+		check(not hint.visible,"the brand reference suppresses the battle die hint")
+		map.embedded_battle.close_brand_reference()
 		var settings: Control = map.embedded_battle.audio_settings
 		settings.options_button.pressed.emit()
 		settings.advanced_button.pressed.emit()
@@ -138,9 +174,23 @@ func _run() -> void:
 		var arena_rect := Rect2(Vector2.ZERO, map.embedded_battle.surface_size)
 		check(arena_rect.encloses(panel_rect) and panel_rect.get_center().distance_to(arena_rect.get_center()) <= 1.0,"expanded settings stay centered inside the embedded battle area: %s within %s" % [panel_rect, arena_rect])
 		check(not die.visible and not map.deck_button.visible,"shared battle controls cannot cover settings actions")
+		hint._process(3.1)
+		check(not hint.visible,"battle settings suppress the die hint")
 		settings.resume_button.pressed.emit()
 		check(die.visible and map.deck_button.visible and map.stage.get_child(map.stage.get_child_count()-1)==die,"resuming restores the same battle die and deck")
 	map.queue_free()
+	await process_frame
+	var practice := BATTLEFIELD.instantiate()
+	root.add_child(practice)
+	await process_frame
+	var practice_hint: TextureRect = practice.layer.get_node("DicePressHint")
+	practice_hint.set_process(false)
+	practice_hint._process(3.1)
+	check(practice_hint.visible,"standalone battle has a hint above its own die")
+	practice.show_selection()
+	practice_hint._process(3.1)
+	check(not practice_hint.visible,"formation editor suppresses the standalone hint")
+	practice.queue_free()
 	await process_frame
 	session.save_file_path=prior_path
 	if created: session.queue_free()

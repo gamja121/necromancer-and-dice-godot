@@ -75,7 +75,13 @@ func _run() -> void:
 	check(map.dice.is_visible_in_tree() and not map.dice.disabled,"unused prayer enables visible shared die")
 	check(map.dice.mouse_filter==Control.MOUSE_FILTER_STOP and map.dice.z_index>panel.z_index,"prayer die is in front of world-tree painting and receives mouse input")
 	check(map.stage.get_child(map.stage.get_child_count()-1)==map.dice,"actual Godot input hit testing puts shared die last")
+	var hint: TextureRect = map.stage.get_node("DicePressHint")
+	await create_timer(2.7).timeout
+	check(not hint.visible,"world-tree hint stays hidden before three seconds")
+	await create_timer(0.55).timeout
+	check(hint.visible,"world-tree hint appears after leaving the prayer die idle")
 	map.dice.pressed.emit()
+	check(not hint.visible,"pressing the die immediately clears its hint")
 	await process_frame
 	check(panel.busy and map.dice.disabled and panel.close_button.disabled,"prayer locks repeated rolls and exit while animating")
 	var started: int = Time.get_ticks_msec()
@@ -104,6 +110,9 @@ func _run() -> void:
 	map.show_exploration_actions(index)
 	panel = map.overlay
 	check(panel.action_button==null and map.dice.disabled,"reopened spent prayer leaves only a disabled die")
+	hint = map.stage.get_node("DicePressHint")
+	hint._process(3.1)
+	check(not hint.visible,"already-spent prayer never asks for another roll")
 	check(panel.status.text.contains("대축복") and panel.prayer_detail.text.contains("25/100"),"reopened prayer shows persisted outcome")
 	check(map.stage.get_child(map.stage.get_child_count()-1)==map.dice,"reopened world-tree art does not cover shared die")
 	map.queue_free()

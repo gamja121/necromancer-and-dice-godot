@@ -101,6 +101,7 @@ const GameOverScreen = preload("res://systems/game_over_screen.gd")
 const BattleDeck = preload("res://systems/battle_deck.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
+const DicePressHint = preload("res://systems/dice_press_hint.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const TILE_SIZE = Vector2(120.0,90.0)
 # Presentation only: a quicker map token step without changing dice or tile rules.
@@ -238,6 +239,14 @@ func refresh_shared_die_input() -> void:
 		overlay.refresh_fortune_input()
 	else:
 		dice.disabled = true
+
+func dice_hint_context() -> Node:
+	if moving or shared_die_busy or battle_returning or (is_instance_valid(map_audio) and map_audio.is_open()):
+		return null
+	if is_instance_valid(game_over_screen) or is_instance_valid(final_chapter_screen): return null
+	if is_instance_valid(embedded_battle): return embedded_battle.dice_hint_context()
+	return overlay if is_instance_valid(overlay) else self
+
 
 func on_shared_die_pressed() -> void:
 	if shared_die_busy or moving or battle_returning: return
@@ -679,6 +688,7 @@ func render() -> void:
 	dice.tooltip_text = "주사위 · 멈춘 자리에서 다시 누르기"
 	dice.pressed.connect(on_shared_die_pressed)
 	stage.add_child(dice)
+	DicePressHint.new().setup(dice,dice_hint_context)
 	status = label_at(stage,"주사위를 굴려 길을 따라 이동하세요",Vector2(285,385),Vector2(710,38),16)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status.z_index = 25

@@ -245,6 +245,9 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 			check(capture_cards_above_map,label+": capture card and selection arrow stay in front of map tiles, book/deck and original enemy cards")
 			check(layered_capture_matches,label+": post-victory capture choices preserve approved layered monster art")
 			check(arrow_above_card,label+": selected reward arrow floats clear of the actual map card")
+			var die_hint: TextureRect = map.stage.get_node("DicePressHint")
+			die_hint._process(3.1)
+			check(die_hint.visible,label+": post-battle soul capture prompts for the shared die independently of the card arrow")
 			if force_capture_failure:
 				# Emulate a legitimately exhausted capture phase in an isolated save.
 				# The real UI then commits failure before the permanent-death effect.
@@ -293,6 +296,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 				var capture_start: Vector2=map.dice.position
 				check(not map.dice.disabled,label+": soul capture unlocks shared die button after victory")
 				map.dice.pressed.emit()
+				check(not die_hint.visible,label+": capture die hint disappears on press")
 				await create_timer(0.26).timeout
 				check(map.shared_die_busy and map.dice.position.distance_to(capture_start)>5.0,
 					label+": pressing postbattle reward die triggers actual map bounce, not frozen in-place wobble")
