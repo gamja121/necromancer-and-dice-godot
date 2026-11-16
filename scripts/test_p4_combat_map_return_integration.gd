@@ -213,6 +213,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 			var candidates_on_tiles: bool = true
 			var layered_capture_matches: bool = true
 			var capture_cards_above_map: bool = true
+			var arrow_above_card: bool = true
 			for candidate in candidates:
 				var card: TextureButton = candidate.card
 				var enemy: Dictionary = battle.rules.find_id(str(world.pending_reward.corpses[int(candidate.index)].id))
@@ -230,6 +231,12 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 					and card.z_index>map.deck_button.z_index
 					and candidate.arrow.z_index>card.z_index
 					and candidate.caption.z_index>card.z_index)
+				var arrow: TextureRect = candidate.arrow
+				var top_center := card.get_transform()*Vector2(card.size.x*0.5,0.0)
+				var gap := top_center.y-arrow.position.y-arrow.size.y
+				arrow_above_card = arrow_above_card and arrow.visible==is_chosen and (not is_chosen
+					or (is_equal_approx(arrow.position.x+arrow.size.x*0.5,top_center.x) and gap>=CaptureUI.CAPTURE_ARROW_GAP-0.1
+					and gap<=CaptureUI.CAPTURE_ARROW_GAP+CaptureUI.CAPTURE_ARROW_LIFT+0.1))
 				if Layered.supports(str(enemy.slug)):
 					var live_portrait := card.get_node_or_null("LayeredCardCharacter") as TextureRect
 					layered_capture_matches = layered_capture_matches and live_portrait!=null and live_portrait.texture.resource_path.ends_with("%s.webp" % str(enemy.slug).replace("-","_"))
@@ -237,6 +244,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 			check(candidates_on_tiles,label+": defeated enemy capture cards stay on exact lower map tiles")
 			check(capture_cards_above_map,label+": capture card and selection arrow stay in front of map tiles, book/deck and original enemy cards")
 			check(layered_capture_matches,label+": post-victory capture choices preserve approved layered monster art")
+			check(arrow_above_card,label+": selected reward arrow floats clear of the actual map card")
 			if force_capture_failure:
 				# Emulate a legitimately exhausted capture phase in an isolated save.
 				# The real UI then commits failure before the permanent-death effect.
@@ -262,12 +270,13 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 					if not is_instance_valid(map) or not is_instance_valid(map.stage): return
 					var flyer: Control=map.stage.get_node_or_null("RewardToInventoryFlight") as Control
 					if flyer!=null:
-						# The pickup must NOT begin until all selector arrows and
-						# other fallen-enemy choice cards have vanished.
-						if not bool(flight_probe["seen"]) and is_instance_valid(battle.capture_panel):
+						# Resolve the capture panel from the map because this observer
+						# stays connected briefly after the original battle is freed.
+						var live_battle: Control = map.embedded_battle
+						if not bool(flight_probe["seen"]) and is_instance_valid(live_battle) and is_instance_valid(live_battle.capture_panel):
 							var cleared: bool=true
 							var card_count: int=0
-							for choice in battle.capture_panel.choices:
+							for choice in live_battle.capture_panel.choices:
 								if is_instance_valid(choice.arrow) and choice.arrow.visible: cleared=false
 								if is_instance_valid(choice.card) and choice.card.visible: card_count+=1
 							flight_probe["choices_cleared_before_flight"]=cleared and card_count<=1

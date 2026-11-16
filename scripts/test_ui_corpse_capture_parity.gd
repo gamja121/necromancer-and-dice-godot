@@ -48,15 +48,19 @@ func _run() -> void:
 		check(near(panel.capture_info_panel.position.x,425.0) and near(panel.capture_info_panel.position.y,surface*0.07),"capture banner centered at original 7 percent top for %d" % surface)
 		check(panel.capture_info_panel.size==Vector2(430,142) and panel.capture_info_panel.mouse_filter==Control.MOUSE_FILTER_IGNORE,"capture banner preserves source size and does not eat inputs")
 		check(panel.capture_info_title.text=="영혼 수확","victory-capture title visible")
-		var card_a=TextureButton.new()
+		var card_a:=TextureButton.new()
 		card_a.size=Vector2(79,115)
+		card_a.position=Vector2(820,surface-130)
 		panel.add_child(card_a)
-		var card_b=TextureButton.new()
+		var card_b:=TextureButton.new()
 		card_b.size=Vector2(79,115)
+		card_b.position=Vector2(955,surface-130)
 		panel.add_child(card_b)
-		var arrow_a=TextureRect.new()
+		var arrow_a:=TextureRect.new()
+		arrow_a.size=Vector2(34,34)
 		panel.add_child(arrow_a)
-		var arrow_b=TextureRect.new()
+		var arrow_b:=TextureRect.new()
+		arrow_b.size=Vector2(34,34)
 		panel.add_child(arrow_b)
 		check(card_a.get_node_or_null("CaptureSelectedOutline")==null and card_b.get_node_or_null("CaptureSelectedOutline")==null,"green capture-selection borders are absent")
 		panel.choices=[{"card":card_a,"target":TextureButton.new(),"arrow":arrow_a,"index":0},{"card":card_b,"target":TextureButton.new(),"arrow":arrow_b,"index":1}]
@@ -68,6 +72,14 @@ func _run() -> void:
 		check(near(card_a.scale.x,1.15) and near(card_b.scale.x,1.0) and card_a.z_index>card_b.z_index,"chosen corpse enlarges and rises above other cards")
 		check(card_a.pivot_offset.is_equal_approx(card_a.size*0.5),"chosen corpse scales around its center")
 		check(arrow_a.visible and not arrow_b.visible,"selected corpse alone has source arrow")
+		var top_a := card_a.get_transform()*Vector2(card_a.size.x*0.5,0.0)
+		var initial_arrow_y := arrow_a.position.y
+		check(near(arrow_a.position.x+arrow_a.size.x*0.5,top_a.x)
+			and near(top_a.y-arrow_a.position.y-arrow_a.size.y,CaptureUI.CAPTURE_ARROW_GAP),
+			"arrow starts centered above the enlarged card with a visible gap")
+		await create_timer(CaptureUI.CAPTURE_ARROW_FLOAT_SECONDS*0.75).timeout
+		var lift := initial_arrow_y-arrow_a.position.y
+		check(lift>1.0 and lift<=CaptureUI.CAPTURE_ARROW_LIFT+0.1,"arrow floats upward gently without touching the card")
 		check(absf(card_b.modulate.a-0.97)<0.015 and absf(card_a.modulate.a-1.0)<0.015,"unselected corpse stays legible at 97% opacity")
 		# A defeated body was previously RGB 0.4 / alpha 0.35. Its actual
 		# battlefield TextureRect and battle focus shader must be restored
@@ -90,6 +102,10 @@ func _run() -> void:
 		session.world.pending_reward.locked=true
 		panel.refresh()
 		check(near(card_b.scale.x,1.15) and near(card_a.scale.x,1.0) and arrow_b.visible and not arrow_a.visible,"enlargement and arrow follow saved selected index")
+		var top_b := card_b.get_transform()*Vector2(card_b.size.x*0.5,0.0)
+		check(near(arrow_b.position.x+arrow_b.size.x*0.5,top_b.x)
+			and near(top_b.y-arrow_b.position.y-arrow_b.size.y,CaptureUI.CAPTURE_ARROW_GAP),
+			"switching targets immediately centers the arrow over the new card")
 		check(panel.capture_info_status.text.contains("대상 고정") and panel.capture_info_status.text.contains("늑대"),"locked selection and chosen target displayed")
 		check(card_a.disabled and card_b.disabled,"locked capture candidates cannot be changed")
 		# In embedded combat the choices are stage siblings of the real map
@@ -109,12 +125,18 @@ func _run() -> void:
 		# Saved success cleanup: the arrow and other candidates disappear
 		# before the kept monster can begin its inventory flight.
 		var world_before_visual: String=JSON.stringify(session.world.snapshot())
+		var arrow_before_exit := arrow_b.position
 		await panel.clear_unclaimed_capture_cards(card_b)
+		check(arrow_b.position.is_equal_approx(arrow_before_exit),"floating stops before arrow exit")
 		check(not card_a.visible and card_b.visible,"unused enemy disappears before selected card collection")
 		check(not arrow_a.visible and not arrow_b.visible and arrow_b.modulate.a<0.01,"selector arrow shrinks and fades out")
 		check(near(arrow_b.scale.x,0.68) and card_a.material is ShaderMaterial,"existing failed-capture dissolve is reused for unclaimed card")
 		check(panel.scene.sound_calls.is_empty(),"quick candidate cleanup does not replay permanent-death sound")
 		check(JSON.stringify(session.world.snapshot())==world_before_visual,"presentation cleanup never changes capture rewards or save")
+		dead_sprite.free()
+		panel.scene.message.free()
+		panel.scene.dice.free()
+		for choice in panel.choices: choice.target.free()
 		panel.queue_free()
 		await process_frame
 	session.world.pending_reward={}

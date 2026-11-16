@@ -14,6 +14,9 @@ const MAP_CAPTURE_CARD_Z: int = 65
 const MAP_CAPTURE_SELECTED_CARD_Z: int = 66
 const MAP_CAPTURE_ANNOTATION_Z: int = 67
 const MAP_CAPTURE_ARROW_Z: int = 68
+const CAPTURE_ARROW_GAP := 8.0
+const CAPTURE_ARROW_LIFT := 5.0
+const CAPTURE_ARROW_FLOAT_SECONDS := 0.68
 const CAPTURE_ARROW_EXIT_SECONDS: float = 0.10
 const CAPTURE_OTHER_CARD_DISSOLVE_SECONDS: float = 0.45
 const CAPTURE_SUCCESS_REVEAL_SECONDS: float = 0.12
@@ -25,6 +28,8 @@ var choices: Array = []
 # Remove these along with the capture panel so they never leak across battles.
 var external_choice_nodes: Array = []
 var busy = false
+var floating_arrow: TextureRect
+var arrow_float: Tween
 
 func _exit_tree() -> void:
 	for node in external_choice_nodes:
@@ -113,8 +118,7 @@ func setup(battle_scene) -> void:
 		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		place_choice_node(caption,choice_parent)
 		if on_map_tiles: caption.z_index = MAP_CAPTURE_ANNOTATION_Z
-		var arrow_pos: Vector2 = option.position+Vector2(23,-13 if on_map_tiles else -55)
-		var arrow = scene.image(choice_parent,"res://assets/cards/corpse-selection-arrow.png",arrow_pos,Vector2(34,34))
+		var arrow: TextureRect = scene.image(choice_parent,"res://assets/cards/corpse-selection-arrow.png",Vector2.ZERO,Vector2(34,34))
 		arrow.rotation = PI
 		arrow.pivot_offset = arrow.size*0.5
 		arrow.z_index = 8 # Stay visible above the enlarged selected card.
@@ -188,6 +192,8 @@ func refresh() -> void:
 		# border when refresh() runs (including selection/lock/reload).
 		choice.card.z_index = (MAP_CAPTURE_SELECTED_CARD_Z if selected else MAP_CAPTURE_CARD_Z) if scene.uses_map_tile_dock() else (6 if selected else 0)
 		choice.arrow.visible = selected
+		if selected and choice.arrow != floating_arrow:
+			float_selection_arrow(choice.card,choice.arrow)
 		choice.card.disabled = busy or pending.locked
 		choice.target.disabled = busy or pending.locked
 	scene.message.text = "%s · 주사위 %d 이상 · 남은 시도 %d%s" % [corpse.name,int(corpse.target),int(pending.attempts)," · 대상 고정" if pending.locked else " · 시체를 선택하세요"]
@@ -195,6 +201,18 @@ func refresh() -> void:
 		capture_info_status.text = "%s · %d 이상\n남은 시도 %d%s" % [corpse.name,int(corpse.target),int(pending.attempts)," · 대상 고정" if pending.locked else " · 시체를 선택하세요"]
 	scene.dice.tooltip_text = "영혼 수확 주사위 굴리기"
 	scene.dice.disabled = busy
+
+func float_selection_arrow(card: TextureButton, arrow: TextureRect) -> void:
+	if arrow_float != null: arrow_float.kill()
+	floating_arrow = arrow
+	# Both nodes share a parent. Anchor to the top of the scaled card.
+	var top_center := card.get_transform()*Vector2(card.size.x*0.5,0.0)
+	arrow.position = top_center-Vector2(arrow.size.x*0.5,arrow.size.y+CAPTURE_ARROW_GAP)
+	var rest_y := arrow.position.y
+	arrow_float = create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	arrow_float.tween_property(arrow,"position:y",rest_y-CAPTURE_ARROW_LIFT,CAPTURE_ARROW_FLOAT_SECONDS)
+	arrow_float.tween_property(arrow,"position:y",rest_y,CAPTURE_ARROW_FLOAT_SECONDS)
+
 
 func select_corpse(index: int) -> void:
 	if busy: return
@@ -207,6 +225,10 @@ func wait(seconds: float) -> void:
 # Selection remains reversible while the player still has capture dice to roll.
 # Only a SAVED terminal outcome may start removing visual candidates.
 func fade_capture_arrows() -> Tween:
+	if arrow_float != null:
+		arrow_float.kill()
+		arrow_float = null
+	floating_arrow = null
 	var exit_tween: Tween = null
 	for choice in choices:
 		var arrow: Control = choice.arrow
