@@ -226,7 +226,7 @@ func shared_dice_face() -> int:
 
 func refresh_shared_die_input() -> void:
 	if not is_instance_valid(dice): return
-	if shared_die_busy or moving:
+	if shared_die_busy or moving or (is_instance_valid(map_audio) and map_audio.is_open()):
 		dice.disabled = true
 		return
 	if is_instance_valid(embedded_battle):
@@ -295,10 +295,11 @@ func _sync_map_chrome() -> void:
 	var world_tree_prayer: bool = has_overlay and overlay is ExplorationActions and overlay.type=="unknown"
 	var foreground_die: bool = not has_overlay or central_battle or fortune_prophecy or world_tree_prayer
 	var show_board_controls: bool = not has_overlay or overlay is InventoryPanel
-	var show_die: bool = not (overlay is BattleDeck or overlay is HomeInheritance or overlay is VillageMobMarch)
+	var battle_settings_open: bool = central_battle and is_instance_valid(embedded_battle) and is_instance_valid(embedded_battle.audio_settings) and embedded_battle.audio_settings.is_open()
+	var show_die: bool = not battle_settings_open and not (overlay is BattleDeck or overlay is HomeInheritance or overlay is VillageMobMarch)
 	for control in map_chrome:
 		if not is_instance_valid(control): continue
-		var battle_book_or_deck: bool = control == book_button or control == deck_button or control == dice_count_label
+		var battle_book_or_deck: bool = control == book_button or (not battle_settings_open and (control == deck_button or control == dice_count_label))
 		control.visible = show_die if control == dice else (show_board_controls or (central_battle and battle_book_or_deck))
 	if is_instance_valid(dice):
 		dice.z_index = DIE_FOREGROUND_Z if foreground_die else DIE_BEHIND_LOCATION_Z
@@ -688,8 +689,6 @@ func render() -> void:
 	hud = label_at(stage,"%s · %d바퀴" % [{"default":"기본 지역","winter":"겨울 지역","hell":"지옥 지역"}[world.region],world.laps],Vector2(420,16),Vector2(440,30),14)
 	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.z_index = 25
-	var restart_button = button(stage,"새 원정",Vector2(12,12),Vector2(94,30),confirm_new_run)
-	restart_button.z_index = 25
 	var book = TextureButton.new()
 	book.ignore_texture_size = true
 	book.texture_normal = texture("res://assets/map/ui/map-book-closed.png")
@@ -729,9 +728,12 @@ func render() -> void:
 	deck_feedback.hover_scale = Vector2(1.025,1.025)
 	dice_count_label = label_at(stage,"주사위 카드 %d/%d" % [world.dice_cards.size(),RewardCatalog.DICE_CAPACITY],Vector2(1120,684),Vector2(150,26),12)
 	dice_count_label.z_index = 51
-	map_chrome.append_array([dice,status,hud,restart_button,book,roster_count,deck_button,dice_count_label])
+	map_chrome.append_array([dice,status,hud,book,roster_count,deck_button,dice_count_label])
 	map_audio = AudioSettings.new()
-	map_audio.setup(stage)
+	map_audio.setup(stage, func() -> bool: return not moving and not shared_die_busy and not battle_returning)
+	map_audio.open_changed.connect(func(opened: bool):
+		if opened: refresh_shared_die_input()
+		else: _sync_map_chrome())
 	map_audio.set_modal_blocked(is_instance_valid(overlay))
 	var options: Button = map_audio.get_child(0)
 	options.text = ""
@@ -986,7 +988,7 @@ func animate_hero_step(index: int, is_final_step: bool = false) -> void:
 	await _tile_landing_feedback(index)
 
 func roll_move(instance_id: String = "") -> void:
-	if moving or is_instance_valid(overlay): return
+	if moving or is_instance_valid(overlay) or map_audio.is_open(): return
 	if not world.pending_move.is_empty():
 		await resume_map_move()
 		return
@@ -1056,7 +1058,7 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
 
 func select_tile(index: int) -> void:
-	if moving or is_instance_valid(overlay) or not world.pending_move.is_empty(): return
+	if moving or is_instance_valid(overlay) or map_audio.is_open() or not world.pending_move.is_empty(): return
 	highlight(index)
 	status.text = "%d번 · %s%s" % [index+1,MapState.NAMES[world.tiles[index]]," · 처치 완료" if index in world.cleared else ""]
 	show_tile(index)
@@ -1617,28 +1619,6 @@ func deliver_graveyard_reward(owner:Control,motion:Control,count_before:int) -> 
 		destination.texture_normal=texture("res://assets/map/ui/map-card-deck.png")
 	# Keep the receiving deck visible until the owning panel closes normally.
 	return true
-
-func confirm_new_run() -> void:
-	if moving or is_instance_valid(overlay): return
-	var panel = modal()
-	var question = label_at(panel,"현재 원정을 끝내고 새로 시작하시겠습니까?",Vector2(300,280),Vector2(680,50),22)
-	question.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button(panel,"취소",Vector2(460,380),Vector2(150,42),close_overlay)
-	button(panel,"새 원정 시작",Vector2(650,380),Vector2(180,42),func():
-		var previous_world = world
-		var previous_encounter: Dictionary = session.encounter.duplicate(true)
-		var candidate = MapState.new(world.definitions,Time.get_ticks_usec(),world.patrol_plan)
-		session.world = candidate
-		session.encounter = {}
-		if not session.save_world():
-			session.world = previous_world
-			session.encounter = previous_encounter
-			status.text = session.notice
-			return
-		world = candidate
-		close_overlay()
-		if get_tree().change_scene_to_file("res://intro.tscn")!=OK: render())
-
 
 func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	if not world.run_result.is_empty(): return

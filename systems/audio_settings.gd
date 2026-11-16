@@ -1,14 +1,17 @@
 extends Control
 
-## Map settings popover with shared audio preferences.
+## Centered map settings with shared audio preferences.
+signal open_changed(opened: bool)
 ## Always use the OS default output; Advanced retains only master volume.
 const SAVE = "user://audio_settings.cfg"
-# The popup sits BELOW the map's gear rather than covering the gear's
-# own touch rectangle; the same icon can therefore close it again.
-const PANEL_RECT = Rect2(912.0, 268.0, 296.0, 0.0)
+const PANEL_WIDTH := 526.0
 
 var save_file_path: String = SAVE
 var panel: PanelContainer
+var dimmer: ColorRect
+var resume_button: Button
+var quit_button: Button
+var can_open: Callable
 var modal_blocked: bool = false
 var options_button: Button
 var close_button: Button
@@ -101,7 +104,7 @@ func settings_label(copy: String, points: int, color: Color = Color("e6d4b5")) -
 func add_row(column: VBoxContainer, label_text: String, row_name: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = row_name
-	row.custom_minimum_size.y = 38
+	row.custom_minimum_size.y = 46
 	row.add_theme_constant_override("separation", 10)
 	column.add_child(row)
 	var caption := settings_label(label_text, 16)
@@ -113,7 +116,7 @@ func add_toggle_row(column: VBoxContainer, label_text: String, category: String)
 	var row := add_row(column, label_text, category + "AudioRow")
 	var toggle := Button.new()
 	toggle.name = category + "AudioToggle"
-	toggle.custom_minimum_size = Vector2(114, 36)
+	toggle.custom_minimum_size = Vector2(168, 42)
 	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	toggle.toggle_mode = true
 	style_action(toggle)
@@ -130,10 +133,11 @@ func separator(parent: VBoxContainer) -> void:
 	parent.add_child(rule)
 
 
-func setup(parent: Control) -> void:
+func setup(parent: Control, opening_allowed: Callable = Callable()) -> void:
+	can_open = opening_allowed
 	ensure_buses()
 	parent.add_child(self)
-	size = Vector2(1280,720)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 90
 
@@ -146,33 +150,42 @@ func setup(parent: Control) -> void:
 	options_button.pressed.connect(toggle_panel)
 	add_child(options_button)
 
+	dimmer = ColorRect.new()
+	dimmer.name = "MapSettingsDimmer"
+	dimmer.color = Color("100c09bd")
+	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dimmer.z_index = 42
+	add_child(dimmer)
+	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dimmer.hide()
+
 	panel = PanelContainer.new()
 	panel.name = "MapAudioOptionsPanel"
-	panel.position = PANEL_RECT.position
-	panel.size = PANEL_RECT.size
-	panel.custom_minimum_size.x = PANEL_RECT.size.x
-	panel.z_index = 40
-	var style := surface(Color("241c16"), Color("a37e52"), 8)
+	panel.custom_minimum_size.x = PANEL_WIDTH
+	panel.z_index = 43
+	var style := surface(Color("241c16"), Color("a37e52"), 9)
 	style.set_border_width_all(2)
 	style.shadow_color = Color("150e0ace")
 	style.shadow_size = 7
 	style.shadow_offset = Vector2(0, 4)
-	style.content_margin_left = 19
-	style.content_margin_right = 19
-	style.content_margin_top = 14
-	style.content_margin_bottom = 15
+	style.content_margin_left = 30
+	style.content_margin_right = 30
+	style.content_margin_top = 22
+	style.content_margin_bottom = 24
 	panel.add_theme_stylebox_override("panel", style)
 	add_child(panel)
+	panel.resized.connect(center_panel)
+	resized.connect(center_panel)
 
 	var column := VBoxContainer.new()
 	column.name = "AudioOptionsContent"
-	column.add_theme_constant_override("separation", 9)
+	column.add_theme_constant_override("separation", 10)
 	panel.add_child(column)
 	var header := HBoxContainer.new()
 	header.name = "MapAudioOptionsHeader"
-	header.custom_minimum_size.y = 36
+	header.custom_minimum_size.y = 44
 	column.add_child(header)
-	var title := settings_label("설정", 23, Color("f5deaf"))
+	var title := settings_label("설정", 29, Color("f5deaf"))
 	title.name = "AudioOptionsTitle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
@@ -180,8 +193,9 @@ func setup(parent: Control) -> void:
 	close_button.name = "MapAudioOptionsClose"
 	close_button.text = "×"
 	close_button.tooltip_text = "닫기"
-	close_button.custom_minimum_size = Vector2(36,36)
-	style_action(close_button, 21)
+	close_button.custom_minimum_size = Vector2(44,42)
+	close_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	style_action(close_button, 22)
 	close_button.pressed.connect(close_panel)
 	header.add_child(close_button)
 	separator(column)
@@ -189,7 +203,7 @@ func setup(parent: Control) -> void:
 	var language_row := add_row(column, "언어", "LanguageRow")
 	language_picker = OptionButton.new()
 	language_picker.name = "LanguagePicker"
-	language_picker.custom_minimum_size = Vector2(114,36)
+	language_picker.custom_minimum_size = Vector2(168,42)
 	language_picker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	language_picker.add_theme_constant_override("arrow_margin", 10)
 	style_action(language_picker)
@@ -214,7 +228,7 @@ func setup(parent: Control) -> void:
 	advanced_button = Button.new()
 	advanced_button.name = "MapAudioAdvancedButton"
 	advanced_button.text = "고급 설정 ▾"
-	advanced_button.custom_minimum_size.y = 34
+	advanced_button.custom_minimum_size.y = 38
 	advanced_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	advanced_button.pressed.connect(toggle_advanced)
 	column.add_child(advanced_button)
@@ -258,8 +272,62 @@ func setup(parent: Control) -> void:
 	output_label = settings_label("출력: 시스템 기본 장치 (자동)", 13, Color("b9a588"))
 	output_label.name = "MapAudioSystemDefaultOutput"
 	advanced_content.add_child(output_label)
+	separator(column)
+
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 12)
+	column.add_child(footer)
+	quit_button = footer_action(footer, "MapSettingsQuit", "그만하기", false)
+	quit_button.pressed.connect(request_quit)
+	resume_button = footer_action(footer, "MapSettingsResume", "이어서 하기", true)
+	resume_button.pressed.connect(close_panel)
+	update_focus_order()
+	panel.reset_size()
+	center_panel()
 	panel.hide()
 	refresh_controls()
+
+func footer_action(footer: HBoxContainer, node_name: String, label_text: String, primary: bool) -> Button:
+	var action := Button.new()
+	action.name = node_name
+	action.text = label_text
+	action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	action.custom_minimum_size.y = 46
+	style_action(action, 18)
+	if primary:
+		var paper := surface(Color("c09963"), Color("e2bf8a"))
+		action.add_theme_stylebox_override("normal", paper)
+		action.add_theme_stylebox_override("hover", surface(Color("d1ab73"), Color("f2d7a7")))
+		action.add_theme_stylebox_override("pressed", surface(Color("ac8450"), Color("deb985")))
+		for state in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
+			action.add_theme_color_override(state, Color("281a10"))
+	footer.add_child(action)
+	return action
+
+func center_panel() -> void:
+	if is_instance_valid(panel):
+		panel.position = ((size - panel.size) * 0.5).round()
+
+func update_focus_order() -> void:
+	var controls: Array[Control] = [close_button, language_picker, music_toggle, sfx_toggle, advanced_button]
+	if advanced_content.visible: controls.append(volume_slider)
+	controls.append_array([quit_button, resume_button])
+	for i in range(controls.size()):
+		var control := controls[i]
+		control.focus_previous = control.get_path_to(controls[posmod(i - 1, controls.size())])
+		control.focus_next = control.get_path_to(controls[(i + 1) % controls.size()])
+		control.focus_neighbor_top = control.focus_previous
+		control.focus_neighbor_bottom = control.focus_next
+		control.focus_neighbor_left = NodePath(".")
+		control.focus_neighbor_right = NodePath(".")
+	quit_button.focus_neighbor_right = quit_button.get_path_to(resume_button)
+	resume_button.focus_neighbor_left = resume_button.get_path_to(quit_button)
+
+func is_open() -> bool:
+	return is_instance_valid(panel) and panel.visible
+
+func request_quit() -> void:
+	get_node("/root/QuitConfirmation").request_quit()
 
 
 func refresh_controls() -> void:
@@ -279,27 +347,38 @@ func refresh_controls() -> void:
 func set_modal_blocked(blocked: bool) -> void:
 	if modal_blocked == blocked: return
 	modal_blocked = blocked
-	if blocked and is_instance_valid(panel): panel.hide()
+	if blocked and is_open():
+		panel.hide()
+		dimmer.hide()
 	if is_instance_valid(options_button): options_button.disabled = blocked
 	visible = not blocked
 
 func toggle_panel() -> void:
 	if modal_blocked or not visible: return
-	if panel.visible:
+	if is_open():
 		close_panel()
-	else:
-		refresh_controls()
-		panel.show()
+		return
+	if can_open.is_valid() and not can_open.call(): return
+	refresh_controls()
+	# Input follows sibling order. The map shares the die above other overlays.
+	get_parent().move_child(self, get_parent().get_child_count() - 1)
+	dimmer.show()
+	panel.show()
+	resume_button.grab_focus()
+	open_changed.emit(true)
 
 func close_panel() -> void:
 	panel.hide()
+	dimmer.hide()
 	options_button.grab_focus()
+	open_changed.emit(false)
 
 
 func toggle_advanced() -> void:
 	advanced_content.visible = not advanced_content.visible
 	advanced_button.text = "고급 설정 ▴" if advanced_content.visible else "고급 설정 ▾"
 	panel.reset_size()
+	update_focus_order()
 
 
 func toggle_category(category: String) -> void:

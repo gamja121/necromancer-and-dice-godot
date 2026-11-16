@@ -48,6 +48,7 @@ var definitions: Dictionary
 var rules
 var selection: Array = ["skeleton-spear","spider-knight","plague-doctor","siren"]
 var layer: Control
+var audio_settings: AudioSettings
 var sprites: Dictionary = {}
 var bars: Dictionary = {}
 var cards: Dictionary = {}
@@ -383,7 +384,10 @@ void fragment() {
 	frame_resources.name = "BattleFrameResources"
 	layer.add_child(frame_resources)
 	frame_resources.warm_combatants(rules.units,presentation_layout.metrics)
-	AudioSettings.new().setup(layer)
+	audio_settings = AudioSettings.new()
+	audio_settings.setup(layer)
+	if embedded and is_instance_valid(map_owner):
+		audio_settings.open_changed.connect(func(_opened: bool): map_owner._sync_map_chrome())
 	cues = CombatCues.new()
 	layer.add_child(cues)
 	cues.setup(self)

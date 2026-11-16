@@ -18,7 +18,7 @@ func check(ok: bool, description: String) -> void:
 		printerr("FAIL ui-map-chrome: ", description)
 
 func chrome_hidden(map: Control, die_visible: bool = true) -> bool:
-	if map.map_chrome.size() != 8: return false
+	if map.map_chrome.size() != 7: return false
 	for control in map.map_chrome:
 		if not is_instance_valid(control): return false
 		if control==map.dice:
@@ -28,7 +28,7 @@ func chrome_hidden(map: Control, die_visible: bool = true) -> bool:
 	return is_instance_valid(map.presentation.gauge) and not map.presentation.gauge.visible
 
 func chrome_visible(map: Control, die_visible: bool = true) -> bool:
-	if map.map_chrome.size() != 8: return false
+	if map.map_chrome.size() != 7: return false
 	for control in map.map_chrome:
 		if not is_instance_valid(control): return false
 		var expected: bool = die_visible if control==map.dice else true
@@ -155,7 +155,7 @@ func _run() -> void:
 	check(map.dice != previous_dice and chrome_visible(map), "board render recreates exactly the visible new controls")
 	check(map.dice.position == Vector2(280,330) and absf(map.dice.rotation_degrees-27.0)<0.1,
 		"rebuilt map die starts at its LAST stopped pose, never auto-centers")
-	check(map.map_chrome.size() == 8 and board_remains(map), "reconstructed chrome has no old-stage references")
+	check(map.map_chrome.size() == 7 and board_remains(map), "reconstructed chrome has no old-stage references")
 	map.modal()
 	check(modal_and_chrome(map), "overlay after rerender still hides rebuilt board controls")
 	map.close_overlay()

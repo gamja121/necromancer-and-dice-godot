@@ -150,7 +150,7 @@ func _run() -> void:
 	var before: Dictionary = session.world.snapshot().duplicate(true)
 	var before_rng: int = session.world.rng.state
 	var before_receipts: Array = session.world.reward_receipts.duplicate()
-	check(map.overlay == null and map.map_chrome.size() == 8, "map begins with visible source HUD and no overlay")
+	check(map.overlay == null and map.map_chrome.size() == 7, "map begins with visible source HUD and no overlay")
 	check(map.TILE_EVENT_SCENE_RECT == Rect2(243.2,136.8,793.6,446.4), "story panels retain original 16:9 footprint")
 	check(map.LOCATION_EVENT_SCENE_RECT == Rect2(150,148,980,406) and map.LOCATION_EVENT_FRAME_RECT == Rect2(128,126,1024,450), "locations share embedded battlefield geometry")
 	check(map.TILE_EVENT_ACTION_RECT == Rect2(896,415,216,58), "primary action uses the original parchment sprite inside art at right")
@@ -169,7 +169,7 @@ func _run() -> void:
 			check(is_instance_valid(hill_action), "hill action offers a selectable 1–6 tile movement instead of scouting")
 		map.close_overlay()
 		check(map.overlay == null and not map.map_audio.modal_blocked, str(target.tile) + " close removes foreground and restores audio icon")
-		check(map.presentation.gauge.visible and map.map_chrome.size() == 8, str(target.tile) + " close restores source map HUD")
+		check(map.presentation.gauge.visible and map.map_chrome.size() == 7, str(target.tile) + " close restores source map HUD")
 		restore_location_fixture(session, fixture)
 	# Enter the functional panels via the real scene buttons, not merely
 	# direct setup: prior builds replaced the wide framed painting with 1040x480 art.

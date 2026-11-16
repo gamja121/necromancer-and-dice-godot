@@ -129,6 +129,17 @@ func _run() -> void:
 		check(die.visible and die.z_index>map.overlay.z_index and die.mouse_filter==Control.MOUSE_FILTER_STOP,"only actual battlefield lifts die above battle art and makes it clickable")
 		check(map.stage.get_child(map.stage.get_child_count()-1)==die,"battle die is last sibling for real GUI hit testing")
 		check(die.position==initial_position and session.world.dice_visual_face==initial_face,"layer transitions preserve shared die pose and face")
+		var settings: Control = map.embedded_battle.audio_settings
+		settings.options_button.pressed.emit()
+		settings.advanced_button.pressed.emit()
+		await process_frame
+		await process_frame
+		var panel_rect: Rect2 = settings.panel.get_rect()
+		var arena_rect := Rect2(Vector2.ZERO, map.embedded_battle.surface_size)
+		check(arena_rect.encloses(panel_rect) and panel_rect.get_center().distance_to(arena_rect.get_center()) <= 1.0,"expanded settings stay centered inside the embedded battle area: %s within %s" % [panel_rect, arena_rect])
+		check(not die.visible and not map.deck_button.visible,"shared battle controls cannot cover settings actions")
+		settings.resume_button.pressed.emit()
+		check(die.visible and map.deck_button.visible and map.stage.get_child(map.stage.get_child_count()-1)==die,"resuming restores the same battle die and deck")
 	map.queue_free()
 	await process_frame
 	session.save_file_path=prior_path

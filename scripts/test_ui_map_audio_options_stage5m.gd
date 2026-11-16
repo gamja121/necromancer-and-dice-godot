@@ -41,13 +41,13 @@ func _run() -> void:
 	await process_frame
 	check(audio.get_child(0)==audio.options_button and audio.options_button.name=="MapOptionsButton","existing map integration keeps original image button as first child")
 	check(audio.panel.name=="MapAudioOptionsPanel" and not audio.panel.visible,"source OPTION panel starts hidden")
-	check(audio.panel.position.distance_to(AudioOptions.PANEL_RECT.position)<1.0,"popup is placed below the map gear")
-	check(is_equal_approx(audio.panel.size.x, AudioOptions.PANEL_RECT.size.x),"options panel fits the reading layout")
-	check(audio.panel.z_index==40 and audio.z_index==90,"source z-index 130 placed above the map only when open")
+	check(audio.panel.get_rect().get_center().distance_to(audio.size * 0.5)<1.0,"settings is centered on the map")
+	check(is_equal_approx(audio.panel.size.x, AudioOptions.PANEL_WIDTH),"options panel fits the reading layout")
+	check(audio.panel.z_index>audio.dimmer.z_index and audio.dimmer.z_index>audio.options_button.z_index,"dimmer and settings cover the board and gear")
 	check(audio.panel.get_theme_stylebox("panel") is StyleBoxFlat and audio.panel.get_theme_stylebox("panel").content_margin_left >= 18,"popup gives labels room inside its frame")
 	check(audio.music_toggle.get_theme_stylebox("normal") is StyleBoxFlat and audio.music_toggle.toggle_mode,"toggle has distinct idle and selected states")
 	check(audio.panel.get_node_or_null("AudioOptionsContent/MapAudioOptionsHeader/AudioOptionsTitle").text=="설정","hand-brushed Korean settings heading exists")
-	check(audio.close_button.text=="×" and audio.close_button.custom_minimum_size==Vector2(36,36),"close control has a full 36px hit area")
+	check(audio.close_button.text=="×" and audio.close_button.custom_minimum_size==Vector2(44,42),"close control has a full click target")
 	check(audio.music_toggle.text=="ON" and audio.sfx_toggle.text=="ON","both web sound switches reflect live enabled state")
 	check(audio.advanced_content!=null and not audio.advanced_content.visible,"automatic OS output and native master volume remain folded away")
 	check(audio.options_button.pressed.is_connected(Callable(audio,"toggle_panel")),"map options button opens and closes working panel")
@@ -68,7 +68,8 @@ func _run() -> void:
 	check(audio.sfx_toggle.text=="OFF" and AudioServer.is_bus_mute(sfx_bus),"SFX button independently disables real SFX bus")
 	audio.advanced_button.pressed.emit()
 	await process_frame
-	check(audio.panel.size.y > compact_height and audio.panel.get_rect().end.y < 720,
+	check(audio.panel.size.y > compact_height and audio.panel.get_rect().end.y < 720
+		and audio.panel.get_rect().get_center().distance_to(audio.size * 0.5) < 1.0,
 		"advanced panel grows within the board viewport")
 	check(audio.advanced_content.visible and audio.output_label!=null and audio.volume_slider!=null,"system default output policy and master volume available under Advanced")
 	check(audio.output_label.text.contains("시스템 기본") and audio.advanced_content.get_node_or_null("MapAudioOutputDevice")==null,"no device-specific selector can bind the game to this PC")
@@ -125,10 +126,10 @@ func _run() -> void:
 	if icon!=null and icon.texture!=null:
 		check(icon.texture is ImageTexture,"real map uses painted brush gear asset")
 	check(actual.options_button.position==Vector2(1041,175) and actual.options_button.size==Vector2(80,80),"painted gear is in the marked upper-right space with an enlarged finger target")
-	check(actual.options_button.mouse_filter==Control.MOUSE_FILTER_STOP and actual.options_button.z_index>actual.panel.z_index,
-		"gear receives GUI input above the painted popup")
-	check(not actual.options_button.get_global_rect().intersects(actual.panel.get_global_rect()),
-		"open popup leaves the gear accessible to a second touch")
+	check(actual.options_button.mouse_filter==Control.MOUSE_FILTER_STOP and actual.options_button.z_index<actual.dimmer.z_index,
+		"gear opens settings and sits behind the dimmer")
+	check(map.map_chrome.size() == 7 and not map.stage.find_children("*", "Button", false, false).any(func(node): return node.text == "새 원정"),
+		"board chrome has no new expedition shortcut")
 	var painted = actual.options_button.get_node_or_null("PaintedSettingsGear")
 	check(painted!=null and painted.mouse_filter==Control.MOUSE_FILTER_IGNORE and painted.size==Vector2(58,58),
 		"decorative paint never steals the touch event")
@@ -154,15 +155,36 @@ func _run() -> void:
 	root.push_input(press_event,true)
 	root.push_input(release_event,true)
 	await process_frame
-	check(actual.panel.visible,"real GUI click opens settings, not just a manual pressed signal")
+	check(actual.panel.visible and actual.dimmer.visible and map.dice.disabled,"real gear click opens settings and locks the die")
+	check(actual.panel.get_rect().get_center().distance_to(actual.size * 0.5) < 1.0, "settings stays centered on the real board")
+	var snapshot: Dictionary = session.world.snapshot().duplicate(true)
+	var tile: int = session.world.tiles.find("monster")
+	pointer = map.buttons[tile].get_global_rect().get_center()
+	press_event.position = pointer
+	press_event.global_position = pointer
+	release_event.position = pointer
+	release_event.global_position = pointer
 	root.push_input(press_event,true)
 	root.push_input(release_event,true)
 	await process_frame
-	check(not actual.panel.visible,"second real GUI click closes settings without interference")
-	actual.options_button.pressed.emit()
-	check(actual.panel.visible and actual.panel.position.distance_to(AudioOptions.PANEL_RECT.position)<1.0,"real map opens settings below the gear")
-	actual.close_button.pressed.emit()
-	check(not actual.panel.visible,"real map close returns to board")
+	check(actual.panel.visible and not is_instance_valid(map.overlay) and session.world.snapshot() == snapshot,
+		"clicks behind the settings do not start a tile action")
+	var quit_manager := root.get_node("/root/QuitConfirmation")
+	actual.quit_button.pressed.emit()
+	check(quit_manager.opened and paused and actual.panel.visible, "Quit Game opens the existing confirmation over settings")
+	quit_manager.cancel_quit()
+	check(not quit_manager.opened and not paused and actual.panel.visible and map.dice.disabled, "cancel goes back to settings")
+	pointer = actual.resume_button.get_global_rect().get_center()
+	press_event.position = pointer
+	press_event.global_position = pointer
+	release_event.position = pointer
+	release_event.global_position = pointer
+	root.push_input(press_event,true)
+	root.push_input(release_event,true)
+	await process_frame
+	check(not actual.panel.visible and not actual.dimmer.visible and not map.dice.disabled,
+		"real Resume button returns the board and die to play")
+	check(session.world.snapshot() == snapshot, "resuming changes neither the save state nor the random sequence")
 	map.queue_free()
 	await process_frame
 	session.save_file_path = original_path
