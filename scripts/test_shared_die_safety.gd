@@ -48,6 +48,15 @@ func _run() -> void:
 	var center_hud: Vector2=wall.get_center()
 	var hud_pose: Vector2=animation.safe_rest_position(center_hud-Vector2(38,38),Vector2(76,76),INTERIOR,wall)
 	check(not wall.grow(radius).has_point(hud_pose+Vector2(38,38)),"legacy die inside HUD moves to safe upper board")
+	var upper_exit := ceilf(wall.position.y-radius)-1.0
+	check(hud_pose+Vector2(38,38)==Vector2(center_hud.x,upper_exit),"blocked lower exit uses the closest legal HUD edge")
+	var left_stop := Vector2(350,425)
+	var left_exit := ceilf(wall.position.x-radius)-1.0-38.0
+	check(animation.safe_rest_position(left_stop,Vector2(76,76),INTERIOR,wall)==Vector2(left_exit,left_stop.y),"HUD side exit preserves the other coordinate")
+	var horizontal_wall := Rect2(20,45,60,10)
+	var vertical_wall := Rect2(45,20,10,60)
+	var cross_exit: Vector2 = animation.safe_rest_position(Vector2(45,45),Vector2(10,10),Rect2(0,0,100,100),horizontal_wall,vertical_wall)+Vector2(5,5)
+	check(cross_exit.distance_squared_to(Vector2(50,50))==338.0,"overlapping walls use the nearest clear corner")
 	var rng_before: int=session.world.rng.state
 	var old_face: int=session.world.dice_visual_face
 	session.world.dice_visual_position=[340,28]

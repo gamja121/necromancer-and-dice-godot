@@ -131,6 +131,32 @@ func _run() -> void:
 		await process_frame
 		await process_frame
 		preserved_pose(map,battle_pose,battle_rotation,"after full save reload")
+
+		var wall: Rect2 = map.presentation.gauge.dice_wall_rect()
+		map.open_embedded_battle(false)
+		await process_frame
+		var blocked_pose := Vector2(350,425)
+		var radius := DIE_SIZE.length()*0.55
+		var safe_pose := Vector2(ceilf(wall.position.x-radius)-1.0-DIE_SIZE.x*0.5,blocked_pose.y)
+		var face := load("res://assets/battle/dice/result-05.png") as Texture2D
+		map.dice.position = blocked_pose
+		map.dice.rotation_degrees = float(battle_rotation)
+		map.dice.texture_normal = face
+		session.world.dice_visual_face = 5
+		map.remember_shared_die()
+		var before_slide: Dictionary = session.world.snapshot().duplicate(true)
+		map.finish_embedded_battle()
+		var sliding := await wait_until(func(): return map.embedded_battle==null and map.battle_returning)
+		check(sliding and map.dice.disabled,"HUD overlap animates on the returned board with die input disabled")
+		if sliding:
+			check(map.dice.position.y==blocked_pose.y and map.dice.position.x>safe_pose.x,"slide starts at the battle pose and travels only toward the nearest edge")
+			map.dice.pressed.emit()
+		check(await wait_until(func(): return not map.battle_returning),"HUD slide settles and completes the map return")
+		preserved_pose(map,safe_pose,battle_rotation,"after overlap slide")
+		check(not map.dice.disabled and map.dice.texture_normal==face,"same die face is actionable after the slide")
+		check(session.world.snapshot()==before_slide,"sliding never changes the saved pose, face, turn or RNG")
+		map.render()
+		preserved_pose(map,safe_pose,battle_rotation,"subsequent redraw uses the same safe pose")
 	# The rebuilt map audio panel has a two-frame asynchronous _ready().
 	# Let it finish before destroying its tree during this test teardown.
 	for frame in range(8): await process_frame

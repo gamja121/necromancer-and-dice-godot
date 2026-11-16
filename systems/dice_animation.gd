@@ -83,13 +83,39 @@ func resolve_wall_bounce(previous: Vector2, proposed: Vector2, velocity: Vector2
 ## Keep restored poses inside the rotating die's safe painted footprint.
 func safe_rest_position(position: Vector2, die_size: Vector2, area: Rect2, collision_wall: Rect2 = Rect2(), additional_wall: Rect2 = Rect2()) -> Vector2:
 	var radius: float = die_size.length()*0.55
-	var minimum: Vector2 = area.position+Vector2.ONE*radius
-	var maximum: Vector2 = area.end-Vector2.ONE*radius
-	var center: Vector2 = (position+die_size*0.5).clamp(minimum,maximum)
+	var half_size := die_size*0.5
+	var safe_area := area.grow(-radius)
+	# Keep candidate coordinates on the same pixel grid as the saved top-left.
+	var minimum := (safe_area.position-half_size).ceil()+half_size
+	var maximum := (safe_area.end-half_size).floor()+half_size
+	var origin := position+half_size
+	var center := origin.clamp(minimum,maximum)
+	var walls: Array[Rect2] = []
 	for wall in [collision_wall,additional_wall]:
-		if wall.has_area() and wall.grow(radius).has_point(center):
-			center = (Vector2(602,308)+die_size*0.5).clamp(minimum,maximum)
-	return center-die_size*0.5
+		if wall.has_area(): walls.append(wall.grow(radius))
+	if not walls.any(func(wall: Rect2) -> bool: return wall.has_point(center)):
+		return center-half_size
+
+	var horizontal: Array[float] = [center.x]
+	var vertical: Array[float] = [center.y]
+	for wall in walls:
+		var first := (wall.position-half_size).ceil()+half_size-Vector2.ONE
+		var last := (wall.end-half_size).ceil()+half_size
+		horizontal.append_array([first.x,last.x])
+		vertical.append_array([first.y,last.y])
+	# Combine both walls' edges: a corner may be the closest exit when they overlap.
+	var best := center
+	var distance := INF
+	for x in horizontal:
+		for y in vertical:
+			var candidate := Vector2(x,y)
+			if candidate != candidate.clamp(minimum,maximum): continue
+			if walls.any(func(wall: Rect2) -> bool: return wall.has_point(candidate)): continue
+			var candidate_distance := origin.distance_squared_to(candidate)
+			if candidate_distance < distance:
+				best = candidate
+				distance = candidate_distance
+	return best-half_size
 
 func roll_map(button: TextureButton, face: int, area: Rect2, get_texture: Callable, play_sound: Callable, collision_wall: Rect2 = Rect2(), additional_wall: Rect2 = Rect2()) -> void:
 	button.pivot_offset = button.size*0.5

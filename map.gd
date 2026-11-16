@@ -154,23 +154,19 @@ func options_dice_wall_rect() -> Rect2:
 	var transform: Transform2D = stage.get_global_transform_with_canvas().affine_inverse()*map_audio.get_global_transform_with_canvas()
 	return (transform*Rect2(options.position,options.size)).grow(8.0)
 
-func shared_dice_position() -> Vector2:
-	var stored := Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
+func shared_dice_position(position: Vector2 = Vector2.INF) -> Vector2:
+	if position == Vector2.INF:
+		position = Vector2(float(world.dice_visual_position[0]),float(world.dice_visual_position[1]))
 	var wall: Rect2 = Rect2()
 	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
 		wall = presentation.gauge.dice_wall_rect()
-	# Legacy saves may have a pose over a tile or the corruption HUD.
-	# Correct only the cosmetic button position; never rewrite the saved roll.
-	return dice_animation.safe_rest_position(stored,Vector2(76,76),SHARED_DIE_AREA,wall,options_dice_wall_rect())
+	return dice_animation.safe_rest_position(position,dice.size,SHARED_DIE_AREA,wall,options_dice_wall_rect())
 
 func remember_shared_die() -> void:
 	if not is_instance_valid(dice): return
 	# Snap a legacy / combat landing away from the tile ring and visible HUD
 	# before persisting it; the result, gameplay RNG and turn never change.
-	var wall: Rect2 = Rect2()
-	if is_instance_valid(presentation) and is_instance_valid(presentation.gauge):
-		wall = presentation.gauge.dice_wall_rect()
-	var safe: Vector2 = dice_animation.safe_rest_position(dice.position,dice.size,SHARED_DIE_AREA,wall,options_dice_wall_rect())
+	var safe := shared_dice_position(dice.position.round())
 	safe = FinalDragonDieLayout.rest_position(safe,dice.size,SHARED_DIE_AREA,final_dragon_die_exclusion())
 	var stopped := Vector2(roundf(safe.x),roundf(safe.y))
 	dice.position = stopped
@@ -226,7 +222,7 @@ func shared_dice_face() -> int:
 
 func refresh_shared_die_input() -> void:
 	if not is_instance_valid(dice): return
-	if shared_die_busy or moving or (is_instance_valid(map_audio) and map_audio.is_open()):
+	if shared_die_busy or moving or battle_returning or (is_instance_valid(map_audio) and map_audio.is_open()):
 		dice.disabled = true
 		return
 	if is_instance_valid(embedded_battle):
@@ -244,7 +240,7 @@ func refresh_shared_die_input() -> void:
 		dice.disabled = true
 
 func on_shared_die_pressed() -> void:
-	if shared_die_busy or moving: return
+	if shared_die_busy or moving or battle_returning: return
 	if is_instance_valid(embedded_battle):
 		await embedded_battle.on_dice_pressed()
 	elif overlay is ExplorationActions and overlay.type=="unknown":
@@ -988,7 +984,7 @@ func animate_hero_step(index: int, is_final_step: bool = false) -> void:
 	await _tile_landing_feedback(index)
 
 func roll_move(instance_id: String = "") -> void:
-	if moving or is_instance_valid(overlay) or map_audio.is_open(): return
+	if moving or battle_returning or is_instance_valid(overlay) or map_audio.is_open(): return
 	if not world.pending_move.is_empty():
 		await resume_map_move()
 		return
@@ -1058,7 +1054,7 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
 
 func select_tile(index: int) -> void:
-	if moving or is_instance_valid(overlay) or map_audio.is_open() or not world.pending_move.is_empty(): return
+	if moving or battle_returning or is_instance_valid(overlay) or map_audio.is_open() or not world.pending_move.is_empty(): return
 	highlight(index)
 	status.text = "%d번 · %s%s" % [index+1,MapState.NAMES[world.tiles[index]]," · 처치 완료" if index in world.cleared else ""]
 	show_tile(index)
@@ -1489,7 +1485,7 @@ func show_roster() -> void:
 	show_inventory("unit")
 
 func show_inventory(kind: String) -> void:
-	if moving or is_instance_valid(overlay) or not world.pending_move.is_empty(): return
+	if moving or battle_returning or is_instance_valid(overlay) or not world.pending_move.is_empty(): return
 	if kind=="dice":
 		show_dice_hand()
 		return
@@ -1942,12 +1938,14 @@ func finish_embedded_battle() -> void:
 	if is_instance_valid(book_lock):
 		book_lock.set_locked(false)
 		await book_lock.transition_finished
+	var last_die_position: Vector2 = dice.position
 	map_music.stream_paused = false
 	embedded_battle = null
 	overlay = null
-	battle_returning = false
 	world = session.world
 	render()
+	var rest_position := shared_dice_position(last_die_position)
+	dice.position = rest_position
 	status.text = session.notice
 	session.notice = ""
 	if world.roster.is_empty(): status.text += " · 출전 가능한 마물이 없습니다."
@@ -1959,6 +1957,13 @@ func finish_embedded_battle() -> void:
 		# A restart during soul harvest has no active encounter ID; the
 		# persisted story receipt still opens its epilogue after reward exit.
 		show_pending_story_battle_result()
+	if not is_instance_valid(overlay) and not last_die_position.is_equal_approx(rest_position):
+		dice.position = last_die_position
+		var slide := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		slide.tween_property(dice,"position",rest_position,0.15)
+		await slide.finished
+	battle_returning = false
+	refresh_shared_die_input()
 
 
 func sound(kind: String) -> void:
