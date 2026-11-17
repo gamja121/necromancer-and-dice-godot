@@ -67,7 +67,8 @@ func setup(battle_scene) -> void:
 	size = scene.surface_size
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 60
-	scene.round_label.text = "전투 승리 · 영혼 수확"
+	scene.round_label.hide()
+	scene.message.hide()
 	scene.map_return.disabled = true
 	scene.pause_button.disabled = true
 	scene.speed_button.disabled = true
@@ -112,8 +113,13 @@ func setup(battle_scene) -> void:
 		target.tooltip_text = option.tooltip_text
 		target.pressed.connect(func(): select_corpse(index))
 		add_child(target)
-		var caption_pos: Vector2 = Vector2(option.position.x-16,option.position.y+option.size.y+2) if on_map_tiles else Vector2(scene.unit_x(unit)-45,scene.card_rest_y()-24)
-		var caption = scene.text(choice_parent,"%d 이상" % int(corpse.target),caption_pos,Vector2(90,24),13)
+		var caption_pos: Vector2 = Vector2(option.position.x+(option.size.x-84)*0.5,688) if on_map_tiles else Vector2(scene.unit_x(unit)-42,scene.card_rest_y()-24)
+		var caption = scene.text(choice_parent,"%d 이상" % int(corpse.target),caption_pos,Vector2(84,24),14)
+		var caption_ink := StyleBoxFlat.new()
+		caption_ink.bg_color = Color("241a13e6")
+		caption_ink.set_corner_radius_all(4)
+		caption.add_theme_stylebox_override("normal",caption_ink)
+		caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		place_choice_node(caption,choice_parent)
@@ -162,7 +168,7 @@ func build_capture_header() -> void:
 	capture_info_status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	capture_info_status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	capture_info_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	capture_info_status.add_theme_font_size_override("font_size",15)
+	capture_info_status.add_theme_font_size_override("font_size",17)
 	capture_info_status.add_theme_color_override("font_color",Color("49382e"))
 	capture_info_status.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	capture_info_panel.add_child(capture_info_status)
@@ -196,11 +202,20 @@ func refresh() -> void:
 			float_selection_arrow(choice.card,choice.arrow)
 		choice.card.disabled = busy or pending.locked
 		choice.target.disabled = busy or pending.locked
-	scene.message.text = "%s · 주사위 %d 이상 · 남은 시도 %d%s" % [corpse.name,int(corpse.target),int(pending.attempts)," · 대상 고정" if pending.locked else " · 시체를 선택하세요"]
-	if is_instance_valid(capture_info_status):
-		capture_info_status.text = "%s · %d 이상\n남은 시도 %d%s" % [corpse.name,int(corpse.target),int(pending.attempts)," · 대상 고정" if pending.locked else " · 시체를 선택하세요"]
+	var detail := tr("%s · 필요 주사위 %d 이상 · 남은 시도 %d%s") % [
+		tr(str(corpse.name)),int(corpse.target),int(pending.attempts),tr(" · 대상 고정") if pending.locked else ""]
+	var guide := "주사위를 눌러 영혼을 수확하세요"
+	if busy:
+		guide = "주사위를 굴리는 중…"
+	elif pending.phase=="retry":
+		guide = "수확 실패 · 주사위를 다시 굴리세요"
+	set_capture_notice(detail+"\n"+tr(guide))
 	scene.dice.tooltip_text = "영혼 수확 주사위 굴리기"
 	scene.dice.disabled = busy
+
+func set_capture_notice(value: String) -> void:
+	if is_instance_valid(capture_info_status): capture_info_status.text = value
+
 
 func float_selection_arrow(card: TextureButton, arrow: TextureRect) -> void:
 	if arrow_float != null: arrow_float.kill()
@@ -217,7 +232,7 @@ func float_selection_arrow(card: TextureButton, arrow: TextureRect) -> void:
 func select_corpse(index: int) -> void:
 	if busy: return
 	if session.select_capture(index): refresh()
-	else: scene.message.text = "선택 저장 실패 · 다시 시도하세요"
+	else: set_capture_notice("선택 저장 실패 · 다시 시도하세요")
 
 func wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
@@ -273,7 +288,7 @@ func roll() -> void:
 		return
 	var result: Dictionary = session.roll_capture()
 	if not result.get("ok",false):
-		scene.message.text = "수확 판정 저장 실패 · 다시 시도하세요"
+		set_capture_notice("수확 판정 저장 실패 · 다시 시도하세요")
 		return
 	busy = true
 	scene.busy = true
@@ -301,7 +316,6 @@ func roll() -> void:
 		busy = false
 		scene.busy = false
 		refresh()
-		scene.message.text += " · 실패, 한 번 더 시도할 수 있습니다"
 
 func resume_result() -> void:
 	if session.world.pending_reward.phase=="success": await complete_success()
@@ -313,7 +327,7 @@ func complete_success() -> void:
 	refresh()
 	var pending: Dictionary = session.world.pending_reward
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
-	scene.message.text = corpse.name+" · 영혼 수확 성공"
+	set_capture_notice(tr(str(corpse.name))+" · "+tr("영혼 수확 성공"))
 	var selected_card: TextureButton = choices[int(pending.selected)].card
 	# Commit the actual soul first. A full monster book may prompt the
 	# player to discard a card; nothing should visibly enter the book
@@ -329,10 +343,11 @@ func complete_success() -> void:
 		scene.busy = false
 		scene.dice.disabled = false
 		selected_card.show()
-		scene.message.text = "획득 저장 실패 · 주사위를 눌러 다시 저장하세요"
+		set_capture_notice("획득 저장 실패 · 주사위를 눌러 다시 저장하세요")
 		return
 	# The reward has been stored (or deliberately discarded) before
 	# removing alternate cards. A failed save keeps all choices retryable.
+	set_capture_notice(tr("%s 획득") % tr(str(corpse.name)) if outcome.kept else tr("획득을 포기했습니다"))
 	await clear_unclaimed_capture_cards(selected_card)
 	if outcome.kept:
 		Sound.cue(scene,"capture_success")
@@ -384,13 +399,13 @@ func complete_failure() -> void:
 	busy = true
 	scene.busy = true
 	scene.dice.disabled = true
-	scene.message.text = "영혼 수확 실패 · 시도 횟수를 모두 사용했습니다"
+	set_capture_notice("영혼 수확 실패 · 시도 횟수를 모두 사용했습니다")
 	await wait(0.18)
 	if not session.dismiss_failed_capture():
 		busy = false
 		scene.busy = false
 		scene.dice.disabled = false
-		scene.message.text = "결과 저장 실패 · 주사위를 눌러 다시 저장하세요"
+		set_capture_notice("결과 저장 실패 · 주사위를 눌러 다시 저장하세요")
 		return
 	# The terminal failure is now persisted. Dissolve every unrecovered enemy
 	# card using the *same* permanent-death shader, sound and rising ash as the

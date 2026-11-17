@@ -67,7 +67,7 @@ func _run() -> void:
 		panel.scene=CaptureSceneStub.new()
 		panel.scene.layer=panel
 		panel.session=session
-		session.world.pending_reward={"kind":"capture","selected":0,"corpses":[{"name":"구울","target":3},{"name":"늑대","target":5}],"attempts":2,"locked":false}
+		session.world.pending_reward={"kind":"capture","selected":0,"corpses":[{"name":"구울","target":3},{"name":"늑대","target":5}],"attempts":2,"locked":false,"phase":"choose"}
 		panel.refresh()
 		check(near(card_a.scale.x,1.15) and near(card_b.scale.x,1.0) and card_a.z_index>card_b.z_index,"chosen corpse enlarges and rises above other cards")
 		check(card_a.pivot_offset.is_equal_approx(card_a.size*0.5),"chosen corpse scales around its center")

@@ -63,8 +63,8 @@ const LOCATION_EVENT_FRAME_RECT = Rect2(128.0,126.0,1024.0,450.0)
 # Two-button locations: action + exit; house interior: inherit + patrol + exit.
 const TILE_EVENT_ACTION_RECT = Rect2(896.0,415.0,216.0,58.0)
 const TILE_EVENT_EXIT_RECT = Rect2(896.0,481.0,216.0,58.0)
-const TILE_EVENT_INHERITANCE_RECT = Rect2(896.0,349.0,216.0,58.0)
-const TILE_EVENT_PATROL_RECT = Rect2(896.0,415.0,216.0,58.0)
+const TILE_EVENT_INHERITANCE_RECT = Rect2(896.0,283.0,216.0,58.0)
+const TILE_EVENT_PATROL_RECT = Rect2(896.0,349.0,216.0,58.0)
 # Frozen CSS places the ghoul at 55%/18% of the event art frame,
 # sized to 30%/64% (not stretched across the whole scene).
 const GRAVEYARD_GHOUL_FRACTIONS = Rect2(0.55,0.18,0.30,0.64)
@@ -246,6 +246,35 @@ func dice_hint_context() -> Node:
 	if is_instance_valid(game_over_screen) or is_instance_valid(final_chapter_screen): return null
 	if is_instance_valid(embedded_battle): return embedded_battle.dice_hint_context()
 	return overlay if is_instance_valid(overlay) else self
+
+
+func handle_cancel() -> bool:
+	if moving or shared_die_busy or battle_returning: return true
+	if is_instance_valid(game_over_screen) or is_instance_valid(final_chapter_screen): return true
+	if is_instance_valid(embedded_battle):
+		if embedded_battle.has_method("handle_cancel"): embedded_battle.handle_cancel()
+		return true
+	if is_instance_valid(map_audio) and map_audio.is_open():
+		map_audio.close_panel()
+		return true
+	if not is_instance_valid(overlay):
+		if is_instance_valid(map_audio): map_audio.toggle_panel()
+		return true
+	if overlay.has_method("request_close"):
+		overlay.request_close()
+		return true
+	if overlay is DiceHand:
+		overlay.close_hand()
+		return true
+	if overlay is HomeInheritance:
+		if not overlay.busy: overlay.close_depth()
+		return true
+	for node in overlay.find_children("*","Button",true,false):
+		if node.text in ["맵으로 나가기","돌아가기","← 돌아가기","나가기","의식 보류","닫기"]:
+			if node.is_visible_in_tree() and not node.disabled:
+				node.pressed.emit()
+				break
+	return true
 
 
 func on_shared_die_pressed() -> void:
@@ -625,6 +654,23 @@ void fragment() {
 	material.shader = shader
 	tile.material = material
 
+func show_button_focus(button: BaseButton) -> void:
+	var ring := Panel.new()
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.z_index = 2
+	var ink := StyleBoxFlat.new()
+	ink.draw_center = false
+	ink.border_color = Color("ffe6a0")
+	ink.set_border_width_all(2)
+	ink.set_corner_radius_all(5)
+	ring.add_theme_stylebox_override("panel",ink)
+	button.add_child(ring)
+	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ring.hide()
+	button.focus_entered.connect(ring.show)
+	button.focus_exited.connect(ring.hide)
+
+
 func render() -> void:
 	if is_instance_valid(stage):
 		remove_child(stage)
@@ -650,6 +696,7 @@ func render() -> void:
 		node.tooltip_text = "%d번 · %s%s" % [i+1,("변형 웜홀" if i==KingPortalTile.target(world) else MapState.NAMES[world.tiles[i]])," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
+		show_button_focus(node)
 		if world.tiles[i]=="home" and WitchHuntEntry.home_burned(session):
 			node.tooltip_text+=" · 전소 · 집 기능 봉쇄"
 			var blockade=label_at(node,"봉쇄",Vector2(10,38),Vector2(90,28),16)
@@ -688,6 +735,7 @@ func render() -> void:
 	dice.tooltip_text = "주사위 · 멈춘 자리에서 다시 누르기"
 	dice.pressed.connect(on_shared_die_pressed)
 	stage.add_child(dice)
+	show_button_focus(dice)
 	DicePressHint.new().setup(dice,dice_hint_context)
 	status = label_at(stage,"주사위를 굴려 길을 따라 이동하세요",Vector2(285,385),Vector2(710,38),16)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -706,6 +754,7 @@ func render() -> void:
 	book.pressed.connect(show_roster)
 	book_button = book
 	stage.add_child(book)
+	show_button_focus(book)
 	add_button_effect(book,false)
 	var book_feedback: ButtonEffectsModule = book.get_node("ButtonEffectsModule")
 	book_feedback.use_hover_rotation = false
@@ -728,6 +777,7 @@ func render() -> void:
 		else:
 			show_inventory("dice"))
 	stage.add_child(deck_button)
+	show_button_focus(deck_button)
 	add_button_effect(deck_button,false)
 	var deck_feedback: ButtonEffectsModule = deck_button.get_node("ButtonEffectsModule")
 	deck_feedback.use_hover_rotation = false
@@ -768,6 +818,7 @@ func render() -> void:
 	painted_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	painted_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	options.add_child(painted_icon)
+	show_button_focus(options)
 	add_button_effect(options,false)
 	# Restore only after the new settings button exists, including on redraw.
 	dice.position = shared_dice_position()
@@ -1639,6 +1690,9 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	stage.add_child(deck)
 	overlay = deck
 	deck.setup(world.roster)
+	deck.closed.connect(func():
+		dismiss_overlay(func():
+			if world.pending_reward.get("kind","")=="mimic": show_treasure()))
 	deck.rename_submitted.connect(func(instance_id: String, candidate: String):
 		var result: Dictionary = session.rename_owned_unit(instance_id,candidate)
 		if is_instance_valid(deck): deck.apply_rename_result(instance_id,result))
@@ -2109,7 +2163,8 @@ func show_home(interior: bool = false) -> void:
 		if session.event_flag_is_set(Discovery.home_flag(kind)):
 			UnlockNoticeBadge.attach(place_icon,"NEW")
 	unlock_scroll.visible=unlock_rows.get_child_count()>0
-	location_button(panel,"다음 바퀴 출발",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
+	location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func():dismiss_overlay(render),4)
+	location_button(panel,"다음 바퀴 출발",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,exit_home,1)
 	# A blocked departure must explain itself ON this panel. The map status
 	# line is hidden behind the painting, which made a rejected press appear
 	# completely unresponsive. Offer a direct route repair if relevant.
@@ -2128,7 +2183,7 @@ func show_home(interior: bool = false) -> void:
 					close_overlay()
 					show_exploration_actions(MapState.HOME),3)
 	if not interior:
-		location_button(panel,"들어가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():
+		location_button(panel,"들어가기",TILE_EVENT_PATROL_RECT.position,TILE_EVENT_PATROL_RECT.size,func():
 			var injured = world.roster.any(func(u): return u.current_hp<u.max_hp)
 			if not session.enter_home():
 				status.text = session.notice
@@ -2166,8 +2221,8 @@ func show_burned_home() -> void:
 	notice.text.text="우리집 · 전소"
 	notice.detail.text="회복·계승·순찰 불가 · 다음 바퀴 출발 가능"
 	notice.detail.show()
-	location_button(panel,"다음 바퀴 출발",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,exit_home,4)
-	location_button(panel,"돌아가기",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,func():dismiss_overlay(render),4)
+	location_button(panel,"다음 바퀴 출발",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,exit_home,1)
+	location_button(panel,"돌아가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func():dismiss_overlay(render),4)
 	if not home_departure_feedback.is_empty(): _show_home_departure_feedback(panel,home_departure_feedback)
 
 func _show_home_departure_feedback(panel: Control, reason: String) -> void:

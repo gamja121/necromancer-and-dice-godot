@@ -57,6 +57,12 @@ func run() -> void:
 	map.map_music.stream=null
 	AudioServer.set_bus_mute(0,true)
 	await settle()
+	current_scene=map
+	await escape()
+	check(map.map_audio.is_open() and not manager.opened,"Escape on the active board opens settings")
+	await escape()
+	check(not map.map_audio.is_open() and not manager.opened,"Escape dismisses the open board settings")
+	current_scene=null
 	var input:BehindInput=BehindInput.new()
 	map.add_child(input)
 	var before:Dictionary=session.world.snapshot().duplicate(true)

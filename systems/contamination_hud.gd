@@ -131,8 +131,12 @@ func _draw_ten_slot_hud() -> void:
 	var title: String = tr("오염도")
 	var title_size: int = 31
 	var center_x: float = 332.0*scale.x
+	var title_width := 90.0
 	var tw: float = font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x
-	var title_at := Vector2(center_x-tw/2.0,428.0*scale.y)
+	while tw>title_width and title_size>16:
+		title_size-=1
+		tw=font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x
+	var title_at := Vector2(center_x-tw/2.0,413.0*scale.y+font.get_ascent(title_size)*0.32)
 	draw_string_outline(font,title_at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size,2,Color("211711"))
 	draw_string(font,title_at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size,Color("251b15"))
 	# The fill shows actual 0–100 progress; no secondary numerical readout.

@@ -85,8 +85,12 @@ static func style_button(control: Button, primary: bool = false) -> void:
 		if state=="disabled":
 			panel.bg_color=Color("343027")
 			panel.border_color=Color("635440")
-		panel.set_border_width_all(2 if state=="focus" else 1)
-		panel.set_corner_radius_all(3)
+		if state=="focus":
+			panel.draw_center=false
+			panel.border_color=Color("ffe6a0")
+			panel.set_expand_margin_all(2)
+		panel.set_border_width_all(3 if state=="focus" else 1)
+		panel.set_corner_radius_all(4)
 		control.add_theme_stylebox_override(state,panel)
 	for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]:
 		control.add_theme_color_override(state,Color("20170f") if primary else Color("f2dfb5"))

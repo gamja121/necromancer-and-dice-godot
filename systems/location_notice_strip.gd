@@ -2,8 +2,8 @@ extends RefCounted
 ## Shared prophet/cemetery parchment. Keep the approved original geometry.
 const TEXTURE=preload("res://assets/map/ui/fortune_parchment_strip.webp")
 const RECT=Rect2(340,423,600,150)
-const TEXT_RECT=Rect2(394,465,492,30)
-const DETAIL_RECT=Rect2(393,500,494,24)
+const TEXT_RECT=Rect2(430,451,420,45)
+const DETAIL_RECT=Rect2(430,497,420,42)
 
 static func build(parent:Control,existing_label:Label=null) -> Dictionary:
 	var strip:=TextureRect.new()
@@ -27,7 +27,7 @@ static func build(parent:Control,existing_label:Label=null) -> Dictionary:
 	notice.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	notice.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	notice.add_theme_font_size_override("font_size",20)
+	notice.add_theme_font_size_override("font_size",18)
 	notice.add_theme_color_override("font_color",Color("48301d"))
 	notice.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	notice.z_index=3

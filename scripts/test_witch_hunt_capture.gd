@@ -116,7 +116,7 @@ func check_ruins(locale: String) -> void:
 	check(button("들어가기")==null and button("낙인 계승")==null and button("순찰경로")==null,"ruins never offer blocked services")
 	check(map.buttons[HF.State.HOME].find_child("HomeBlockadeBadge",true,false)!=null,"board home is visibly blocked")
 	check(map.overlay.find_child("LocationNoticeStrip",true,false)!=null,"ruins reuse the same information strip as other locations")
-	check(button("다음 바퀴 출발").position==map.TILE_EVENT_EXIT_RECT.position and button("돌아가기").position==map.TILE_EVENT_ACTION_RECT.position,"ruins retain the shared location action coordinates")
+	check(button("다음 바퀴 출발").position==map.TILE_EVENT_ACTION_RECT.position and button("돌아가기").position==map.TILE_EVENT_EXIT_RECT.position,"ruins retain the shared location action coordinates")
 	for label in map.overlay.find_children("*","Label",true,false):
 		check(label.get_line_count()*label.get_line_height()<=label.size.y+1,"ruins copy fits")
 		if locale=="en": check(not ENGLISH.has_korean(label.tr(label.text)),"ruins copy translated")

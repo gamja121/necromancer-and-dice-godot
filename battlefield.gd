@@ -315,10 +315,16 @@ void fragment() {
 	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if rules.round_number>0: round_label.text = "%d턴 · 주사위 %d" % [rules.round_number,rules.face]
-	message = text(layer,"주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1),Vector2(439,14),Vector2(331,36),12)
+	message = text(layer,"주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1),Vector2(330,53),Vector2(445,56),18)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	message.clip_text = true
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var message_backing := StyleBoxFlat.new()
+	message_backing.bg_color = Color("211711eb")
+	message_backing.set_corner_radius_all(4)
+	message_backing.content_margin_left = 12
+	message_backing.content_margin_right = 12
+	message.add_theme_stylebox_override("normal",message_backing)
 	message.visible = false # Routine combat narration is shown by animations, not HUD text.
 	pause_button = button(layer,"일시정지",Vector2(986,18),Vector2(90,32),toggle_pause)
 	var pause_effects = ButtonEffects.new()
@@ -975,6 +981,23 @@ func toggle_selection(slug: String) -> void:
 	if slug in selection: selection.erase(slug)
 	elif selection.size()<4: selection.append(slug)
 	if is_instance_valid(editing): editing.get_meta("refresh").call()
+
+
+func handle_cancel() -> bool:
+	if is_instance_valid(audio_settings) and audio_settings.is_open():
+		audio_settings.close_panel()
+	elif is_instance_valid(editing):
+		editing.queue_free()
+		editing = null
+	elif is_instance_valid(detail):
+		close_detail()
+	elif is_instance_valid(dice_hand):
+		close_dice_hand()
+	elif is_instance_valid(brand_reference):
+		close_brand_reference()
+	elif not busy and not entry_summon_active and is_instance_valid(audio_settings):
+		audio_settings.toggle_panel()
+	return true
 
 
 func dice_hint_context() -> Node:

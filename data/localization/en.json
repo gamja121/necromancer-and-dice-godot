@@ -1421,5 +1421,16 @@
   "체험판 완료를 저장하지 못했습니다. 다시 시도하세요.": "Could not save demo completion. Please try again.",
   "이어서 하기": "Resume",
   "그만하기": "Quit Game",
-  "원정 기록": "Expedition Record"
+  "원정 기록": "Expedition Record",
+  "기존 원정을 덮어쓸까요?": "Replace your saved expedition?",
+  "새 원정을 시작하면 저장된 진행과 원정 기록이 사라집니다.": "Starting a new expedition replaces your saved progress and expedition record.",
+  "새로 시작": "Start New",
+  "축복 적용을 눌러 강화를 마치세요.": "Choose Apply blessing to finish the upgrade.",
+  "주사위를 눌러 영혼을 수확하세요": "Roll the die to harvest a soul",
+  "수확 실패 · 주사위를 다시 굴리세요": "Harvest failed · Roll the die again",
+  "%s · 필요 주사위 %d 이상 · 남은 시도 %d%s": "%s · Roll %d+ · Attempts left %d%s",
+  "영혼 수확 성공": "Soul Harvest succeeded",
+  "%s 획득": "%s acquired",
+  "획득을 포기했습니다": "Reward declined",
+  "이동 없음 · 방문당 1회\n1 저주 · 2 즉시 회복 · 3~6 축복": "No movement · Once per visit\n1 Curse · 2 Instant Heal · 3–6 Blessing"
 }

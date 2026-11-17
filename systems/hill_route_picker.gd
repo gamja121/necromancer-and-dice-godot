@@ -89,7 +89,13 @@ func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="현�
 		hit.position=point-Vector2(52,70)
 		hit.size=Vector2(104,140)
 		hit.mouse_default_cursor_shape=Control.CURSOR_POINTING_HAND
-		for state in ["normal","hover","pressed","focus","disabled"]: hit.add_theme_stylebox_override(state,StyleBoxEmpty.new())
+		for state in ["normal","hover","pressed","disabled"]: hit.add_theme_stylebox_override(state,StyleBoxEmpty.new())
+		var focus_ink:=StyleBoxFlat.new()
+		focus_ink.draw_center=false
+		focus_ink.border_color=Color("ffe6a0")
+		focus_ink.set_border_width_all(2)
+		focus_ink.set_corner_radius_all(6)
+		hit.add_theme_stylebox_override("focus",focus_ink)
 		hit.z_index=4
 		hit.tooltip_text="앞으로 %d칸 · %d번 %s"%[step,destination+1,tile_name] if step<=max_steps else "집을 지나서는 이동할 수 없습니다."
 		hit.pressed.connect(func():
@@ -104,9 +110,17 @@ func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="현�
 		pictures.append(picture)
 		var distance:Label=caption("%d칸"%step,point+Vector2(-52,-68),Vector2(104,24),17)
 		distance_labels.append(distance)
-		var long_name:bool=tile_name.length()>6
-		var text:Label=caption(tile_name,point+Vector2(-52,37 if long_name else 43),Vector2(104,34 if long_name else 24),14 if long_name else 16)
+		var text:Label=caption(tile_name,point+Vector2(-49,37),Vector2(98,39),14)
 		text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		text.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+		var ink:=StyleBoxFlat.new()
+		ink.bg_color=Color("241a13e0")
+		ink.set_corner_radius_all(4)
+		ink.content_margin_left=4
+		ink.content_margin_right=4
+		text.add_theme_stylebox_override("normal",ink)
+		text.clip_text=true
+		text.size=Vector2(98,39)
 		captions.append(text)
 	caption(origin_text,Vector2(first_tile_x-112.0,384),Vector2(50,25),14)
 	flag=Flag.new()

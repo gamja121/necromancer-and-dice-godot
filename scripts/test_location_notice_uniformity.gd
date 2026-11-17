@@ -38,9 +38,9 @@ func geometry(map:Control,kind:String) -> void:
 	var controls:Array=pieces(panel,kind)
 	check(controls.all(func(node): return is_instance_valid(node) and node.is_visible_in_tree()),kind+": common lower notice and detail visible")
 	check(same_rect(controls[0].get_global_rect(),Rect2(340,423,600,150)),kind+": same full parchment rectangle")
-	check(same_rect(controls[1].get_global_rect(),Rect2(394,465,492,30)) and same_rect(controls[2].get_global_rect(),Rect2(393,500,494,24)),kind+": both information lines use identical positions")
-	check(controls[1].get_theme_font_size("font_size")==20 and controls[2].get_theme_font_size("font_size")==14,kind+": common readable type sizes")
-	check(controls[1].get_line_count()==1 and controls[2].get_line_count()==1,kind+": visible wording fits without clipping")
+	check(same_rect(controls[1].get_global_rect(),Rect2(430,451,420,45)) and same_rect(controls[2].get_global_rect(),Rect2(430,497,420,42)),kind+": both information lines use identical positions")
+	check(controls[1].get_theme_font_size("font_size")==18 and controls[2].get_theme_font_size("font_size")==14,kind+": common readable type sizes")
+	check(controls[1].get_line_count()*controls[1].get_line_height()<=controls[1].size.y+2 and controls[2].get_line_count()*controls[2].get_line_height()<=controls[2].size.y+2,kind+": visible wording fits without clipping")
 	var upper:int=0
 	for child in panel.find_children("*","Label",true,false):
 		if child.is_visible_in_tree() and not child.text.is_empty() and child.get_global_rect().position.y<220: upper+=1

@@ -72,15 +72,15 @@ func _run() -> void:
 	check(panel.fortune_notice_strip.mouse_filter==Control.MOUSE_FILTER_IGNORE and panel.status.mouse_filter==Control.MOUSE_FILTER_IGNORE,"ribbon and its labels never intercept shared die clicks")
 	check(panel.get_node_or_null("FortuneNoticePanel")==null,"old rectangular result panel is not constructed")
 	check(panel.get_node_or_null("FortuneProphecyCrystal")==null and panel.get_node_or_null("FortuneCrystalAura")==null,"redundant crystal/table asset and purple halo are not spawned")
-	check(panel.fortune_result.position==Vector2(393,500) and panel.fortune_result.size==Vector2(494,24),"small cumulative subline stays within parchment center")
-	check(panel.status.position==Vector2(394,465) and panel.status.size==Vector2(492,30),"main ink-colored text is centered on the parchment")
+	check(panel.fortune_result.position==Vector2(430,497) and panel.fortune_result.size==Vector2(420,42),"small cumulative subline stays within parchment center")
+	check(panel.status.position==Vector2(430,451) and panel.status.size==Vector2(420,45),"main ink-colored text is centered on the parchment")
 	check(panel.get_node_or_null("LocationSceneImage")!=null,"original fortune-teller painting remains behind the simplified UI")
 	check(panel.confirm_button==null,"fortune has no separate action button")
 	check(panel.status.text=="주사위를 눌러 예언을 확인하세요","main parchment identifies the single shared-die action")
 	check(panel.fortune_result.text.contains("즉시 회복") and panel.fortune_result.tooltip_text.contains("회복은 즉시") and panel.fortune_result.tooltip_text.contains("다음 전투"),"lower guidance and tooltip preserve effect timing")
 	var hint:String=panel.fortune_result.text.replace(" ","")
 	check(hint.contains("이동없음") and hint.contains("방문당1회") and hint.contains("1저주") and hint.contains("2즉시회복") and hint.contains("3~6축복"),"idle guidance explains no movement, visit limit and possible outcomes")
-	check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.fortune_result.position,panel.fortune_result.size)==Rect2(393,500,494,24),"prophecy has no upper heading and uses shared lower guidance")
+	check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.fortune_result.position,panel.fortune_result.size)==Rect2(430,497,420,42),"prophecy has no upper heading and uses shared lower guidance")
 	check(panel.close_button.text=="맵으로 나가기" and Rect2(panel.close_button.position,panel.close_button.size)==map.TILE_EVENT_EXIT_RECT,"fortune uses the common original exit slot")
 	var redundant_action: bool=false
 	for child in panel.get_children():

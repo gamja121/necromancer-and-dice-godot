@@ -58,7 +58,7 @@ func run() -> void:
 		check(session.save_world(),"isolated actual boss arrival "+locale)
 		map.show_tile(23,true)
 		check(await until(func():return map.overlay is Deck),"actual low-pollution boss opens original deck "+locale)
-		check(await until(func():return is_equal_approx(map.overlay.hand.position.y,496.8) and map.overlay.confirm_button.modulate.a>0.99),"original deck entrance fully settles "+locale)
+		check(await until(func():return is_equal_approx(map.overlay.hand.position.y,map.overlay.HAND_POSITION.y) and map.overlay.confirm_button.get_parent().modulate.a>0.99),"original deck entrance fully settles "+locale)
 		map.overlay.toggle_unit(str(session.world.roster[0].id))
 		check(not map.overlay.confirm_button.disabled,"original deck accepts a real owned card "+locale)
 		await shot(locale+"_04_boss_deck")

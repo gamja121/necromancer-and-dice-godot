@@ -207,9 +207,9 @@ func interruption_and_total() -> void:
 	session.world.prophecy={"rolls":[1,3,4,5],"ally_attack":9999,"ally_hp":9999,"ally_speed":9999,"enemy_attack":9999}
 	panel.show_fortune_result()
 	for frame in range(3): await process_frame
-	var font:Font=panel.fortune_result.get_theme_font("font")
-	var font_size:int=panel.fortune_result.get_theme_font_size("font_size")
-	check(font.get_string_size(panel.fortune_result.text,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x<=494 and panel.fortune_result.get_line_count()==1,"four long totals fit unchanged shared detail line")
+	check(panel.fortune_result.get_theme_font_size("font_size")>=14 and panel.fortune_result.get_line_count()<=2
+		and panel.fortune_result.get_line_count()*panel.fortune_result.get_line_height()<=panel.fortune_result.size.y,
+		"four long totals wrap inside the safe parchment lane at a readable size")
 	await dispose(map)
 func replacement_owner() -> void:
 	var camp:int=fixture("replacement",5)

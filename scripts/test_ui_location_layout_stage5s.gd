@@ -67,18 +67,18 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 		check(frame.draw_center == false and frame.patch_margin_left == 170 and frame.patch_margin_top == 150, tag + " border preserves native battle nine-patch")
 	var fortune:bool=tag.begins_with("fortune-teller-camp")
 	var action=get_button(panel,primary_label)
-	var exit=get_button(panel,"다음 바퀴 출발" if tag.begins_with("home") else "맵으로 나가기")
+	var exit=get_button(panel,"맵으로 나가기")
 	var art_bounds:Rect2=map.LOCATION_EVENT_SCENE_RECT
 	check(same_rect(exit,map.TILE_EVENT_EXIT_RECT),tag+" common original exit uses inside-art slot")
 	check(is_instance_valid(exit) and art_bounds.encloses(Rect2(exit.position,exit.size)),tag+" exit fits painting")
 	if fortune:
 		check(panel.get_script()==preload("res://systems/place_actions.gd") and panel.confirm_button==null and action==null,tag+" direct screen has no duplicate entry button")
 		check(panel.dice==map.dice and map.dice.visible and not map.dice.disabled and map.dice.z_index>panel.z_index,tag+" current camp uses one foreground die")
-		check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.fortune_result.position,panel.fortune_result.size)==Rect2(393,500,494,24),tag+" uses only the common lower guidance")
+		check(panel.get_node_or_null("FortuneLocationTitle")==null and panel.get_node_or_null("FortuneVisitHint")==null and Rect2(panel.fortune_result.position,panel.fortune_result.size)==Rect2(430,497,420,42),tag+" uses only the common lower guidance")
 	elif tag.begins_with("unknown"):
 		check(panel.get_script()==preload("res://systems/exploration_actions.gd") and panel.action_button==null and action==null,tag+" directly exposes prayer without another button")
 		check(panel.dice==map.dice and map.dice.visible and not map.dice.disabled and map.dice.z_index>panel.z_index,tag+" uses one foreground die")
-		check(Rect2(panel.prayer_detail.position,panel.prayer_detail.size)==Rect2(393,500,494,24),tag+" uses common lower guidance")
+		check(Rect2(panel.prayer_detail.position,panel.prayer_detail.size)==Rect2(430,497,420,42),tag+" uses common lower guidance")
 	else:
 		check(same_rect(action,primary_rect),tag+" action uses existing sprite at approved slot")
 		check(is_instance_valid(action) and art_bounds.encloses(Rect2(action.position,action.size)),tag+" action fits painting")
@@ -194,9 +194,9 @@ func _run() -> void:
 		if tile_name in ["graveyard","forest","fortune-teller-camp","unknown"]:
 			check(function_back!=null and function_back.text=="맵으로 나가기" and same_rect(function_back,map.TILE_EVENT_EXIT_RECT),"graveyard function exits from the common tile slot")
 		elif tile_name=="village":
-			check(function_back!=null and function_back.text=="나가기" and preload("res://systems/shop_window_visual.gd").FRAME_RECT.encloses(Rect2(function_back.position,function_back.size)),"village function exits from inside the approved shop window")
+			check(function_back!=null and function_back.text=="돌아가기" and preload("res://systems/shop_window_visual.gd").FRAME_RECT.encloses(Rect2(function_back.position,function_back.size)),"village function exits from inside the approved shop window")
 		else:
-			check(function_back!=null and function_back.text=="← 돌아가기",tile_name+" function explicitly returns to the previous location")
+			check(function_back!=null and function_back.text=="돌아가기",tile_name+" function explicitly returns to the previous location")
 		map.close_overlay()
 		map.show_location(idx)
 		check_frame(map,tile_name + " return","전체 회복" if tile_name == "rest" else str(target.button),map.TILE_EVENT_ACTION_RECT)
@@ -213,7 +213,7 @@ func _run() -> void:
 	check_action_frame(map,map.overlay,"house inheritance","home-interior")
 	map.close_overlay()
 	map.show_home(false)
-	check_frame(map,"home exterior","들어가기",map.TILE_EVENT_ACTION_RECT)
+	check_frame(map,"home exterior","들어가기",map.TILE_EVENT_PATROL_RECT)
 	var exterior_art = get_art(map.overlay)
 	check(exterior_art != null and exterior_art.texture.resource_path == "res://assets/map/events/home.jpg", "home exterior retains original image")
 	map.close_overlay()
@@ -227,7 +227,8 @@ func _run() -> void:
 	var home_exit = get_button(map.overlay,"다음 바퀴 출발")
 	check(home_inherit.position.x==home_patrol.position.x and home_patrol.position.x==home_exit.position.x and home_inherit.position.y+home_inherit.size.y<home_patrol.position.y and home_patrol.position.y+home_patrol.size.y<home_exit.position.y, "home has three vertically aligned, nonoverlapping original buttons")
 	check(map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(home_inherit.position,home_inherit.size)) and map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(home_exit.position,home_exit.size)), "all house buttons stay inside painted scene rather than beneath it")
-	check(home_exit.text=="다음 바퀴 출발", "home departure clearly announces a new lap without altering its action")
+	check(same_rect(home_exit,map.TILE_EVENT_ACTION_RECT), "home departure has its own visible primary action")
+	check(same_rect(get_button(map.overlay,"맵으로 나가기"),map.TILE_EVENT_EXIT_RECT), "home return uses the common exit slot")
 	map.close_overlay()
 	map.modal()
 	var dark = get_backdrop(map.overlay)

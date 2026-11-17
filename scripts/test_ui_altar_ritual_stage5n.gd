@@ -73,7 +73,8 @@ func inspect_panel() -> void:
 		var width:float=action.get_theme_font("font").get_string_size(shown,HORIZONTAL_ALIGNMENT_LEFT,-1,action.get_theme_font_size("font_size")).x
 		check(width<=action.size.x-18,"action text fits "+locale+" "+shown)
 		if locale=="en": check(not English.has_korean(shown),"action translated")
-		check(Rect2(0,0,1280,720).encloses(Rect2(action.position,action.size)),"action inside canvas")
+		check(map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(action.position,action.size)),"footer action inside the painted frame")
+	check(panel.close_button.position==Vector2(174,501) and panel.confirm_button.position==Vector2(890,501),"altar keeps back and confirm in the same slots across stages")
 func flow(jackpot:bool) -> void:
 	var fixture_data:Dictionary=fixture(jackpot)
 	var index:int=int(fixture_data.index)

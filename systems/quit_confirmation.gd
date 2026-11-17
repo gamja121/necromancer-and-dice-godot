@@ -49,6 +49,14 @@ func _build() -> void:
 	dialog.dialog_text=PROMPT
 	dialog.ok_button_text="종료"
 	dialog.cancel_button_text="계속"
+	add_child(dialog)
+	style_parchment_confirmation(dialog)
+	for button in [dialog.get_cancel_button(),dialog.get_ok_button()]:
+		button.set_meta("sfx_manual",true)
+	dialog.canceled.connect(cancel_quit)
+	dialog.confirmed.connect(confirm_quit)
+
+static func style_parchment_confirmation(window:ConfirmationDialog) -> void:
 	var paper:=StyleBoxTexture.new()
 	paper.texture=load(PAPER_PATH)
 	for side in [SIDE_LEFT,SIDE_RIGHT]:
@@ -57,15 +65,14 @@ func _build() -> void:
 	for side in [SIDE_TOP,SIDE_BOTTOM]:
 		paper.set_texture_margin(side,0)
 		paper.set_content_margin(side,50)
-	dialog.add_theme_stylebox_override("panel",paper)
-	add_child(dialog)
-	var label:Label=dialog.get_label()
+	window.add_theme_stylebox_override("panel",paper)
+	var label:Label=window.get_label()
 	label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size",22)
 	label.add_theme_color_override("font_color",Color("3f2818"))
 	label.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	for button in [dialog.get_cancel_button(),dialog.get_ok_button()]:
+	for button in [window.get_cancel_button(),window.get_ok_button()]:
 		button.custom_minimum_size=Vector2(178,48)
 		button.add_theme_font_size_override("font_size",18)
 		button.add_theme_color_override("font_color",Color("3f2818"))
@@ -77,16 +84,13 @@ func _build() -> void:
 		for side in [SIDE_LEFT,SIDE_RIGHT]: style.set_content_margin(side,64)
 		for side in [SIDE_TOP,SIDE_BOTTOM]: style.set_content_margin(side,12)
 		for state in ["normal","hover","pressed","disabled"]: button.add_theme_stylebox_override(state,style)
-		button.set_meta("sfx_manual",true)
 	var focus:=StyleBoxFlat.new()
 	focus.draw_center=false
 	focus.border_color=Color("916b3c")
 	focus.set_border_width_all(2)
 	focus.set_corner_radius_all(3)
-	dialog.get_cancel_button().add_theme_stylebox_override("focus",focus)
-	dialog.get_ok_button().add_theme_stylebox_override("focus",focus)
-	dialog.canceled.connect(cancel_quit)
-	dialog.confirmed.connect(confirm_quit)
+	window.get_cancel_button().add_theme_stylebox_override("focus",focus)
+	window.get_ok_button().add_theme_stylebox_override("focus",focus)
 
 func _window_input(event:InputEvent) -> void:
 	if not event is InputEventKey: return
@@ -105,9 +109,15 @@ func _finish_escape() -> void:
 	input_suppressed=false
 	var toggle:bool=pending_toggle
 	pending_toggle=false
-	if toggle:
-		if opened: cancel_quit()
-		else: request_quit()
+	if not toggle: return
+	if opened:
+		cancel_quit()
+		return
+	var scene := get_tree().current_scene
+	if is_instance_valid(scene) and scene.has_method("handle_cancel"):
+		_cancel_drags(scene)
+		if scene.handle_cancel(): return
+	request_quit()
 
 func request_quit() -> void:
 	if opened or quitting: return

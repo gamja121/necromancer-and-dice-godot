@@ -2,6 +2,11 @@ extends Control
 const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 
 signal confirmed(selected_ids: Array)
+signal closed
+const FooterActions = preload("res://systems/shop_window_visual.gd")
+const HAND_POSITION := Vector2(117,472)
+const HAND_SIZE := Vector2(1046,150)
+const HAND_CARD_SIZE := Vector2(104,143)
 signal rename_submitted(instance_id: String, candidate: String)
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
@@ -22,6 +27,7 @@ var lineup: Control
 var hand: Control
 var status: Label
 var confirm_button: Button
+var back_button: Button
 var info_window: Control
 var active_legion_keys: Array = []
 
@@ -64,33 +70,41 @@ void fragment() {
 	board.add_child(lineup)
 	hand = Control.new()
 	hand.name = "OwnedCardHand"
-	hand.position = Vector2(12.8,496.8)
-	hand.size = Vector2(870.4,244.8)
+	hand.position = HAND_POSITION
+	hand.size = HAND_SIZE
 	add_child(hand)
-	status = text_label(self,"",Vector2(610,560),Vector2(606,34),14)
+	var footer := Panel.new()
+	footer.position = Vector2(99,642)
+	footer.size = Vector2(1082,59)
+	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var footer_ink := StyleBoxFlat.new()
+	footer_ink.bg_color = Color("251d16f5")
+	footer_ink.border_color = Color("a47a41")
+	footer_ink.set_border_width_all(1)
+	footer_ink.set_corner_radius_all(5)
+	footer.add_theme_stylebox_override("panel",footer_ink)
+	add_child(footer)
+	status = text_label(footer,"",Vector2(220,9),Vector2(642,40),16)
 	status.name = "LineupStatus"
-	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	confirm_button = Button.new()
-	confirm_button.text = "전투 시작"
-	confirm_button.name = "DeckStartButton"
-	confirm_button.position = Vector2(1049.6,609.2)
-	confirm_button.size = Vector2(166.4,46)
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color("51301c")
-	style.border_color = Color("a17b4c")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(3)
-	confirm_button.add_theme_stylebox_override("normal",style)
-	confirm_button.add_theme_color_override("font_color",Color("ffe3ad"))
-	add_child(confirm_button)
-	var confirm_effects = ButtonEffects.new()
-	confirm_effects.name = "ButtonEffectsModule"
-	confirm_effects.hover_scale = Vector2(1.075,1.075)
-	confirm_effects.hover_rotation_degrees = 1.75
-	confirm_button.add_child(confirm_effects)
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var actions: Array[Button] = []
+	for i in range(2):
+		var action := Button.new()
+		action.text = ["맵으로 나가기","전투 시작"][i]
+		action.name = ["DeckBackButton","DeckStartButton"][i]
+		action.position = Vector2(8 if i==0 else 870,7)
+		action.size = Vector2(204,45)
+		footer.add_child(action)
+		FooterActions.style_button(action,i==1)
+		actions.append(action)
+	back_button = actions[0]
+	back_button.pressed.connect(request_close)
+	confirm_button = actions[1]
 	confirm_button.pressed.connect(func():
 		if selected_ids.is_empty(): return
 		confirm_button.disabled = true
+		back_button.disabled = true
 		status.text = "전장으로 이동 중…"
 		# The actual chosen card Controls are handed straight to the
 		# map stage by the confirmed handler. No downward departure, full-screen
@@ -102,8 +116,7 @@ void fragment() {
 	board.modulate.a = 0
 	hand.position.y += 306
 	hand.modulate.a = 0
-	status.modulate.a = 0
-	confirm_button.modulate.a = 0
+	footer.modulate.a = 0
 	# Original user-provided wooden-door opening clip; shared with the chest.
 	# Play once for the descending board, never when selected cards redraw.
 	entry_audio = AudioStreamPlayer.new()
@@ -116,10 +129,19 @@ void fragment() {
 	var drop = create_tween().set_parallel(true)
 	drop.tween_property(board,"position:y",14.4,0.64).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	drop.tween_property(board,"modulate:a",1.0,0.3)
-	drop.tween_property(hand,"position:y",496.8,0.6).set_delay(0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	drop.tween_property(hand,"position:y",HAND_POSITION.y,0.6).set_delay(0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	drop.tween_property(hand,"modulate:a",1.0,0.3).set_delay(0.18)
-	drop.tween_property(status,"modulate:a",1.0,0.42).set_delay(0.38)
-	drop.tween_property(confirm_button,"modulate:a",1.0,0.42).set_delay(0.38)
+	drop.tween_property(footer,"modulate:a",1.0,0.42).set_delay(0.38)
+
+func request_close() -> void:
+	if departing: return
+	if is_instance_valid(info_window):
+		info_window.close()
+		return
+	departing = true
+	back_button.disabled = true
+	confirm_button.disabled = true
+	closed.emit()
 
 func text_label(parent: Control, value: String, pos: Vector2, dimensions: Vector2, font_size: int) -> Label:
 	var label = Label.new()
@@ -211,14 +233,16 @@ func render_selection() -> void:
 		rate.name = "TargetRateLabel"
 		rate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		rate.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var stride := minf(122.0,(hand.size.x-HAND_CARD_SIZE.x)/maxi(1,owned.size()-1))
+	var start_x := (hand.size.x-HAND_CARD_SIZE.x-stride*maxi(0,owned.size()-1))*0.5
 	for i in range(owned.size()):
 		var unit: Dictionary = owned[i]
 		var is_selected = selected_ids.has(unit.id)
-		var y = 19.584 + (-49.55 if is_selected else 22.52)
-		var button = card(hand,unit,Vector2(i*87.04,y),Vector2(121.856,225.216),[-4.0,2.0,-1.0,3.0,-2.0][i%5])
+		var y = -3.0 if is_selected else 10.0
+		var button = card(hand,unit,Vector2(start_x+i*stride,y),HAND_CARD_SIZE,[-4.0,2.0,-1.0,3.0,-2.0][i%5])
 		button.z_index = 3 if is_selected else 0
 		button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE
-		var name_label = text_label(button,unit.name,Vector2(6,185),Vector2(110,24),11)
+		var name_label = text_label(button,unit.name,Vector2(3,98),Vector2(98,22),12)
 		name_label.name = "OwnedCardName"
 		name_label.visible = not LayeredUnitCard.supports(str(unit.slug))
 		if is_selected:
@@ -248,10 +272,12 @@ func render_selection() -> void:
 		info_action.text = "정보"
 		info_action.tooltip_text = "마물 정보 · 이름 변경"
 		# Larger, independent touch target does not toggle the underlying card.
-		info_action.position = Vector2(58,144)
-		info_action.size = Vector2(60,40)
+		info_action.position = Vector2(25,108)
+		info_action.size = Vector2(54,32)
 		info_action.mouse_filter = Control.MOUSE_FILTER_STOP
 		button.add_child(info_action)
+		FooterActions.style_button(info_action)
+		info_action.add_theme_font_size_override("font_size",14)
 		var card_id: String = str(unit.id)
 		info_action.pressed.connect(func(): open_info(card_id))
 		button.mouse_entered.connect(func():

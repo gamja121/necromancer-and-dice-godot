@@ -8,6 +8,7 @@ const HAND_BOOK_OFFSET = Vector2(24.0,-105.0)
 const HAND_SCROLL_WIDTH = 944.0
 const HAND_SCROLL_THRESHOLD = 10
 const UnitInfo = preload("res://systems/unit_info.gd")
+const InventoryActions = preload("res://systems/shop_window_visual.gd")
 const DiceControl = preload("res://systems/dice_control.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const FanMotion = preload("res://systems/card_fan_motion.gd")
@@ -46,7 +47,10 @@ func setup(run_session, initial: String = "unit", book_origin: Vector2 = Vector2
 		var key: String = entry[0]
 		var index: int = ["unit","dice"].find(key)
 		tab_buttons.append(button(self,entry[1],Vector2(355+index*195,155),Vector2(180,38),func(): show_kind(key)))
-	close_button = button(self,"닫기",Vector2(550,590),Vector2(180,42),func(): closed.emit())
+	close_button = button(self,"닫기",Vector2(550,590),Vector2(180,42),request_close)
+	close_button.name = "InventoryClose"
+	close_button.z_index = 30
+	InventoryActions.style_button(close_button)
 	show_kind(initial if initial in ["unit","dice"] else "unit")
 
 func layout_shell(kind: String) -> void:
@@ -61,9 +65,8 @@ func layout_shell(kind: String) -> void:
 		tab.position = Vector2(780+index*108,480) if hand else Vector2(355+index*195,155)
 		tab.size = Vector2(102,34) if hand else Vector2(180,38)
 		tab.text = ["마물","주사위"][index] if hand else ["마물","주사위 카드"][index]
-	close_button.visible = not hand
-	close_button.position = Vector2(1112,480) if hand else Vector2(550,590)
-	close_button.size = Vector2(86,34) if hand else Vector2(180,42)
+	close_button.position = Vector2(1080,480) if hand else Vector2(550,590)
+	close_button.size = Vector2(148,42) if hand else Vector2(180,42)
 
 func roster_hand_start() -> Vector2:
 	# Map passes the clicked book's actual canvas position. Convert it to this
@@ -257,6 +260,14 @@ func close_cards() -> void:
 	if fan != null:
 		fan.closing = true
 		await fan.animate(false,origin_global)
+
+func request_close() -> void:
+	if is_instance_valid(info):
+		if info.name=="InventoryCardDetail": close_card_detail()
+		elif info.has_method("close"): info.close()
+		return
+	if not changing and not closing: closed.emit()
+
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and is_instance_valid(info):

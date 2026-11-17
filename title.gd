@@ -7,6 +7,8 @@ const AudioSettings = preload("res://systems/audio_settings.gd")
 const DemoEndingScreen = preload("res://systems/demo_ending_screen.gd")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const TITLE_MUSIC := "res://assets/title/music/title-theme.mp3"
+const MENU_FRAME = preload("res://assets/title/menu/button_new_game.webp")
+const Confirmation = preload("res://systems/quit_confirmation.gd")
 # 큰 패럴랙스 이동에도 빈 가장자리가 보이지 않도록 넉넉하게 확보.
 # 1672x941 원화를 1520x860 정도로 축소 표시하므로 업스케일 없이 선명도를 유지한다.
 const OVERSCAN := Vector2(120.0, 70.0)
@@ -40,6 +42,8 @@ var base_positions: Dictionary = {}
 # assign an isolated save path before adding this scene to the tree.
 var audio_save_path: String = AudioSettings.SAVE
 var demo_record: Control
+var overwrite_dialog: ConfirmationDialog
+var starting_new_run := false
 
 func _ready() -> void:
 	# Match the same persistent Music/SFX bus preferences used on map and battlefield.
@@ -158,35 +162,64 @@ func _load_menu_art() -> void:
 		$TitleUI/LogoShadow.hide()
 		$TitleUI/Subtitle.hide()
 		$TitleUI/MenuPanel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var buttons := [
-		[new_run_button, "button_new_game.webp"],
-		[continue_button, "button_continue.webp"],
-		[options_button, "button_options.webp"],
-		[exit_button, "button_exit.webp"]
-	]
-	for entry in buttons:
-		var button: Button = entry[0]
-		if button == continue_button and get_node("/root/RunSession").has_demo_record():
-			button.text = "원정 기록"
-			continue
-		var path: String = "res://assets/title/menu/" + str(entry[1])
-		if not ResourceLoader.exists(path):
-			continue
-		button.icon = load(path)
-		button.text = ""
-		button.expand_icon = true
-		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if get_node("/root/RunSession").has_demo_record():
+		continue_button.text = "원정 기록"
+	var parchment := AtlasTexture.new()
+	parchment.atlas = MENU_FRAME
+	parchment.region = Rect2(250,116,37,128)
+	parchment.filter_clip = true
+	for button: Button in [new_run_button, continue_button, options_button, exit_button]:
 		var empty := StyleBoxEmpty.new()
 		for state in ["normal", "hover", "pressed", "disabled"]:
 			button.add_theme_stylebox_override(state, empty)
-		button.pivot_offset = button.size * 0.5
-		button.resized.connect(_center_menu_pivot.bind(button))
+		for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color","font_disabled_color"]:
+			button.add_theme_color_override(state,Color.TRANSPARENT)
+		var focus_style := StyleBoxFlat.new()
+		focus_style.draw_center = false
+		focus_style.border_color = Color("ffe6a0")
+		focus_style.set_border_width_all(2)
+		focus_style.set_corner_radius_all(7)
+		button.add_theme_stylebox_override("focus",focus_style)
+		var face := TextureRect.new()
+		face.name = "MenuFrame"
+		face.texture = MENU_FRAME
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(face)
+		var patch := TextureRect.new()
+		patch.texture = parchment
+		patch.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		patch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face.add_child(patch)
+		# Sample the unlettered parchment of the same painted button. Native
+		# translated text fits inside it while the original skulls remain visible.
+		patch.anchor_left = 0.258
+		patch.anchor_top = 0.382
+		patch.anchor_right = 0.750
+		patch.anchor_bottom = 0.817
+		var caption := Label.new()
+		caption.text = button.text
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		caption.add_theme_font_override("font",preload("res://assets/fonts/nanum_gothic_bold.ttf"))
+		caption.add_theme_font_size_override("font_size",17)
+		caption.add_theme_color_override("font_color",Color("271b13"))
+		caption.set_meta("ui_font_preserve",true)
+		patch.add_child(caption)
+		caption.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_layout_menu_button(button,face)
+		face.modulate.a = 0.45 if button.disabled else 1.0
+		button.resized.connect(_layout_menu_button.bind(button,face))
 		button.mouse_entered.connect(_highlight_menu_button.bind(button, true))
 		button.mouse_exited.connect(_highlight_menu_button.bind(button, false))
 		button.button_down.connect(_wiggle_menu_button.bind(button))
 
-func _center_menu_pivot(button: Button) -> void:
-	button.pivot_offset = button.size * 0.5
+func _layout_menu_button(button: Button, face: TextureRect) -> void:
+	button.pivot_offset = button.size*0.5
+	var art_size := MENU_FRAME.get_size()
+	face.size = art_size * minf(button.size.x/art_size.x,button.size.y/art_size.y)
+	face.position = (button.size-face.size)*0.5
 
 func _highlight_menu_button(button: Button, highlight: bool) -> void:
 	if button.disabled:
@@ -256,16 +289,61 @@ func _set_sfx_enabled(enabled: bool) -> void:
 	_save_audio()
 
 func _start_new_run() -> void:
+	if starting_new_run: return
+	if not get_node("/root/RunSession").has_save():
+		_commit_new_run()
+		return
+	if not is_instance_valid(overwrite_dialog):
+		overwrite_dialog = ConfirmationDialog.new()
+		overwrite_dialog.name = "OverwriteExpedition"
+		overwrite_dialog.title = "기존 원정을 덮어쓸까요?"
+		overwrite_dialog.ok_button_text = "새로 시작"
+		overwrite_dialog.cancel_button_text = "취소"
+		overwrite_dialog.dialog_autowrap = true
+		overwrite_dialog.unresizable = true
+		overwrite_dialog.borderless = true
+		overwrite_dialog.transparent_bg = true
+		overwrite_dialog.transient = true
+		overwrite_dialog.exclusive = true
+		add_child(overwrite_dialog)
+		Confirmation.style_parchment_confirmation(overwrite_dialog)
+		overwrite_dialog.confirmed.connect(_commit_new_run)
+		overwrite_dialog.canceled.connect(new_run_button.grab_focus)
+	overwrite_dialog.dialog_text = tr("기존 원정을 덮어쓸까요?") + "\n\n" + tr("새 원정을 시작하면 저장된 진행과 원정 기록이 사라집니다.")
+	overwrite_dialog.popup_centered(Vector2i(640,320))
+	overwrite_dialog.get_cancel_button().grab_focus()
+	overwrite_dialog.get_cancel_button().grab_focus.call_deferred()
+
+func _commit_new_run() -> void:
+	if starting_new_run: return
+	starting_new_run = true
 	var session := get_node("/root/RunSession")
 	if not session.start_new_world():
+		starting_new_run = false
 		_show_save_error(session.notice)
 		return
 	get_tree().change_scene_to_file(INTRO_SCENE)
+
+func handle_cancel() -> bool:
+	if starting_new_run: return true
+	if is_instance_valid(overwrite_dialog) and overwrite_dialog.visible:
+		overwrite_dialog.hide()
+		new_run_button.grab_focus()
+	elif options_dialog.visible:
+		options_dialog.hide()
+		options_button.grab_focus()
+	elif is_instance_valid(demo_record):
+		demo_record.title_requested.emit()
+	else:
+		_show_options()
+	return true
 
 func _continue_run() -> void:
 	var session := get_node("/root/RunSession")
 	if not session.has_save():
 		continue_button.disabled = true
+		var frame := continue_button.get_node_or_null("MenuFrame") as TextureRect
+		if is_instance_valid(frame): frame.modulate.a = 0.45
 		return
 	if not session.reload_world():
 		_show_save_error(session.notice)
@@ -297,4 +375,4 @@ func _show_save_error(message: String) -> void:
 	dialog.popup_centered()
 
 func _exit_game() -> void:
-	get_tree().quit()
+	get_node("/root/QuitConfirmation").request_quit()

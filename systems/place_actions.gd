@@ -171,7 +171,7 @@ func setup_shop_visual() -> void:
 	ShopWindowVisual.line(self,Rect2(132,116,1016,1))
 	ShopWindowVisual.line(self,Rect2(415,135,1,308))
 	ShopWindowVisual.line(self,Rect2(132,453,1016,1))
-	ShopWindowVisual.line(self,Rect2(132,626,1016,1))
+	ShopWindowVisual.line(self,Rect2(132,606,1016,1))
 	label_at(self,"내놓을 마물",Vector2(145,127),Vector2(208,28),18)
 	label_at(self,"상인의 제안",Vector2(468,127),Vector2(666,28),18)
 	label_at(self,"보유 마물",Vector2(146,457),Vector2(150,24),16).horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
@@ -182,7 +182,7 @@ func setup_shop_visual() -> void:
 	shop_cancel_button=button(self,"다시 선택",Vector2(170,409),Vector2(154,32),reset_shop_selection)
 	shop_cancel_button.name="ShopResetSelection"
 	ShopWindowVisual.style_button(shop_cancel_button)
-	shop_confirm_button=button(self,"교환 확정",Vector2(960,632),Vector2(176,38),confirm_shop_trade)
+	shop_confirm_button=button(self,"교환 확정",Vector2(964,617),Vector2(184,42),confirm_shop_trade)
 	shop_confirm_button.name="ShopTradeConfirm"
 	shop_confirm_button.disabled=true
 	ShopWindowVisual.style_button(shop_confirm_button,true)
@@ -203,10 +203,10 @@ func setup_shop_visual() -> void:
 	shop_summary=label_at(self,"",Vector2(468,410),Vector2(666,30),16)
 	shop_summary.name="ShopTradeSummary"
 	shop_summary.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	status=label_at(self,"",Vector2(142,634),Vector2(610,32),13)
-	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
+	status=label_at(self,"",Vector2(333,615),Vector2(614,46),15)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	close_button=button(self,"나가기",Vector2(802,632),Vector2(144,38),func(): if not busy: closed.emit())
+	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	close_button=button(self,"돌아가기",Vector2(132,617),Vector2(184,42),func(): if not busy: closed.emit())
 	close_button.name="ShopExit"
 	ShopWindowVisual.style_button(close_button)
 
@@ -236,7 +236,7 @@ func build_hand() -> void:
 	add_child(hand)
 	var scroll=ScrollContainer.new()
 	scroll.position=Vector2(140,480) if type=="village" else Vector2(192,532)
-	scroll.size=Vector2(1000,144) if type=="village" else Vector2(896,220)
+	scroll.size=Vector2(1000,126) if type=="village" else Vector2(896,220)
 	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	if type=="altar": altar_scroll=scroll
 	hand.add_child(scroll)
@@ -247,10 +247,10 @@ func build_hand() -> void:
 	scroll.add_child(row)
 	for unit in session.world.roster:
 		var box=Control.new()
-		box.custom_minimum_size=Vector2(120,136) if type=="village" else Vector2(110,184)
+		box.custom_minimum_size=Vector2(120,116) if type=="village" else Vector2(110,184)
 		row.add_child(box)
 		var id=str(unit.id)
-		var option=card(box,"unit",unit,Vector2(12,6) if type=="village" else Vector2(4,0),Vector2(96,122) if type=="village" else Vector2(96,139),func(): select_unit(id))
+		var option=card(box,"unit",unit,Vector2(12,2) if type=="village" else Vector2(4,0),Vector2(96,112) if type=="village" else Vector2(96,139),func(): select_unit(id))
 		if type=="village":
 			ShopWindowVisual.hide_duplicate_caption(option)
 			ShopWindowVisual.select_card(option,id==donor_id)
@@ -443,7 +443,7 @@ func show_fortune_state() -> void:
 		show_fortune_result()
 	else:
 		status.text="주사위를 눌러 예언을 확인하세요"
-		fortune_result.text="이동 없음 · 방문당 1회 · 1 저주 / 2 즉시 회복 / 3~6 축복"
+		fortune_result.text="이동 없음 · 방문당 1회\n1 저주 · 2 즉시 회복 · 3~6 축복"
 		fortune_result.tooltip_text="회복은 즉시 적용되며, 그 외 효과는 다음 전투 시작 때 한 번 적용됩니다.\n이동하거나 주사위 제어 카드를 소모하지 않습니다."
 		var allowed:Dictionary=fortune_availability()
 		if not bool(allowed.get("ok",false)):
@@ -451,8 +451,6 @@ func show_fortune_state() -> void:
 			fortune_result.text=str(allowed.get("reason","진행 중인 일을 먼저 마쳐주세요."))
 	status.visible_ratio=1.0
 	fortune_result.visible_ratio=1.0
-	fit_fortune_total()
-	call_deferred("fit_fortune_total")
 	refresh_fortune_input()
 
 func show_fortune_result() -> void:
@@ -463,16 +461,7 @@ func show_fortune_result() -> void:
 		if value>0: parts.append("%s +%d"%[pair[1],value])
 	fortune_result.text="다음 전투 합계: "+(" · ".join(parts) if not parts.is_empty() else "없음")
 	fortune_result.tooltip_text="다음 전투 시작 때 한 번 적용: "+session.prophecy_label()
-	fit_fortune_total()
-	# The shared typography pass runs after controls enter the tree.
-	call_deferred("fit_fortune_total")
 	fortune_result.visible=true
-
-func fit_fortune_total() -> void:
-	if not is_instance_valid(fortune_result): return
-	var font:Font=fortune_result.get_theme_font("font")
-	var width:float=font.get_string_size(fortune_result.text,HORIZONTAL_ALIGNMENT_LEFT,-1,14).x
-	fortune_result.add_theme_font_size_override("font_size",14 if width<=fortune_result.size.x else 12)
 
 static func fortune_context_alive(owner_ref:WeakRef,map_ref:WeakRef,world_ref:WeakRef,visit:String) -> bool:
 	var owner:Node=owner_ref.get_ref()
