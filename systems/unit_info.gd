@@ -228,7 +228,6 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	left.size = Vector2(474.65,567.36)
 	left.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(left)
-	PanelDepthMotion.shadow(left)
 	PanelDepthMotion.enter(left)
 	depth_panels.append(left)
 	artwork(left,"res://assets/battle/ui/unit-info-window-no-portrait.png",Vector2.ZERO,left.size)
@@ -323,14 +322,13 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	right.size = Vector2(655,567.36)
 	right.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(right)
-	PanelDepthMotion.shadow(right)
 	PanelDepthMotion.enter(right)
 	depth_panels.append(right)
-	# NinePatchRect preserves hand-painted corner hardware when increasing the
-	# original parchment area; no new artwork is generated or introduced.
+	# Use the already cleaned frame so its cutout follows the painted hardware.
+	# NinePatchRect preserves the corners as the content changes the height.
 	var paper := NinePatchRect.new()
 	paper.name="OriginalEffectsParchment"
-	paper.texture=load("res://assets/battle/ui/legion-info-window-hd.png")
+	paper.texture=load("res://assets/map/ui/inheritance_info.webp")
 	paper.patch_margin_left=36
 	paper.patch_margin_right=36
 	paper.patch_margin_top=42

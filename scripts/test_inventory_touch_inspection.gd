@@ -96,6 +96,14 @@ func _run() -> void:
 		await check_shadow_feedback(roster_button,"unit")
 		roster_button.pressed.emit()
 		check(is_instance_valid(view.info) and view.info.get_script().resource_path.ends_with("unit_info.gd"),"owned monsters retain original detailed unit window")
+		if is_instance_valid(view.info):
+			var portrait_panel: Control = view.info.get_node("UnitInfoPortraitPanel")
+			var effect_panel: Control = view.info.get_node("UnitInfoEffectsPanel")
+			var effect_frame: NinePatchRect = effect_panel.get_node("OriginalEffectsParchment")
+			check(not portrait_panel.has_node("PanelContactShadow") and not effect_panel.has_node("PanelContactShadow"),
+				"monster info leaves the board visible outside both painted panel outlines")
+			check(effect_frame.texture.resource_path == "res://assets/map/ui/inheritance_info.webp",
+				"effect info keeps the cleaned transparent frame used by the game")
 		view.info.queue_free()
 		view.info=null
 	check(before==JSON.stringify(session.world.snapshot()),"all inspection and navigation leave full saved world unchanged")

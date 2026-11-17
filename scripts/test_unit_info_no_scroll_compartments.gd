@@ -62,7 +62,7 @@ func verify_bounds(panel: Control,case_name: String) -> void:
 		check(right.size.y<UnitInfo.PAPER_MAX_HEIGHT,case_name+" short content does not leave an enormous blank parchment")
 	check(container.scale.x>=0.55,case_name+" content remains legible within an extreme full-effects case")
 	var original: NinePatchRect=right.get_node_or_null("OriginalEffectsParchment")
-	check(original!=null and original.texture.resource_path=="res://assets/battle/ui/legion-info-window-hd.png",case_name+" preserves original hand-painted parchment")
+	check(original!=null and original.texture.resource_path=="res://assets/map/ui/inheritance_info.webp",case_name+" uses the cleaned hand-painted parchment")
 	print("EFFECT_LAYOUT: ",case_name," count=",container.get_child_count()," height=",container.get_combined_minimum_size().y," scale=",container.scale.x)
 
 func create_battle(all: bool=false) -> Dictionary:
