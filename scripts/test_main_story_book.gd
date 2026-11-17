@@ -48,6 +48,9 @@ func inspect_book(panel: Control) -> void:
 	var before: Dictionary=session.world.snapshot().duplicate(true)
 	if panel.opening: panel.skip_opening()
 	_visual_check(session.world.snapshot()==before,"opening/skipping book never changes gameplay, RNG or receipts")
+	var map: Control=panel.get_parent().get_parent()
+	_visual_check(map.handle_cancel() and map.overlay==panel and session.world.snapshot()==before,"Escape cannot dismiss or advance a main story")
+
 	_visual_check(panel.scale==MainBook.DISPLAY_SCALE and panel.position==MainBook.DISPLAY_POSITION,"book has the fixed approved screen transform")
 	_visual_check(panel.page_frame.size==Vector2(1200,600),"loaded paper texture cannot expand to its source pixel dimensions")
 	_visual_check(panel.art.size==Vector2(360,202.5) and panel.art.clip_contents,"all story illustrations share the approved clipped size")
@@ -62,6 +65,7 @@ func inspect_book(panel: Control) -> void:
 				chapter_title=child.text
 			if child.get_meta("book_copy_role") in ["narration","speech"]: prose.append(child)
 		if child is Button:
+			_visual_check(child.text not in ["돌아가기","나가기","맵으로 나가기","닫기"] and not child.text.ends_with(" 기능"),"main story keeps only its actual progress and decision actions")
 			buttons.append(child)
 			_visual_check(Rect2(690,124,490,475).encloses(Rect2(child.position,child.size)),"choice remains on right page: "+child.text)
 			_visual_check(child.get_theme_stylebox("normal") is StyleBoxEmpty,"choice uses text with an ink marker: "+child.text)

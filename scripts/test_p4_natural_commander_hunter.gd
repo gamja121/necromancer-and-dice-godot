@@ -48,7 +48,14 @@ func finish_story(session: Node, map: Control, story_id: String, beat_count: int
 			map = await restore_story_midbeat(session, map, story_id, beat + 1, label)
 	check(session.get_story_event(story_id).status == "complete", label + ": final real button closes and persists complete story")
 	check(session.event_flag_is_set("event:%s:complete" % story_id), label + ": durable completion receipt recorded")
-	check(not is_instance_valid(map.overlay), label + ": completed story scene dismissed and map usable")
+	check(await until_ready(func(): return not is_instance_valid(map.overlay) or map.overlay.get_script()!=preload("res://systems/main_story_book.gd"),7000),
+		label + ": completed book closes fully before returning control")
+	if map.EVENT_IMAGES.has(session.world.tiles[session.world.position]):
+		check(is_instance_valid(map.overlay) and button_at(map,"맵으로 나가기")!=null,
+			label + ": completed story opens the current tile function")
+	else:
+		check(not is_instance_valid(map.overlay),label + ": event tile finishes to the board")
+	map.close_overlay()
 	return map
 
 func travel_to_commander_and_hunter(session: Node) -> void:

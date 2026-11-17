@@ -48,7 +48,7 @@ func press_story_action(map: Control, control: Button) -> void:
 
 func panel_button(map: Control, button_text: String) -> Button:
 	if not is_instance_valid(map.overlay): return null
-	for child in map.overlay.get_children():
+	for child in map.overlay.find_children("*","Button",true,false):
 		if child is Button and child.text == button_text and child.visible:
 			return child
 	return null
@@ -202,7 +202,7 @@ func scenario_leave(session: Node) -> void:
 	var roster: Array = session.world.roster.duplicate(true)
 	var receipts: Array = session.world.reward_receipts.duplicate(true)
 	press_story_action(map,panel_button(map,"지나친다"))
-	var done: bool = await until_ready(func(): return session.get_story_event(STORY.EVENT_ID).status=="complete" and not is_instance_valid(map.overlay),12000)
+	var done: bool = await until_ready(func(): return session.get_story_event(STORY.EVENT_ID).status=="complete" and panel_button(map,"맵으로 나가기")!=null,12000)
 	check(done,"leave: button finishes child scene without battle")
 	var state: Dictionary = session.get_story_event(STORY.EVENT_ID)
 	check(state.choice=="leave" and state.battle_result.is_empty(),"leave: persistent abandon branch without fabricated combat")
@@ -255,7 +255,7 @@ func scenario_win(session: Node) -> void:
 		press_story_action(map,panel_button(map,"맵으로"))
 		check(not session.story_battle_result_pending(STORY.EVENT_ID),"win: actual result button acknowledges exactly once")
 		check(not session.acknowledge_graveyard_battle_result(),"win: repeated acknowledgement rejected")
-		check(await until_ready(func(): return not is_instance_valid(map.overlay),7000),"win: rescued epilogue closes naturally to map")
+		check(await until_ready(func(): return panel_button(map,"맵으로 나가기")!=null,7000),"win: rescued epilogue closes naturally to the graveyard action")
 	# Allow deferred map nodes to settle before disposing the isolated test.
 	for i in range(3): await process_frame
 	map.queue_free()

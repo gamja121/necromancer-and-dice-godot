@@ -222,7 +222,8 @@ func verify_final(session: Node, map: Control, label: String, choice: String, re
 	var source_state: Dictionary=session.world.snapshot().duplicate(true)
 	check(ALTAR.finish(session,session.world.position) and session.world.snapshot()==source_state,label+": second Finish idempotent")
 	# The altar's ordinary location actions remain usable after closing plot.
-	check(panel_button(map,"맵으로 나가기")!=null,label+": original altar location panel remains after plot")
+	check(await until_ready(func(): return panel_button(map,"맵으로 나가기")!=null,7000),label+": closing story book opens the original altar location panel")
+	source_state=session.world.snapshot().duplicate(true)
 	for i in range(4): await process_frame
 	map.queue_free()
 	await process_frame

@@ -166,21 +166,19 @@ func scenario() -> void:
 			map=await new_map()
 			if not await settle("automatically restored prophet"): return
 			check(session.world.snapshot()==before,"restored portrait grants no clue")
-			var camp_action: Button=action("예언자의 막사 기능")
-			if not check(camp_action!=null and not camp_action.disabled,"ordinary camp action available"): return
-			camp_action.pressed.emit()
-			if not check(await until(func():return is_instance_valid(map.overlay) and map.overlay.get_script()==ACTIONS),"story opens ordinary camp"): return
-			check(map.overlay.fortune_can_roll() and map.overlay.dice==map.dice and not map.dice.disabled,"ordinary camp retains real shared die")
-			check(session.world.snapshot()==before,"ordinary camp preview does not consume story")
-			map.close_overlay()
-			map.show_tile(camp,false)
-			if not await settle("return from ordinary camp"): return
+			check(action("예언자의 막사 기능")==null and action("돌아가기")==null,"unfinished prophet story offers no camp bypass")
+			var current_book: Control=map.overlay
+			check(map.handle_cancel() and map.overlay==current_book,"Escape keeps the saved prophet story open")
+			check(session.world.snapshot()==before,"blocked story exit preserves its progress and reward")
 		if BEATS.is_final(beat):
 			check(session.get_story_event(PROPHET.EVENT_ID).status=="seen","clue waits for explicit Finish")
 			await snap("02_prophet_clue")
 		map.advance_prophet_story(camp,beat)
 		await process_frame
 	check(PROPHET.completed(session) and session.get_story_event("monster_hunter_encounter_01").status=="unseen","prophet complete without fake hunter")
+	if not check(await until(func():return is_instance_valid(map.overlay) and map.overlay.get_script()==ACTIONS),"finished prophet book opens its camp action"): return
+	check(map.overlay.fortune_can_roll() and map.overlay.dice==map.dice and not map.dice.disabled,"ordinary camp retains real shared die after Finish")
+	map.close_overlay()
 	session.world.position=village
 	check(session.save_world(),"following village arrival")
 	map.show_tile(village,true)

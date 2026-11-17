@@ -260,6 +260,7 @@ func handle_cancel() -> bool:
 	if not is_instance_valid(overlay):
 		if is_instance_valid(map_audio): map_audio.toggle_panel()
 		return true
+	if overlay is StoryBook: return true
 	if overlay.has_method("request_close"):
 		overlay.request_close()
 		return true
@@ -1187,6 +1188,24 @@ func dismiss_overlay(after: Callable = Callable()) -> void:
 		close_overlay()
 		if after.is_valid(): after.call())
 
+# Continue at the same location without dispatching another story arrival.
+func finish_story_at_tile(index: int, notice: String = "", before_location: Callable = Callable()) -> void:
+	var panel: Control = overlay
+	if panel is StoryBook:
+		if panel.closing: return
+		panel.close_book()
+		await panel.closed
+		if overlay != panel: return
+	close_overlay(false)
+	render()
+	status.text = notice
+	if before_location.is_valid(): await before_location.call()
+	if index != world.position or is_instance_valid(overlay): return
+	if world.tiles[index] == "home":
+		show_home()
+	elif EVENT_IMAGES.has(world.tiles[index]):
+		show_location(index)
+
 func show_tile(index: int, actual_landing: bool = false) -> void:
 	if overlay is VillageMobMarch: return
 	if world.pending_reward.get("kind","")=="altar_boon":
@@ -1692,7 +1711,8 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	deck.setup(world.roster)
 	deck.closed.connect(func():
 		dismiss_overlay(func():
-			if world.pending_reward.get("kind","")=="mimic": show_treasure()))
+			if not story_event_id.is_empty(): show_tile(index)
+			elif world.pending_reward.get("kind","")=="mimic": show_treasure()))
 	deck.rename_submitted.connect(func(instance_id: String, candidate: String):
 		var result: Dictionary = session.rename_owned_unit(instance_id,candidate)
 		if is_instance_valid(deck): deck.apply_rename_result(instance_id,result))
@@ -1705,6 +1725,7 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 			open_embedded_battle(true, transferring)
 		else:
 			close_overlay()
+			if not story_event_id.is_empty(): show_tile(index)
 			status.text = session.notice if not session.notice.is_empty() else "출전 편성을 확인할 수 없습니다. 다시 선택하세요.")
 
 
@@ -1877,7 +1898,6 @@ func show_king_portal_encounter(index: int) -> void:
 		else:
 			close_overlay()
 			show_battle_deck(index),1)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func play_king_portal_emergence(index: int) -> void:
 	if index<0 or index>=buttons.size(): return
@@ -2452,7 +2472,7 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 	node.add_theme_color_override("font_disabled_color",Color("6c594680"))
 	node.add_theme_font_size_override("font_size",18)
 	if bool(parent.get_meta("story_split_layout",false)):
-		var is_secondary: bool = title in ["돌아가기","나가기","맵으로","부활 확인","흔적 확인"] or title.ends_with(" 기능")
+		var is_secondary: bool = title in ["돌아가기","나가기"] or title.ends_with(" 기능")
 		node.set_meta("story_button_primary",not is_secondary)
 		node.add_theme_font_size_override("font_size",16)
 		if parent is StoryBook: parent.arrange_actions()
@@ -2568,12 +2588,7 @@ func show_village_rumor_beat(index: int, event_id: String) -> void:
 		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var final_scene: bool=VillageRumorBeats.is_final(event_id,beat_index)
-	if world.tiles[index]=="village":
-		location_button(panel,"계속" if not final_scene else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_village_rumor(index,event_id,beat_index),1)
-		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	else:
-		location_button(panel,"계속" if not final_scene else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_village_rumor(index,event_id,beat_index),1)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	location_button(panel,"계속" if not final_scene else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_village_rumor(index,event_id,beat_index),1)
 
 func advance_village_rumor(index: int, event_id: String, shown_beat: int) -> void:
 	var finishing: bool=VillageRumorBeats.is_final(event_id,shown_beat)
@@ -2581,14 +2596,12 @@ func advance_village_rumor(index: int, event_id: String, shown_beat: int) -> voi
 		status.text="마을 소문 진행 상태를 저장할 수 없습니다. 다시 시도하세요."
 		return
 	if finishing:
-		close_overlay()
-		render()
-		status.text="마을 소문 사건 완료"
+		finish_story_at_tile(index,"마을 소문 사건 완료")
 	else:
 		show_village_rumor_beat(index,event_id)
 
 ## Preserve the P1-05C entry point while rendering the persisted
-## seven-beat story. Dismissing does not mark the event complete.
+## seven-beat story, ending only after the final saved acknowledgement.
 func show_knight_commander_intro(index: int) -> void:
 	show_knight_commander_beat(index)
 
@@ -2622,12 +2635,7 @@ func show_knight_commander_beat(index: int) -> void:
 	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var finishing: bool=KnightCommanderBeats.is_final(beat_index,KnightCommanderEntry.route(session))
-	if world.tiles[index]=="village":
-		location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_knight_commander(index,beat_index),1)
-		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	else:
-		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_knight_commander(index,beat_index),1)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_knight_commander(index,beat_index),1)
 
 func advance_knight_commander(index: int, shown_beat: int) -> void:
 	var route: String=KnightCommanderEntry.route(session)
@@ -2636,14 +2644,12 @@ func advance_knight_commander(index: int, shown_beat: int) -> void:
 		status.text="기사단장 사건 진행 저장 실패 · 다시 시도하세요."
 		return
 	if finishing:
-		close_overlay()
-		render()
-		status.text="[예언가를 찾아갈 의뢰를 받았습니다.]" if route=="prophet" else "[오염에 대한 의뢰를 받았습니다.]"
+		finish_story_at_tile(index,"[예언가를 찾아갈 의뢰를 받았습니다.]" if route=="prophet" else "[오염에 대한 의뢰를 받았습니다.]")
 	else:
 		show_knight_commander_beat(index)
 
 ## P1-05F: retains the first-intro API; renders every saved hunter beat.
-## Leaving the panel never consumes the encounter or the investigation quest.
+## The final acknowledgement hands control to the current world-tree action.
 func show_monster_hunter_intro(index: int) -> void:
 	show_monster_hunter_beat(index)
 
@@ -2687,12 +2693,7 @@ func show_monster_hunter_beat(index: int) -> void:
 		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var finishing: bool=MonsterHunterBeats.is_final(beat_index)
-	if world.tiles[index]=="unknown":
-		location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_monster_hunter(index,beat_index),1)
-		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	else:
-		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_monster_hunter(index,beat_index),1)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_monster_hunter(index,beat_index),1)
 
 func advance_monster_hunter(index: int, shown_beat: int) -> void:
 	var finishing: bool=MonsterHunterBeats.is_final(shown_beat)
@@ -2700,9 +2701,7 @@ func advance_monster_hunter(index: int, shown_beat: int) -> void:
 		status.text="마물 사냥꾼 사건 진행 저장 실패 · 다시 시도하세요."
 		return
 	if finishing:
-		close_overlay()
-		render()
-		status.text="[오염을 퍼뜨리는 자들에 대한 단서를 얻었습니다.]"
+		finish_story_at_tile(index,"[오염을 퍼뜨리는 자들에 대한 단서를 얻었습니다.]")
 	else:
 		show_monster_hunter_beat(index)
 
@@ -2745,8 +2744,6 @@ func show_prophet_story_beat(index: int) -> void:
 	var finishing: bool=ProphetStoryBeats.is_final(beat_index)
 	if finishing: panel.show_seal("단서")
 	location_button(panel,"마치기" if finishing else "계속",Vector2(463,653),Vector2(171,48),func():advance_prophet_story(index,beat_index),1)
-	location_button(panel,"예언자의 막사 기능",Vector2(651,653),Vector2(194,48),func():dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func():dismiss_overlay(render),4)
 
 func advance_prophet_story(index: int, shown_beat: int) -> void:
 	var finishing: bool=ProphetStoryBeats.is_final(shown_beat)
@@ -2754,14 +2751,12 @@ func advance_prophet_story(index: int, shown_beat: int) -> void:
 		status.text="예언가 사건 진행 저장 실패 · 다시 시도하세요."
 		return
 	if finishing:
-		close_overlay()
-		render()
-		status.text="[광신도를 추적할 문양의 단서를 얻었습니다.]"
+		finish_story_at_tile(index,"[광신도를 추적할 문양의 단서를 얻었습니다.]")
 	else:
 		show_prophet_story_beat(index)
 
 ## P1-05H: current scene is reconstructed from the saved sequential beat flags.
-## Dismissing does not consume the event or its tracking reward.
+## Each displayed beat preserves the event and its tracking reward until Finish.
 func show_cultist_rumor_intro(index: int) -> void:
 	show_cultist_rumor_beat(index)
 
@@ -2795,12 +2790,7 @@ func show_cultist_rumor_beat(index: int) -> void:
 		dialogue.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		dialogue.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var finishing: bool=CultistRumorBeats.is_final(beat_index)
-	if world.tiles[index]=="village":
-		location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_cultist_rumor(index,beat_index),1)
-		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	else:
-		location_button(panel,"계속" if not finishing else "마치기",Vector2(651,653),Vector2(194,48),func(): advance_cultist_rumor(index,beat_index),1)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
+	location_button(panel,"계속" if not finishing else "마치기",Vector2(463,653),Vector2(171,48),func(): advance_cultist_rumor(index,beat_index),1)
 
 func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 	var finishing: bool=CultistRumorBeats.is_final(shown_beat)
@@ -2808,9 +2798,7 @@ func advance_cultist_rumor(index: int, shown_beat: int) -> void:
 		status.text="광신도 소문 저장 실패 · 다시 시도하세요."
 		return
 	if finishing:
-		close_overlay()
-		render()
-		status.text="[광신도들의 흔적을 추적합니다.]"
+		finish_story_at_tile(index,"[광신도들의 흔적을 추적합니다.]")
 	else:
 		show_cultist_rumor_beat(index)
 
@@ -2868,9 +2856,6 @@ func show_monster_king_hunt_beat(index: int) -> void:
 		location_button(panel,"계속",Vector2(463,653) if world.tiles[index]=="unknown" else Vector2(651,653),Vector2(171,48),func(): advance_monster_king_hunt(index,beat_index),1)
 	elif beat_index==4:
 		location_button(panel,"마치기",Vector2(463,653) if world.tiles[index]=="unknown" else Vector2(651,653),Vector2(171,48),func(): acknowledge_monster_king_hunt(index),1)
-	if world.tiles[index]=="unknown":
-		location_button(panel,"세계수 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func advance_monster_king_hunt(index: int, shown_beat: int) -> void:
 	var saved: bool=MonsterKingHuntEntry.finish(session,index) if shown_beat==3 else MonsterKingHuntEntry.advance(session,index,shown_beat)
@@ -2884,14 +2869,10 @@ func acknowledge_monster_king_hunt(index: int) -> void:
 	if not MonsterKingHuntEntry.acknowledge_completion(session,index):
 		status.text="봉인 폐허 확인 저장 실패 · 다시 시도하세요."
 		return
-	close_overlay()
 	var entrance: int = world.final_dragon_location()
-	if entrance>=0:
-		render()
-		status.text="변형 웜홀 · 봉인 폐허로 가는 길이 열렸습니다."
-		if painted_before!=entrance: play_king_portal_emergence(entrance)
-	elif world.tiles[index]=="unknown": show_location(index)
-	else: render()
+	var notice := "변형 웜홀 · 봉인 폐허로 가는 길이 열렸습니다." if entrance>=0 else ""
+	finish_story_at_tile(index,notice,func():
+		if entrance>=0 and painted_before!=entrance: await play_king_portal_emergence(entrance))
 
 func show_ritual_portal_intro(index: int) -> void:
 	if RitualPortalEntry.aftermath_ready(session,index):
@@ -2951,9 +2932,6 @@ func show_ritual_portal_beat(index: int) -> void:
 	elif intervening:
 		var saved=label_at(panel,"전투 승패 기록 저장됨 · 부활 결과는 다음 장면에서 확정됩니다.",Vector2(285,619),Vector2(710,32),16)
 		saved.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	if world.tiles[index]=="forest":
-		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func advance_ritual_portal(index: int, shown_beat: int) -> void:
 	if not RitualPortalEntry.advance(session,index,shown_beat):
@@ -3005,21 +2983,14 @@ func show_ritual_portal_aftermath(index: int) -> void:
 		speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	location_button(panel,"마치기",Vector2(463,653),Vector2(171,48),func(): finish_ritual_portal(index),1)
-	if world.tiles[index]=="forest":
-		location_button(panel,"숲 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func finish_ritual_portal(index: int) -> void:
 	if not RitualPortalEntry.finish(session,index):
 		status.text="마물의 왕 부활 결과 저장 실패 · 다시 시도하세요."
 		return
-	close_overlay()
-	if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="allow":
-		render()
-		play_king_portal_emergence(KingPortalTile.target(world))
-	elif world.tiles[index]=="forest": show_location(index)
-	else: render()
-	status.text="전이문 의식 종료 · 마물의 왕 추적 시작"
+	finish_story_at_tile(index,"전이문 의식 종료 · 마물의 왕 추적 시작",func():
+		if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="allow":
+			await play_king_portal_emergence(KingPortalTile.target(world)))
 
 func show_cultist_altar_intro(index: int) -> void:
 	if session.get_story_event(CultistAltarEntry.EVENT_ID).choice=="infiltrate":
@@ -3088,9 +3059,6 @@ func show_cultist_altar_beat(index: int) -> void:
 		var receipt=label_at(panel,"‘지나간다’ 선택 저장됨 · 후속 처리는 다음 단계에서 연결됩니다.",Vector2(300,613),Vector2(730,35),16)
 		receipt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		location_button(panel,"선택 변경",Vector2(463,653),Vector2(171,48),func(): reconsider_cultist_altar(index),1)
-	if world.tiles[index]=="altar":
-		location_button(panel,"제단 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 ## Original final narration is shown only after a pass was saved or a battle
 ## result was acknowledged. Closing/reloading never consumes the quest handoff.
@@ -3128,22 +3096,14 @@ func show_cultist_altar_followup(index: int) -> void:
 		location_button(panel,"마치기",Vector2(504,653),Vector2(164,48),func(): finish_cultist_altar(index),1)
 	else:
 		location_button(panel,"마치기",Vector2(463,653),Vector2(171,48),func(): finish_cultist_altar(index),1)
-	if world.tiles[index]=="altar":
-		location_button(panel,"제단 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func finish_cultist_altar(index: int) -> void:
 	var infiltrated: bool=session.get_story_event(CultistAltarEntry.EVENT_ID).choice=="infiltrate"
 	if not CultistAltarEntry.finish(session,index):
 		status.text="광신도 제단 추적 기록 저장 실패 · 다시 시도하세요."
 		return
-	close_overlay()
-	if world.tiles[index]=="altar":
-		show_location(index)
-	else:
-		render()
-	status.text="광신도의 의식 확인 · 마물의 왕 부활 의식의 흔적 추적 시작"
-	if infiltrated: status.text="의식 장소의 단서를 얻었다. 당신을 본 목격자가 마을로 향했다."
+	var notice := "의식 장소의 단서를 얻었다. 당신을 본 목격자가 마을로 향했다." if infiltrated else "광신도의 의식 확인 · 마물의 왕 부활 의식의 흔적 추적 시작"
+	finish_story_at_tile(index,notice)
 
 func advance_cultist_altar(index: int, shown_beat: int) -> void:
 	if not CultistAltarEntry.advance(session,index,shown_beat):
@@ -3202,9 +3162,6 @@ func show_cultist_infiltration_beat(index: int) -> void:
 	,1)
 	if current==0:
 		location_button(panel,"선택 변경",Vector2(651,653),Vector2(194,48),func(): reconsider_cultist_altar(index),4)
-	elif world.tiles[index]=="altar":
-		location_button(panel,"제단 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func show_village_mistrust_beat(index: int) -> void:
 	if not VillageMistrustEntry.can_enter(session,index): return
@@ -3228,13 +3185,9 @@ func show_village_mistrust_beat(index: int) -> void:
 			status.text="마을 목격담 저장 실패 · 다시 시도하세요."
 			return
 		if final_scene:
-			close_overlay()
-			render()
-			status.text="와전된 소문이 퍼졌다. 주민들의 불신이 커졌다."
+			finish_story_at_tile(index,"와전된 소문이 퍼졌다. 주민들의 불신이 커졌다.")
 		else: show_village_mistrust_beat(index)
 	,1)
-	location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func show_commander_inquiry_beat(index: int) -> void:
 	if not CommanderInquiryEntry.can_enter(session,index): return
@@ -3262,9 +3215,7 @@ func show_commander_inquiry_beat(index: int) -> void:
 				status.text="기사단장 대화 저장 실패 · 다시 시도하세요."
 				return
 			if final_scene:
-				close_overlay()
-				render()
-				status.text="조사 경위가 기록되었다. 기사단장은 판단을 보류했다." if state.choice=="explain" else "경위를 밝히지 않았다. 기사단장이 감시를 명했다."
+				finish_story_at_tile(index,"조사 경위가 기록되었다. 기사단장은 판단을 보류했다." if state.choice=="explain" else "경위를 밝히지 않았다. 기사단장이 감시를 명했다.")
 			else: show_commander_inquiry_beat(index)
 		,1)
 	if current==3:
@@ -3272,9 +3223,6 @@ func show_commander_inquiry_beat(index: int) -> void:
 			if CommanderInquiryEntry.reconsider(session,index): show_commander_inquiry_beat(index)
 			else: status.text="기사단장 선택 변경 실패 · 다시 시도하세요."
 		,4)
-	else:
-		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func(): dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func choose_commander_inquiry(index: int, shown_beat: int, decision: String) -> void:
 	if not CommanderInquiryEntry.choose(session,index,shown_beat,decision):
@@ -3421,15 +3369,12 @@ func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 				status.text="후속 사건 장면 저장 실패 · 다시 시도하세요."
 				return
 			if final_scene:
-				close_overlay()
-				render()
-				if story_stage==2: show_home()
-				elif story_stage==1:
-					if Riot.active(world) and world.riot.pending.is_empty():
-						status.text = "경비가 주민들을 붙잡고 있습니다. 먼저 주사위를 굴리세요."
-					else:
-						_resume_riot_opening()
-				else: status.text="사건 기록을 저장했습니다. 이후 방문에서 상황이 이어집니다."
+				finish_story_at_tile(index,"사건 기록을 저장했습니다. 이후 방문에서 상황이 이어집니다.",func():
+					if story_stage==1:
+						if Riot.active(world) and world.riot.pending.is_empty():
+							status.text = "경비가 주민들을 붙잡고 있습니다. 먼저 주사위를 굴리세요."
+						else:
+							await _resume_riot_opening())
 			else: show_witch_hunt_beat(story_stage,index)
 		,1)
 	if current==WitchHuntBeats.CHOICE_INDEX+1:
@@ -3437,9 +3382,6 @@ func show_witch_hunt_beat(story_stage: int, index: int) -> void:
 			if WitchHuntEntry.reconsider(session,story_stage,index): show_witch_hunt_beat(story_stage,index)
 			else: status.text="후속 사건 선택 변경 실패 · 다시 시도하세요."
 		,4)
-	elif story_stage<2 and world.tiles[index]=="village":
-		location_button(panel,"마을 기능",Vector2(651,653),Vector2(194,48),func():dismiss_overlay(func():show_location(index)),4)
-	location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func():dismiss_overlay(render),4)
 
 func show_graveyard_child_intro(index: int) -> void:
 	var state: Dictionary = session.get_story_event(StoryEventEntry.EVENT_ID)
@@ -3524,19 +3466,13 @@ func show_graveyard_child_beat(index: int, beat_index: int) -> void:
 			GraveyardStoryEntryMotion.play_next_hint(advance_hint)
 			advance_hint.add_theme_color_override("font_color",Color("5e4329"))
 			advance_hint.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	# The original location actions remain available on graveyard tiles.
-	if world.tiles[index] == "graveyard":
-		location_button(panel,"공동묘지 기능",Vector2(692,653),Vector2(153,48),func(): dismiss_overlay(func(): show_location(index)),4)
 	if chosen:
 		location_button(panel,"출전 마물 선택",Vector2(455,653),Vector2(223,48),func(): show_graveyard_story_deck(index),1)
-		location_button(panel,"돌아가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 	elif beat.choice:
 		location_button(panel,"아이를 구한다",Vector2(284,653),Vector2(197,48),func(): choose_graveyard_child(index,"protect_child"),1)
 		location_button(panel,"지나친다",Vector2(494,653),Vector2(175,48),func(): choose_graveyard_child(index,"leave"),2)
-		location_button(panel,"나가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 	else:
 		location_button(panel,"계속",Vector2(463,653),Vector2(171,48),func(): advance_graveyard_child_beat(index,beat_index),1)
-		location_button(panel,"나가기",Vector2(866,653),Vector2(171,48),func(): dismiss_overlay(render),4)
 
 func advance_graveyard_child_beat(index: int, shown_beat: int) -> void:
 	if not StoryEventEntry.advance(session,index,shown_beat):
@@ -3549,8 +3485,7 @@ func choose_graveyard_child(index: int, choice_id: String) -> void:
 		status.text = "사건 선택을 저장할 수 없습니다. 다시 시도하세요."
 		return
 	if choice_id == "leave":
-		status.text = "아이를 지나쳤습니다. 공동묘지 사건이 완료되었습니다."
-		dismiss_overlay(render)
+		finish_story_at_tile(index,"아이를 지나쳤습니다. 공동묘지 사건이 완료되었습니다.")
 	else:
 		status.text = "아이를 구하기로 선택했습니다. 출전 마물 1~4마리를 고르세요."
 		show_graveyard_story_deck(index)
@@ -3622,28 +3557,27 @@ func acknowledge_story_battle_result_ui(event_id: String, retry: bool) -> void:
 		return
 	var index: int = world.position
 	if event_id==StoryEventEntry.EVENT_ID and not retry:
-		# Finish the child's rescued epilogue with the book-close animation,
-		# then reveal the original map. Reward was already persisted first.
-		dismiss_overlay(func():
-			render()
-			status.text = session.notice
-			session.notice = "")
+		var notice: String = session.notice
+		session.notice = ""
+		finish_story_at_tile(index,notice)
 		return
-	close_overlay()
 	if retry and not world.roster.is_empty():
+		close_overlay()
 		show_story_battle_deck(event_id,index)
 	elif event_id==CultistAltarEntry.EVENT_ID and CultistAltarEntry.followup_ready(session,index):
 		# The battle receipt is acknowledged, but story completion waits for
 		# the separate original narration and explicit '마치기' press.
+		close_overlay()
 		show_cultist_altar_followup(index)
 	elif event_id==RitualPortalEntry.EVENT_ID and RitualPortalEntry.aftermath_ready(session,index):
 		# Keep the source weak/full revival epilogue separate from the result
 		# acknowledgement and save every quest flag only at final Finish.
+		close_overlay()
 		show_ritual_portal_aftermath(index)
 	else:
-		render()
-		status.text = session.notice
+		var notice: String = session.notice
 		session.notice = ""
+		finish_story_at_tile(index,notice)
 
 func acknowledge_discovery_action(kind: String) -> void:
 	# Called only from enabled original location actions, never from preview.

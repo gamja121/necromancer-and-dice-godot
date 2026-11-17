@@ -195,7 +195,7 @@ func actual_graveyard_rescue(session: Node) -> bool:
 	press_story_action(button_at(map,"맵으로"))
 	check(session.get_story_event(CHILD.EVENT_ID).status=="complete" and session.event_flag_is_set("event:graveyard_child_ambush_01:rescued"),"original acknowledgement commits authentic rescued-child receipt")
 	check(world.tiles==first_tiles and world.map_serial==2 and world.position==destination,"genuine rescue victory never changes board or teleports hero")
-	check(await until_ready(func(): return not is_instance_valid(map.overlay),7000),"rescue storybook closes naturally after saved acknowledgement")
+	check(await until_ready(func(): return is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/exploration_actions.gd") and map.overlay.type=="graveyard",7000),"rescue storybook closes naturally to the current graveyard function")
 	for i in range(4): await process_frame
 	map.queue_free()
 	await process_frame
