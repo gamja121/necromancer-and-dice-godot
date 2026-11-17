@@ -18,7 +18,8 @@ const CAPTURE_ARROW_GAP := 8.0
 const CAPTURE_ARROW_LIFT := 5.0
 const CAPTURE_ARROW_FLOAT_SECONDS := 0.68
 const CAPTURE_ARROW_EXIT_SECONDS: float = 0.10
-const CAPTURE_OTHER_CARD_DISSOLVE_SECONDS: float = 0.45
+const CAPTURE_UNCLAIMED_DISSOLVE_SECONDS: float = 0.72
+const CAPTURE_UNCLAIMED_HOLD_SECONDS: float = 0.28
 const CAPTURE_SUCCESS_REVEAL_SECONDS: float = 0.12
 const CAPTURE_FINISH_HOLD_SECONDS: float = 0.18
 var scene
@@ -130,7 +131,7 @@ func setup(battle_scene) -> void:
 		arrow.z_index = 8 # Stay visible above the enlarged selected card.
 		place_choice_node(arrow,choice_parent)
 		if on_map_tiles: arrow.z_index = MAP_CAPTURE_ARROW_Z
-		choices.append({"card":option,"target":target,"arrow":arrow,"caption":caption,"index":index})
+		choices.append({"card":option,"sprite":sprite,"target":target,"arrow":arrow,"caption":caption,"index":index})
 	refresh()
 	if pending.phase in ["success","failed"]: call_deferred("resume_result")
 
@@ -256,27 +257,26 @@ func fade_capture_arrows() -> Tween:
 		exit_tween.tween_property(arrow,"modulate:a",0.0,CAPTURE_ARROW_EXIT_SECONDS)
 	return exit_tween
 
-# On successful capture, fade the selector while every UNCHOSEN enemy card
-# rapidly reuses the existing failed-soul dissolve and ash (without its
-# permanent-death SFX). Finish this before the chosen card flies to the book.
+# Dissolve the unclaimed cards and their bodies before collecting the chosen card.
 func clear_unclaimed_capture_cards(chosen_card: TextureButton) -> void:
 	var arrow_exit: Tween = fade_capture_arrows()
-	var unclaimed: Array = []
+	var unclaimed: Array[Control] = []
 	for choice in choices:
 		if is_instance_valid(choice.target): choice.target.disabled = true
 		var caption: Control = choice.get("caption",null) as Control
 		if is_instance_valid(caption): caption.hide()
-		var candidate: TextureButton = choice.card
-		if is_instance_valid(candidate) and candidate != chosen_card:
-			unclaimed.append(candidate)
+		if choice.card == chosen_card: continue
+		if is_instance_valid(choice.card): unclaimed.append(choice.card)
+		if is_instance_valid(choice.sprite): unclaimed.append(choice.sprite)
 	if not unclaimed.is_empty():
 		var vanish := PermanentDeath.new()
 		(scene.detail_parent if scene.uses_map_tile_dock() else scene.layer).add_child(vanish)
-		await vanish.play_failed_capture(scene,unclaimed,CAPTURE_OTHER_CARD_DISSOLVE_SECONDS,false)
+		await vanish.play_capture_dissolve(scene,unclaimed,CAPTURE_UNCLAIMED_DISSOLVE_SECONDS,false,true)
 		vanish.queue_free()
 	if arrow_exit != null and arrow_exit.is_running(): await arrow_exit.finished
 	for choice in choices:
 		if is_instance_valid(choice.arrow): choice.arrow.hide()
+	if not unclaimed.is_empty(): await wait(CAPTURE_UNCLAIMED_HOLD_SECONDS)
 
 func roll() -> void:
 	if busy: return
@@ -411,13 +411,13 @@ func complete_failure() -> void:
 	# card using the *same* permanent-death shader, sound and rising ash as the
 	# allied permanent-loss presentation, then return to the live map. Never
 	# remove the cards before the save succeeds, so failed storage stays retryable.
-	var failed_cards: Array = []
+	var failed_cards: Array[Control] = []
 	for choice in choices:
 		if is_instance_valid(choice.card): failed_cards.append(choice.card)
 	var arrow_exit: Tween = fade_capture_arrows()
 	var effect = PermanentDeath.new()
 	(scene.detail_parent if scene.uses_map_tile_dock() else scene.layer).add_child(effect)
-	await effect.play_failed_capture(scene,failed_cards)
+	await effect.play_capture_dissolve(scene,failed_cards)
 	effect.queue_free()
 	if arrow_exit != null and arrow_exit.is_running(): await arrow_exit.finished
 	for choice in choices:

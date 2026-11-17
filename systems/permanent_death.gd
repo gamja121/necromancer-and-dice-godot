@@ -7,6 +7,7 @@ var souls: Array = []
 var elapsed = 0.0
 var dissolving = false
 var capture_dissolve_duration: float = 0.65
+var fixed_capture_pace := false
 
 # The same ash-and-soul dissolve is also used when a defeated enemy's soul
 # cannot be harvested. This is a presentation-only effect; no roster edits.
@@ -31,51 +32,46 @@ func _apply_material_to_capture_layers(parent: Node, mat: ShaderMaterial) -> voi
 			(child as CanvasItem).material = mat
 		_apply_material_to_capture_layers(child, mat)
 
-func play_failed_capture(battle_scene, failed_cards: Array, duration: float = 0.65, with_sound: bool = true) -> void:
+func play_capture_dissolve(battle_scene, targets: Array[Control], duration: float = 0.65, with_sound: bool = true, fixed_pace: bool = false) -> void:
 	scene = battle_scene
 	capture_dissolve_duration = maxf(duration,0.05)
-	# Parent lives in the same coordinates as candidate cards: the map stage
-	# for embedded battles, or the ordinary battle layer otherwise.
+	fixed_capture_pace = fixed_pace
 	size = get_parent().size
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 80
-	var dissolve_shader = Shader.new()
+	var dissolve_shader := Shader.new()
 	dissolve_shader.code = DISSOLVE_SHADER_SOURCE
-	for card in failed_cards:
-		if not is_instance_valid(card): continue
-		# A separate material per card is essential for independent card state.
-		var mat = ShaderMaterial.new()
+	var canvas_to_local := get_global_transform_with_canvas().affine_inverse()
+	for target in targets:
+		if not is_instance_valid(target): continue
+		var mat := ShaderMaterial.new()
 		mat.shader = dissolve_shader
-		card.material = mat
-		# Layered cards have a transparent original TextureButton and draw
-		# the portrait, banner and brands as children. Dissolve the visible
-		# layers too; shading the old flattened texture alone is invisible.
-		if card.has_node("LayeredCardBase"):
-			_apply_material_to_capture_layers(card, mat)
-		card.disabled = true
-		souls.append({"card":card,"center":card.position+card.size*0.5})
+		target.material = mat
+		# The option card is rendered by layers beneath its transparent button.
+		if target.has_node("LayeredCardBase"):
+			_apply_material_to_capture_layers(target,mat)
+		if target is BaseButton: target.disabled = true
+		# Embedded cards and battlefield sprites may use different parents and scales.
+		var canvas_center := target.get_global_transform_with_canvas() * (target.size*0.5)
+		souls.append({"target":target,"material":mat,"center":canvas_to_local * canvas_center})
 	if souls.is_empty(): return
 	if with_sound: scene.sound("permanent-death")
 	dissolving = true
 	elapsed = 0.0
-	var remaining: float = capture_dissolve_duration
-	while remaining>0.0:
+	while elapsed < capture_dissolve_duration:
 		await get_tree().process_frame
-		if not scene.paused:
-			remaining -= get_process_delta_time()*scene.speed_values[scene.speed_index]*scene.battle_tempo
-		var t = clampf(1.0-remaining/capture_dissolve_duration,0.0,1.0)
-		for soul in souls:
-			if is_instance_valid(soul.card):
-				soul.card.material.set_shader_parameter("dissolve",t)
+		var progress := clampf(elapsed/capture_dissolve_duration,0.0,1.0)
+		for soul in souls: soul.material.set_shader_parameter("dissolve",progress)
 	for soul in souls:
-		if is_instance_valid(soul.card):
-			soul.card.hide()
+		if is_instance_valid(soul.target): soul.target.hide()
 	dissolving = false
 	queue_redraw()
 
 func _process(delta: float) -> void:
 	if scene == null: return
-	if not scene.paused: elapsed += delta*scene.speed_values[scene.speed_index]*scene.battle_tempo
+	if not scene.paused:
+		var pace: float = 1.0 if fixed_capture_pace else scene.speed_values[scene.speed_index]*scene.battle_tempo
+		elapsed += delta*pace
 	queue_redraw()
 
 func _draw() -> void:

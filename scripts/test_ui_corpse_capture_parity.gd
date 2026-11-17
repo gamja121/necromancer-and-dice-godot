@@ -85,6 +85,7 @@ func _run() -> void:
 		# battlefield TextureRect and battle focus shader must be restored
 		# ONLY on entering capture, without changing the gameplay record.
 		var dead_sprite=TextureRect.new()
+		panel.add_child(dead_sprite)
 		dead_sprite.modulate=Color(0.4,0.4,0.4,0.35)
 		dead_sprite.visible=false
 		var focus_shader=Shader.new()
@@ -126,9 +127,20 @@ func _run() -> void:
 		# before the kept monster can begin its inventory flight.
 		var world_before_visual: String=JSON.stringify(session.world.snapshot())
 		var arrow_before_exit := arrow_b.position
+		var selected_sprite := TextureRect.new()
+		panel.add_child(selected_sprite)
+		panel.choices[0]["sprite"] = dead_sprite
+		panel.choices[1]["sprite"] = selected_sprite
+		panel.scene.speed_index = 2
+		var cleanup_start := Time.get_ticks_msec()
 		await panel.clear_unclaimed_capture_cards(card_b)
+		var cleanup_seconds := (Time.get_ticks_msec()-cleanup_start)/1000.0
+		check(cleanup_seconds>=CaptureUI.CAPTURE_UNCLAIMED_DISSOLVE_SECONDS+CaptureUI.CAPTURE_UNCLAIMED_HOLD_SECONDS-0.045,
+			"successful dissolve and hold use display time at maximum battle speed")
 		check(arrow_b.position.is_equal_approx(arrow_before_exit),"floating stops before arrow exit")
-		check(not card_a.visible and card_b.visible,"unused enemy disappears before selected card collection")
+		check(not card_a.visible and card_b.visible,"unused enemy card disappears before selected card collection")
+		check(not dead_sprite.visible and dead_sprite.material!=focus_material and selected_sprite.visible,
+			"unchosen battlefield corpse dissolves while the selected body stays visible")
 		check(not arrow_a.visible and not arrow_b.visible and arrow_b.modulate.a<0.01,"selector arrow shrinks and fades out")
 		check(near(arrow_b.scale.x,0.68) and card_a.material is ShaderMaterial,"existing failed-capture dissolve is reused for unclaimed card")
 		check(panel.scene.sound_calls.is_empty(),"quick candidate cleanup does not replay permanent-death sound")
