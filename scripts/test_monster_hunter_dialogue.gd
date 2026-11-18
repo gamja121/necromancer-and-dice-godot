@@ -248,7 +248,7 @@ func test_ui() -> void:
 	check(ui.contains('MonsterHunterBeats.is_final(shown_beat)'),"final confirmation recognition")
 	check(ui.contains('"마치기"'),"final confirmation button")
 	check(ui.contains('"계속"'),"next beat button")
-	check(ui.contains('"세계수 기능"'),"world-tree actions retained")
+	check(ui.contains("finish_story_at_tile(index,") and ui.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(ui.contains('"돌아가기"'),"scene can be dismissed unfinished")
 	check(ui.contains('session.get_story_event(MonsterHunterEntry.EVENT_ID).status=="seen"'),"startup only reopens already discovered hunter")
 	check(ui.contains('func advance_monster_hunter(index: int, shown_beat: int) -> void:'),"guarded final close callback")

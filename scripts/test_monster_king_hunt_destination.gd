@@ -118,7 +118,7 @@ func source_contract() -> void:
 	check(src.contains("if beat_index<4:"),"third dialogue explicitly continues to fourth clue")
 	check(src.contains("MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))"),"saved beat and revival mode drive UI")
 	check(src.contains("InkSceneReveal.play(scene_art)"),"original ink reveal preserved")
-	check(src.contains('location_button(panel,"세계수 기능"'),"world tree function retained")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(src.contains('location_button(panel,"돌아가기"'),"map back button retained")
 	check(not src.contains("finish_monster_king_hunt("),"future quest completion remains locked")
 	check(not src.contains("start_monster_king_hunt_battle("),"king battle remains locked")

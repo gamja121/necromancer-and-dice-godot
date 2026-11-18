@@ -113,7 +113,7 @@ func source_contract() -> void:
 	check(src.contains("MonsterKingHuntEntry.can_resume_completion(session,index)"),"reconnect can restore saved fifth")
 	check(src.contains('location_button(panel,"마치기"'),"saved final scene requires explicit acknowledgment")
 	check(src.contains("MonsterKingHuntEntry.acknowledge_completion(session,index)"),"final ack persisted")
-	check(src.contains('location_button(panel,"세계수 기능"'),"world tree features kept")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(not src.contains("start_monster_king_hunt_battle("),"no phantom final boss encounter")
 
 func branch(side: String, tile: String) -> void:

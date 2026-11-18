@@ -133,6 +133,6 @@ func _run() -> void:
 	var audio: Node = root.get_node_or_null("GameAudio")
 	if is_instance_valid(audio): audio.queue_free()
 	await process_frame
-	await create_timer(0.10).timeout
+	await create_timer(0.25,true,false,true).timeout
 	print("BATTLE_MOTION_PARITY_REGRESSION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

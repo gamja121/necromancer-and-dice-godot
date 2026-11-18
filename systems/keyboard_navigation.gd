@@ -14,13 +14,14 @@ var indicator: Control
 var remembered: Dictionary = {}
 var last_focus_key := ""
 var last_move_msec := 0
-var pointer_position := Vector2.ZERO
+var pointer_sync_pending := false
 var pointer_seen := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_create_indicator()
 	get_tree().root.gui_focus_changed.connect(_focus_changed)
+	get_tree().root.window_input.connect(_window_input)
 
 func _create_indicator() -> void:
 	if is_instance_valid(indicator): return
@@ -173,41 +174,60 @@ func _prune_memory() -> void:
 	for id in remembered.keys():
 		if not is_instance_id_valid(id): remembered.erase(id)
 
+func _use_keyboard() -> void:
+	keyboard_mode = true
+	pointer_seen = false
+	pointer_sync_pending = false
+
+func _window_input(event: InputEvent) -> void:
+	# Esc is routed by QuitConfirmation before normal viewport input.
+	if event is InputEventKey and event.pressed and not event.echo and (event.keycode==KEY_ESCAPE or event.physical_keycode==KEY_ESCAPE):
+		_use_keyboard()
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if event.relative.length_squared()<4.0: return
 		keyboard_mode = false
 		pointer_seen = true
-		pointer_position = event.position
 		refresh()
-		_point_at(pointer_position)
+		if not pointer_sync_pending:
+			pointer_sync_pending = true
+			_sync_pointer.call_deferred()
 		return
 	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
 		keyboard_mode = false
 		pointer_seen = true
-		pointer_position = event.position
+		# Native clicking owns focus and may open a different modal immediately.
+		pointer_sync_pending = false
 		refresh()
-		if event.pressed: _point_at(pointer_position)
 		return
 	if not event is InputEventKey or event.alt_pressed or event.ctrl_pressed or event.meta_pressed: return
 	var key: int = event.keycode if event.keycode!=KEY_NONE else event.physical_keycode
 	if key not in DIRECTIONS and key not in [KEY_ENTER,KEY_KP_ENTER,KEY_SPACE]: return
 	refresh()
-	if Window.get_focused_window() is PopupMenu: return
+	if Window.get_focused_window() is PopupMenu:
+		if event.pressed: _use_keyboard()
+		return
 	var edit := window.gui_get_focus_owner() if is_instance_valid(window) else null
-	if edit is LineEdit or edit is TextEdit: return
-	if edit is Range and key in [KEY_LEFT,KEY_RIGHT]: return
+	if edit is LineEdit or edit is TextEdit:
+		if event.pressed: _use_keyboard()
+		return
+	if edit is Range and key in [KEY_LEFT,KEY_RIGHT]:
+		if event.pressed: _use_keyboard()
+		return
 	if edit is OptionButton and key in [KEY_ENTER,KEY_KP_ENTER]:
+		if event.pressed: _use_keyboard()
 		if event.echo: get_viewport().set_input_as_handled()
 		return
 	if not is_instance_valid(scope): return
-	# Intro has its existing Enter/Space narration handler and no focusable actions.
+	# Intro retains its original narration handler and has no focusable actions.
 	if controls.is_empty() and not scope.has_method("keyboard_accept"): return
 	get_viewport().set_input_as_handled()
 	if not event.pressed: return
 	if key in [KEY_ENTER,KEY_KP_ENTER,KEY_SPACE] and event.echo: return
-	keyboard_mode = true
-	pointer_seen = false
+	if pointer_sync_pending and not keyboard_mode: _sync_pointer()
+	_use_keyboard()
+	if _available(target): target.grab_focus()
 	if key in DIRECTIONS:
 		if event.echo and Time.get_ticks_msec()-last_move_msec<130: return
 		last_move_msec = Time.get_ticks_msec()
@@ -264,19 +284,27 @@ func activate() -> void:
 		target.button_up.emit()
 		target.pressed.emit()
 
-func _point_at(point: Vector2) -> void:
-	var pointed: Control
+func _sync_pointer() -> void:
+	if not pointer_sync_pending: return
+	pointer_sync_pending = false
+	if keyboard_mode: return
+	refresh()
+	if Window.get_focused_window() is PopupMenu or not is_instance_valid(window): return
 	for candidate in controls:
 		var drag := candidate.get_node_or_null("DiceCardDrag")
 		if drag != null and drag.pointer!=-2: return
-		if Rect2(Vector2.ZERO,candidate.size).has_point(candidate.get_global_transform_with_canvas().affine_inverse()*point):
-			pointed = candidate
-	if pointed != null: choose_focus(pointed,false)
-	elif not keyboard_mode:
-		pointer_seen = false
-		if is_instance_valid(target): target.release_focus()
-		target = null
-		indicator.clear()
+	# Read the native hit target after GUI delivery; card hands keep their
+	# sibling order aligned with depth, while the engine handles clipping and transforms.
+	var pointed: Control = window.gui_get_hovered_control()
+	while is_instance_valid(pointed):
+		if pointed in controls:
+			choose_focus(pointed,false)
+			return
+		pointed = pointed.get_parent() as Control
+	pointer_seen = false
+	if is_instance_valid(target): target.release_focus()
+	# Retain the last valid target so a keyboard press resumes there.
+	indicator.clear()
 
 func _center(control: Control) -> Vector2:
 	return control.get_global_transform_with_canvas()*(control.size*0.5)

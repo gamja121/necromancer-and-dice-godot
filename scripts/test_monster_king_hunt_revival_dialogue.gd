@@ -126,7 +126,7 @@ func source_contract() -> void:
 	check(src.contains("if beat_index==0: InkSceneReveal.play(art)") and src.contains('MonsterHunterLayerMotion.play(hunt_layer,is_portrait,beat.id==("revival" if is_portrait else "trace"))'),"portrait uses hunter layer motion over ink-revealed base")
 	check(src.contains('"%s: %s" % [str(beat.speaker),str(beat.dialogue)]'),"narrator and dialogue shown in UI")
 	check(src.contains("if beat_index<4:"),"Continue also offered after hunter dialogue")
-	check(src.contains('location_button(panel,"세계수 기능"'),"world-tree feature remains accessible")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(src.contains('location_button(panel,"돌아가기"'),"map return stays accessible")
 	check(not src.contains("finish_monster_king_hunt("),"hunt quest completion is not implemented")
 	check(not src.contains("start_monster_king_hunt_battle("),"king final battle stays locked")

@@ -85,22 +85,21 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 		var drag=option.get_node("DiceCardDrag")
 		drag.home=option.position
 		drag.home_z=option.z_index
+	for option in options:
+		if option.has_focus(): focus_card(option,true)
 
 func focus_card(option: TextureButton, focused: bool) -> void:
 	if choosing or opening or not is_instance_valid(option) or option.disabled: return
 	var drag=option.get_node("DiceCardDrag")
 	if drag.pointer!=-2: return
 	if drag.settling!=null and drag.settling.is_valid(): drag.settling.kill()
-	if focused: option.move_to_front()
-	else: restore_card_order()
 	option.z_index=100 if focused else int(option.get_meta("hand_base_z"))
 	option.position=drag.home+Vector2(0,-Layout.HOVER_LIFT if focused else 0)
 	CardDepthMotion.set_shadow_lift(option,focused)
+	restore_card_order()
 
 func restore_card_order() -> void:
-	# Control input order follows siblings, independently of CanvasItem z_index.
-	for option in options:
-		if is_instance_valid(option): option.move_to_front()
+	CardDepthMotion.sync_input_order(options)
 
 func stop_drag_motion() -> void:
 	for option in options:

@@ -7,6 +7,7 @@ func settings_controls() -> void:
 	var settings: Control=map.map_audio
 	navigation.refresh()
 	check(navigation.scope==settings.panel,"settings own the active keyboard scope")
+	check(navigation.keyboard_mode,"Esc hands focus back to keyboard mode")
 	all_reachable("settings")
 	await go(settings.music_toggle)
 	var muted:bool=AudioServer.is_bus_mute(AudioServer.get_bus_index("Music"))
@@ -50,6 +51,39 @@ func lineup_information() -> void:
 	check(navigation.target.get_meta("keyboard_focus_key","")=="info:"+str(deck.owned[1].id),"information closes back to the original card action")
 	await escape()
 	check(await until(func():return not is_instance_valid(map.overlay)),"Esc leaves ordinary lineup")
+
+func pointer_stacking() -> void:
+	await fresh_map()
+	await go(map.book_button)
+	await key(KEY_ENTER)
+	if not check(await until(func():return is_instance_valid(map.overlay) and not map.overlay.changing),"pointer stacking opens the real monster hand"): return
+	var book: Control=map.overlay
+	var first: Control=book.find_child("InventoryInspect_unit_0",true,false)
+	var second: Control=book.find_child("InventoryInspect_unit_1",true,false)
+	await point(first)
+	check(navigation.target==first,"mouse enters the visible first card")
+	var overlap: Vector2=first.get_global_transform_with_canvas()*Vector2(first.size.x-22,115)
+	await point_canvas(overlap)
+	check(navigation.target==first,"overlap keeps the visible front card instead of raising a card behind it")
+	await photograph("10-overlap-focus")
+	await point(second)
+	await point_canvas(Vector2(640,320))
+	check(navigation.target==second,"blank-space mouse movement retains the last valid card for keyboard resumption")
+	await key(KEY_ENTER)
+	check(await until(func():return is_instance_valid(book.info)),"Enter resumes inspection after the mouse leaves the cards")
+	await escape()
+	await until(func():return not is_instance_valid(book.info))
+	root.size=Vector2i(1600,900)
+	for i in range(3): await process_frame
+	await point(first)
+	check(navigation.target==first,"mouse handoff works at the desktop window size")
+	overlap=first.get_global_transform_with_canvas()*Vector2(first.size.x-22,115)
+	await point_canvas(overlap)
+	check(navigation.target==first,"front-card picking stays correct after window scaling")
+	root.size=Vector2i(1280,720)
+	for i in range(3): await process_frame
+	await escape()
+	check(await until(func():return not is_instance_valid(map.overlay)),"mixed pointer inspection returns to board")
 
 func full_book_reward() -> void:
 	await fresh_map()
@@ -113,6 +147,9 @@ func scrolling_collections() -> void:
 	var scroll: ScrollContainer=book.find_child("RosterHandScroll",true,false)
 	var center: Vector2=scroll.get_global_transform_with_canvas().affine_inverse()*(last.get_global_transform_with_canvas()*(last.size*0.5))
 	check(scroll.follow_focus and scroll.scroll_horizontal>0 and center.x>0 and center.x<scroll.size.x,"selected monster automatically scrolls into view")
+	await point_canvas(book.close_button.get_global_transform_with_canvas()*Vector2(4,20))
+	check(root.gui_get_hovered_control()==book.close_button,"native pointer sees the visible close action above clipped cards")
+	check(navigation.target==book.close_button,"clipped cards cannot steal mouse focus from the visible close action")
 	# The map intentionally hides tabs on its monster-only hand. Exercise the legacy dice inspection surface directly.
 	book.show_kind("dice")
 	if not check(await until(func():return not book.changing),"legacy dice inventory opens"): return
@@ -137,6 +174,7 @@ func _run() -> void:
 	root.size=Vector2i(1280,720)
 	await settings_controls()
 	await lineup_information()
+	await pointer_stacking()
 	await full_book_reward()
 	await scrolling_collections()
 	if is_instance_valid(map): map.queue_free()

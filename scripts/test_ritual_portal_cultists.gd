@@ -108,7 +108,7 @@ func source_and_visual_contract() -> void:
 	check(src.contains("if beat_index==0: InkSceneReveal.play(art)") and src.contains('RitualPortalLayerMotion.play(ritual_art,beat.id in ["portal_reveal","omen"])'),"original layer animates over ruined gate")
 	check(src.contains("if beat_index<4:"),"Continue only for original first four scenes")
 	check(src.contains("RitualPortalEntry.advance(session,index,shown_beat)"),"Continue commits current beat transaction")
-	check(src.contains('location_button(panel,"숲 기능"'),"existing forest actions preserved")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(src.contains('location_button(panel,"돌아가기"'),"board return preserved")
 	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]'),"saved third scene and intervention resume on reconnect")
 	check(not src.contains("start_ritual_portal_battle("),"no future battle handler")

@@ -49,17 +49,19 @@ func escape() -> void:
 	event.keycode=KEY_ESCAPE
 	root.window_input.emit(event)
 	for i in range(3): await process_frame
-func point(control: Control,click:bool=false) -> void:
-	var position:=control.get_global_transform_with_canvas()*(control.size*0.5)
+func point_canvas(position: Vector2) -> void:
 	var event:=InputEventMouseMotion.new()
-	event.position=position
+	event.position=root.get_final_transform()*position
 	event.relative=Vector2(15,9)
 	root.push_input(event)
 	await process_frame
+func point(control: Control,click:bool=false) -> void:
+	var position:=control.get_global_transform_with_canvas()*(control.size*0.5)
+	await point_canvas(position)
 	if click:
 		for down in [true,false]:
 			var press:=InputEventMouseButton.new()
-			press.position=position
+			press.position=root.get_final_transform()*position
 			press.button_index=MOUSE_BUTTON_LEFT
 			press.pressed=down
 			root.push_input(press)

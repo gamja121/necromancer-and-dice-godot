@@ -84,6 +84,17 @@ func focus_hand_card(option: TextureButton, home: Vector2, focused: bool) -> voi
 	option.z_index = 20 if focused else 0
 	option.position = home+Vector2(0,-26 if focused else 0)
 	CardDepthMotion.set_shadow_lift(option, focused)
+	sync_hand_input()
+
+func sync_hand_input() -> void:
+	if not is_instance_valid(fan): return
+	var cards: Array = []
+	for entry in fan.entries: cards.append(entry.card)
+	CardDepthMotion.sync_input_order(cards)
+
+func lift_inspection_shadow(option: TextureButton,focused: bool) -> void:
+	CardDepthMotion.set_shadow_lift(option,focused)
+	sync_hand_input()
 
 func show_kind(kind: String) -> void:
 	if not kind in ["unit","dice"]: return
@@ -144,6 +155,7 @@ func show_kind(kind: String) -> void:
 		var option = card(parent,kind,item,pos,HAND_CARD_SIZE,func(): show_item(kind,item))
 		option.name="InventoryInspect_%s_%d" % [kind,i]
 		option.set_meta("keyboard_focus_default",i==0)
+		option.set_meta("hand_base_z",i)
 		option.set_meta("keyboard_focus_key",kind+":"+str(item.id))
 		option.rotation_degrees = (3.0-7.0*float(i)/float(maxi(items.size()-1,1))) if kind=="unit" else clampf((i-half)*1.6,-5,5)
 		if kind=="unit":
@@ -164,17 +176,22 @@ func show_kind(kind: String) -> void:
 		# FanMotion owns position/rotation; attach only the shared contact shadow.
 		CardDepthMotion.install(option, false, true)
 		if kind!="unit":
-			option.mouse_entered.connect(func(): CardDepthMotion.set_shadow_lift(option, true))
-			option.mouse_exited.connect(func(): CardDepthMotion.set_shadow_lift(option, option.has_focus()))
-			option.focus_entered.connect(func(): CardDepthMotion.set_shadow_lift(option, true))
-			option.focus_exited.connect(func(): CardDepthMotion.set_shadow_lift(option, option.is_hovered()))
+			option.mouse_entered.connect(func(): lift_inspection_shadow(option,true))
+			option.mouse_exited.connect(func(): lift_inspection_shadow(option,option.has_focus()))
+			option.focus_entered.connect(func(): lift_inspection_shadow(option,true))
+			option.focus_exited.connect(func(): lift_inspection_shadow(option,option.is_hovered()))
 		fan.register_card(option)
+	close_button.move_to_front()
 	await get_tree().process_frame
 	if closing: return
 	await fan.animate(true,origin_global)
 	if closing: return
 	changing = false
 	for tab in tab_buttons: tab.disabled = false
+	for entry in fan.entries:
+		if is_instance_valid(entry.card) and entry.card.has_focus():
+			if kind=="unit": focus_hand_card(entry.card,entry.home,true)
+			else: lift_inspection_shadow(entry.card,true)
 
 ## Card inspection is intentionally visual-only. No RunSession mutations, RNG,
 ## item consumption, or callbacks into dice/shop/battle actions may occur here.
