@@ -4,6 +4,22 @@ const DESIGN_SIZE = Vector2(1280,720)
 const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const AudioSettings = preload("res://systems/audio_settings.gd")
 const StoryTypewriter = preload("res://systems/story_typewriter.gd")
+# The original frame has a light matte in its partly transparent outer pixels.
+# Tighten the alpha transition while preserving the solid parchment and fade tint.
+const DIALOGUE_FRAME_SHADER = """
+shader_type canvas_item;
+varying vec4 canvas_tint;
+
+void vertex() {
+	canvas_tint = COLOR;
+}
+
+void fragment() {
+	vec4 paper = texture(TEXTURE, UV);
+	paper.a *= smoothstep(0.87, 0.995, paper.a);
+	COLOR = paper * canvas_tint;
+}
+"""
 @export_range(0.1,1.5,0.01) var ending_duration: float = 0.52
 var canvas: Control
 var impact: Control
@@ -131,6 +147,11 @@ func _build_dialogue() -> void:
 	var frame := NinePatchRect.new()
 	frame.name = "IntroOriginalDialogueFrame"
 	frame.texture = load("res://assets/intro/dialogue_frame.webp")
+	var shader := Shader.new()
+	shader.code = DIALOGUE_FRAME_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	frame.material = material
 	frame.size = box.size
 	# Preserve hand-drawn corner and side ornaments at original proportions
 	# while spreading the paper center across the 16:9 game dialogue width.
