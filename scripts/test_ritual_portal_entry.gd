@@ -115,7 +115,7 @@ func original_contract() -> void:
 	check(src.contains("RitualPortalEntry.BASE_ART"),"presentation uses original base art")
 	check(src.contains('InkSceneReveal.play(art)'),"existing ink reveal preserved")
 	check(src.contains('사건 · 마물의 왕 부활 의식'),"original story heading")
-	check(src.contains('location_button(panel,"숲 기능"'),"existing forest actions accessible")
+	check(src.contains("finish_story_at_tile(index,"),"completed story reaches its ordinary tile through the shared completion path")
 	check(src.contains('location_button(panel,"돌아가기"'),"return to board available")
 	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]'),"restart resumes saved portal choice without automatic combat")
 	check(not src.contains("start_ritual_portal_battle("),"no hidden or premature portal fight handler")

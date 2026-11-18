@@ -179,7 +179,7 @@ func inspect_ui() -> void:
 	check(ResourceLoader.exists(Rumor.SCENE_ART),"original village background exists")
 	check(Rumor.INTRO[Rumor.RESCUED_ID].begins_with("마을에 들어서자"),"original rescue rumor first beat")
 	check(Rumor.INTRO[Rumor.ABANDONED_ID].begins_with("마을 어귀에 들어서자"),"original abandon rumor first beat")
-	check(src.contains('"마을 기능"'),"existing village features remain accessible")
+	check(src.contains("finish_story_at_tile(index,"),"completed story reaches its ordinary tile through the shared completion path")
 	check(src.contains('"돌아가기"'),"player can exit unfinished intro")
 	check(Rumor.seen_flag("invalid").is_empty() and Rumor.complete_flag("invalid").is_empty(),"unrecognized flags rejected")
 

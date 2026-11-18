@@ -414,5 +414,9 @@ func _run() -> void:
 	# Drain deferred scene/animation cleanup before the engine reports resources.
 	await process_frame
 	await create_timer(0.25).timeout
+	var audio: Node = root.get_node_or_null("GameAudio")
+	if is_instance_valid(audio): audio.queue_free()
+	await process_frame
+	await create_timer(0.10).timeout
 	print("P4_COMBAT_MAP_RETURN_INTEGRATION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

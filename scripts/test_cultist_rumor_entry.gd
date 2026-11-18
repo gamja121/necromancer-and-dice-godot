@@ -219,7 +219,7 @@ func inspect_art_and_map() -> void:
 	check(map.contains('str(beat.effect)'),"source arrival text displayed")
 	check(map.contains("CultistRumorEntry.BASE_ART"),"original background displayed")
 	check(map.contains('session.get_story_event(CultistRumorEntry.EVENT_ID).status=="seen"'),"restart only reopens already discovered cultists")
-	check(map.contains('"마을 기능"'),"original village actions remain")
+	check(map.contains("finish_story_at_tile(index,"),"completed story reaches its ordinary tile through the shared completion path")
 	check(map.contains('"돌아가기"'),"return without forcing completion")
 	var a: int=map.find("StoryEventEntry.can_enter(session,index)")
 	var b: int=map.find("VillageRumorEntry.eligible_event_id(session,index)")

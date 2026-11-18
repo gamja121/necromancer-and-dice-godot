@@ -123,7 +123,7 @@ func original_contract() -> void:
 	check(src.contains("MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))"),"scene uses saved beat and real revival mode")
 	check(src.contains('사건 · 왕의 흔적'),"original event title")
 	check(src.contains("InkSceneReveal.play(art)"),"first scene uses existing ink reveal")
-	check(src.contains('location_button(panel,"세계수 기능"'),"prior world-tree tile action retained")
+	check(src.contains("finish_story_at_tile(index,"),"completed story reaches its ordinary tile through the shared completion path")
 	check(src.contains('location_button(panel,"돌아가기"'),"map return button preserved")
 	check(src.contains('session.get_story_event(MonsterKingHuntEntry.EVENT_ID).status=="seen"'),"restart resumes only a saved discovery")
 	check(not src.contains("start_monster_king_hunt_battle("),"final king combat remains locked")

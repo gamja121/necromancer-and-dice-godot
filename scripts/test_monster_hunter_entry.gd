@@ -332,7 +332,7 @@ func test_art_ui() -> void:
 	var resume_end: int=map.find(']: call_deferred("resume_village_rumor_if_unfinished")',resume_start)
 	var resume_locations: String=map.substr(resume_start+resume_prefix.length(),resume_end-resume_start-resume_prefix.length()) if resume_start>=0 and resume_end>resume_start else ""
 	check(["village","unknown","event","altar","graveyard","forest","fortune-teller-camp","home"].all(func(kind):return resume_locations.contains('"'+kind+'"')),"startup restores every original story location, alternate prophet camp and saved HOME event")
-	check(map.contains('"세계수 기능"'),"world-tree location actions retained")
+	check(map.contains("finish_story_at_tile(index,"),"completed story reaches its ordinary tile through the shared completion path")
 	check(map.contains('"돌아가기"'),"hunter scene has exit")
 	var grave: int=map.find("StoryEventEntry.can_enter(session,index)")
 	var rumor: int=map.find("VillageRumorEntry.eligible_event_id(session,index)")
