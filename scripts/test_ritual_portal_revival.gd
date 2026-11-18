@@ -110,7 +110,7 @@ func source_contract() -> void:
 	check(src.contains('부활 확인" if event_id==RitualPortalEntry.EVENT_ID'),"battle result must first be acknowledged")
 	check(src.contains("RitualPortalEntry.aftermath_ready(session,index)"),"resume/return flow guarded by real result")
 	check(src.contains("show_ritual_portal_aftermath(index)"),"acknowledgement opens the canonical epilogue")
-	check(src.contains("if world.tiles[index]==\"forest\":"),"forest tile retains exploration option")
+	check(src.contains('elif type in ["unknown","graveyard","forest"]:') and src.contains("show_exploration_actions(index),variant)") and src.contains("finish_story_at_tile(index,"),"acknowledged forest story retains the shared tile exploration action")
 
 func verify_completed(s,won: bool) -> void:
 	var at: int=s.world.position

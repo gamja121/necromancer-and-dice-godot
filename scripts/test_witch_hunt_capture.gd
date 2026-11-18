@@ -13,7 +13,7 @@ func snap(tag: String) -> void:
 	for frame in range(3): await process_frame
 	await RenderingServer.frame_post_draw
 	var shot: Image=root.get_texture().get_image()
-	if check(shot.get_size()==Vector2i(1280,720) and shot.save_png("res://witch_hunt_%s.png" % tag)==OK,"actual framebuffer "+tag): captures+=1
+	if check(shot.get_size()==Vector2i(1280,720) and shot.save_png((OS.get_cmdline_user_args()[0] if not OS.get_cmdline_user_args().is_empty() else "res://").path_join("witch_hunt_%s.png" % tag))==OK,"actual framebuffer "+tag): captures+=1
 func pawn_near(pawn: TextureRect, tile: int, distance: float = 57.0) -> bool:
 	if not is_instance_valid(pawn): return false
 	var foot := pawn.position + pawn.size * Vector2(0.5, 1.0)
@@ -95,12 +95,17 @@ func play_stage(locale: String, story_stage: int, decision: String, tag: String)
 		if story_stage==2 and beat==HUNT_BEATS.count()-1: await snap(tag+"_"+locale)
 		if not await press("마치기" if beat==HUNT_BEATS.count()-1 else "계속"): return
 	check(HUNT.completed(session,story_stage),"actual Finish commits stage once")
+	if not check(await until(func(): return not is_instance_valid(map.overlay) or not map.overlay is BOOK, 10000), "final acknowledgement finishes closing the mandatory book"): return
 	if story_stage==1:
-		var pawn: Node = map.stage.get_node_or_null("VillageRiotPawn")
-		var mini_die: TextureRect = pawn.find_child("VillagerCrowdDie", true, false) as TextureRect if pawn != null else null
-		check(mini_die != null and mini_die.size.x < map.dice.size.x and map.moving, "live riot shows a small separate die while the board is locked")
-		if tag=="burned" and locale=="ko": await snap("riot_opening_die")
-		check(await until(func(): return not map.moving, 15000) and session.world.riot.face in [1,2,3], "opening riot roll finishes on the live board")
+		if decision=="escort":
+			check(not map.moving and session.world.riot.pending.is_empty(), "escorting guards hold the crowd until the player's next roll")
+		else:
+			if not check(await until(func(): return is_instance_valid(map.stage.get_node_or_null("VillageRiotPawn")) and map.moving, 10000), "completed book starts the live riot roll"): return
+			var pawn: Node = map.stage.get_node_or_null("VillageRiotPawn")
+			var mini_die: TextureRect = pawn.find_child("VillagerCrowdDie", true, false) as TextureRect if pawn != null else null
+			check(mini_die != null and mini_die.size.x < map.dice.size.x and map.moving, "live riot shows a small separate die while the board is locked")
+			if tag=="burned" and locale=="ko": await snap("riot_opening_die")
+			check(await until(func(): return not map.moving, 15000) and session.world.riot.face in [1,2,3], "opening riot roll finishes on the live board")
 		# Keep the already-in-progress v1 HOME event and all three outcomes covered.
 		session.world.riot.clear()
 		check(session.save_world(),"legacy HOME fixture saved")
@@ -111,8 +116,8 @@ func play_stage(locale: String, story_stage: int, decision: String, tag: String)
 		check(session.world.snapshot()==before,"same actual arrival cannot chain next stage")
 		map.close_overlay()
 func check_ruins(locale: String) -> void:
+	if not check(await until(func(): return HUNT.home_burned(session) and is_instance_valid(map.overlay) and map.overlay.name=="BurnedHomePanel", 10000),"final acknowledgement opens actual ruined home"): return
 	await create_timer(0.5).timeout # Inspect final coordinates after the shared entrance motion.
-	check(HUNT.home_burned(session) and is_instance_valid(map.overlay) and map.overlay.name=="BurnedHomePanel","final acknowledgement opens actual ruined home")
 	check(button("들어가기")==null and button("낙인 계승")==null and button("순찰경로")==null,"ruins never offer blocked services")
 	check(map.buttons[HF.State.HOME].find_child("HomeBlockadeBadge",true,false)!=null,"board home is visibly blocked")
 	check(map.overlay.find_child("LocationNoticeStrip",true,false)!=null,"ruins reuse the same information strip as other locations")

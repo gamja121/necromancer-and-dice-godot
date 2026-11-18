@@ -75,5 +75,10 @@ func _run() -> void:
 	scene.queue_free()
 	for i in range(6): await process_frame
 	check(references.all(func(reference): return reference.get_ref()==null),"leaving battle frees every pooled scene node")
+	# Release in-flight healing playback before this isolated test exits.
+	var cleanup_audio: Node = root.get_node_or_null("GameAudio")
+	if is_instance_valid(cleanup_audio): cleanup_audio.queue_free()
+	await process_frame
+	await create_timer(0.25,true,false,true).timeout
 	print("BATTLE_EFFECT_POOL: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
