@@ -411,5 +411,12 @@ func _run() -> void:
 	if created: session.queue_free()
 	for path in files: delete_save(path)
 	check(files.all(func(p): return not FileAccess.file_exists(p)), "isolated test saves removed without touching production save")
+	# Drain deferred scene/animation cleanup before the engine reports resources.
+	await process_frame
+	await create_timer(0.25).timeout
+	var audio: Node = root.get_node_or_null("GameAudio")
+	if is_instance_valid(audio): audio.queue_free()
+	await process_frame
+	await create_timer(0.25,true,false,true).timeout
 	print("P4_COMBAT_MAP_RETURN_INTEGRATION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

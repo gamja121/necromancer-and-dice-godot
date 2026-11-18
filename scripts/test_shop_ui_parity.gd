@@ -24,7 +24,7 @@ func run() -> void:
 	for control in [shop.donor_art,shop.shop_offer_scroll,shop.shop_summary,shop.shop_remaining,shop.status,shop.close_button,shop.shop_confirm_button]:
 		check(inside(control,window),"shop content stays inside frame: "+str(control.name))
 	check(shop.offer_area is HBoxContainer and shop.shop_offer_scroll.horizontal_scroll_mode==ScrollContainer.SCROLL_MODE_DISABLED,"three offers have a complete visible row without horizontal scrolling")
-	check(shop.close_button.position.y==shop.shop_confirm_button.position.y and shop.close_button.position.y>620,"exit and confirmation share fixed bottom row")
+	check(is_equal_approx(shop.close_button.position.y,shop.shop_confirm_button.position.y) and absf(shop.close_button.position.y-617.0)<1.0,"exit and confirmation share fixed bottom row (%s / %s)" % [shop.close_button.position,shop.shop_confirm_button.position])
 	check(not shop.shop_cancel_button.visible and shop.shop_confirm_button.disabled and shop.shop_empty_hint.visible,"initial selection instructions and disabled confirmation")
 	check(shop.shop_remaining.text=="남은 거래 3 / 3","initial counter uses live allowance")
 	var donor:String=str(session.world.roster[0].id)

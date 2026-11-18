@@ -203,7 +203,7 @@ func ui_wiring() -> void:
 	check(src.contains('KnightCommanderEntry.advance(session,index,shown_beat)'),"UI persists only clicked step")
 	check(src.contains('KnightCommanderBeats.is_final(shown_beat,'),"last scene recognized by UI")
 	check(src.contains('"마치기"'),"explicit final acceptance button")
-	check(src.contains('"마을 기능"'),"original village actions retained")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(src.contains('"돌아가기"'),"player may exit unfinished scene")
 	check(src.contains('session.get_story_event(KnightCommanderEntry.EVENT_ID).status=="seen"'),"only started story automatically resumes")
 	check(src.contains('if not Commander.')==false,"map remains independent from test aliases")

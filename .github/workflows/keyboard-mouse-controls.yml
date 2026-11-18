@@ -1,0 +1,73 @@
+name: Keyboard And Mouse Controls
+on:
+  pull_request:
+    paths:
+      - "systems/keyboard_*.gd"
+      - "systems/button_effects_module.gd"
+      - "systems/dice_*.gd"
+      - "systems/battle_deck.gd"
+      - "systems/inventory_panel.gd"
+      - "systems/unit_info.gd"
+      - "systems/reward_overflow.gd"
+      - "systems/event_discovery_card.gd"
+      - "systems/routine_event_card.gd"
+      - "systems/main_story_book.gd"
+      - "systems/audio_settings.gd"
+      - "systems/corpse_capture.gd"
+      - "scripts/test_keyboard_*.gd"
+      - "project.godot"
+      - "title.gd"
+      - "map.gd"
+      - "battlefield.gd"
+      - ".github/workflows/keyboard-mouse-controls.yml"
+  push:
+    branches: [main]
+    paths:
+      - "systems/keyboard_*.gd"
+      - "systems/button_effects_module.gd"
+      - "systems/dice_*.gd"
+      - "systems/battle_deck.gd"
+      - "systems/inventory_panel.gd"
+      - "systems/unit_info.gd"
+      - "systems/reward_overflow.gd"
+      - "systems/event_discovery_card.gd"
+      - "systems/routine_event_card.gd"
+      - "systems/main_story_book.gd"
+      - "systems/audio_settings.gd"
+      - "systems/corpse_capture.gd"
+      - "scripts/test_keyboard_*.gd"
+      - "project.godot"
+      - "title.gd"
+      - "map.gd"
+      - "battlefield.gd"
+      - ".github/workflows/keyboard-mouse-controls.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  keyboard-mouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import and validate
+        run: |
+          set -euo pipefail
+          timeout 300s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|^ERROR:|Parse Error|SHADER ERROR' import.log; then exit 1; fi
+      - name: Actual keyboard and pointer gameplay
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_keyboard_game_controls.gd 2>&1 | tee gameplay.log
+          grep -E 'KEYBOARD_GAME_CONTROLS: [0-9]+ passed, 0 failed' gameplay.log
+          if grep -E 'SCRIPT ERROR|^ERROR:|FAIL keyboard:' gameplay.log; then exit 1; fi
+      - name: Modal confirmation and scrolling
+        run: |
+          set -euo pipefail
+          timeout 150s godot --headless --path . --script res://scripts/test_keyboard_modal_controls.gd 2>&1 | tee modals.log
+          grep -E 'KEYBOARD_MODAL_CONTROLS: [0-9]+ passed, 0 failed' modals.log
+          if grep -E 'SCRIPT ERROR|^ERROR:|FAIL keyboard:' modals.log; then exit 1; fi

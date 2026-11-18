@@ -51,6 +51,8 @@ func _ready() -> void:
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
 	_button.pressed.connect(_on_pressed)
+	_button.focus_entered.connect(_on_focus_entered)
+	_button.focus_exited.connect(_on_focus_exited)
 	_button.visibility_changed.connect(_on_visibility_changed)
 
 func _process(_delta: float) -> void:
@@ -76,6 +78,16 @@ func _input(event: InputEvent) -> void:
 		if was_touch and _button.is_hovered(): _on_mouse_entered()
 	# Observe input modality only; never consume or forward input.
 
+func _on_focus_entered() -> void:
+	if not _available(): return
+	_hovered = true
+	_hover_angle = 0.0
+	_animate_state(animation_duration)
+
+func _on_focus_exited() -> void:
+	_hovered = _button.is_hovered() and not _touch_input
+	if _available(): _animate_state(animation_duration)
+
 func _on_mouse_entered() -> void:
 	if not _available() or _touch_input: return
 	_hovered = true
@@ -83,7 +95,7 @@ func _on_mouse_entered() -> void:
 	_animate_state(animation_duration)
 
 func _on_mouse_exited() -> void:
-	_hovered = false
+	_hovered = _button.has_focus()
 	if not _available():
 		_restore_immediate()
 		return
@@ -164,6 +176,8 @@ func _exit_tree() -> void:
 		[_button.mouse_entered,_on_mouse_entered],
 		[_button.mouse_exited,_on_mouse_exited],
 		[_button.pressed,_on_pressed],
+		[_button.focus_entered,_on_focus_entered],
+		[_button.focus_exited,_on_focus_exited],
 		[_button.visibility_changed,_on_visibility_changed]]:
 		if connection[0].is_connected(connection[1]): connection[0].disconnect(connection[1])
 	_button.pivot_offset = _base_pivot

@@ -109,7 +109,7 @@ func original_contract() -> void:
 	check(src.contains("RitualPortalEntry.advance(session,index,shown_beat)"),"Continue invokes transactional checkpoint")
 	check(src.contains('location_button(panel,"계속"'),"arrival has explicit Continue")
 	check(src.contains("if beat_index<4:"),"Continue appears on first four beats, then intervention choice")
-	check(src.contains('location_button(panel,"숲 기능"'),"forest actions preserved")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(src.contains('location_button(panel,"돌아가기"'),"board return preserved")
 	check(not src.contains("start_ritual_portal_battle("),"battle handler not created")
 	check(not src.contains("complete_ritual_portal("),"revival completion handler not created")

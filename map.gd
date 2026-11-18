@@ -248,6 +248,39 @@ func dice_hint_context() -> Node:
 	return overlay if is_instance_valid(overlay) else self
 
 
+func keyboard_focus_scope() -> Control:
+	if is_instance_valid(game_over_screen): return game_over_screen
+	if is_instance_valid(final_chapter_screen): return final_chapter_screen
+	if is_instance_valid(embedded_battle): return embedded_battle.keyboard_focus_scope()
+	if is_instance_valid(map_audio) and map_audio.is_open(): return map_audio.panel
+	return overlay if is_instance_valid(overlay) else stage
+
+func keyboard_focus_controls() -> Array[Control]:
+	if is_instance_valid(embedded_battle): return embedded_battle.keyboard_focus_controls()
+	var active: Control = keyboard_focus_scope()
+	var result: Array[Control] = []
+	if active == stage:
+		for tile in buttons: result.append(tile)
+		result.append_array([dice,book_button,deck_button])
+		if is_instance_valid(map_audio): result.append(map_audio.options_button)
+	else:
+		for control in active.find_children("*","Control",true,false):
+			if control.focus_mode != Control.FOCUS_NONE: result.append(control)
+		if (active is ExplorationActions and active.type=="unknown") or (active is PlaceActions and active.type=="fortune-teller-camp"):
+			result.append(dice)
+	return result
+
+func keyboard_roll_dice() -> bool:
+	if is_instance_valid(embedded_battle): return embedded_battle.keyboard_roll_dice()
+	if moving or shared_die_busy or battle_returning: return false
+	if is_instance_valid(map_audio) and map_audio.is_open(): return false
+	if is_instance_valid(game_over_screen) or is_instance_valid(final_chapter_screen): return false
+	if is_instance_valid(overlay) and not ((overlay is ExplorationActions and overlay.type=="unknown") or (overlay is PlaceActions and overlay.type=="fortune-teller-camp")): return false
+	refresh_shared_die_input()
+	if dice.disabled or not dice.is_visible_in_tree(): return false
+	dice.pressed.emit()
+	return true
+
 func handle_cancel() -> bool:
 	if moving or shared_die_busy or battle_returning: return true
 	if is_instance_valid(game_over_screen) or is_instance_valid(final_chapter_screen): return true
@@ -261,6 +294,10 @@ func handle_cancel() -> bool:
 		if is_instance_valid(map_audio): map_audio.toggle_panel()
 		return true
 	if overlay is StoryBook: return true
+	for child in overlay.get_children():
+		if child is EventDiscoveryCard:
+			child.request_close()
+			return true
 	if overlay.has_method("request_close"):
 		overlay.request_close()
 		return true
@@ -656,20 +693,7 @@ void fragment() {
 	tile.material = material
 
 func show_button_focus(button: BaseButton) -> void:
-	var ring := Panel.new()
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.z_index = 2
-	var ink := StyleBoxFlat.new()
-	ink.draw_center = false
-	ink.border_color = Color("ffe6a0")
-	ink.set_border_width_all(2)
-	ink.set_corner_radius_all(5)
-	ring.add_theme_stylebox_override("panel",ink)
-	button.add_child(ring)
-	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ring.hide()
-	button.focus_entered.connect(ring.show)
-	button.focus_exited.connect(ring.hide)
+	button.add_theme_stylebox_override("focus",StyleBoxEmpty.new())
 
 
 func render() -> void:
@@ -698,6 +722,10 @@ func render() -> void:
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
 		show_button_focus(node)
+		add_button_effect(node,false)
+		var tile_feedback: ButtonEffectsModule = node.get_node("ButtonEffectsModule")
+		tile_feedback.hover_scale = Vector2.ONE*1.025
+		tile_feedback.use_hover_rotation = false
 		if world.tiles[i]=="home" and WitchHuntEntry.home_burned(session):
 			node.tooltip_text+=" · 전소 · 집 기능 봉쇄"
 			var blockade=label_at(node,"봉쇄",Vector2(10,38),Vector2(90,28),16)
@@ -721,6 +749,8 @@ func render() -> void:
 	_create_hero_shadow()
 	_refresh_riot_pawn()
 	dice = TextureButton.new()
+	dice.set_meta("keyboard_focus_default",true)
+	dice.set_meta("keyboard_action_hint","Space · 주사위")
 	dice.ignore_texture_size = true
 	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % shared_dice_face())
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED

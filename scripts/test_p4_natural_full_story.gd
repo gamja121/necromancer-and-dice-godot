@@ -44,7 +44,10 @@ func finish_cultist_rumor(session: Node, map: Control) -> Control:
 			check(CULTIST.current_beat(session) == 3, "cultist rumor resumes third saved advance")
 	check(session.get_story_event(CULTIST.EVENT_ID).status == "complete" and session.event_flag_is_set(CULTIST.COMPLETE_FLAG), "cultist rumor confirms six scene story")
 	check(session.event_flag_is_set(CULTIST.TRACKING_FLAG) and not session.event_flag_is_set(ALTAR.RITUAL_TRACKING_FLAG), "cultist tracking activates only after rumor finish, ritual still locked")
-	check(not is_instance_valid(map.overlay), "completed cultist rumor closes without reopening an event")
+	check(await until_ready(func(): return not is_instance_valid(map.overlay) or map.overlay.get_script()!=preload("res://systems/main_story_book.gd"),10000), "completed rumor finishes the actual closing book")
+	if is_instance_valid(map.overlay):
+		check(await incidental_overlay(session,map,"rumor-completed"),"completed rumor allows the ordinary tile action before the next roll")
+	check(not is_instance_valid(map.overlay),"resolved ordinary tile returns to the playable board")
 	return map
 
 func finish_altar_pass(session: Node, map: Control) -> Control:

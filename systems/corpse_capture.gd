@@ -95,6 +95,9 @@ func setup(battle_scene) -> void:
 		option.position = scene.cards[unit.id].position if on_map_tiles else Vector2(scene.unit_x(unit)-option.size.x*0.5,scene.card_rest_y())
 		option.tooltip_text = "%s · 필요 주사위 %d 이상" % [corpse.name,int(corpse.target)]
 		option.pressed.connect(func(): select_corpse(index))
+		option.set_meta("keyboard_focus_owner",self)
+		option.add_to_group("keyboard_external_control")
+		option.set_meta("keyboard_focus_default",index==int(pending.selected))
 		choice_parent.add_child(option)
 		place_choice_node(option,choice_parent)
 		option.pivot_offset = option.size * 0.5
@@ -192,6 +195,7 @@ func refresh() -> void:
 	var corpse: Dictionary = pending.corpses[int(pending.selected)]
 	for choice in choices:
 		var selected = int(pending.selected)==choice.index
+		choice.card.set_meta("keyboard_focus_default",selected)
 		choice.card.modulate = Color.WHITE if selected else Color(1,1,1,0.97)
 		choice.card.pivot_offset = choice.card.size * 0.5
 		choice.card.scale = Vector2.ONE * (SELECTED_CAPTURE_SCALE if selected else 1.0)

@@ -56,7 +56,7 @@ func dispose(map:Control) -> void:
 func geometry(map:Control,panel:Control) -> void:
 	var strip:TextureRect=panel.content.get_node("HillNoticeStrip")
 	check(Rect2(strip.position,strip.size)==Rect2(340,423,600,150) and strip.texture.resource_path.ends_with("fortune_parchment_strip.webp"),"original prophet parchment geometry and asset are shared")
-	check(Rect2(panel.hill_notice.position,panel.hill_notice.size)==Rect2(394,465,492,30) and panel.hill_notice.get_theme_font_size("font_size")==20,"shared notice placement and font remain readable")
+	check(Rect2(panel.hill_notice.position,panel.hill_notice.size)==Rect2(430,451,420,45) and panel.hill_notice.get_theme_font_size("font_size")==18,"shared notice placement and font remain readable")
 	for pair in [[panel.action_button,map.TILE_EVENT_ACTION_RECT],[panel.close_button,map.TILE_EVENT_EXIT_RECT]]:
 		var control:Button=pair[0]
 		check(Rect2(control.position,control.size)==pair[1] and map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(control.position,control.size)),"ordinary action and exit slots remain inside the painting")

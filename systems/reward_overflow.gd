@@ -19,6 +19,8 @@ const MONSTER_BUTTON_SETTLE_SECONDS := 0.16
 var monster_commit_pending: bool = false
 
 func setup(run_session) -> void:
+	add_to_group("keyboard_modal_scope")
+	set_meta("keyboard_focus_scope",true)
 	session = run_session
 	is_capture_overflow = str(session.world.pending_reward.get("kind",""))=="capture"
 	z_index = 250

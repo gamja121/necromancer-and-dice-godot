@@ -237,7 +237,7 @@ func ui_wiring() -> void:
 	check(source.contains('CultistRumorBeats.is_final(shown_beat)'),"UI identifies final tracking screen")
 	check(source.contains('func advance_cultist_rumor(index: int, shown_beat: int) -> void:'),"guarded handler exists")
 	check(source.contains('"계속"') and source.contains('"마치기"'),"continue/final buttons exist")
-	check(source.contains('"마을 기능"') and source.contains('"돌아가기"'),"map and village actions preserved")
+	check(source.contains("finish_story_at_tile(index,") and source.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(source.contains('session.get_story_event(CultistRumorEntry.EVENT_ID).status=="seen"'),"reload only resumes previously seen rumor")
 
 func _run() -> void:

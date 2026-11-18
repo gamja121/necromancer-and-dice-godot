@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 160s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 300s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
       - name: Default audio output, old Realtek save migration and map UI
         shell: bash

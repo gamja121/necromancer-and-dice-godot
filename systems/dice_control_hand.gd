@@ -19,6 +19,7 @@ var battle_backdrop: Button
 var hand_surface_height: float = 720.0
 
 func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
+	set_meta("keyboard_focus_scope",true)
 	z_index = 210
 	battle_mode = battle
 	hand_surface_height = float(context.get("ui_surface_height",720))
@@ -38,7 +39,7 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 	style.set_corner_radius_all(5)
 	strip.add_theme_stylebox_override("panel",style)
 	add_child(strip)
-	status=label_at(self,history+" · 위로 끌어 사용",Vector2(523,hand_surface_height-283),Vector2(558,50),12)
+	status=label_at(self,history+"\n"+tr("방향키 선택 · Enter 사용 · 마우스로 끌어 사용"),Vector2(523,hand_surface_height-283),Vector2(558,50),12)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	close_button=button(self,"닫기",Vector2(1112,hand_surface_height-274),Vector2(90,34),close_hand)
 	close_button.set_meta("sfx_manual",true)
@@ -62,6 +63,8 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 		option.modulate=Color.WHITE if available.ok else Color(0.55,0.55,0.55)
 		option.tooltip_text=DiceControl.description(str(item.card_id)) if available.ok else available.reason
 		option.set_meta("instance_id",id)
+		option.set_meta("keyboard_focus_default",i==0)
+		option.set_meta("keyboard_description",DiceControl.description(str(item.card_id)))
 		# The real artwork carries its own title/effect; hover lifts it fully into view.
 		option.get_child(0).visible=false
 		options.append(option)
@@ -71,9 +74,9 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 		drag.activated.connect(func(): choose(id))
 		CardDepthMotion.install(option,false,true)
 		option.mouse_entered.connect(func(): focus_card(option,true))
-		option.mouse_exited.connect(func(): focus_card(option,false))
+		option.mouse_exited.connect(func(): focus_card(option,option.has_focus()))
 		option.focus_entered.connect(func(): focus_card(option,true))
-		option.focus_exited.connect(func(): focus_card(option,false))
+		option.focus_exited.connect(func(): focus_card(option,option.is_hovered()))
 		fan.register_card(option)
 	await get_tree().process_frame
 	await fan.animate(true,get_global_transform_with_canvas()*fan_origin)
@@ -82,22 +85,21 @@ func setup(items: Array, context: Dictionary, battle: bool = false) -> void:
 		var drag=option.get_node("DiceCardDrag")
 		drag.home=option.position
 		drag.home_z=option.z_index
+	for option in options:
+		if option.has_focus(): focus_card(option,true)
 
 func focus_card(option: TextureButton, focused: bool) -> void:
 	if choosing or opening or not is_instance_valid(option) or option.disabled: return
 	var drag=option.get_node("DiceCardDrag")
 	if drag.pointer!=-2: return
 	if drag.settling!=null and drag.settling.is_valid(): drag.settling.kill()
-	if focused: option.move_to_front()
-	else: restore_card_order()
 	option.z_index=100 if focused else int(option.get_meta("hand_base_z"))
 	option.position=drag.home+Vector2(0,-Layout.HOVER_LIFT if focused else 0)
 	CardDepthMotion.set_shadow_lift(option,focused)
+	restore_card_order()
 
 func restore_card_order() -> void:
-	# Control input order follows siblings, independently of CanvasItem z_index.
-	for option in options:
-		if is_instance_valid(option): option.move_to_front()
+	CardDepthMotion.sync_input_order(options)
 
 func stop_drag_motion() -> void:
 	for option in options:
@@ -115,6 +117,7 @@ func setup_battle_shell(_items: Array, _context: Dictionary) -> void:
 	battle_backdrop.name="BattleDiceBackdrop" if battle_mode else "MapDiceBackdrop"
 	battle_backdrop.set_meta("sfx_manual",true)
 	battle_backdrop.flat=true
+	battle_backdrop.focus_mode=Control.FOCUS_NONE
 	battle_backdrop.size=size
 	battle_backdrop.tooltip_text="카드창 바깥을 눌러 닫기"
 	battle_backdrop.pressed.connect(close_hand)

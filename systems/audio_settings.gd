@@ -116,6 +116,7 @@ func add_toggle_row(column: VBoxContainer, label_text: String, category: String)
 	var row := add_row(column, label_text, category + "AudioRow")
 	var toggle := Button.new()
 	toggle.name = category + "AudioToggle"
+	toggle.set_meta("keyboard_description",label_text)
 	toggle.custom_minimum_size = Vector2(168, 42)
 	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	toggle.toggle_mode = true
@@ -250,6 +251,7 @@ func setup(parent: Control, opening_allowed: Callable = Callable()) -> void:
 	volume_row.add_child(volume_value)
 
 	volume_slider = HSlider.new()
+	volume_slider.focus_mode = Control.FOCUS_ALL
 	volume_slider.name = "MapAudioMasterVolume"
 	volume_slider.custom_minimum_size.y = 24
 	volume_slider.min_value = 0
@@ -364,6 +366,8 @@ func toggle_panel() -> void:
 	get_parent().move_child(self, get_parent().get_child_count() - 1)
 	dimmer.show()
 	panel.show()
+	panel.set_meta("keyboard_focus_scope",true)
+	resume_button.set_meta("keyboard_focus_default",true)
 	resume_button.grab_focus()
 	open_changed.emit(true)
 

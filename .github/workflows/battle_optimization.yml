@@ -63,7 +63,7 @@ jobs:
             script="${entry%%:*}"
             summary="${entry#*:}"
             echo "::group::$script"
-            timeout 300s godot --headless --path . --script "res://scripts/$script" 2>&1 | tee "optimization-$script.log"
+            timeout 300s godot --headless --verbose --path . --script "res://scripts/$script" 2>&1 | tee "optimization-$script.log"
             grep -E "^$summary: [0-9]+ passed, 0 failed" "optimization-$script.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|ObjectDB.*leaked' "optimization-$script.log"; then exit 1; fi
             echo "::endgroup::"

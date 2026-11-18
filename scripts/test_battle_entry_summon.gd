@@ -170,5 +170,10 @@ func _run() -> void:
 	for suffix in ["",".tmp"]:
 		if FileAccess.file_exists(scratch+suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch+suffix))
+	# Let the isolated process release in-flight summon audio before shutdown.
+	var cleanup_audio: Node = root.get_node_or_null("GameAudio")
+	if is_instance_valid(cleanup_audio): cleanup_audio.queue_free()
+	await process_frame
+	await create_timer(0.25,true,false,true).timeout
 	print("BATTLE_ENTRY_SUMMON: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)

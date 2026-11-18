@@ -206,7 +206,7 @@ func verify_ui() -> void:
 	check(text.contains('VillageRumorEntry.advance(session,index,event_id,shown_beat)'),"UI uses guarded stage advancement")
 	check(text.contains('VillageRumorBeats.is_final(event_id,shown_beat)'),"UI checks last beat before exit")
 	check(text.contains('"마치기"'),"final confirmation UI provided")
-	check(text.contains('"마을 기능"'),"base village actions preserved")
+	check(text.contains("finish_story_at_tile(index,") and text.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(text.contains('"돌아가기"'),"unfinished rumor may be dismissed")
 	check(text.contains('if finishing:'),"only finish closes rumor automatically")
 

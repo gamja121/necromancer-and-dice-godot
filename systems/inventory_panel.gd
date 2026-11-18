@@ -39,6 +39,7 @@ func setup(run_session, initial: String = "unit", book_origin: Vector2 = Vector2
 	outside.size = size
 	outside.tooltip_text = "카드창 바깥을 눌러 닫기"
 	outside.set_meta("ui_backdrop",true)
+	outside.focus_mode=Control.FOCUS_NONE
 	outside.pressed.connect(func():
 		if not changing and not closing: closed.emit())
 	add_child(outside)
@@ -83,6 +84,17 @@ func focus_hand_card(option: TextureButton, home: Vector2, focused: bool) -> voi
 	option.z_index = 20 if focused else 0
 	option.position = home+Vector2(0,-26 if focused else 0)
 	CardDepthMotion.set_shadow_lift(option, focused)
+	sync_hand_input()
+
+func sync_hand_input() -> void:
+	if not is_instance_valid(fan): return
+	var cards: Array = []
+	for entry in fan.entries: cards.append(entry.card)
+	CardDepthMotion.sync_input_order(cards)
+
+func lift_inspection_shadow(option: TextureButton,focused: bool) -> void:
+	CardDepthMotion.set_shadow_lift(option,focused)
+	sync_hand_input()
 
 func show_kind(kind: String) -> void:
 	if not kind in ["unit","dice"]: return
@@ -142,6 +154,9 @@ func show_kind(kind: String) -> void:
 			pos = Vector2(8,12)
 		var option = card(parent,kind,item,pos,HAND_CARD_SIZE,func(): show_item(kind,item))
 		option.name="InventoryInspect_%s_%d" % [kind,i]
+		option.set_meta("keyboard_focus_default",i==0)
+		option.set_meta("hand_base_z",i)
+		option.set_meta("keyboard_focus_key",kind+":"+str(item.id))
 		option.rotation_degrees = (3.0-7.0*float(i)/float(maxi(items.size()-1,1))) if kind=="unit" else clampf((i-half)*1.6,-5,5)
 		if kind=="unit":
 			option.get_child(0).text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]
@@ -149,29 +164,34 @@ func show_kind(kind: String) -> void:
 			option.tooltip_text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]
 			var home: Vector2 = pos
 			option.mouse_entered.connect(func(): focus_hand_card(option,home,true))
-			option.mouse_exited.connect(func(): focus_hand_card(option,home,false))
+			option.mouse_exited.connect(func(): focus_hand_card(option,home,option.has_focus()))
 			option.focus_entered.connect(func(): focus_hand_card(option,home,true))
-			option.focus_exited.connect(func(): focus_hand_card(option,home,false))
+			option.focus_exited.connect(func(): focus_hand_card(option,home,option.is_hovered()))
 		elif items.size()>6:
 			option.get_child(0).visible = false
 			option.mouse_entered.connect(func(): option.get_child(0).visible = true; option.z_index = 20)
-			option.mouse_exited.connect(func(): option.get_child(0).visible = false; option.z_index = 0)
+			option.mouse_exited.connect(func(): option.get_child(0).visible = option.has_focus(); option.z_index = 20 if option.has_focus() else 0)
 			option.focus_entered.connect(func(): option.get_child(0).visible = true; option.z_index = 20)
-			option.focus_exited.connect(func(): option.get_child(0).visible = false; option.z_index = 0)
+			option.focus_exited.connect(func(): option.get_child(0).visible = option.is_hovered(); option.z_index = 20 if option.is_hovered() else 0)
 		# FanMotion owns position/rotation; attach only the shared contact shadow.
 		CardDepthMotion.install(option, false, true)
 		if kind!="unit":
-			option.mouse_entered.connect(func(): CardDepthMotion.set_shadow_lift(option, true))
-			option.mouse_exited.connect(func(): CardDepthMotion.set_shadow_lift(option, false))
-			option.focus_entered.connect(func(): CardDepthMotion.set_shadow_lift(option, true))
-			option.focus_exited.connect(func(): CardDepthMotion.set_shadow_lift(option, false))
+			option.mouse_entered.connect(func(): lift_inspection_shadow(option,true))
+			option.mouse_exited.connect(func(): lift_inspection_shadow(option,option.has_focus()))
+			option.focus_entered.connect(func(): lift_inspection_shadow(option,true))
+			option.focus_exited.connect(func(): lift_inspection_shadow(option,option.is_hovered()))
 		fan.register_card(option)
+	close_button.move_to_front()
 	await get_tree().process_frame
 	if closing: return
 	await fan.animate(true,origin_global)
 	if closing: return
 	changing = false
 	for tab in tab_buttons: tab.disabled = false
+	for entry in fan.entries:
+		if is_instance_valid(entry.card) and entry.card.has_focus():
+			if kind=="unit": focus_hand_card(entry.card,entry.home,true)
+			else: lift_inspection_shadow(entry.card,true)
 
 ## Card inspection is intentionally visual-only. No RunSession mutations, RNG,
 ## item consumption, or callbacks into dice/shop/battle actions may occur here.
@@ -261,10 +281,13 @@ func close_cards() -> void:
 		fan.closing = true
 		await fan.animate(false,origin_global)
 
+func keyboard_focus_scope() -> Control:
+	return info if is_instance_valid(info) else self
+
 func request_close() -> void:
 	if is_instance_valid(info):
 		if info.name=="InventoryCardDetail": close_card_detail()
-		elif info.has_method("close"): info.close()
+		elif info.has_method("request_close"): info.request_close()
 		return
 	if not changing and not closing: closed.emit()
 

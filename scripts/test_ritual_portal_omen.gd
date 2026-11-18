@@ -105,7 +105,7 @@ func source_and_visual_contract() -> void:
 	check(src.contains("RitualPortalEntry.current_beat(session)"),"UI uses persisted scene index")
 	check(src.contains("RitualPortalEntry.advance(session,index,shown_beat)"),"Continue uses guarded persistence")
 	check(src.contains("if beat_index<4:"),"Continue on arrival, energy, cultists and omen")
-	check(src.contains('location_button(panel,"숲 기능"'),"existing forest action retained")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(src.contains('location_button(panel,"돌아가기"'),"board return retained")
 	check(src.contains('session.get_story_event(RitualPortalEntry.EVENT_ID).status in ["seen","active"]'),"restart resumes omen or committed fifth choice")
 	check(not src.contains("start_ritual_portal_battle("),"no premature portal combat handler")

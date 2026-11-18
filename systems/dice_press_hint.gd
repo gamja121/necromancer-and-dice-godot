@@ -38,6 +38,10 @@ func reset_wait() -> void:
 
 
 func _process(delta: float) -> void:
+	var keyboard := get_node_or_null("/root/KeyboardNavigation")
+	if keyboard != null and keyboard.keyboard_mode and is_instance_valid(keyboard.target):
+		reset_wait()
+		return
 	if get_tree().paused or not is_instance_valid(die) or die.disabled or not die.is_visible_in_tree() or die.mouse_filter == Control.MOUSE_FILTER_IGNORE:
 		reset_wait()
 		return

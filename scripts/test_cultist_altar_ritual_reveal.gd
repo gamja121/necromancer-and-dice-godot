@@ -89,7 +89,7 @@ func source_and_visual_contract() -> void:
 	check(source.contains("str(beat.effect)"),"source narration displayed")
 	check(source.contains("CultistAltarEntry.advance(session,index,shown_beat)"),"continue button saves exact beat")
 	check(source.contains('if beat_index<2:'),"first two scenes offer Continue")
-	check(source.contains('"제단 기능"'),"existing altar actions remain")
+	check(source.contains("finish_story_at_tile(index,") and source.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(source.contains('"돌아가기"'),"back action remains")
 	check(not source.contains("start_cultist_altar_battle("),"altar battle not connected")
 	check(source.contains('"지나간다"'),"pass choice displayed only at original choice beat")

@@ -56,3 +56,15 @@ static func set_shadow_lift(card: TextureButton, raised: bool) -> void:
 	card.set_meta("card_shadow_tween", tween)
 	tween.tween_property(shadow, "position", Vector2(5.0, 10.0) if raised else Vector2(3.0, 5.0), 0.15)
 	tween.tween_property(shadow, "modulate:a", 0.20 if raised else 0.31, 0.15)
+
+## Controls pick by sibling order rather than CanvasItem z_index.
+## Callers supply only their own hand, preserving other modal controls.
+static func sync_input_order(cards: Array) -> void:
+	var ordered: Array[Control] = []
+	for card in cards:
+		if is_instance_valid(card) and card.is_inside_tree() and not card.is_queued_for_deletion(): ordered.append(card)
+	ordered.sort_custom(func(a: Control,b: Control) -> bool:
+		if a.z_index!=b.z_index: return a.z_index<b.z_index
+		if a.has_focus()!=b.has_focus(): return not a.has_focus()
+		return int(a.get_meta("hand_base_z",0))<int(b.get_meta("hand_base_z",0)))
+	for card in ordered: card.move_to_front()

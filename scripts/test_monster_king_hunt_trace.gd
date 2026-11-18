@@ -133,7 +133,7 @@ func original_contract() -> void:
 	check(src.contains("MonsterKingHuntEntry.advance(session,index,shown_beat)"),"Continue saves the trace")
 	check(src.contains('location_button(panel,"계속"'),"first scene has deliberate Continue")
 	check(src.contains("if beat_index<4:"),"Continue appears before destination clue, not after fourth scene")
-	check(src.contains('location_button(panel,"세계수 기능"'),"world-tree action preserved")
+	check(src.contains("finish_story_at_tile(index,") and src.contains("if overlay is StoryBook: return true"),"mandatory story returns to tile features only after completion")
 	check(src.contains('location_button(panel,"돌아가기"'),"map return preserved")
 	check(src.contains('session.get_story_event(MonsterKingHuntEntry.EVENT_ID).status=="seen"'),"restart only restores already-seen hunt")
 	check(not src.contains("start_monster_king_hunt_battle("),"no premature king final fight")

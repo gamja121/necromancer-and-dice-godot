@@ -127,5 +127,12 @@ func _run() -> void:
 		check(scene.visuals.removed.has(id),"summoned unit death removes expired sprite")
 
 	scene.queue_free()
+	# Let deferred scene, animation and owner-audio cleanup finish before engine shutdown.
+	await process_frame
+	await create_timer(0.25).timeout
+	var audio: Node = root.get_node_or_null("GameAudio")
+	if is_instance_valid(audio): audio.queue_free()
+	await process_frame
+	await create_timer(0.25,true,false,true).timeout
 	print("BATTLE_MOTION_PARITY_REGRESSION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
