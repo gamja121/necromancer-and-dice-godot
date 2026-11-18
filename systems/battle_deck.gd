@@ -133,10 +133,13 @@ void fragment() {
 	drop.tween_property(hand,"modulate:a",1.0,0.3).set_delay(0.18)
 	drop.tween_property(footer,"modulate:a",1.0,0.42).set_delay(0.38)
 
+func keyboard_focus_scope() -> Control:
+	return info_window if is_instance_valid(info_window) else self
+
 func request_close() -> void:
 	if departing: return
 	if is_instance_valid(info_window):
-		info_window.close()
+		info_window.request_close()
 		return
 	departing = true
 	back_button.disabled = true
@@ -240,6 +243,8 @@ func render_selection() -> void:
 		var is_selected = selected_ids.has(unit.id)
 		var y = -3.0 if is_selected else 10.0
 		var button = card(hand,unit,Vector2(start_x+i*stride,y),HAND_CARD_SIZE,[-4.0,2.0,-1.0,3.0,-2.0][i%5])
+		button.set_meta("keyboard_focus_key","unit:"+str(unit.id))
+		button.set_meta("keyboard_focus_default",i==0)
 		button.z_index = 3 if is_selected else 0
 		button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE
 		var name_label = text_label(button,unit.name,Vector2(3,98),Vector2(98,22),12)
@@ -269,6 +274,7 @@ func render_selection() -> void:
 		# extra accessible info button opens naming without changing the lineup.
 		var info_action = Button.new()
 		info_action.name = "OwnedCardInfo"
+		info_action.set_meta("keyboard_focus_key","info:"+str(unit.id))
 		info_action.text = "정보"
 		info_action.tooltip_text = "마물 정보 · 이름 변경"
 		# Larger, independent touch target does not toggle the underlying card.
@@ -280,22 +286,25 @@ func render_selection() -> void:
 		info_action.add_theme_font_size_override("font_size",14)
 		var card_id: String = str(unit.id)
 		info_action.pressed.connect(func(): open_info(card_id))
+		button.focus_neighbor_bottom=button.get_path_to(info_action)
+		info_action.focus_neighbor_top=info_action.get_path_to(button)
+		info_action.focus_neighbor_bottom=info_action.get_path_to(confirm_button if not confirm_button.disabled else back_button)
 		button.mouse_entered.connect(func():
 			button.z_index = 3 if is_selected else 2
 			button.position.y = y if is_selected else 3.82
 			button.scale = Vector2.ONE*1.05)
 		button.mouse_exited.connect(func():
-			button.z_index = 3 if is_selected else 0
-			button.position.y = y
-			button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE)
+			button.z_index = 3 if is_selected else (2 if button.has_focus() else 0)
+			button.position.y = y if is_selected or not button.has_focus() else 3.82
+			button.scale = Vector2.ONE*1.05 if is_selected or button.has_focus() else Vector2.ONE)
 		button.focus_entered.connect(func():
 			button.z_index = 3 if is_selected else 2
 			button.position.y = y if is_selected else 3.82
 			button.scale = Vector2.ONE*1.05)
 		button.focus_exited.connect(func():
-			button.z_index = 3 if is_selected else 0
-			button.position.y = y
-			button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE)
+			button.z_index = 3 if is_selected else (2 if button.is_hovered() else 0)
+			button.position.y = y if is_selected or not button.is_hovered() else 3.82
+			button.scale = Vector2.ONE*1.05 if is_selected or button.is_hovered() else Vector2.ONE)
 	# Exact percentages remain in the four lineup badges; avoid repeating a long
 	# list in the narrow status area, especially on mobile.
 	status.text = "출전 마물 %d/4 · 선택 순서대로 피격 확률 표시" % selected_ids.size()

@@ -1432,5 +1432,10 @@
   "영혼 수확 성공": "Soul Harvest succeeded",
   "%s 획득": "%s acquired",
   "획득을 포기했습니다": "Reward declined",
-  "이동 없음 · 방문당 1회\n1 저주 · 2 즉시 회복 · 3~6 축복": "No movement · Once per visit\n1 Curse · 2 Instant Heal · 3–6 Blessing"
+  "이동 없음 · 방문당 1회\n1 저주 · 2 즉시 회복 · 3~6 축복": "No movement · Once per visit\n1 Curse · 2 Instant Heal · 3–6 Blessing",
+  "← → 조절 · ↑ ↓ 이동": "Left/Right adjust · Up/Down navigate",
+  "Enter · 이름 저장": "Enter · Save name",
+  "선택": "Select",
+  "Space · 주사위": "Space · Roll die",
+  "방향키 선택 · Enter 사용 · 마우스로 끌어 사용": "Arrows to select · Enter to use · Drag with the mouse"
 }

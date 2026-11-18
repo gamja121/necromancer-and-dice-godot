@@ -53,6 +53,14 @@ func _ready() -> void:
 	continue_button.pressed.connect(_continue_run)
 	exit_button.pressed.connect(_exit_game)
 	options_button.pressed.connect(_show_options)
+	volume_slider.focus_mode = Control.FOCUS_ALL
+	var settings_controls: Array[Control] = [language_picker,volume_slider,music_enabled,sfx_enabled,options_dialog.get_ok_button()]
+	for i in range(settings_controls.size()):
+		var control: Control = settings_controls[i]
+		control.focus_neighbor_top=control.get_path_to(settings_controls[posmod(i-1,settings_controls.size())])
+		control.focus_neighbor_bottom=control.get_path_to(settings_controls[(i+1)%settings_controls.size()])
+	music_enabled.set_meta("keyboard_description","배경음악")
+	sfx_enabled.set_meta("keyboard_description","효과음")
 	_sync_audio_controls()
 	get_node("/root/GameLanguage").setup_picker(language_picker)
 	volume_slider.value_changed.connect(_update_volume)
@@ -60,6 +68,7 @@ func _ready() -> void:
 	sfx_enabled.toggled.connect(_set_sfx_enabled)
 	continue_button.disabled = not get_node("/root/RunSession").has_save()
 	_load_menu_art()
+	(continue_button if not continue_button.disabled else new_run_button).set_meta("keyboard_focus_default",true)
 	_layout_layers()
 	_start_title_music()
 
@@ -213,6 +222,8 @@ func _load_menu_art() -> void:
 		button.resized.connect(_layout_menu_button.bind(button,face))
 		button.mouse_entered.connect(_highlight_menu_button.bind(button, true))
 		button.mouse_exited.connect(_highlight_menu_button.bind(button, false))
+		button.focus_entered.connect(_highlight_menu_button.bind(button, true))
+		button.focus_exited.connect(_highlight_menu_button.bind(button, false))
 		button.button_down.connect(_wiggle_menu_button.bind(button))
 
 func _layout_menu_button(button: Button, face: TextureRect) -> void:
@@ -224,7 +235,7 @@ func _layout_menu_button(button: Button, face: TextureRect) -> void:
 func _highlight_menu_button(button: Button, highlight: bool) -> void:
 	if button.disabled:
 		return
-	button.modulate = Color(1.12, 1.03, 0.82) if highlight else Color.WHITE
+	button.modulate = Color(1.12, 1.03, 0.82) if highlight or button.has_focus() else Color.WHITE
 	if highlight:
 		_wiggle_menu_button(button)
 

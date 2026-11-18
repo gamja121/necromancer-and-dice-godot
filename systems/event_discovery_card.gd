@@ -11,6 +11,13 @@ func dismiss() -> void:
 	if is_instance_valid(reveal_tween): reveal_tween.kill()
 	closed.emit()
 
+func keyboard_accept() -> bool:
+	dismiss()
+	return true
+
+func request_close() -> void:
+	dismiss()
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		accept_event()
@@ -57,6 +64,10 @@ func _picture(path: String, pos: Vector2, dimensions: Vector2, mode: TextureRect
 func setup(category: String, heading: String, description: String, reward: String,
 		illustration: String = CUSTOM_ART, tile_image: String = TILE_ART, show_reward: bool = true) -> void:
 	name = "EventDiscoveryCard"
+	focus_mode=Control.FOCUS_ALL
+	set_meta("keyboard_focus_scope",true)
+	set_meta("keyboard_focus_default",true)
+	set_meta("keyboard_description","닫기")
 	dismissed = false
 	position = Vector2(268,80)
 	size = Vector2(452,560)

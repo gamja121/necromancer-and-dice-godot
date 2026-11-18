@@ -208,6 +208,7 @@ func setup(u: Dictionary, battle, prophecy: Dictionary = {}, owned_rename: bool 
 	z_index = 90
 	var backdrop = Button.new()
 	backdrop.flat = true
+	backdrop.focus_mode = Control.FOCUS_NONE
 	backdrop.size = size
 	backdrop.tooltip_text = "유닛 정보 닫기"
 	backdrop.pressed.connect(close)
@@ -445,6 +446,7 @@ func open_rename_editor() -> void:
 	if not allow_rename or is_instance_valid(rename_dialog): return
 	rename_dialog = ColorRect.new()
 	rename_dialog.name = "UnitRenameEditor"
+	rename_dialog.set_meta("keyboard_focus_scope",true)
 	rename_dialog.size = size
 	rename_dialog.color = Color("0a0708d6")
 	rename_dialog.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -524,6 +526,13 @@ func apply_rename_result(result: Dictionary) -> void:
 		name_label.text = current_name
 	cancel_rename()
 
+func keyboard_focus_scope() -> Control:
+	return rename_dialog if is_instance_valid(rename_dialog) else self
+
+func request_close() -> void:
+	if is_instance_valid(rename_dialog): cancel_rename()
+	else: close()
+
 func close() -> void:
 	if closing_depth: return
 	closing_depth = true
@@ -537,4 +546,4 @@ func close() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
-		close()
+		request_close()

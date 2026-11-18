@@ -983,6 +983,38 @@ func toggle_selection(slug: String) -> void:
 	if is_instance_valid(editing): editing.get_meta("refresh").call()
 
 
+func keyboard_focus_scope() -> Control:
+	if is_instance_valid(audio_settings) and audio_settings.is_open(): return audio_settings.panel
+	if is_instance_valid(detail): return detail
+	if is_instance_valid(brand_reference): return brand_reference
+	if is_instance_valid(dice_hand): return dice_hand
+	if is_instance_valid(capture_panel): return capture_panel
+	if is_instance_valid(editing): return editing
+	return detail_parent if uses_map_tile_dock() else layer
+
+func keyboard_focus_controls() -> Array[Control]:
+	var active: Control = keyboard_focus_scope()
+	var result: Array[Control] = []
+	if is_instance_valid(capture_panel) and active==capture_panel:
+		for choice in capture_panel.choices: result.append(choice.card)
+		result.append(dice)
+	elif active==layer or (uses_map_tile_dock() and active==detail_parent):
+		for card in cards.values(): result.append(card)
+		result.append_array([dice,map_return,pause_button,speed_button,brand_reference_button])
+		result.append(external_dice_deck_button if is_instance_valid(external_dice_deck_button) else dice_cards_button)
+	else:
+		for control in active.find_children("*","Control",true,false):
+			if control.focus_mode!=Control.FOCUS_NONE: result.append(control)
+	return result
+
+func keyboard_roll_dice() -> bool:
+	if busy or paused or entry_summon_active or entry_card_transfer_pending: return false
+	if is_instance_valid(detail) or is_instance_valid(brand_reference) or is_instance_valid(dice_hand) or is_instance_valid(editing): return false
+	if is_instance_valid(audio_settings) and audio_settings.is_open(): return false
+	if not is_instance_valid(dice) or dice.disabled or not dice.is_visible_in_tree(): return false
+	dice.pressed.emit()
+	return true
+
 func handle_cancel() -> bool:
 	if is_instance_valid(audio_settings) and audio_settings.is_open():
 		audio_settings.close_panel()
@@ -990,7 +1022,7 @@ func handle_cancel() -> bool:
 		editing.queue_free()
 		editing = null
 	elif is_instance_valid(detail):
-		close_detail()
+		detail.request_close()
 	elif is_instance_valid(dice_hand):
 		close_dice_hand()
 	elif is_instance_valid(brand_reference):

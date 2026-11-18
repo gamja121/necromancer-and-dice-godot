@@ -140,6 +140,9 @@ func skip_opening() -> void:
 	_prepare()
 	_finish_opening()
 
+func keyboard_accept() -> bool:
+	return reveal_for_input()
+
 func reveal_for_input() -> bool:
 	if closing: return true
 	if opening:

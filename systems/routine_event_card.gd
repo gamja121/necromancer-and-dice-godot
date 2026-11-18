@@ -5,6 +5,12 @@ var choosing: bool = false
 const CHOICE_ART="res://assets/map/ui/routine_choice_button_v1.png"
 var choice_backplate: AtlasTexture
 
+func keyboard_accept() -> bool:
+	return false
+
+func request_close() -> void:
+	return
+
 func _gui_input(_event: InputEvent) -> void:
 	# A routine choice cannot be dismissed as a free, unsaved reward.
 	pass
@@ -13,6 +19,7 @@ func setup_routine(entry: Dictionary, reward_picture: String) -> void:
 	super.setup("일반 사건",str(entry.title),str(entry.description),
 		str(entry.reward),str(entry.illustration),reward_picture,false)
 	name = "RoutineEventCard"
+	focus_mode=Control.FOCUS_NONE
 	get_node("EventDiscoveryDismissHint").hide()
 	_make_choice("RoutineAccept",str(entry.action),Vector2(500,213),"take")
 	_make_choice("RoutineDecline",str(entry.decline),Vector2(500,289),"skip")
@@ -22,6 +29,7 @@ func setup_routine(entry: Dictionary, reward_picture: String) -> void:
 func _make_choice(node_name: String, caption: String, pos: Vector2, choice: String) -> void:
 	var option := Button.new()
 	option.name = node_name
+	option.set_meta("keyboard_focus_default",choice=="take")
 	option.text = caption
 	option.position = pos
 	option.size = Vector2(250,58)
