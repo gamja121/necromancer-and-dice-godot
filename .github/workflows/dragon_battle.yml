@@ -50,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           for test in test_final_dragon_battle_motion test_final_dragon_presentation test_battle_idle_motion test_battle_motion_parity test_battle_formation_order; do
-            timeout 180s godot --headless --path . --script res://scripts/$test.gd 2>&1 | tee "$test.log"
+            timeout 180s godot --headless --verbose --path . --script res://scripts/$test.gd 2>&1 | tee "$test.log"
             grep -E '^[A-Z_]+: [0-9]+ passed, 0 failed$' "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|^FAIL|ObjectDB.*leaked' "$test.log"; then exit 1; fi
           done

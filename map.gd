@@ -261,7 +261,8 @@ func keyboard_focus_controls() -> Array[Control]:
 	var result: Array[Control] = []
 	if active == stage:
 		for tile in buttons: result.append(tile)
-		result.append_array([dice,book_button,deck_button,map_audio.options_button])
+		result.append_array([dice,book_button,deck_button])
+		if is_instance_valid(map_audio): result.append(map_audio.options_button)
 	else:
 		for control in active.find_children("*","Control",true,false):
 			if control.focus_mode != Control.FOCUS_NONE: result.append(control)
@@ -271,7 +272,8 @@ func keyboard_focus_controls() -> Array[Control]:
 
 func keyboard_roll_dice() -> bool:
 	if is_instance_valid(embedded_battle): return embedded_battle.keyboard_roll_dice()
-	if moving or shared_die_busy or battle_returning or map_audio.is_open(): return false
+	if moving or shared_die_busy or battle_returning: return false
+	if is_instance_valid(map_audio) and map_audio.is_open(): return false
 	if is_instance_valid(game_over_screen) or is_instance_valid(final_chapter_screen): return false
 	if is_instance_valid(overlay) and not ((overlay is ExplorationActions and overlay.type=="unknown") or (overlay is PlaceActions and overlay.type=="fortune-teller-camp")): return false
 	refresh_shared_die_input()

@@ -90,7 +90,7 @@ func _run() -> void:
 	var shade := inventory.get_child(0) as ColorRect
 	check(shade != null and shade.color.a<0.01,"book hand does not darken the board")
 	check(inventory.get_node_or_null("InventoryOutsideClose") is Button,"book hand catches outside click to close")
-	check(not inventory.close_button.visible,"book hand hides redundant close button")
+	check(inventory.close_button.visible and inventory.close_button.position==Vector2(1080,480),"book hand retains its visible close action above the card row")
 	check(inventory.tab_buttons.size()==2 and not inventory.tab_buttons[0].visible and not inventory.tab_buttons[1].visible,
 		"book hand hides both existing toolbar tabs without deleting the other inventory modes")
 	check(inventory.fan.entries.size()==8,"inventory has eight active card entries")

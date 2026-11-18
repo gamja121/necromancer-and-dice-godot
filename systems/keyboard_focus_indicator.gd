@@ -58,10 +58,15 @@ func follow(control: Control, description: String) -> void:
 	hint.visible = not description.is_empty()
 	show()
 
+func clear() -> void:
+	target = null
+	if is_instance_valid(halo): halo.texture = null
+	hide()
+
 func _process(delta: float) -> void:
 	clock += delta
 	if not is_instance_valid(target) or not target.is_visible_in_tree():
-		hide()
+		clear()
 		return
 	if not visible: return
 	var transform_to_here := get_global_transform_with_canvas().affine_inverse()*target.get_global_transform_with_canvas()

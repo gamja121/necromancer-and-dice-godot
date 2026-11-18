@@ -77,6 +77,10 @@ func _run() -> void:
 	if is_instance_valid(save_error): save_error.hide()
 	# An explicit New Run archives the unreadable original before replacing it.
 	new_run.pressed.emit()
+	check(is_instance_valid(title.overwrite_dialog) and title.overwrite_dialog.visible,"existing save requires explicit overwrite confirmation")
+	if is_instance_valid(title.overwrite_dialog):
+		await process_frame
+		title.overwrite_dialog.get_ok_button().pressed.emit()
 	check(session.world != null and session.has_save(),"New Run creates and persists the real world")
 	var backup_prefix := save_path.get_file() + ".unreadable-"
 	var backups := DirAccess.get_files_at("user://")

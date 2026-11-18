@@ -53,7 +53,7 @@ func _run() -> void:
 	check(is_instance_valid(map.overlay),"story scene opened without changing encounter state")
 	check(child_named(map.overlay,"StorySceneImage")!=null,"illustrated left-side scene rendered")
 	check(child_named(map.overlay,"StoryInfoPanel")!=null,"separate parchment information column rendered")
-	check(has_button(map.overlay,"계속") and has_button(map.overlay,"나가기"),"opening scene exposes original controls")
+	check(has_button(map.overlay,"계속") and not has_button(map.overlay,"나가기"),"opening scene advances without manual story exit")
 	check(not session.get_story_event("graveyard_child_ambush_01").status=="complete","visual beat alone does not complete story")
 	map.show_graveyard_child_beat(grave,2)
 	check(child_named(map.overlay,"StoryCharacterLayer")!=null,"ghoul visible on its own image layer")
@@ -62,7 +62,7 @@ func _run() -> void:
 	check(speech is Label and speech.text.contains("도와주세요"),"original child dialogue appears in speech frame")
 	map.show_graveyard_child_beat(grave,3)
 	check(has_button(map.overlay,"아이를 구한다") and has_button(map.overlay,"지나친다"),"all branch choices remain usable")
-	check(has_button(map.overlay,"공동묘지 기능"),"graveyard location remains accessible during story")
+	check(not has_button(map.overlay,"공동묘지 기능"),"graveyard function waits until the mandatory story completes")
 	map.close_overlay()
 	session.world.graveyard_corpses=[]
 	map.show_location(grave)

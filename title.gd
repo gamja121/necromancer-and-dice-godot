@@ -323,7 +323,10 @@ func _start_new_run() -> void:
 	overwrite_dialog.dialog_text = tr("기존 원정을 덮어쓸까요?") + "\n\n" + tr("새 원정을 시작하면 저장된 진행과 원정 기록이 사라집니다.")
 	overwrite_dialog.popup_centered(Vector2i(640,320))
 	overwrite_dialog.get_cancel_button().grab_focus()
-	overwrite_dialog.get_cancel_button().grab_focus.call_deferred()
+	var cancel_ref: WeakRef = weakref(overwrite_dialog.get_cancel_button())
+	(func():
+		var cancel: Control = cancel_ref.get_ref()
+		if is_instance_valid(cancel) and cancel.is_visible_in_tree(): cancel.grab_focus()).call_deferred()
 
 func _commit_new_run() -> void:
 	if starting_new_run: return

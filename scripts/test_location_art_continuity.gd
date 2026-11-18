@@ -94,7 +94,7 @@ func run() -> void:
 	map.show_home(true)
 	await create_timer(0.3).timeout
 	await capture("06_home")
-	check(rect_is(action("낙인 계승"),map.TILE_EVENT_INHERITANCE_RECT) and rect_is(action("순찰경로"),map.TILE_EVENT_ACTION_RECT) and rect_is(action("다음 바퀴 출발"),map.TILE_EVENT_EXIT_RECT),"home uses same right-side button column")
+	check(rect_is(action("낙인 계승"),map.TILE_EVENT_INHERITANCE_RECT) and rect_is(action("순찰경로"),map.TILE_EVENT_PATROL_RECT) and rect_is(action("다음 바퀴 출발"),map.TILE_EVENT_ACTION_RECT),"home uses same right-side button column")
 	action("낙인 계승").pressed.emit()
 	await sample("07_inheritance_enter")
 	var inheritance:Control=map.overlay

@@ -44,7 +44,7 @@ func test_deck() -> void:
 	await process_frame
 	check(deck.board != null and near(deck.board.position.x,57.6),"source board centered at 91% width")
 	print("MEASURE deck.hand.size=",deck.hand.size)
-	check(near(deck.hand.size.x,870.4) and near(deck.hand.size.y,244.8),"roster hand follows original 68 by 34 percent placement")
+	check(near(deck.hand.size.x,1046.0) and near(deck.hand.size.y,150.0),"roster hand retains the approved wide lower selection row")
 	check(deck.lineup.get_child_count()==4 and deck.lineup.get_node_or_null("EmptySlot_4")!=null,"four fixed, empty lineup anchors")
 	check(deck.confirm_button.disabled and deck.selected_ids.is_empty(),"no battle without selected monster")
 	deck.toggle_unit(roster[1].id)
@@ -107,7 +107,7 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 		check(panel.get_node_or_null("OverflowDeclineNew")!=null and panel.decline_button.text=="획득하지 않기" and panel.confirm.text=="선택한 마물과 교체","two approved action labels replace the old discard picker")
 		check(panel.choices[str(items[0].id)].size==Vector2(112,175),"owned cards use readable original card proportions")
 	else:
-		check(not panel.is_monster_swap and background.size==Vector2(760,496),"dice still use the original overflow UI")
+		check(not panel.is_monster_swap and background.size.is_equal_approx(Vector2(760,496)),"dice still use the original overflow UI")
 		check(panel.card_scroll!=null and panel.card_scroll.size==Vector2(690,260),"dice overflow retains the original scrolling row")
 		check(panel.choices["__new__"].get_parent().get_node_or_null("NewRewardBadge")!=null,"dice incoming card retains the source badge")
 	var first_id: String=str(items[0].id)

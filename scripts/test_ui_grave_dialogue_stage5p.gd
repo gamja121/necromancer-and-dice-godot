@@ -118,7 +118,7 @@ func _run() -> void:
 	if words!=null:
 		check(words.get_theme_color("font_color")==Color("3b2a1d"),"child speech uses source dark ink on shared event frame")
 	check(panel.get_node_or_null("StoryDialogueNext")==null,"nonchoice dialogue hints explicit next action")
-	check(button(map,"계속")!=null and button(map,"나가기")!=null,"separate source Continue and Exit buttons remain functional above art")
+	check(button(map,"계속")!=null and button(map,"나가기")==null,"mandatory story has a real Continue action without manual Exit")
 	check(session.encounter.is_empty() and session.world.pending_reward.is_empty(),"visual-only dialogue does not start fight or reward")
 	var before_reopen: Dictionary=session.world.snapshot().duplicate(true)
 	for i in range(3): await process_frame

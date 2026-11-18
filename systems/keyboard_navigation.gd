@@ -35,13 +35,13 @@ func _create_indicator() -> void:
 func _process(_delta: float) -> void:
 	refresh()
 	if Window.get_focused_window() is PopupMenu:
-		indicator.hide()
+		indicator.clear()
 		return
 	if is_instance_valid(indicator):
 		if _available(target) and (keyboard_mode or pointer_seen):
 			indicator.follow(target,_description(target))
 		else:
-			indicator.hide()
+			indicator.clear()
 
 func active_scene() -> Node:
 	if is_instance_valid(get_tree().current_scene): return get_tree().current_scene
@@ -58,7 +58,7 @@ func refresh() -> void:
 	if focused_window == null: focused_window = get_tree().root
 	# PopupMenu owns item navigation and its own acceptance/cancel contract.
 	if focused_window is PopupMenu:
-		indicator.hide()
+		indicator.clear()
 		return
 	window = focused_window
 	var next_scope: Node
@@ -110,8 +110,10 @@ func refresh() -> void:
 		if keyboard_mode and is_instance_valid(target): target.grab_focus()
 	if is_instance_valid(target):
 		last_focus_key = str(target.get_meta("keyboard_focus_key",""))
-		if target.get_window() != indicator_layer.get_parent():
-			indicator_layer.reparent(target.get_window())
+		# Keep the ordinary indicator owned by this service through scene cleanup.
+		var destination: Node = self if target.get_window()==get_tree().root else target.get_window()
+		if destination != indicator_layer.get_parent():
+			indicator_layer.reparent(destination)
 
 func _nested_scope(base: Node) -> Node:
 	var result := base
@@ -274,7 +276,7 @@ func _point_at(point: Vector2) -> void:
 		pointer_seen = false
 		if is_instance_valid(target): target.release_focus()
 		target = null
-		indicator.hide()
+		indicator.clear()
 
 func _center(control: Control) -> Vector2:
 	return control.get_global_transform_with_canvas()*(control.size*0.5)
@@ -294,4 +296,5 @@ func _description(control: Control) -> String:
 	return "Enter · "+tr(name)
 
 func _exit_tree() -> void:
+	if is_instance_valid(indicator): indicator.clear()
 	if is_instance_valid(indicator_layer): indicator_layer.queue_free()

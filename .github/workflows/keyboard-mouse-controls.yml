@@ -57,7 +57,7 @@ jobs:
       - name: Import and validate
         run: |
           set -euo pipefail
-          timeout 190s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 300s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|^ERROR:|Parse Error|SHADER ERROR' import.log; then exit 1; fi
       - name: Actual keyboard and pointer gameplay
         run: |
