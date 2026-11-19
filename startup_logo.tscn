@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://systems/startup_logo.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/startup/studio_emblem.png" id="2"]
-[ext_resource type="FontFile" path="res://assets/fonts/nanum_gothic_bold.ttf" id="3"]
 
 [node name="StartupLogo" type="Control"]
 layout_mode = 3
@@ -41,35 +40,14 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -110.0
-offset_top = -153.0
-offset_right = 110.0
-offset_bottom = 67.0
+offset_left = -240.0
+offset_top = -104.0
+offset_right = 240.0
+offset_bottom = 104.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+accessibility_name = "4BucksAI"
 texture = ExtResource("2")
 expand_mode = 1
 stretch_mode = 5
-
-[node name="StudioName" type="Label" parent="StudioIdent"]
-auto_translate_mode = 2
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -192.0
-offset_top = 65.0
-offset_right = 192.0
-offset_bottom = 126.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.964706, 0.827451, 0.619608, 1)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 47
-text = "4딸라"
-horizontal_alignment = 1
-vertical_alignment = 1
