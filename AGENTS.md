@@ -1,5 +1,11 @@
 # Necromancer and Dice
 
+## Optional World Tree assault and world-region branches — 2026-11-20 user design
+
+- **When asked to work on the optional World Tree/cultist assault, winter/hell board-map backgrounds, or world-region changes, first read [docs/world_tree_assault_optional_event_design_20261120.md](docs/world_tree_assault_optional_event_design_20261120.md) along with [docs/SCENARIO_MASTER.md](docs/SCENARIO_MASTER.md).** This design distinguishes user-approved route rules from proposed balance numbers and unresolved choices.
+- The World Tree assault is **not mandatory main story**: the default world must remain playable through the final boss; cultists cutting the tree causes winter, burning it causes hell, and stopping them preserves the default world. Only a properly triggered, saved, optional event may change `world.region`.
+- Do not confuse the 24-tile board's parchment **map backdrop** (`assets/map/maps/*-map.jpg`) with combat scene backgrounds (`assets/battle/backgrounds/*`). Documentation alone does not authorize gameplay or art changes.
+
 ## Persistent revealed bosses — 2026-11-04 user correction
 
 - Once a boss stage has actually appeared, purification cannot hide it, regress its species/stage, or block the encounter. Preserve it through save/restart and HOME map generation until defeated; existing higher-stage upgrades remain.
