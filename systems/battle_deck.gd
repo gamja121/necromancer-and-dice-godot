@@ -12,6 +12,7 @@ const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
+const MonsterInspectSeal = preload("res://systems/monster_inspect_seal.gd")
 const BattleRules = preload("res://systems/battlefield_rules.gd")
 const Accent = preload("res://systems/presentation_accent.gd")
 const TARGET_RATES = {1:[100],2:[35,65],3:[20,33,47],4:[15,20,27,38]}
@@ -30,6 +31,7 @@ var confirm_button: Button
 var back_button: Button
 var info_window: Control
 var active_legion_keys: Array = []
+var hand_order_pending := false
 
 func setup(roster: Array) -> void:
 	owned = roster.duplicate(true)
@@ -185,7 +187,7 @@ func card(parent: Control, unit: Dictionary, pos: Vector2, dimensions: Vector2, 
 	return button
 
 func toggle_unit(id: String) -> void:
-	if departing: return
+	if departing or is_instance_valid(info_window): return
 	var Sound = preload("res://systems/game_audio.gd")
 	if selected_ids.has(id):
 		Sound.cue(self,"ui_cancel")
@@ -245,6 +247,7 @@ func render_selection() -> void:
 		var button = card(hand,unit,Vector2(start_x+i*stride,y),HAND_CARD_SIZE,[-4.0,2.0,-1.0,3.0,-2.0][i%5])
 		button.set_meta("keyboard_focus_key","unit:"+str(unit.id))
 		button.set_meta("keyboard_focus_default",i==0)
+		button.set_meta("hand_base_z",i)
 		button.z_index = 3 if is_selected else 0
 		button.scale = Vector2.ONE*1.05 if is_selected else Vector2.ONE
 		var name_label = text_label(button,unit.name,Vector2(3,98),Vector2(98,22),12)
@@ -270,46 +273,45 @@ func render_selection() -> void:
 			number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		# Hand-card click retains its original select/deselect behavior. The
-		# extra accessible info button opens naming without changing the lineup.
-		var info_action = Button.new()
-		info_action.name = "OwnedCardInfo"
-		info_action.set_meta("keyboard_focus_key","info:"+str(unit.id))
-		info_action.text = "정보"
-		info_action.tooltip_text = "마물 정보 · 이름 변경"
-		# Larger, independent touch target does not toggle the underlying card.
-		info_action.position = Vector2(25,108)
-		info_action.size = Vector2(54,32)
-		info_action.mouse_filter = Control.MOUSE_FILTER_STOP
-		button.add_child(info_action)
-		FooterActions.style_button(info_action)
-		info_action.add_theme_font_size_override("font_size",14)
-		var card_id: String = str(unit.id)
-		info_action.pressed.connect(func(): open_info(card_id))
-		button.focus_neighbor_bottom=button.get_path_to(info_action)
-		info_action.focus_neighbor_top=info_action.get_path_to(button)
-		info_action.focus_neighbor_bottom=info_action.get_path_to(confirm_button if not confirm_button.disabled else back_button)
+		MonsterInspectSeal.attach(button,open_info.bind(str(unit.id)))
+		button.focus_neighbor_bottom=button.get_path_to(confirm_button if not selected_ids.is_empty() else back_button)
 		button.mouse_entered.connect(func():
 			button.z_index = 3 if is_selected else 2
 			button.position.y = y if is_selected else 3.82
-			button.scale = Vector2.ONE*1.05)
+			button.scale = Vector2.ONE*1.05
+			queue_hand_order())
 		button.mouse_exited.connect(func():
 			button.z_index = 3 if is_selected else (2 if button.has_focus() else 0)
 			button.position.y = y if is_selected or not button.has_focus() else 3.82
-			button.scale = Vector2.ONE*1.05 if is_selected or button.has_focus() else Vector2.ONE)
+			button.scale = Vector2.ONE*1.05 if is_selected or button.has_focus() else Vector2.ONE
+			queue_hand_order())
 		button.focus_entered.connect(func():
 			button.z_index = 3 if is_selected else 2
 			button.position.y = y if is_selected else 3.82
-			button.scale = Vector2.ONE*1.05)
+			button.scale = Vector2.ONE*1.05
+			queue_hand_order())
 		button.focus_exited.connect(func():
 			button.z_index = 3 if is_selected else (2 if button.is_hovered() else 0)
 			button.position.y = y if is_selected or not button.is_hovered() else 3.82
-			button.scale = Vector2.ONE*1.05 if is_selected or button.is_hovered() else Vector2.ONE)
+			button.scale = Vector2.ONE*1.05 if is_selected or button.is_hovered() else Vector2.ONE
+			queue_hand_order())
+	CardDepthMotion.sync_input_order(hand.get_children())
 	# Exact percentages remain in the four lineup badges; avoid repeating a long
 	# list in the narrow status area, especially on mobile.
 	status.text = "출전 마물 %d/4 · 선택 순서대로 피격 확률 표시" % selected_ids.size()
 	confirm_button.disabled = selected_ids.is_empty()
 	show_new_legion_links()
+
+func queue_hand_order() -> void:
+	# Focus may exit while the current cards are being removed from the hand.
+	if hand_order_pending or not is_inside_tree(): return
+	hand_order_pending = true
+	sync_hand_order.call_deferred()
+
+func sync_hand_order() -> void:
+	hand_order_pending = false
+	if not is_inside_tree(): return
+	CardDepthMotion.sync_input_order(hand.get_children())
 
 func show_new_legion_links() -> void:
 	var previous := board.get_node_or_null("PresentationAccent_legion")

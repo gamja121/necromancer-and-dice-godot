@@ -8,6 +8,7 @@ const HAND_BOOK_OFFSET = Vector2(24.0,-105.0)
 const HAND_SCROLL_WIDTH = 944.0
 const HAND_SCROLL_THRESHOLD = 10
 const UnitInfo = preload("res://systems/unit_info.gd")
+const MonsterInspectSeal = preload("res://systems/monster_inspect_seal.gd")
 const InventoryActions = preload("res://systems/shop_window_visual.gd")
 const DiceControl = preload("res://systems/dice_control.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -19,6 +20,7 @@ var fan
 var origin_global: Vector2
 var changing = false
 var closing = false
+var hand_order_pending := false
 var tab_buttons: Array = []
 var info: Control
 var backdrop_shade: ColorRect
@@ -87,7 +89,13 @@ func focus_hand_card(option: TextureButton, home: Vector2, focused: bool) -> voi
 	sync_hand_input()
 
 func sync_hand_input() -> void:
-	if not is_instance_valid(fan): return
+	if hand_order_pending or not is_inside_tree(): return
+	hand_order_pending = true
+	apply_hand_input_order.call_deferred()
+
+func apply_hand_input_order() -> void:
+	hand_order_pending = false
+	if not is_inside_tree() or not is_instance_valid(fan): return
 	var cards: Array = []
 	for entry in fan.entries: cards.append(entry.card)
 	CardDepthMotion.sync_input_order(cards)
@@ -109,7 +117,7 @@ func show_kind(kind: String) -> void:
 	add_child(content)
 	fan = FanMotion.new()
 	content.add_child(fan)
-	# The inventory never consumes cards: taps inspect only, unlike the battle hand.
+	# The inventory never consumes cards. Monster selection only moves focus.
 	var items: Array = session.world.roster if kind=="unit" else session.world.dice_cards
 	if kind!="unit":
 		var guidance = label_at(content,"카드를 눌러 상세 효과 확인 · 여기서는 사용되지 않습니다",Vector2(290,206),Vector2(700,31),15)
@@ -152,7 +160,8 @@ func show_kind(kind: String) -> void:
 			parent.custom_minimum_size = Vector2(152,300)
 			holder.add_child(parent)
 			pos = Vector2(8,12)
-		var option = card(parent,kind,item,pos,HAND_CARD_SIZE,func(): show_item(kind,item))
+		var inspect := show_item.bind(kind,item)
+		var option = card(parent,kind,item,pos,HAND_CARD_SIZE,Callable() if kind=="unit" else inspect)
 		option.name="InventoryInspect_%s_%d" % [kind,i]
 		option.set_meta("keyboard_focus_default",i==0)
 		option.set_meta("hand_base_z",i)
@@ -162,6 +171,8 @@ func show_kind(kind: String) -> void:
 			option.get_child(0).text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]
 			option.get_child(0).visible = false
 			option.tooltip_text += "\n체력 %d/%d" % [item.current_hp,item.max_hp]
+			option.tooltip_text += "\n"+tr("우클릭 · 마물 정보")
+			MonsterInspectSeal.attach(option,inspect)
 			var home: Vector2 = pos
 			option.mouse_entered.connect(func(): focus_hand_card(option,home,true))
 			option.mouse_exited.connect(func(): focus_hand_card(option,home,option.has_focus()))

@@ -95,7 +95,11 @@ func _run() -> void:
 	if roster_button!=null:
 		await check_shadow_feedback(roster_button,"unit")
 		roster_button.pressed.emit()
-		check(is_instance_valid(view.info) and view.info.get_script().resource_path.ends_with("unit_info.gd"),"owned monsters retain original detailed unit window")
+		check(not is_instance_valid(view.info),"ordinary selection does not open monster details")
+		var seal := roster_button.get_node_or_null("MonsterInspectSeal") as Button
+		check(seal!=null and seal.focus_mode==Control.FOCUS_NONE,"separate magnifying seal stays available as a touch target")
+		if seal!=null: seal.pressed.emit()
+		check(is_instance_valid(view.info) and view.info.get_script().resource_path.ends_with("unit_info.gd"),"tap the seal to open the original detailed unit window")
 		if is_instance_valid(view.info):
 			var portrait_panel: Control = view.info.get_node("UnitInfoPortraitPanel")
 			var effect_panel: Control = view.info.get_node("UnitInfoEffectsPanel")
@@ -104,7 +108,7 @@ func _run() -> void:
 				"monster info leaves the board visible outside both painted panel outlines")
 			check(effect_frame.texture.resource_path == "res://assets/map/ui/inheritance_info.webp",
 				"effect info keeps the cleaned transparent frame used by the game")
-		view.info.queue_free()
+		if is_instance_valid(view.info): view.info.queue_free()
 		view.info=null
 	check(before==JSON.stringify(session.world.snapshot()),"all inspection and navigation leave full saved world unchanged")
 	check(prior_rng==session.world.rng.state,"inspection never consumes RNG or causes a card effect")
