@@ -1,5 +1,6 @@
 extends Control
 ## Localized presentation only. The host owns the draft and atomic session actions.
+const PaintedAction=preload("res://systems/painted_action.gd")
 const BOARD_ART="res://assets/map/ui/patrol_planning_board_v1.png"
 const Discovery=preload("res://systems/location_discoveries.gd")
 const RoutePlan=preload("res://systems/route_plan.gd")
@@ -168,9 +169,9 @@ func _build() -> void:
 	var margins:=MarginContainer.new()
 	margins.name="SafeContent"
 	margins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for key in ["margin_left","margin_right"]: margins.add_theme_constant_override(key,48)
+	for key in ["margin_left","margin_right"]: margins.add_theme_constant_override(key,60)
 	margins.add_theme_constant_override("margin_top",50)
-	margins.add_theme_constant_override("margin_bottom",28)
+	margins.add_theme_constant_override("margin_bottom",42)
 	add_child(margins)
 	var column:=VBoxContainer.new()
 	# Leave cross-platform font clearance for both discovery rows and NEW glyphs.
@@ -211,6 +212,11 @@ func _build() -> void:
 	_image(budget,"BudgetRoad","res://assets/map/tiles/basic.png",Vector2(50,36))
 	budget_label=_label(budget,"PatrolBudget","",19,"body",true)
 	budget_label.custom_minimum_size.y=49
+	reset_button=_button(budget,"PatrolRouteReset","기본값")
+	reset_button.custom_minimum_size=Vector2(138,44)
+	reset_button.size_flags_vertical=Control.SIZE_SHRINK_CENTER
+	PaintedAction.style(reset_button,3)
+	reset_button.pressed.connect(actions.reset_route)
 	_rule(body,true)
 	var right:=VBoxContainer.new()
 	right.name="NextMap"
@@ -228,6 +234,8 @@ func _build() -> void:
 		amount.size_flags_horizontal=Control.SIZE_FILL
 		amount.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 		summary_labels[str(pair[0])]=amount
+	var apply_hint:=_label(right,"PatrolApplyHint","다음 바퀴부터 적용",16)
+	apply_hint.add_theme_color_override("font_color",MUTED)
 	_rule(right)
 	_label(right,"DiscoveryTitle","발견한 장소",20,"heading")
 	empty_discovery=_label(right,"NoDiscoveries","아직 발견한 장소가 없습니다.",17)
@@ -238,25 +246,21 @@ func _build() -> void:
 	discovery_grid.add_theme_constant_override("v_separation",6)
 	right.add_child(discovery_grid)
 	for kind in Discovery.ORDER: _discovery(str(kind))
-	# Keep remaining capacity visible even when long localized body copy scrolls.
-	budget.reparent(column)
 	status_label=_label(column,"PatrolStatus","",17)
 	status_label.custom_minimum_size.y=48
-	_rule(column)
 	var footer:=HBoxContainer.new()
 	footer.name="PatrolFooter"
-	footer.add_theme_constant_override("separation",16)
+	footer.alignment=BoxContainer.ALIGNMENT_END
+	footer.add_theme_constant_override("separation",12)
 	column.add_child(footer)
 	back_button=_button(footer,"PatrolRouteClose","돌아가기")
+	back_button.custom_minimum_size.x=158
+	PaintedAction.style(back_button,4)
 	back_button.pressed.connect(func(): if not actions.busy: actions.closed.emit())
-	reset_button=_button(footer,"PatrolRouteReset","기본값")
-	reset_button.custom_minimum_size.x=112
-	reset_button.pressed.connect(actions.reset_route)
-	var footer_note:=_label(footer,"PatrolApplyHint","다음 바퀴부터 적용",16,"body",true)
-	footer_note.custom_minimum_size.x=160
 	confirm_button=_button(footer,"PatrolRouteConfirm","편성 확정",true)
-	confirm_button.custom_minimum_size.x=202
-	confirm_button.size_flags_stretch_ratio=1.2
+	confirm_button.custom_minimum_size.x=180
+	confirm_button.size_flags_horizontal=Control.SIZE_FILL
+	PaintedAction.style(confirm_button,2)
 	confirm_button.pressed.connect(actions.confirm_route)
 
 func _station(parent: Node, kind: String) -> void:

@@ -3,7 +3,7 @@ const CardDepthMotion = preload("res://systems/card_depth_motion.gd")
 
 signal confirmed(selected_ids: Array)
 signal closed
-const FooterActions = preload("res://systems/shop_window_visual.gd")
+const PaintedAction = preload("res://systems/painted_action.gd")
 const HAND_POSITION := Vector2(117,472)
 const HAND_SIZE := Vector2(1046,150)
 const HAND_CARD_SIZE := Vector2(104,143)
@@ -75,34 +75,17 @@ void fragment() {
 	hand.position = HAND_POSITION
 	hand.size = HAND_SIZE
 	add_child(hand)
-	var footer := Panel.new()
-	footer.position = Vector2(99,642)
-	footer.size = Vector2(1082,59)
-	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var footer_ink := StyleBoxFlat.new()
-	footer_ink.bg_color = Color("251d16f5")
-	footer_ink.border_color = Color("a47a41")
-	footer_ink.set_border_width_all(1)
-	footer_ink.set_corner_radius_all(5)
-	footer.add_theme_stylebox_override("panel",footer_ink)
-	add_child(footer)
-	status = text_label(footer,"",Vector2(220,9),Vector2(642,40),16)
+	status = text_label(board,"",Vector2(440,392),Vector2(285,34),16)
 	status.name = "LineupStatus"
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var actions: Array[Button] = []
-	for i in range(2):
-		var action := Button.new()
-		action.text = ["맵으로 나가기","전투 시작"][i]
-		action.name = ["DeckBackButton","DeckStartButton"][i]
-		action.position = Vector2(8 if i==0 else 870,7)
-		action.size = Vector2(204,45)
-		footer.add_child(action)
-		FooterActions.style_button(action,i==1)
-		actions.append(action)
-	back_button = actions[0]
+	status.add_theme_color_override("font_color",Color("4d2d1a"))
+	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
+	back_button = deck_action("DeckBackButton","맵으로 나가기",Vector2(203,637),4)
 	back_button.pressed.connect(request_close)
-	confirm_button = actions[1]
+	confirm_button = deck_action("DeckStartButton","전투 시작",Vector2(873,637),2)
+	back_button.focus_neighbor_right = back_button.get_path_to(confirm_button)
+	confirm_button.focus_neighbor_left = confirm_button.get_path_to(back_button)
 	confirm_button.pressed.connect(func():
 		if selected_ids.is_empty(): return
 		confirm_button.disabled = true
@@ -118,7 +101,8 @@ void fragment() {
 	board.modulate.a = 0
 	hand.position.y += 306
 	hand.modulate.a = 0
-	footer.modulate.a = 0
+	back_button.modulate.a = 0
+	confirm_button.modulate.a = 0
 	# Original user-provided wooden-door opening clip; shared with the chest.
 	# Play once for the descending board, never when selected cards redraw.
 	entry_audio = AudioStreamPlayer.new()
@@ -133,7 +117,19 @@ void fragment() {
 	drop.tween_property(board,"modulate:a",1.0,0.3)
 	drop.tween_property(hand,"position:y",HAND_POSITION.y,0.6).set_delay(0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	drop.tween_property(hand,"modulate:a",1.0,0.3).set_delay(0.18)
-	drop.tween_property(footer,"modulate:a",1.0,0.42).set_delay(0.38)
+	for action in [back_button,confirm_button]:
+		drop.tween_property(action,"modulate:a",1.0,0.42).set_delay(0.38)
+
+func deck_action(node_name: String, caption: String, at: Vector2, paper: int) -> Button:
+	var action := Button.new()
+	action.name = node_name
+	action.text = caption
+	action.position = at
+	action.size = Vector2(204,48)
+	action.set_meta("keyboard_focus_key",node_name)
+	add_child(action)
+	PaintedAction.style(action,paper)
+	return action
 
 func keyboard_focus_scope() -> Control:
 	return info_window if is_instance_valid(info_window) else self
@@ -222,6 +218,7 @@ func render_selection() -> void:
 			if entry.id==selected_ids[i]: unit = entry
 		var slot = card(lineup,unit,Vector2(i*(width+gap),0),Vector2(width,lineup.size.y),[-7.0,-1.0,1.0,7.0][i])
 		slot.name = "SelectedUnit_%d" % (i+1)
+		slot.set_meta("keyboard_focus_key","lineup:"+str(unit.id))
 		var badge = Panel.new()
 		badge.name = "TargetRate"
 		badge.position = Vector2(width*0.03,lineup.size.y*0.98-25)
@@ -240,6 +237,7 @@ func render_selection() -> void:
 		rate.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var stride := minf(122.0,(hand.size.x-HAND_CARD_SIZE.x)/maxi(1,owned.size()-1))
 	var start_x := (hand.size.x-HAND_CARD_SIZE.x-stride*maxi(0,owned.size()-1))*0.5
+	var previous_button: TextureButton
 	for i in range(owned.size()):
 		var unit: Dictionary = owned[i]
 		var is_selected = selected_ids.has(unit.id)
@@ -274,7 +272,16 @@ func render_selection() -> void:
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		MonsterInspectSeal.attach(button,open_info.bind(str(unit.id)))
-		button.focus_neighbor_bottom=button.get_path_to(confirm_button if not selected_ids.is_empty() else back_button)
+		var near_start := start_x+i*stride+HAND_CARD_SIZE.x*0.5 >= hand.size.x*0.5
+		button.focus_neighbor_bottom = button.get_path_to(confirm_button if near_start and not selected_ids.is_empty() else back_button)
+		if previous_button != null:
+			previous_button.focus_neighbor_right = previous_button.get_path_to(button)
+			button.focus_neighbor_left = button.get_path_to(previous_button)
+		if i == 0:
+			back_button.focus_neighbor_top = back_button.get_path_to(button)
+		if i == owned.size()-1:
+			confirm_button.focus_neighbor_top = confirm_button.get_path_to(button)
+		previous_button = button
 		button.mouse_entered.connect(func():
 			button.z_index = 3 if is_selected else 2
 			button.position.y = y if is_selected else 3.82
@@ -296,9 +303,7 @@ func render_selection() -> void:
 			button.scale = Vector2.ONE*1.05 if is_selected or button.is_hovered() else Vector2.ONE
 			queue_hand_order())
 	CardDepthMotion.sync_input_order(hand.get_children())
-	# Exact percentages remain in the four lineup badges; avoid repeating a long
-	# list in the narrow status area, especially on mobile.
-	status.text = "출전 마물 %d/4 · 선택 순서대로 피격 확률 표시" % selected_ids.size()
+	status.text = tr("출전 마물 %d/4") % selected_ids.size()
 	confirm_button.disabled = selected_ids.is_empty()
 	show_new_legion_links()
 

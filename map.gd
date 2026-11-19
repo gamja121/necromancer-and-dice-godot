@@ -301,6 +301,10 @@ func handle_cancel() -> bool:
 	if overlay.has_method("request_close"):
 		overlay.request_close()
 		return true
+	if overlay is ExplorationActions and is_instance_valid(overlay.route_editor):
+		if overlay.close_button.is_visible_in_tree() and not overlay.close_button.disabled:
+			overlay.close_button.pressed.emit()
+		return true
 	if overlay is DiceHand:
 		overlay.close_hand()
 		return true

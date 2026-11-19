@@ -159,9 +159,13 @@ func full_hand_case(session:Node,keep:bool,resume:bool=false) -> void:
 	check(await wait_for(func(): return is_instance_valid(panel.graveyard_overflow)),"collect opens the existing explicit overflow decision")
 	var popup:Control=panel.graveyard_overflow
 	check(popup.get_script()==OVERFLOW and panel.graveyard_phase=="overflow" and not map.routine_deck_delivery,"replacement precedes delivery and uses the unchanged overflow UI")
-	if keep: popup.select_card(str(old_ids[0]))
-	else: popup.select_card("__new__")
-	popup.confirm.pressed.emit()
+	if keep:
+		popup.select_card(str(old_ids[0]))
+		popup.confirm.pressed.emit()
+	else:
+		popup.decline_button.pressed.emit()
+		check(not session.world.pending_reward.is_empty(),"first refusal activation keeps the excavation reward pending")
+		popup.decline_button.pressed.emit()
 	check(session.world.pending_reward.is_empty() and session.place_visit_id("grave-extract",grave) in session.world.reward_receipts,"keep or refusal saves the once-visit receipt before any delivery")
 	var resolved:Dictionary=session.world.snapshot().duplicate(true)
 	var resolved_bytes:PackedByteArray=FileAccess.get_file_as_bytes(scratch)

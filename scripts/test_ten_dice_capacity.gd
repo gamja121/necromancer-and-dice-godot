@@ -71,6 +71,8 @@ func run() -> void:
 	root.add_child(panel)
 	panel.setup(session)
 	panel.decline_button.pressed.emit()
+	check(ids()==old_ids and not session.world.pending_reward.is_empty(),"first refusal activation leaves the saved reward pending")
+	panel.decline_button.pressed.emit()
 	check(ids()==old_ids and session.world.pending_reward.is_empty(),"legacy UI refusal preserves original five cards")
 	panel.queue_free()
 	await process_frame
@@ -84,6 +86,7 @@ func run() -> void:
 	root.add_child(panel)
 	panel.setup(session)
 	session.save_file_path="user://missing_ten_dice_ui_%d/save.json" % OS.get_process_id()
+	panel.decline_button.pressed.emit()
 	panel.decline_button.pressed.emit()
 	check(panel.selected=="__claim__" and not panel.confirm.disabled and ids().size()==5,"failed refusal restores collect selection with matching button meaning")
 	session.save_file_path=path

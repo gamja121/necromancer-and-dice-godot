@@ -1,6 +1,7 @@
 extends SceneTree
 ## Real key events and pointer events on the production map, cards, story and battle.
 const MapScene=preload("res://map.tscn")
+const MapState=preload("res://systems/map_state.gd")
 const MainBook=preload("res://systems/main_story_book.gd")
 const Catalog=preload("res://systems/reward_catalog.gd")
 const Child=preload("res://systems/story_event_entry.gd")
@@ -153,6 +154,7 @@ func board_and_inventory() -> void:
 	check(map.overlay==inventory,"monster book remains after closing information")
 	await point(card)
 	check(not navigation.keyboard_mode and navigation.target==card,"pointer hover takes over from keyboard focus")
+	check(await until(func():return not navigation.indicator.visible),"pointer mode hides keyboard instructions")
 	await point(card,true)
 	check(not is_instance_valid(inventory.info) and navigation.target==card,"left-click only focuses the book monster")
 	await point(card,true,MOUSE_BUTTON_RIGHT)
@@ -269,6 +271,21 @@ func tile_and_event_navigation() -> void:
 				await key(KEY_ENTER)
 				await create_timer(0.4).timeout
 				all_reachable("shop")
+				var shop = map.overlay
+				var donor_id := str(session.world.roster.front().id)
+				var donor: BaseButton = shop.unit_options.get(donor_id)
+				if await go(donor):
+					await key(KEY_ENTER)
+					if check(shop.offer_options.size()==3,"shop exposes three offers after keyboard donor selection"):
+						var offer: BaseButton = shop.offer_options[1]
+						await go(offer)
+						await key(KEY_ENTER)
+						check(navigation.target==offer and shop.chosen==1,"selecting an offer keeps focus at its card")
+						check(await go(shop.shop_confirm_button),"directions reach the painted trade action")
+						await photograph("04a-shop-actions")
+						var shop_id: int=shop.get_instance_id()
+						await point(shop.close_button,true)
+						check(await until(func():return not is_instance_valid(map.overlay) or map.overlay.get_instance_id()!=shop_id),"mouse can leave the shop after keyboard selection")
 		elif kind=="altar":
 			var ritual: BaseButton
 			for node in navigation.controls:
@@ -286,8 +303,9 @@ func tile_and_event_navigation() -> void:
 					check(panel.donor_id==donor_id and not panel.confirm_button.disabled,"keyboard donor selection enables the parchment action")
 					all_reachable("altar selected sacrifice")
 					check(await go(panel.confirm_button),"directions reach the enabled parchment action")
+					var panel_id: int=panel.get_instance_id()
 					await point(panel.close_button,true)
-					check(await until(func():return map.overlay!=panel),"mouse closes the altar after keyboard selection")
+					check(await until(func():return not is_instance_valid(map.overlay) or map.overlay.get_instance_id()!=panel_id),"mouse closes the altar after keyboard selection")
 	map.close_overlay(false)
 	map.show_discovery_card("forest")
 	await create_timer(0.4).timeout
@@ -300,6 +318,53 @@ func tile_and_event_navigation() -> void:
 	await create_timer(0.4).timeout
 	await escape()
 	check(await until(func():return not is_instance_valid(map.overlay)),"Esc closes an ordinary event preview")
+
+func patrol_navigation() -> void:
+	await fresh_map()
+	session.world.position=MapState.HOME
+	session.world.lap_ready=true
+	map.show_exploration_actions(MapState.HOME)
+	await create_timer(0.5).timeout
+	var actions = map.overlay
+	if not check(is_instance_valid(actions.route_editor),"actual patrol editor opens at home"): return
+	all_reachable("patrol editor")
+	if not await go(actions.route_plus_buttons.monster): return
+	var before: int=actions.plan.selection.monster
+	await key(KEY_ENTER)
+	check(int(actions.plan.selection.monster)==before+1,"Enter adjusts the focused patrol quantity")
+	if not await go(actions.route_reset_button): return
+	await key(KEY_ENTER)
+	check(int(actions.plan.selection.monster)==before,"keyboard can reset the draft beside the counters")
+	check(await go(actions.action_button),"directions reach the patrol confirm action")
+	var editor_id: int=actions.get_instance_id()
+	await escape()
+	check(await until(func():return not is_instance_valid(map.overlay) or map.overlay.get_instance_id()!=editor_id),"Esc returns from the patrol editor without confirming")
+
+func treasure_navigation() -> void:
+	await fresh_map()
+	var index: int=session.world.tiles.find("gem")
+	session.world.position=index
+	var rng := RandomNumberGenerator.new()
+	for seed_value in range(1,120):
+		rng.seed=seed_value
+		if rng.randf()>=0.10:
+			session.world.rng.seed=seed_value
+			break
+	map.show_treasure(index)
+	if not check(await until(func():return is_instance_valid(map.overlay) and map.overlay.options.size()==3 and not map.overlay.busy),"treasure offers are ready for keyboard selection"):
+		return
+	var treasure = map.overlay
+	var offer: BaseButton=treasure.options[2]
+	if not await go(offer): return
+	await key(KEY_ENTER)
+	check(int(session.world.pending_reward.get("selected",-1))==2 and navigation.target==offer,"Enter chooses the treasure and keeps its card focused")
+	await key(KEY_SPACE)
+	check(not session.world.pending_reward.has("reward"),"Space does not commit a chosen treasure")
+	all_reachable("treasure selected")
+	if not await go(treasure.confirm_button): return
+	await photograph("04b-treasure-actions")
+	await key(KEY_ENTER)
+	check(await until(func():return session.world.pending_reward.is_empty()),"the focused treasure action claims the reward once")
 
 func owned_hand_card(deck: Control, roster_index: int) -> Control:
 	var expected_key := "unit:"+str(deck.owned[roster_index].id)
@@ -334,6 +399,8 @@ func battle_and_capture() -> void:
 	await key(KEY_ENTER)
 	await process_frame
 	check(deck.selected_ids.size()==2,"Enter selects a second owned combatant")
+	check(navigation.target==owned_hand_card(deck,1),"the selected battle card keeps focus through a redraw")
+	all_reachable("battle lineup with active actions")
 	await go(deck.confirm_button)
 	await photograph("05-battle-lineup")
 	await key(KEY_ENTER)
@@ -385,6 +452,8 @@ func _run() -> void:
 	await dice_card_and_space()
 	await story_and_location()
 	await tile_and_event_navigation()
+	await patrol_navigation()
+	await treasure_navigation()
 	await battle_and_capture()
 	if is_instance_valid(map): map.queue_free()
 	await process_frame

@@ -95,6 +95,7 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	await process_frame
 	var background = panel.get_node_or_null("RewardOverflowPanel") as Control
 	check(background!=null,"overflow renders a parchment panel for "+kind)
+	check(panel.confirm.get_theme_stylebox("normal") is StyleBoxTexture and panel.decline_button.get_theme_stylebox("normal") is StyleBoxTexture,"replacement and refusal use separate painted actions")
 	check(panel.choices.size()==items.size()+1 and panel.choices.has("__new__"),"all existing and incoming cards are available for "+kind)
 	check(panel.confirm.disabled and near(panel.confirm.modulate.a,0.45),"confirmation disabled until a deliberate choice for "+kind)
 	if kind=="unit":
@@ -127,6 +128,11 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 	check(panel.selected=="__new__" and near(panel.choices[first_id].scale.x,1.0),"deselected candidate returns to original size for "+kind)
 	if kind=="unit":
 		check(panel.decline_button.text=="포기 확정" and panel.confirm.disabled,"new-monster refusal is armed and requires its own second tap")
+	else:
+		panel.finish()
+		check(fake.discarded.is_empty() and panel.confirm.disabled,"choosing the incoming die never commits a refusal")
+		panel.decline_button.pressed.emit()
+		check(panel.dice_decline_armed and fake.discarded.is_empty(),"one dice refusal activation only arms confirmation")
 	fake.fail_next = true
 	if kind=="unit":
 		panel.decline_button.pressed.emit()
@@ -135,15 +141,15 @@ func test_overflow(kind: String, capture: bool = false) -> void:
 		check(fake.discarded.is_empty() and is_instance_valid(panel),"monster discard is not saved while the press animation is still visible")
 		await create_timer(0.13).timeout
 	else:
-		panel.finish()
-	var retry_enabled: bool = not panel.decline_button.disabled if kind=="unit" else not panel.confirm.disabled
+		panel.decline_button.pressed.emit()
+	var retry_enabled: bool = not panel.decline_button.disabled
 	check(is_instance_valid(panel) and retry_enabled and panel.status.visible and panel.status.text.contains("저장 실패"),"save failure keeps active decision and permits retry for "+kind)
 	if kind=="unit":
 		check(not panel.monster_commit_pending and panel.selected=="__new__","failed monster save releases the input lock without losing the selected reward")
 		panel.decline_button.pressed.emit()
 		await create_timer(0.20).timeout
 	else:
-		panel.finish()
+		panel.decline_button.pressed.emit()
 	check(fake.discarded==["__new__","__new__"],"refusal callback receives the precise discard key on retry for "+kind)
 	await process_frame
 	check(not is_instance_valid(panel),"completed overflow closes for "+kind)
@@ -165,9 +171,9 @@ func test_monster_exchange_accept() -> void:
 	check(panel.monster_commit_pending and fake.discarded.is_empty() and not panel.confirm.disabled,"confirm click defers game-state change and keeps the press animation enabled")
 	var press_fx: Node = panel.confirm.get_node("ButtonEffectsModule")
 	check(press_fx.get("_clicking")==true and press_fx.get("_tween")!=null,"button press starts the native shrink animation while the dialog remains alive")
-	var normal_look := panel.confirm.get_theme_stylebox("normal") as StyleBoxFlat
-	var pressed_look := panel.confirm.get_theme_stylebox("pressed") as StyleBoxFlat
-	check(pressed_look != null and normal_look != null and pressed_look.bg_color != normal_look.bg_color,"actual press changes the button surface color")
+	var normal_look := panel.confirm.get_theme_stylebox("normal") as StyleBoxTexture
+	var pressed_look := panel.confirm.get_theme_stylebox("pressed") as StyleBoxTexture
+	check(pressed_look != null and normal_look != null and pressed_look.modulate_color != normal_look.modulate_color,"actual press changes the button surface color")
 	panel.confirm.pressed.emit()
 	panel.select_card(str(items[4].id))
 	check(panel.selected==str(items[3].id) and fake.discarded.is_empty(),"rapid second click and late card selection cannot replace the locked discard target")

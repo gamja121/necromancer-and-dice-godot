@@ -1,4 +1,5 @@
 extends "res://systems/reward_ui.gd"
+const PaintedAction = preload("res://systems/painted_action.gd")
 const Sound = preload("res://systems/game_audio.gd")
 signal finished(message: String)
 signal mimic_revealed(index: int)
@@ -54,13 +55,14 @@ func setup(map_scene) -> void:
 		await get_tree().create_timer(0.36).timeout
 		if session.world.roster.is_empty():
 			status.text = "출전 가능한 마물이 없어 미믹과 싸울 수 없습니다."
-			var retreat := button(self,"물러나기",Vector2(490,626),Vector2(300,52),_retreat_from_mimic)
+			var retreat := button(self,"물러나기",Vector2(526,626),Vector2(228,48),_retreat_from_mimic)
 			retreat.name = "MimicRetreatButton"
+			PaintedAction.style(retreat,4)
 		else:
 			mimic_revealed.emit(int(session.world.pending_reward.index))
 		return
 	chest.modulate.a = 0.28
-	status.text = "보상 카드를 선택한 뒤 아래에서 획득을 확정하세요"
+	status.text = "보상을 선택하세요"
 	build_options()
 	await animate_offer_entrance()
 	busy = false
@@ -114,14 +116,16 @@ func build_options() -> void:
 		var option=card(self,offer.kind,offer.source,origin,REWARD_CARD_SIZE,func(): choose(index))
 		option.rotation_degrees=[-7,0,7][index]
 		option.set_meta("reward_index",index)
+		option.set_meta("keyboard_focus_key","treasure:%d" % index)
+		option.set_meta("keyboard_focus_default",index==0)
 		reward_origins.append(origin)
 		option.pivot_offset = option.size * 0.5
 		reward_materials.append(reward_shade(option))
 		options.append(option)
 	# Card taps only choose; this explicit button commits a reward transaction.
-	confirm_button=button(self,"선택한 보상 받기",Vector2(490,626),Vector2(300,52),confirm_selection)
+	confirm_button=button(self,"선택한 보상 받기",Vector2(536,537),Vector2(208,48),confirm_selection)
 	confirm_button.name="TreasureClaimConfirm"
-	confirm_button.add_theme_font_size_override("font_size",18)
+	PaintedAction.style(confirm_button,2)
 	confirm_button.disabled=true
 	refresh()
 
@@ -138,8 +142,12 @@ func refresh() -> void:
 		reward_materials[index].set_shader_parameter("desaturate",0.22 if faded else 0.0)
 		reward_materials[index].set_shader_parameter("brightness",0.72 if faded else 1.0)
 	if is_instance_valid(confirm_button):
-		confirm_button.disabled=busy or selected<0
-		confirm_button.text="선택한 보상 받기" if selected>=0 else "보상을 선택하세요"
+		var has_choice := selected>=0 and selected<options.size()
+		confirm_button.visible=has_choice
+		confirm_button.disabled=busy or not has_choice
+		if has_choice:
+			confirm_button.position.x=reward_origins[selected].x+(REWARD_CARD_SIZE.x-confirm_button.size.x)*0.5
+			confirm_button.focus_neighbor_top=confirm_button.get_path_to(options[selected])
 
 func show_confirmed_choice(index: int) -> void:
 	# Presentation after a successfully stored reward, not before.
@@ -162,7 +170,7 @@ func choose(index: int) -> void:
 			status.text = "선택 저장 실패 · 다시 시도하세요"
 			return
 	refresh()
-	status.text = options[index].tooltip_text+" 선택 · 아래 획득 버튼으로 확정"
+	status.text = ""
  
 func confirm_selection() -> void:
 	if busy or not is_instance_valid(confirm_button) or confirm_button.disabled: return
