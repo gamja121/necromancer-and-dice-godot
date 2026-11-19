@@ -2,7 +2,9 @@ config_version=5
 
 [application]
 config/name="Necromancer and Dice"
-run/main_scene="res://title.tscn"
+run/main_scene="res://startup_logo.tscn"
+boot_splash/bg_color=Color(0.039216, 0.027451, 0.019608, 1)
+boot_splash/show_image=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]

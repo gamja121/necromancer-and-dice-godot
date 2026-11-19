@@ -76,6 +76,10 @@ func _run() -> void:
 	check(all_textured,"shards preserve actual original dice texture, not generic geometric replacements")
 	game.finish_now()
 	check(game.finished and game.get_node_or_null("FinalExpeditionRecord")!=null,"skipping cinematic immediately reveals final record")
+	var record_panel := game.get_node_or_null("FinalExpeditionRecord")
+	if record_panel != null:
+		var captions := record_panel.find_children("*", "Label", true, false)
+		check(captions.any(func(label): return label.text=="완주한 바퀴") and captions.any(func(label): return label.text=="27") and not captions.any(func(label): return label.text=="27 / 60"), "defeat shows the actual completed laps without a fixed target")
 	check(game.get_node_or_null("NewExpedition")!=null and game.get_node_or_null("ReturnToTitle")!=null,"new-run and return-to-title actions are available")
 	check(w.snapshot()==committed,"all visuals leave the stored endgame snapshot unchanged")
 	map.queue_free()

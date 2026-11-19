@@ -212,7 +212,7 @@ func _show_results() -> void:
 	_label(result_panel,"원정 종료",Vector2(100,62),Vector2(448,72),47,Color("e4cbb8"))
 	_label(result_panel,"망자의 계약이 끊어졌다.",Vector2(96,137),Vector2(456,34),18,Color("aaa09b"))
 	var rows: Array=[
-		["도달한 바퀴","%d / 60" % int(record.get("laps",0))],
+		["완주한 바퀴","%d" % int(record.get("laps",0))],
 		["처치한 적","%d" % int(record.get("enemies_defeated",0))],
 		["잃은 마물","%d" % int(record.get("lost_monsters",0))],
 		["최종 오염도","%d / 100" % int(record.get("contamination",0))]
