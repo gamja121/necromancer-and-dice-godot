@@ -229,19 +229,19 @@ func setup_monster_swap(reward: Dictionary) -> void:
 
 	# These informational labels stay hidden until an actual choice/error.
 	# Thus the normal state matches the uncluttered approved mockup.
-	status = label_at(self,"",Vector2(300,539),Vector2(680,27),15)
+	status = label_at(self,"",Vector2(300,526),Vector2(680,24),15)
 	status.name = "OverflowStatus"
 	status.add_theme_color_override("font_color",Color("e9c79f"))
 	status.visible = false
-	selection_detail = label_at(self,"",Vector2(487,539),Vector2(680,27),14)
+	selection_detail = label_at(self,"",Vector2(487,526),Vector2(680,24),14)
 	selection_detail.name = "OverflowSelectionDetail"
 	selection_detail.add_theme_color_override("font_color",Color("ddc19b"))
 	selection_detail.visible = false
 
-	decline_button = button(self,"획득하지 않기",Vector2(159,568),Vector2(206,49),on_decline_new)
+	decline_button = button(self,"획득하지 않기",Vector2(159,550),Vector2(206,40),on_decline_new)
 	decline_button.name = "OverflowDeclineNew"
 	exchange_button_style(decline_button,true)
-	confirm = button(self,"선택한 마물과 교체",Vector2(720,568),Vector2(220,49),finish)
+	confirm = button(self,"선택한 마물과 교체",Vector2(720,550),Vector2(220,40),finish)
 	confirm.name = "OverflowConfirm"
 	exchange_button_style(confirm,false)
 	confirm.disabled = true
