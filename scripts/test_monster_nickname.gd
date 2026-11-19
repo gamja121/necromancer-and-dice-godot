@@ -53,8 +53,9 @@ func _run() -> void:
 	check(deck.selected_ids.is_empty(),"card selection initially empty")
 	check(deck.hand.get_child_count()==2,"two individual original cards on hand")
 	var hand_card: Control=deck.hand.get_child(0)
-	check(hand_card.get_node_or_null("OwnedCardInfo") is Button,"owned card has separate accessible Information action")
-	deck.open_info(first)
+	var seal := hand_card.get_node_or_null("MonsterInspectSeal") as Button
+	check(seal!=null and not hand_card.has_node("OwnedCardInfo"),"owned card has a separate decorative pointer action")
+	if seal!=null: seal.pressed.emit()
 	check(deck.selected_ids.is_empty(),"information opening does not toggle deck selection")
 	check(is_instance_valid(deck.info_window) and deck.info_window.allow_rename,"owned unit information exposes rename action")
 	if is_instance_valid(deck.info_window):
@@ -67,7 +68,10 @@ func _run() -> void:
 		check(str(session.owned_unit(first).name)=="우리 잔불","entering edit commits chosen monster's name")
 		check(deck.selected_ids.is_empty(),"renaming does not alter deck selection")
 		check(not is_instance_valid(deck.info_window.rename_dialog),"successful edit closes only edit overlay")
-		check(deck.hand.get_child(0).tooltip_text=="우리 잔불","hand tooltip immediately updates")
+		var renamed: Control
+		for candidate in deck.hand.get_children():
+			if candidate.get_meta("keyboard_focus_key","")=="unit:"+first: renamed=candidate
+		check(renamed!=null and renamed.tooltip_text=="우리 잔불","hand tooltip immediately updates")
 		deck.info_window.close()
 		await process_frame
 	deck.queue_free()

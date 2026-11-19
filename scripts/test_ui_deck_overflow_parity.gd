@@ -53,8 +53,12 @@ func test_deck() -> void:
 	check(deck.lineup.get_node_or_null("SelectedUnit_1")!=null and deck.lineup.get_node_or_null("SelectedUnit_2")!=null,"occupied slots render selected card artwork")
 	var rate = deck.lineup.get_node("SelectedUnit_1/TargetRate/TargetRateLabel") as Label
 	check(rate.text=="피격 35%" and deck.status.text.contains("출전 마물 2/4"),"two-monster hit targeting rates match original")
-	var first_card = deck.hand.get_child(0)
-	var selected_card = deck.hand.get_child(1)
+	var first_card: Control
+	var selected_card: Control
+	for card in deck.hand.get_children():
+		var key: String = card.get_meta("keyboard_focus_key", "")
+		if key=="unit:"+str(roster[0].id): first_card=card
+		if key=="unit:"+str(roster[1].id): selected_card=card
 	check(first_card.get_node_or_null("SelectionOrderBadge")!=null and selected_card.get_node_or_null("SelectionOrderBadge")!=null,"hand shows selected order marker")
 	check(selected_card.position.y<first_card.position.y+1,"selected cards rise out of original hand")
 	check(not deck.confirm_button.disabled,"start button activates for one or more chosen units")

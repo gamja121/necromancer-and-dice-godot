@@ -32,12 +32,15 @@ func lineup_information() -> void:
 	map.show_battle_deck(session.world.tiles.find("monster"))
 	await create_timer(0.85).timeout
 	var deck: Control=map.overlay
-	var card: BaseButton=deck.hand.find_children("*","TextureButton",true,false)[1]
+	var card: BaseButton=owned_hand_card(deck,1)
 	await go(card)
-	await key(KEY_DOWN)
-	check(navigation.target==card.get_node("OwnedCardInfo"),"Down reaches the focused card's information button")
-	await key(KEY_ENTER)
-	if not check(await until(func():return is_instance_valid(deck.info_window)),"Enter opens battle-card information"): return
+	var before: Dictionary=session.world.snapshot().duplicate(true)
+	check(card.has_node("MonsterInspectSeal") and not card.has_node("OwnedCardInfo"),"magnifying seal replaces the bottom information button")
+	await photograph("11-battle-card-actions")
+	await key(KEY_SPACE)
+	await key(KEY_SPACE,true)
+	if not check(await until(func():return is_instance_valid(deck.info_window)),"Space opens battle-card information"): return
+	check(deck.selected_ids.is_empty() and session.world.snapshot()==before,"Space changes neither the lineup nor the board dice state")
 	var info: Control=deck.info_window
 	await go(info.rename_button)
 	await key(KEY_ENTER)
@@ -48,7 +51,14 @@ func lineup_information() -> void:
 	await escape()
 	check(await until(func():return not is_instance_valid(deck.info_window)),"second Esc returns to the lineup")
 	navigation.refresh()
-	check(navigation.target.get_meta("keyboard_focus_key","")=="info:"+str(deck.owned[1].id),"information closes back to the original card action")
+	check(navigation.target.get_meta("keyboard_focus_key","")=="unit:"+str(deck.owned[1].id),"information closes back to the original card")
+	await point(card,true,MOUSE_BUTTON_RIGHT)
+	if not check(await until(func():return is_instance_valid(deck.info_window)),"right-click opens the same battle-card information"): return
+	check(deck.info_window.current_name==str(deck.owned[1].name) and deck.selected_ids.is_empty(),"right-click inspects the pointed monster without selecting it")
+	await escape()
+	if not check(await until(func():return not is_instance_valid(deck.info_window)),"right-click information finishes closing"): return
+	await point(card,true)
+	check(deck.selected_ids==[deck.owned[1].id] and not is_instance_valid(deck.info_window),"left-click selects the monster without opening details")
 	await escape()
 	check(await until(func():return not is_instance_valid(map.overlay)),"Esc leaves ordinary lineup")
 
@@ -69,8 +79,8 @@ func pointer_stacking() -> void:
 	await point(second)
 	await point_canvas(Vector2(640,320))
 	check(navigation.target==second,"blank-space mouse movement retains the last valid card for keyboard resumption")
-	await key(KEY_ENTER)
-	check(await until(func():return is_instance_valid(book.info)),"Enter resumes inspection after the mouse leaves the cards")
+	await key(KEY_SPACE)
+	check(await until(func():return is_instance_valid(book.info)),"Space resumes inspection after the mouse leaves the cards")
 	await escape()
 	await until(func():return not is_instance_valid(book.info))
 	root.size=Vector2i(1600,900)

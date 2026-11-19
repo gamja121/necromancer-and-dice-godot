@@ -194,7 +194,7 @@ func _input(event: InputEvent) -> void:
 			pointer_sync_pending = true
 			_sync_pointer.call_deferred()
 		return
-	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]:
 		keyboard_mode = false
 		pointer_seen = true
 		# Native clicking owns focus and may open a different modal immediately.
@@ -233,6 +233,11 @@ func _input(event: InputEvent) -> void:
 		last_move_msec = Time.get_ticks_msec()
 		move_focus(DIRECTIONS[key])
 	elif key==KEY_SPACE:
+		if _available(target) and target in controls:
+			var secondary: Callable = target.get_meta("keyboard_secondary_action",Callable())
+			if secondary.is_valid():
+				secondary.call()
+				return
 		if is_instance_valid(scene) and scene.has_method("keyboard_roll_dice"): scene.keyboard_roll_dice()
 	else:
 		activate()

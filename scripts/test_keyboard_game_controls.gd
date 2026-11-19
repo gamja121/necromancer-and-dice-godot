@@ -55,14 +55,14 @@ func point_canvas(position: Vector2) -> void:
 	event.relative=Vector2(15,9)
 	root.push_input(event)
 	await process_frame
-func point(control: Control,click:bool=false) -> void:
+func point(control: Control,click:bool=false,button: MouseButton=MOUSE_BUTTON_LEFT) -> void:
 	var position:=control.get_global_transform_with_canvas()*(control.size*0.5)
 	await point_canvas(position)
 	if click:
 		for down in [true,false]:
 			var press:=InputEventMouseButton.new()
 			press.position=root.get_final_transform()*position
-			press.button_index=MOUSE_BUTTON_LEFT
+			press.button_index=button
 			press.pressed=down
 			root.push_input(press)
 			await process_frame
@@ -142,7 +142,10 @@ func board_and_inventory() -> void:
 	all_reachable("monster book")
 	await go(card)
 	await key(KEY_ENTER)
-	check(await until(func(): return is_instance_valid(inventory.info)),"Enter opens monster information")
+	check(not is_instance_valid(inventory.info) and navigation.target==card,"Enter focuses the book monster without opening details")
+	await photograph("01b-book-monster-actions")
+	await key(KEY_SPACE)
+	if not check(await until(func(): return is_instance_valid(inventory.info)),"Space opens information for the focused book monster"): return
 	navigation.refresh()
 	check(inventory.info.is_ancestor_of(navigation.target),"focus stays inside the information window")
 	await escape()
@@ -150,11 +153,18 @@ func board_and_inventory() -> void:
 	check(map.overlay==inventory,"monster book remains after closing information")
 	await point(card)
 	check(not navigation.keyboard_mode and navigation.target==card,"pointer hover takes over from keyboard focus")
-	await key(KEY_ENTER)
-	check(await until(func(): return is_instance_valid(inventory.info)),"keyboard Enter works immediately after pointer hover")
+	await point(card,true)
+	check(not is_instance_valid(inventory.info) and navigation.target==card,"left-click only focuses the book monster")
+	await point(card,true,MOUSE_BUTTON_RIGHT)
+	if not check(await until(func(): return is_instance_valid(inventory.info)),"right-click opens book monster information"): return
 	var close: BaseButton=inventory.info.find_child("InfoClose",true,false)
 	await point(close,true)
-	check(await until(func(): return not is_instance_valid(inventory.info)),"mouse closes keyboard-opened information")
+	check(await until(func(): return not is_instance_valid(inventory.info)),"mouse closes the information window")
+	await point(card)
+	await point(card.get_node("MonsterInspectSeal"),true)
+	check(await until(func(): return is_instance_valid(inventory.info)),"clicking the decorative seal opens information")
+	await escape()
+	if not check(await until(func():return not is_instance_valid(inventory.info)),"seal opens the same closable information window"): return
 	await escape()
 	check(await until(func():return not is_instance_valid(map.overlay)),"Esc returns from the book to the board")
 	check(session.world.snapshot()==before,"mixed inspection preserves the entire save and RNG")
@@ -281,6 +291,12 @@ func tile_and_event_navigation() -> void:
 	await escape()
 	check(await until(func():return not is_instance_valid(map.overlay)),"Esc closes an ordinary event preview")
 
+func owned_hand_card(deck: Control, roster_index: int) -> Control:
+	var expected_key := "unit:"+str(deck.owned[roster_index].id)
+	for candidate in deck.hand.get_children():
+		if candidate.get_meta("keyboard_focus_key","")==expected_key: return candidate
+	return null
+
 func battle_and_capture() -> void:
 	await fresh_map()
 	map.close_overlay(false)
@@ -300,11 +316,11 @@ func battle_and_capture() -> void:
 	all_reachable("battle lineup")
 	var owned_buttons: Array=deck.hand.find_children("*","TextureButton",true,false)
 	if not check(owned_buttons.size()>=2,"two genuine owned battle cards"): return
-	await go(owned_buttons[0])
+	await go(owned_hand_card(deck,0))
 	await key(KEY_ENTER)
 	await process_frame
 	check(deck.selected_ids.size()==1,"Enter selects one owned combatant")
-	await go(deck.hand.find_children("*","TextureButton",true,false)[1])
+	await go(owned_hand_card(deck,1))
 	await key(KEY_ENTER)
 	await process_frame
 	check(deck.selected_ids.size()==2,"Enter selects a second owned combatant")
