@@ -57,6 +57,8 @@ func redraw_flow() -> void:
 		text(content,["1  제물 선택","2  축복 공개","3  대상 선택"][i],Vector2(310+i*220,70),Vector2(210,32),19,Color("f0cf80") if i==active_stage else Color("a3977e"))
 	var primary_text: String
 	var notice: String
+	var guidance = art(content,ALTAR_INFO_PATH,Vector2(220,398),Vector2(640,142))
+	guidance.stretch_mode = TextureRect.STRETCH_SCALE
 	if revealed:
 		altar_info=art(content,ALTAR_INFO_PATH,Vector2(220,137),Vector2(560,253))
 		altar_info.name="AltarRitualInfo"
@@ -77,8 +79,6 @@ func redraw_flow() -> void:
 		receiver_hint.name="AltarTargetHint"
 		if receiver.is_empty():
 			text(content,"강화할 마물\n선택",Vector2(855,181),Vector2(160,110),23)
-		var preview=art(content,ALTAR_INFO_PATH,Vector2(220,398),Vector2(670,96))
-		preview.stretch_mode=TextureRect.STRETCH_SCALE
 		var summary:String="아래에서 강화할 마물을 선택하세요"
 		var prior:Dictionary=result_before if completed and not result_before.is_empty() else receiver
 		if not receiver.is_empty():
@@ -86,14 +86,14 @@ func redraw_flow() -> void:
 				int(prior.attack),int(receiver.attack)+(0 if completed else int(boon.get("attack",0))),
 				int(prior.max_hp),int(receiver.max_hp)+(0 if completed else int(boon.get("hp",0))),
 				int(prior.speed),int(receiver.speed)+(0 if completed else int(boon.get("speed",0)))]
-		text(content,summary,Vector2(252,410),Vector2(606,40),17,Color("4c3520"))
+		text(content,summary,Vector2(254,414),Vector2(572,35),17,Color("4c3520"))
 		var level:int=int(receiver.get("altar_enhancements",0))
-		altar_level=text(content,"강화 완료 · %d/3"%level if completed else ("강화 %d/3 → %d/3"%[level,level+1] if not receiver.is_empty() else "강화 한도 3회 · 결과는 저장됩니다"),Vector2(280,454),Vector2(550,24),14,Color("755231"))
+		altar_level=text(content,"강화 완료 · %d/3"%level if completed else ("강화 %d/3 → %d/3"%[level,level+1] if not receiver.is_empty() else "강화 한도 3회 · 결과는 저장됩니다"),Vector2(254,449),Vector2(572,32),14,Color("755231"))
 		altar_level.name="AltarRitualLevel"
-		primary_text="강화 완료" if completed else "이 카드에 축복 적용"
+		primary_text="축복 적용"
 		notice="제물은 바쳐졌습니다. 축복을 받을 마물을 고르세요."
 		if completed:
-			notice="강화 완료"
+			notice=""
 		elif not receiver.is_empty():
 			notice="축복 적용을 눌러 강화를 마치세요."
 		donor_art=null
@@ -104,34 +104,25 @@ func redraw_flow() -> void:
 		var donor:Dictionary=session.owned_unit(donor_id)
 		LayeredUnitCard.sync_preview(donor_art,donor)
 		AltarUpgradeBadge.sync(donor_art,donor)
-		donor_hint=text(content,"제물을 선택하세요" if donor.is_empty() else "제물 · %s"%str(donor.name),Vector2(455,390),Vector2(370,31),19)
+		donor_hint=text(content,"제물을 선택하세요" if donor.is_empty() else "제물 · %s"%str(donor.name),Vector2(254,414),Vector2(572,35),17,Color("4c3520"))
 		donor_hint.name="AltarMaterialHint"
-		altar_info=art(content,ALTAR_INFO_PATH,Vector2(220,423),Vector2(840,65))
+		donor_hint.visible = not used
+		altar_info = guidance
 		altar_info.name="AltarRitualInfo"
-		altar_info.stretch_mode=TextureRect.STRETCH_SCALE
 		notice="이번 방문의 의식은 완료했습니다" if used else "제물을 바치면 영구 소멸하고 무작위 축복이 공개됩니다."
-		primary_text="의식 완료" if used else "제물로 바치고 축복 받기"
-		altar_level=text(content,"강화 대상은 축복을 확인한 뒤 선택합니다",Vector2(300,429),Vector2(680,45),16,Color("4c3520"))
+		primary_text="제물 바치기"
+		altar_level=text(content,"" if used else "강화 대상은 축복을 확인한 뒤 선택합니다",Vector2(254,449),Vector2(572,32),16,Color("4c3520"))
 		altar_level.name="AltarRitualLevel"
 		receiver_art=null
-	var footer=Panel.new()
-	footer.position=Vector2(160,495)
-	footer.size=Vector2(960,55)
-	footer.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var backing=StyleBoxFlat.new()
-	backing.bg_color=Color("251d16f5")
-	backing.border_color=Color("a47a41")
-	backing.set_border_width_all(1)
-	backing.set_corner_radius_all(5)
-	footer.add_theme_stylebox_override("panel",backing)
-	content.add_child(footer)
-	close_button=button(content,"돌아가기" if pending.is_empty() else "의식 보류",Vector2(174,501),Vector2(216,42),request_exit)
-	close_button.name="AltarExit"
-	ShopWindowVisual.style_button(close_button)
-	confirm_button=button(content,primary_text,Vector2(890,501),Vector2(216,42),perform_ritual)
-	confirm_button.name="AltarRitualConfirm"
-	ShopWindowVisual.style_button(confirm_button,true)
-	status=text(content,notice,Vector2(402,501),Vector2(476,42),15)
+	var action_slot: Rect2 = map.TILE_EVENT_ACTION_RECT
+	var return_slot: Rect2 = map.TILE_EVENT_EXIT_RECT
+	confirm_button = map.location_button(content,primary_text,action_slot.position,action_slot.size,perform_ritual,2,false)
+	confirm_button.name = "AltarRitualConfirm"
+	confirm_button.visible = not completed
+	close_button = map.location_button(content,"돌아가기" if pending.is_empty() else "의식 보류",return_slot.position,return_slot.size,request_exit,4,false)
+	close_button.name = "AltarExit"
+	status = text(content,notice,Vector2(254,485),Vector2(572,35),15,Color("4c3520"))
+	status.name = "AltarRitualStatus"
 	build_hand()
 	refresh()
 
@@ -219,7 +210,6 @@ func perform_ritual() -> void:
 		Sound.cue(map,"ritual_complete")
 		map.queue_used_location_paper(index,"ritual")
 		redraw_flow()
-		status.text="강화 완료 · %s"%str(applied.receiver.name)
 		return
 	var sacrificed:Dictionary=session.altar_sacrifice(index,donor_id)
 	if not sacrificed.get("ok",false):

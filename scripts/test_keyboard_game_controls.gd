@@ -278,6 +278,16 @@ func tile_and_event_navigation() -> void:
 				await key(KEY_ENTER)
 				await create_timer(0.4).timeout
 				all_reachable("altar sacrifice")
+				var panel = map.overlay
+				var donor_id := str(session.world.roster.front().id)
+				var donor: BaseButton = panel.unit_options.get(donor_id)
+				if await go(donor):
+					await key(KEY_ENTER)
+					check(panel.donor_id==donor_id and not panel.confirm_button.disabled,"keyboard donor selection enables the parchment action")
+					all_reachable("altar selected sacrifice")
+					check(await go(panel.confirm_button),"directions reach the enabled parchment action")
+					await point(panel.close_button,true)
+					check(await until(func():return map.overlay!=panel),"mouse closes the altar after keyboard selection")
 	map.close_overlay(false)
 	map.show_discovery_card("forest")
 	await create_timer(0.4).timeout

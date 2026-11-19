@@ -74,7 +74,13 @@ func inspect_panel() -> void:
 		check(width<=action.size.x-18,"action text fits "+locale+" "+shown)
 		if locale=="en": check(not English.has_korean(shown),"action translated")
 		check(map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(action.position,action.size)),"footer action inside the painted frame")
-	check(panel.close_button.position==Vector2(174,501) and panel.confirm_button.position==Vector2(890,501),"altar keeps back and confirm in the same slots across stages")
+	check(panel.close_button.get_rect()==map.TILE_EVENT_EXIT_RECT and panel.confirm_button.get_rect()==map.TILE_EVENT_ACTION_RECT,"altar uses the common right-side action and exit slots")
+	check(panel.close_button.visible and panel.confirm_button.visible == (not panel.completed),"completed ritual keeps only the exit action visible")
+	for action in [panel.close_button,panel.confirm_button]:
+		var paper := action.get_theme_stylebox("normal") as StyleBoxTexture
+		var variant := "04" if action==panel.close_button else "02"
+		check(paper!=null and paper.texture.resource_path.ends_with("parchment_button_variant_%s.png"%variant),"altar uses the shared painted parchment control")
+		check(action.focus_mode==Control.FOCUS_ALL and not action.has_node("ButtonContactShadow"),"parchment remains focusable without a rectangular shadow")
 func flow(jackpot:bool) -> void:
 	var fixture_data:Dictionary=fixture(jackpot)
 	var index:int=int(fixture_data.index)

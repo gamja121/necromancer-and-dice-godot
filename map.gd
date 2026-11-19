@@ -582,14 +582,14 @@ func label_at(parent: Control, value: String, pos: Vector2, dimensions: Vector2,
 			if typewriter != null: typewriter.track(node)
 	return node
 
-func button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable) -> Button:
+func button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, contact_shadow_enabled: bool = true) -> Button:
 	var node = Button.new()
 	node.text = title
 	node.position = pos
 	node.size = dimensions
 	node.pressed.connect(callback)
 	parent.add_child(node)
-	if not parent is StoryBook: add_button_effect(node)
+	if not parent is StoryBook: add_button_effect(node,contact_shadow_enabled)
 	return node
 
 func add_button_effect(node: BaseButton, contact_shadow_enabled: bool = true) -> void:
@@ -2478,7 +2478,7 @@ func play_used_location_paper(panel: Control, paper: Button, receipt: String) ->
 	played_location_papers[receipt]=weakref(session.world)
 	await UsedParchmentFall.play(paper)
 
-func location_button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, variant: int = 1) -> Button:
+func location_button(parent: Control, title: String, pos: Vector2, dimensions: Vector2, callback: Callable, variant: int = 1, contact_shadow_enabled: bool = true) -> Button:
 	var action: Callable = callback
 	if bool(parent.get_meta("story_split_layout",false)):
 		# First press finishes the visible line, never commits a choice/beat.
@@ -2488,7 +2488,7 @@ func location_button(parent: Control, title: String, pos: Vector2, dimensions: V
 				var navigation: bool = title in ["돌아가기","나가기","맵으로 나가기","닫기","취소"] or title.ends_with(" 기능")
 				sound("ui_cancel" if navigation else "book_confirm")
 			callback.call()
-	var node = button(parent,title,pos,dimensions,action)
+	var node = button(parent,title,pos,dimensions,action,contact_shadow_enabled)
 	# Location actions must draw over both the source painting and its frame.
 	node.z_index = 11
 	var style = StyleBoxTexture.new()
