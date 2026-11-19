@@ -280,6 +280,9 @@ static func visible_card_rect(slot_size: Vector2) -> Rect2:
 	var extent := Vector2(height * CARD_ASPECT, height)
 	return Rect2((slot_size - extent) * 0.5, extent)
 
+static func nameplate_rect(art: Rect2) -> Rect2:
+	return Rect2(art.position + art.size * Vector2(-0.055, 0.592), art.size * Vector2(1.11, 0.175))
+
 static func relayout(card: TextureButton) -> void:
 	if not is_instance_valid(card):
 		return
@@ -314,8 +317,9 @@ static func relayout(card: TextureButton) -> void:
 	actor.size = source * art_scale
 	actor.position = Vector2(visible_left, visible_top) - used.position * art_scale
 	actor.pivot_offset = actor.size * 0.5
-	ribbon.position = rect.position + Vector2(-extent.x * 0.055, extent.y * 0.592)
-	ribbon.size = Vector2(extent.x * 1.11, extent.y * 0.175)
+	var nameplate := nameplate_rect(rect)
+	ribbon.position = nameplate.position
+	ribbon.size = nameplate.size
 	caption.position = ribbon.position + Vector2(ribbon.size.x * 0.10, ribbon.size.y * 0.17)
 	caption.size = Vector2(ribbon.size.x * 0.80, ribbon.size.y * 0.63)
 	caption.set_meta("name_base_points",maxi(8,int(extent.y*0.077)))

@@ -6,7 +6,7 @@
 - 종족별 배경: `LayeredUnitCard.BACKGROUNDS`의 WebP 또는 공통 `BACKGROUND`
 - 이름띠: `LayeredUnitCard.NAMEPLATE`
 - 낙인 아이콘: 기존 전투용 아이콘 시트
-- 제단 강화 배지: `res://assets/cards/altar_upgrade_badge_1.webp` ~ `_3.webp`
+- 제단 강화 스티커: `res://assets/cards/altar_upgrade_stickers.png`의 +1~+3 영역을 이름표 오른쪽 위에 표시
 - 전투 동작 및 정보창 초상화는 `res://assets/battle/` 하위 독립 리소스로 유지한다.
 
 게임은 `LayeredUnitCard.install`, `sync_preview`, `make_preview`로 신형 합성 카드를 표시한다. 모든 47종(원본 46종 + 드라큘라) 카드 테스트에서도 개별 레이어 파일을 검사한다.

@@ -43,10 +43,14 @@ func check_layout(card: Control, case_name: String) -> void:
 	check(badge != null,case_name+" +3 badge present")
 	if badge == null: return
 	check(card.get_child_count()==visual_children+1,case_name+" adds only one badge, no border")
-	check(badge.texture==AltarBadge.BADGE_3,case_name+" +3 texture")
-	var art: Rect2 = AltarBadge._art_rect(card)
-	check(absf((badge.position.x+badge.size.x*0.5)-(art.position.x+art.size.x*0.5))<0.02,case_name+" badge centered")
-	check(absf(badge.position.y-(art.position.y+art.size.y*0.01))<0.02,case_name+" badge on top line")
+	var sticker := badge.texture as AtlasTexture
+	check(sticker != null and sticker.atlas == AltarBadge.BADGE_ATLAS and sticker.region == AltarBadge.BADGE_REGIONS[2],case_name+" +3 parchment sticker")
+	var ribbon := source.get_node("LayeredCardRibbon") as TextureRect
+	var nameplate := ribbon.get_rect()
+	if source != card: nameplate.position += source.position
+	var face := badge.get_rect()
+	check(face.position.x > nameplate.get_center().x and face.end.x < nameplate.end.x,case_name+" sticker is inset at the right of the nameplate")
+	check(face.position.y < nameplate.position.y and face.end.y > nameplate.position.y and face.end.y <= nameplate.position.y + nameplate.size.y * 0.20,case_name+" sticker overlaps the top edge without covering the name")
 	check(badge.get_parent()==card and badge.z_index==0,case_name+" badge follows parent overlap")
 	check(badge.mouse_filter==Control.MOUSE_FILTER_IGNORE,case_name+" badge cannot block clicks")
 	for count in range(4):
@@ -61,9 +65,10 @@ func check_layout(card: Control, case_name: String) -> void:
 	for level in range(1,4):
 		unit.altar_enhancements = level
 		AltarBadge.sync(card,unit)
-		var plaque := card.get_node_or_null("AltarUpgradeBadge") as TextureRect
-		check(plaque!=null and plaque.texture==[AltarBadge.BADGE_1,AltarBadge.BADGE_2,AltarBadge.BADGE_3][level-1],
-			case_name+" correct altar plaque +"+str(level))
+		var marker := card.get_node_or_null("AltarUpgradeBadge") as TextureRect
+		var level_texture := marker.texture as AtlasTexture if marker != null else null
+		check(level_texture != null and level_texture.atlas == AltarBadge.BADGE_ATLAS and level_texture.region == AltarBadge.BADGE_REGIONS[level - 1],
+			case_name+" correct altar sticker +"+str(level))
 	card.queue_free()
 
 func _run() -> void:

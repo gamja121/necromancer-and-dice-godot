@@ -46,19 +46,22 @@ func assert_decorations(card: Control, prefix: String, badge_expected: bool = tr
 		check(false,prefix+" card exists")
 		return
 	var badge: TextureRect = card.get_node_or_null("AltarUpgradeBadge") as TextureRect
-	check((badge != null)==badge_expected,prefix+" altar plaque present as expected")
+	check((badge != null)==badge_expected,prefix+" altar sticker present as expected")
 	if badge != null:
-		check(badge.get_parent()==card,prefix+" plaque belongs to parent card")
-		check(badge.z_index==0 and badge.z_as_relative,prefix+" plaque follows card stacking")
-		check(badge.mouse_filter==Control.MOUSE_FILTER_IGNORE,prefix+" plaque never intercepts clicks")
-		check(badge.texture == AltarBadge.BADGE_3,prefix+" +3 graphic selection")
-		var art: Rect2 = AltarBadge._art_rect(card)
-		check(absf((badge.position.x+badge.size.x*0.5)-(art.position.x+art.size.x*0.5)) < 0.04,prefix+" plaque center")
+		check(badge.get_parent()==card,prefix+" sticker belongs to parent card")
+		check(badge.z_index==0 and badge.z_as_relative,prefix+" sticker follows card stacking")
+		check(badge.mouse_filter==Control.MOUSE_FILTER_IGNORE,prefix+" sticker never intercepts clicks")
+		var sticker := badge.texture as AtlasTexture
+		check(sticker != null and sticker.atlas == AltarBadge.BADGE_ATLAS and sticker.region == AltarBadge.BADGE_REGIONS[2],prefix+" +3 parchment sticker")
+		var nameplate := AltarBadge._ribbon_rect(card)
+		var face := badge.get_rect()
+		check(face.position.x > nameplate.get_center().x and face.end.x < nameplate.end.x
+			and face.position.y < nameplate.position.y and face.end.y > nameplate.position.y,prefix+" sticker sits at the nameplate's upper right")
 		var old: Vector2 = badge.get_global_transform_with_canvas().origin
 		card.rotation_degrees += 4.0
 		card.scale = Vector2(1.06,1.06)
 		var updated: Vector2 = badge.get_global_transform_with_canvas().origin
-		check(updated.distance_to(old)>0.1,prefix+" plaque follows card rotation and scale")
+		check(updated.distance_to(old)>0.1,prefix+" sticker follows card rotation and scale")
 
 func _run() -> void:
 	# 1: actual shared UI card builder (reward, graveyard, shop, overflow).
@@ -142,7 +145,7 @@ func _run() -> void:
 		check(right_brands!=null and right_brands.get_child_count()==3,"inventory three brands displayed in lower icon row")
 		check(left.get_node_or_null("AltarUpgradeBadge")!=null and right.get_node_or_null("AltarUpgradeBadge")!=null,"inventory badges on overlapping cards")
 		left.mouse_entered.emit()
-		check(left.z_index==20 and left.get_node("AltarUpgradeBadge").z_index==0,"inventory hover raises whole card with plaque")
+		check(left.z_index==20 and left.get_node("AltarUpgradeBadge").z_index==0,"inventory hover raises whole card with sticker")
 		left.mouse_exited.emit()
 		check(left.z_index==0,"inventory hover exit restores card stacking")
 
@@ -190,7 +193,7 @@ func _run() -> void:
 	assert_decorations(place.receiver_art,"altar receiver preview")
 	place.receiver_id = ""
 	place.refresh()
-	check(place.receiver_art.get_node_or_null("AltarUpgradeBadge")==null,"altar empty preview removes previous enhancement plaque")
+	check(place.receiver_art.get_node_or_null("AltarUpgradeBadge")==null,"altar empty preview removes previous enhancement sticker")
 
 	# 5: real inheritance set_preview, including clear-on-blank behavior.
 	var inheritance = HomeInheritance.new()
@@ -204,7 +207,7 @@ func _run() -> void:
 	check(preview.texture==null and preview.has_node("LayeredCardPreview/LayeredCardBase"),"inheritance material/recipient slots use live layered art")
 	assert_decorations(preview,"inheritance receiver preview")
 	inheritance.set_preview(preview,"unit",{})
-	check(preview.get_node_or_null("AltarUpgradeBadge")==null,"inheritance blank preview clears enhancement plaque")
+	check(preview.get_node_or_null("AltarUpgradeBadge")==null,"inheritance blank preview clears enhancement sticker")
 
 	# A headless frame can finish before the audio mixer processes stop().
 	deck.click_audio.stop()
