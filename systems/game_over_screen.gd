@@ -1,4 +1,6 @@
 extends Control
+
+const PaintedAction = preload("res://systems/painted_action.gd")
 ## Terminal expedition screen. The existing, saved die remains untouched:
 ## a transient copy cracks and splits into textured triangular fragments.
 const Sound = preload("res://systems/game_audio.gd")
@@ -230,8 +232,11 @@ func _show_results() -> void:
 		_label(result_panel,rows[i][1],Vector2(x,y+34),Vector2(262,43),26,Color("e9d9c2"))
 	var new_run=_button("새 원정 시작",Vector2(388,552),Vector2(240,52),_new_run)
 	new_run.name="NewExpedition"
+	PaintedAction.style(new_run, 2)
 	var title=_button("타이틀로 돌아가기",Vector2(652,552),Vector2(240,52),_back_to_title)
 	title.name="ReturnToTitle"
+	PaintedAction.style(title, 4)
+	title.set_meta("keyboard_focus_default", true)
 
 func _new_run() -> void:
 	if session.start_new_world():

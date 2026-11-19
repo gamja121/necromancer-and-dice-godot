@@ -1,5 +1,7 @@
 extends Control
 
+const PaintedAction = preload("res://systems/painted_action.gd")
+
 ## Centered map settings with shared audio preferences.
 signal open_changed(opened: bool)
 ## Always use the OS default output; Advanced retains only master volume.
@@ -277,6 +279,7 @@ func setup(parent: Control, opening_allowed: Callable = Callable()) -> void:
 	separator(column)
 
 	var footer := HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_CENTER
 	footer.add_theme_constant_override("separation", 12)
 	column.add_child(footer)
 	quit_button = footer_action(footer, "MapSettingsQuit", "그만하기", false)
@@ -293,16 +296,8 @@ func footer_action(footer: HBoxContainer, node_name: String, label_text: String,
 	var action := Button.new()
 	action.name = node_name
 	action.text = label_text
-	action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	action.custom_minimum_size.y = 46
-	style_action(action, 18)
-	if primary:
-		var paper := surface(Color("c09963"), Color("e2bf8a"))
-		action.add_theme_stylebox_override("normal", paper)
-		action.add_theme_stylebox_override("hover", surface(Color("d1ab73"), Color("f2d7a7")))
-		action.add_theme_stylebox_override("pressed", surface(Color("ac8450"), Color("deb985")))
-		for state in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
-			action.add_theme_color_override(state, Color("281a10"))
+	action.custom_minimum_size = Vector2(192, 48)
+	PaintedAction.style(action, 2 if primary else 4, 17)
 	footer.add_child(action)
 	return action
 

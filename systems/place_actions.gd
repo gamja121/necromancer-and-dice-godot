@@ -2,6 +2,7 @@ extends "res://systems/reward_ui.gd"
 const Sound = preload("res://systems/game_audio.gd")
 signal closed
 const DiceAnimation = preload("res://systems/dice_animation.gd")
+const PaintedAction = preload("res://systems/painted_action.gd")
 const ShopWindowVisual = preload("res://systems/shop_window_visual.gd")
 const ProphecyInkEffect=preload("res://systems/prophecy_ink_effect.gd")
 const FORTUNE_STRIP_PATH = "res://assets/map/ui/fortune_parchment_strip.webp"
@@ -166,12 +167,11 @@ func setup_shop_visual() -> void:
 	shop_window.texture=frame_texture
 	shop_window.stretch_mode=TextureRect.STRETCH_SCALE
 	label_at(self,"마물 상점",Vector2(430,62),Vector2(420,40),28)
-	shop_remaining=label_at(self,"",Vector2(932,74),Vector2(202,26),16)
+	shop_remaining=label_at(self,"",Vector2(962,129),Vector2(172,26),15)
 	shop_remaining.name="ShopTradesRemaining"
 	ShopWindowVisual.line(self,Rect2(132,116,1016,1))
 	ShopWindowVisual.line(self,Rect2(415,135,1,308))
 	ShopWindowVisual.line(self,Rect2(132,453,1016,1))
-	ShopWindowVisual.line(self,Rect2(132,606,1016,1))
 	label_at(self,"내놓을 마물",Vector2(145,127),Vector2(208,28),18)
 	label_at(self,"상인의 제안",Vector2(468,127),Vector2(666,28),18)
 	label_at(self,"보유 마물",Vector2(146,457),Vector2(150,24),16).horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT
@@ -179,13 +179,13 @@ func setup_shop_visual() -> void:
 	donor_art.name="ShopDonorCard"
 	donor_art.texture=null
 	donor_hint=label_at(self,"아래에서 마물 선택",Vector2(145,380),Vector2(208,24),14)
-	shop_cancel_button=button(self,"다시 선택",Vector2(170,409),Vector2(154,32),reset_shop_selection)
+	shop_cancel_button=button(self,"다시 선택",Vector2(159,410),Vector2(176,42),reset_shop_selection)
 	shop_cancel_button.name="ShopResetSelection"
-	ShopWindowVisual.style_button(shop_cancel_button)
-	shop_confirm_button=button(self,"교환 확정",Vector2(964,617),Vector2(184,42),confirm_shop_trade)
+	PaintedAction.style(shop_cancel_button,3)
+	shop_confirm_button=button(self,"교환 확정",Vector2(940,410),Vector2(200,42),confirm_shop_trade)
 	shop_confirm_button.name="ShopTradeConfirm"
 	shop_confirm_button.disabled=true
-	ShopWindowVisual.style_button(shop_confirm_button,true)
+	PaintedAction.style(shop_confirm_button,2)
 	shop_offer_scroll=ScrollContainer.new()
 	shop_offer_scroll.position=Vector2(468,166)
 	shop_offer_scroll.size=Vector2(666,242)
@@ -200,15 +200,19 @@ func setup_shop_visual() -> void:
 	offer_area=row
 	shop_empty_hint=label_at(self,"내놓을 마물을 고르면\n교환할 카드 3장이 나타납니다.",Vector2(488,232),Vector2(626,90),19)
 	shop_empty_hint.name="ShopEmptyOffers"
-	shop_summary=label_at(self,"",Vector2(468,410),Vector2(666,30),16)
+	shop_summary=label_at(self,"",Vector2(468,416),Vector2(455,29),16)
 	shop_summary.name="ShopTradeSummary"
 	shop_summary.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	status=label_at(self,"",Vector2(333,615),Vector2(614,46),15)
+	status=label_at(self,"",Vector2(320,456),Vector2(814,30),14)
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	close_button=button(self,"돌아가기",Vector2(132,617),Vector2(184,42),func(): if not busy: closed.emit())
 	close_button.name="ShopExit"
-	ShopWindowVisual.style_button(close_button)
+	PaintedAction.style(close_button,4)
+
+func request_close() -> void:
+	if is_instance_valid(close_button) and close_button.is_visible_in_tree() and not close_button.disabled:
+		close_button.pressed.emit()
 
 func style_shop_button(control: Button, variant: int) -> void:
 	var path="res://assets/map/ui/parchment_button_variant_%02d.png" % variant
@@ -253,6 +257,7 @@ func build_hand() -> void:
 		var option=card(box,"unit",unit,Vector2(12,2) if type=="village" else Vector2(4,0),Vector2(96,112) if type=="village" else Vector2(96,139),func(): select_unit(id))
 		if type=="village":
 			ShopWindowVisual.hide_duplicate_caption(option)
+			option.set_meta("keyboard_focus_key","shop_donor:"+id)
 			ShopWindowVisual.select_card(option,id==donor_id)
 		unit_options[id]=option
 	if session.world.roster.size()<2 and type=="altar": label_at(hand,"마물이 2마리 이상 있어야 사용할 수 있습니다",Vector2(280,595),Vector2(720,40),18)
@@ -304,6 +309,8 @@ func refresh() -> void:
 		if is_instance_valid(shop_cancel_button):
 			shop_cancel_button.visible=not donor.is_empty()
 			shop_cancel_button.disabled=busy
+		for i in range(offer_options.size()):
+			ShopWindowVisual.select_card(offer_options[i],i==chosen)
 	for id in unit_options:
 		if type=="village":
 			ShopWindowVisual.select_card(unit_options[id],id==donor_id)
@@ -329,6 +336,7 @@ func render_offers() -> void:
 		var option=card(parent,offer.kind,offer.item,pos,dims,func(): choose_offer(i))
 		if type=="village":
 			ShopWindowVisual.hide_duplicate_caption(option)
+			option.set_meta("keyboard_focus_key","shop_offer:%d" % i)
 		option.disabled=busy or (offer.kind=="dice" and session.world.dice_cards.size()>=Catalog.DICE_CAPACITY)
 		if type=="village":
 			ShopWindowVisual.select_card(option,i==chosen)
@@ -344,7 +352,6 @@ func choose_offer(i: int) -> void:
 	if busy or donor_id.is_empty() or i<0 or i>=offer_options.size(): return
 	if offer_options[i].disabled: return
 	chosen=i
-	render_offers()
 	refresh()
 
 func confirm_shop_trade() -> void:

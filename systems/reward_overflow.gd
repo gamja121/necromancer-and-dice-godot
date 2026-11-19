@@ -1,8 +1,10 @@
 extends "res://systems/reward_ui.gd"
+const PaintedAction = preload("res://systems/painted_action.gd")
 signal resolved(outcome: Dictionary)
 var session
 var selected: String = ""
 var dice_room_available: bool = false
+var dice_decline_armed := false
 var status: Label
 var confirm: Button
 var choices: Dictionary = {}
@@ -73,7 +75,7 @@ func setup(run_session) -> void:
 	title_label = label_at(self,("마물 보관함 %d/%d" if reward.kind=="unit" else "주사위 카드더미 %d/%d") % [items.size(),capacity],Vector2(150,217) if is_capture_overflow else Vector2(300,142),Vector2(980,36) if is_capture_overflow else Vector2(680,36),24)
 	title_label.name = "OverflowTitle"
 	if is_capture_overflow: title_label.add_theme_color_override("font_color",Color("3a281c"))
-	status = label_at(self,"새 마물을 받으려면 버릴 마물 카드 1장을 선택하세요." if is_capture_overflow else "새 보상을 받으려면 버릴 카드 1장을 선택하세요.",Vector2(150,261) if is_capture_overflow else Vector2(300,188),Vector2(980,30) if is_capture_overflow else Vector2(680,35),13)
+	status = label_at(self,"새 마물을 받으려면 버릴 마물 카드 1장을 선택하세요." if is_capture_overflow else "교체할 주사위 카드를 선택하세요.",Vector2(150,261) if is_capture_overflow else Vector2(300,188),Vector2(980,30) if is_capture_overflow else Vector2(680,35),13)
 	status.name = "OverflowStatus"
 	if dice_room_available: status.text="보관함에 빈자리가 있습니다. 새 카드를 받거나 획득을 포기하세요."
 	status.add_theme_color_override("font_color",Color("5f4733") if is_capture_overflow else Color("cfb88e"))
@@ -97,6 +99,7 @@ func setup(run_session) -> void:
 		row.add_child(box)
 		var option = card(box,reward.kind,item,Vector2(2,7) if is_capture_overflow else Vector2(5,16),Vector2(81,118) if is_capture_overflow else Vector2(100,146),func(): select_card(key))
 		option.name = "OverflowCard_%d" % index
+		option.set_meta("keyboard_focus_key","overflow:"+key)
 		option.focus_mode = Control.FOCUS_ALL
 		option.pivot_offset = option.size * 0.5
 		# Selected cards expand instead of displaying a highlighted frame.
@@ -125,26 +128,19 @@ func setup(run_session) -> void:
 		choices[key] = option
 		choice_cards.append(option)
 
-	confirm = button(self,"선택한 카드 버리기",Vector2(490,486) if is_capture_overflow else Vector2(490,544),Vector2(300,40) if is_capture_overflow else Vector2(300,42),finish)
+	var button_y := 486.0 if is_capture_overflow else 514.0
+	decline_button = button(self,"획득하지 않기",Vector2(302,button_y),Vector2(202,46),on_decline_new)
+	decline_button.name = "OverflowDeclineNew"
+	exchange_button_style(decline_button,true)
+	confirm = button(self,"선택한 카드와 교체",Vector2(776,button_y),Vector2(202,46),finish)
 	confirm.name = "OverflowConfirm"
-	var button_style = StyleBoxFlat.new()
-	button_style.bg_color = Color("704523") if is_capture_overflow else Color("3a2417")
-	button_style.border_color = Color("aa8655")
-	button_style.set_border_width_all(1)
-	button_style.set_corner_radius_all(4)
-	for state in ["normal","hover","focus","pressed","disabled"]:
-		confirm.add_theme_stylebox_override(state,button_style)
-	confirm.add_theme_color_override("font_color",Color("f7e5bf") if is_capture_overflow else Color("f4dfb7"))
-	confirm.add_theme_color_override("font_disabled_color",Color("a28f72"))
+	exchange_button_style(confirm,false)
 	confirm.disabled = true
 	confirm.modulate.a = 0.45
 	if dice_room_available:
 		confirm.text="선택한 보상 받기"
-		confirm.position=Vector2(650,544)
-		confirm.size=Vector2(220,42)
-		decline_button=button(self,"획득하지 않기",Vector2(390,544),Vector2(220,42),func():
-			selected="__new__"
-			finish())
+		decline_button.position.x=414
+		confirm.position.x=664
 		select_card("__claim__")
 
 ## Approved minimal layout (2026-10-24):
@@ -153,23 +149,7 @@ func setup(run_session) -> void:
 ## Real layered portraits, portrait foot baselines, brands and reward saving
 ## are all handled by the existing shared card / claim_reward paths.
 func exchange_button_style(action: Button, destructive: bool) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("572b26") if destructive else Color("324a37")
-	style.border_color = Color("b3946a")
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(5)
-	style.shadow_color = Color("140c09a0")
-	style.shadow_size = 3
-	for state in ["normal","hover","focus","disabled"]:
-		action.add_theme_stylebox_override(state,style)
-	# Give the pointer-down state a small inset/darker surface without changing the art.
-	var down := style.duplicate() as StyleBoxFlat
-	down.bg_color = Color("3c201c") if destructive else Color("23382a")
-	down.shadow_size = 1
-	action.add_theme_stylebox_override("pressed",down)
-	action.add_theme_color_override("font_color",Color("f5e1bf"))
-	action.add_theme_color_override("font_disabled_color",Color("9a8a71"))
-	action.add_theme_font_size_override("font_size",20)
+	PaintedAction.style(action,4 if destructive else 2)
 	var effect := action.get_node_or_null("ButtonEffectsModule")
 	if effect != null:
 		effect.hover_scale = Vector2(1.015,1.015)
@@ -238,6 +218,7 @@ func setup_monster_swap(reward: Dictionary) -> void:
 		monster_grid.add_child(slot)
 		var option := card(slot,"unit",old,Vector2(11,4),Vector2(112,175),func(): select_card(key))
 		option.name = "OverflowCard_%d" % index
+		option.set_meta("keyboard_focus_key","overflow:"+key)
 		option.focus_mode = Control.FOCUS_ALL
 		option.tooltip_text = exchange_summary(old) + "\n선택 시 신규 마물과 교체"
 		if LayeredUnitCard.supports(str(old.get("slug",""))):
@@ -248,31 +229,42 @@ func setup_monster_swap(reward: Dictionary) -> void:
 
 	# These informational labels stay hidden until an actual choice/error.
 	# Thus the normal state matches the uncluttered approved mockup.
-	status = label_at(self,"",Vector2(300,539),Vector2(680,27),15)
+	status = label_at(self,"",Vector2(300,526),Vector2(680,24),15)
 	status.name = "OverflowStatus"
 	status.add_theme_color_override("font_color",Color("e9c79f"))
 	status.visible = false
-	selection_detail = label_at(self,"",Vector2(260,539),Vector2(760,27),14)
+	selection_detail = label_at(self,"",Vector2(487,526),Vector2(680,24),14)
 	selection_detail.name = "OverflowSelectionDetail"
 	selection_detail.add_theme_color_override("font_color",Color("ddc19b"))
 	selection_detail.visible = false
 
-	decline_button = button(self,"획득하지 않기",Vector2(262,572),Vector2(321,51),on_decline_new)
+	decline_button = button(self,"획득하지 않기",Vector2(159,550),Vector2(206,40),on_decline_new)
 	decline_button.name = "OverflowDeclineNew"
 	exchange_button_style(decline_button,true)
-	confirm = button(self,"선택한 마물과 교체",Vector2(693,572),Vector2(352,51),finish)
+	confirm = button(self,"선택한 마물과 교체",Vector2(720,550),Vector2(220,40),finish)
 	confirm.name = "OverflowConfirm"
 	exchange_button_style(confirm,false)
 	confirm.disabled = true
 	confirm.modulate.a = 0.45
 
 func on_decline_new() -> void:
-	# The second tap commits the irreversible refusal; first tap only arms it.
 	if monster_commit_pending: return
-	if selected == "__new__":
+	if is_monster_swap:
+		if selected == "__new__":
+			finish()
+		else:
+			select_card("__new__")
+		return
+	if dice_decline_armed:
 		finish()
-	else:
-		select_card("__new__")
+		return
+	if choices.has("__new__"): select_card("__new__")
+	selected = "__new__"
+	dice_decline_armed = true
+	decline_button.text = "포기 확정"
+	confirm.disabled = true
+	confirm.modulate.a = 0.45
+	status.text = "새 보상 획득 포기 · 버튼을 다시 눌러 확정"
 
 func select_monster_for_exchange(key: String) -> void:
 	for id in choices:
@@ -285,7 +277,9 @@ func select_monster_for_exchange(key: String) -> void:
 	status.text = ""
 	selection_detail.visible = true
 	if key == "__new__":
-		selection_detail.text = "새 마물 획득 포기 · 왼쪽 버튼을 다시 누르면 확정"
+		selection_detail.position.x = 114
+		selection_detail.size.x = 296
+		selection_detail.text = "새 보상 획득 포기 · 버튼을 다시 눌러 확정"
 		decline_button.text = "포기 확정"
 		confirm.disabled = true
 		confirm.modulate.a = 0.45
@@ -295,6 +289,8 @@ func select_monster_for_exchange(key: String) -> void:
 			if str(unit.id) == key:
 				old = unit
 				break
+		selection_detail.position.x = 487
+		selection_detail.size.x = 680
 		selection_detail.text = exchange_summary(old) + " · 영구 제외"
 		decline_button.text = "획득하지 않기"
 		confirm.disabled = false
@@ -314,9 +310,14 @@ func select_card(key: String) -> void:
 		option.scale = Vector2.ONE * (1.12 if chosen else 1.0)
 		option.z_index = 8 if chosen else 0
 		option.modulate = Color.WHITE
-	status.text = "선택한 보상 받기" if dice_room_available else "%s 버리기 선택됨" % choices[key].tooltip_text
-	confirm.disabled = false
-	confirm.modulate.a = 1.0
+	dice_decline_armed = false
+	decline_button.text = "획득하지 않기"
+	if key == "__new__":
+		status.text = "획득하지 않기"
+	else:
+		status.text = "선택한 보상 받기" if dice_room_available else tr("%s 교체 선택됨") % choices[key].tooltip_text
+	confirm.disabled = key == "__new__"
+	confirm.modulate.a = 0.45 if confirm.disabled else 1.0
 
 func finish() -> void:
 	if selected.is_empty() or monster_commit_pending: return
@@ -328,17 +329,21 @@ func finish() -> void:
 		monster_commit_pending = true
 		commit_monster_after_press(selected)
 		return
-	# Dice overflow keeps its existing immediate transaction and closing logic.
-	if confirm.disabled: return
+	if selected == "__new__":
+		if not dice_decline_armed or decline_button.disabled: return
+	elif confirm.disabled:
+		return
+	decline_button.disabled = true
 	confirm.disabled = true
 	confirm.modulate.a = 0.45
 	var outcome: Dictionary = session.claim_reward("" if selected=="__claim__" else selected)
 	if not outcome.get("ok",false):
 		if dice_room_available: select_card("__claim__")
+		decline_button.disabled = false
 		status.text = "저장 실패 · 다시 선택해 주세요"
 		status.visible = true
-		confirm.disabled = false
-		confirm.modulate.a = 1.0
+		confirm.disabled = selected == "__new__"
+		confirm.modulate.a = 0.45 if confirm.disabled else 1.0
 		return
 	resolved.emit(outcome)
 	queue_free()
@@ -352,6 +357,7 @@ func commit_monster_after_press(discard_id: String) -> void:
 	confirm.disabled = true
 	var outcome: Dictionary = session.claim_reward(discard_id)
 	if not outcome.get("ok",false):
+		selection_detail.visible = false
 		status.text = "저장 실패 · 다시 선택해 주세요"
 		status.visible = true
 		decline_button.disabled = false

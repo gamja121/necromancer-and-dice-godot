@@ -15,7 +15,6 @@ var remembered: Dictionary = {}
 var last_focus_key := ""
 var last_move_msec := 0
 var pointer_sync_pending := false
-var pointer_seen := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -39,7 +38,7 @@ func _process(_delta: float) -> void:
 		indicator.clear()
 		return
 	if is_instance_valid(indicator):
-		if _available(target) and (keyboard_mode or pointer_seen):
+		if _available(target) and keyboard_mode:
 			indicator.follow(target,_description(target))
 		else:
 			indicator.clear()
@@ -157,6 +156,9 @@ func _gather(root: Node, result: Array[Control]) -> void:
 
 func _initial_target() -> Control:
 	if controls.is_empty(): return null
+	if not last_focus_key.is_empty():
+		for control in controls:
+			if str(control.get_meta("keyboard_focus_key","")) == last_focus_key: return control
 	if is_instance_valid(scope) and remembered.has(scope.get_instance_id()):
 		var memory: Dictionary = remembered[scope.get_instance_id()]
 		var previous: Control = memory.control.get_ref()
@@ -164,8 +166,6 @@ func _initial_target() -> Control:
 		if not str(memory.key).is_empty():
 			for control in controls:
 				if str(control.get_meta("keyboard_focus_key",""))==str(memory.key): return control
-	for control in controls:
-		if not last_focus_key.is_empty() and str(control.get_meta("keyboard_focus_key",""))==last_focus_key: return control
 	for control in controls:
 		if bool(control.get_meta("keyboard_focus_default",false)): return control
 	return controls[0]
@@ -176,7 +176,6 @@ func _prune_memory() -> void:
 
 func _use_keyboard() -> void:
 	keyboard_mode = true
-	pointer_seen = false
 	pointer_sync_pending = false
 
 func _window_input(event: InputEvent) -> void:
@@ -188,7 +187,6 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if event.relative.length_squared()<4.0: return
 		keyboard_mode = false
-		pointer_seen = true
 		refresh()
 		if not pointer_sync_pending:
 			pointer_sync_pending = true
@@ -196,7 +194,6 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]:
 		keyboard_mode = false
-		pointer_seen = true
 		# Native clicking owns focus and may open a different modal immediately.
 		pointer_sync_pending = false
 		refresh()
@@ -306,7 +303,6 @@ func _sync_pointer() -> void:
 			choose_focus(pointed,false)
 			return
 		pointed = pointed.get_parent() as Control
-	pointer_seen = false
 	if is_instance_valid(target): target.release_focus()
 	# Retain the last valid target so a keyboard press resumes there.
 	indicator.clear()
@@ -315,7 +311,9 @@ func _center(control: Control) -> Vector2:
 	return control.get_global_transform_with_canvas()*(control.size*0.5)
 
 func _focus_changed(control: Control) -> void:
-	if control in controls: target = control
+	if control in controls:
+		target = control
+		last_focus_key = str(control.get_meta("keyboard_focus_key",""))
 
 func _description(control: Control) -> String:
 	if control.has_meta("keyboard_action_hint"): return tr(str(control.get_meta("keyboard_action_hint")))
