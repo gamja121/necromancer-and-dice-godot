@@ -356,7 +356,9 @@ void fragment() {
 			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			dice_cards_button.add_child(count)
 	brand_reference_button = button(layer,"낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
+	var dragon_has_gauge: bool = rules.units.any(presentation_layout.is_boss_bar)
 	for team in ["ally","enemy"]:
+		if team=="enemy" and dragon_has_gauge: continue
 		var title = text(layer,"아군 활성 군단" if team == "ally" else "적군 활성 군단",Vector2(25.6 if team == "ally" else 1054.4,53),Vector2(200,26),16)
 		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if team=="ally" else HORIZONTAL_ALIGNMENT_RIGHT
@@ -513,20 +515,20 @@ func wait_presentation(seconds: float, minimum: float = 0.0) -> void:
 
 func render_units(values: Array) -> void:
 	for u in values:
+		# The seed keeps its presentation until the adult artwork actually appears.
+		var shown: Dictionary = visuals.displayed_unit(u)
+		var geometry: Dictionary = presentation_layout.geometry(shown,surface_size)
 		if not sprites.has(u.id):
 			var node = image(world_layer,frame_path(u,"attack",1),Vector2.ZERO,Vector2(320,320))
 			node.z_index = 2
 			sprites[u.id] = node
 			var bar = PresentationLayout.HealthBar.new()
-			bar.size = Vector2(surface_size.x*0.48/5.0*0.86,5)
 			bar.z_index = 48
 			layer.add_child(bar)
 			bars[u.id] = bar
 			var passive_label := Label.new()
 			passive_label.name = "PassiveLabel"
-			passive_label.size = Vector2(110, 18)
-			passive_label.position = Vector2(bar.size.x - passive_label.size.x, bar.size.y + 3.0)
-			passive_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			passive_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			passive_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			passive_label.add_theme_font_size_override("font_size", 12)
 			passive_label.add_theme_color_override("font_color", Color("e4dcc2"))
@@ -538,7 +540,16 @@ func render_units(values: Array) -> void:
 			var fate_icon := BattleFateIcon.new()
 			fate_icon.name = "FateIcon"
 			bar.add_child(fate_icon)
-			fate_icon.position = Vector2((bar.size.x - 23.0) * 0.5, -45.0)
+			fate_icon.pivot_offset = Vector2.ZERO
+			fate_icon.scale = Vector2.ONE*0.8
+			var shield_count := Label.new()
+			shield_count.name = "ShieldCount"
+			shield_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			shield_count.size = Vector2(22,16)
+			shield_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			shield_count.add_theme_font_size_override("font_size",12)
+			shield_count.add_theme_color_override("font_color",Color("dfedce"))
+			bar.add_child(shield_count)
 			# Icons are children of the health bar, so they follow its position.
 			for status_key in ["freeze", "poison", "shield"]:
 				var icon := TextureRect.new()
@@ -547,7 +558,7 @@ func render_units(values: Array) -> void:
 				icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 				icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				icon.size = Vector2(17, 17)
+				icon.size = Vector2(15,15)
 				icon.visible = false
 				bar.add_child(icon)
 			var card = TextureButton.new()
@@ -580,11 +591,8 @@ func render_units(values: Array) -> void:
 			LayeredUnitCard.install(card, str(u.slug), str(u.name), false, u.get("brands", []))
 			AltarUpgradeBadge.sync(card,u)
 		var sprite: TextureRect = sprites[u.id]
-		# Hold the seed image through dice/brand cues until its bloom is played.
-		var shown: Dictionary = visuals.displayed_unit(u)
 		var tex = texture(frame_path(shown,"attack",1))
 		if tex != null:
-			var geometry = presentation_layout.geometry(shown,surface_size)
 			sprite.size = geometry.size
 			sprite.pivot_offset = geometry.pivot
 			sprite.z_index = geometry.z
@@ -592,31 +600,13 @@ func render_units(values: Array) -> void:
 			sprite.position = geometry.position
 			sprite.flip_h = u.team == "enemy"
 			sprite.modulate = Color.WHITE if u.alive else Color(0.4,0.4,0.4,0.35)
-		bars[u.id].position = Vector2(unit_x(u)-bars[u.id].size.x/2.0,presentation_layout.health_bar_y(u,surface_size))
+		place_health_bar(u,geometry.bar)
 		bars[u.id].max_value = u.max_hp
 		bars[u.id].value = u.hp
 		bars[u.id].tooltip_text = "%s · 체력 %d/%d" % [u.name,u.hp,u.max_hp]
-		var passive_label_display := bars[u.id].get_node("PassiveLabel") as Label
-		var passive_key: String = str(u.get("passive", ""))
-		passive_label_display.text = str(PASSIVE_NAMES.get(passive_key, "")) if u.alive else ""
-		passive_label_display.visible = not passive_label_display.text.is_empty()
-		# Fate icon is revealed by the matching brand impact cue, never here.
-		# Clear only when the effect has ended or the unit has died.
-		# bars is a Dictionary (Variant); Godot cannot infer the dynamic node type.
-		# Keep it explicitly dynamic because FateIcon.set_mode belongs to its script.
-		var fate_icon_display: Variant = bars[u.id].get_node("FateIcon")
+		# Fate is revealed by its own impact cue, at the same time as body art.
 		if not u.alive or (u.bless.is_empty() and u.curse.is_empty()):
-			fate_icon_display.set_mode("")
-		var visible_statuses: Array = []
-		if u.alive and u.frozen: visible_statuses.append("freeze")
-		if u.alive and not u.poison.is_empty(): visible_statuses.append("poison")
-		if u.alive and int(u.get("shields", 0)) > 0: visible_statuses.append("shield")
-		for status_key in ["freeze", "poison", "shield"]:
-			var status_icon := bars[u.id].get_node("Status_" + status_key) as TextureRect
-			status_icon.visible = visible_statuses.has(status_key)
-			if status_icon.visible:
-				var index: int = visible_statuses.find(status_key)
-				status_icon.position = Vector2(float(index) * 19.0, -21.0)
+			bars[u.id].get_node("FateIcon").set_mode("")
 
 		# Web dock dims only the corpse artwork to monochrome; the separate
 		# brand/altar decorations must retain their own texture colors.
@@ -638,6 +628,40 @@ func render_units(values: Array) -> void:
 	# Re-raise the single shared die for mouse hit-testing, not just drawing.
 	if uses_map_tile_dock() and is_instance_valid(map_owner):
 		map_owner.raise_shared_die_for_input()
+
+func place_health_bar(unit: Dictionary, bounds: Rect2) -> void:
+	var bar: Control = bars[unit.id]
+	bar.position = bounds.position
+	bar.size = bounds.size
+	var boss: bool = presentation_layout.is_boss_bar(unit)
+	var passive: String = str(PASSIVE_NAMES.get(unit.get("passive",""),"")) if unit.alive else ""
+	var label := bar.get_node("PassiveLabel") as Label
+	label.position = Vector2(0,-18)
+	label.size = Vector2(bounds.size.x-104.0 if boss else bounds.size.x,18)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if boss else HORIZONTAL_ALIGNMENT_CENTER
+	label.text = tr(str(unit.name))+(" · "+tr(passive) if not passive.is_empty() else "") if boss else passive
+	label.visible = not label.text.is_empty()
+
+	var row_y := -18.0 if boss else bounds.size.y+1.0
+	var row_x := bounds.size.x-100.0 if boss else 0.0
+	var fate := bar.get_node("FateIcon") as Control
+	fate.position = Vector2(bounds.size.x-19.0,row_y)
+	var shields := int(unit.get("shields",0))
+	var shown := {
+		"freeze": unit.alive and unit.frozen,
+		"poison": unit.alive and not unit.poison.is_empty(),
+		"shield": unit.alive and shields>0,
+	}
+	for key in shown:
+		var icon := bar.get_node("Status_"+str(key)) as TextureRect
+		icon.visible = shown[key]
+		if icon.visible:
+			icon.position = Vector2(row_x,row_y)
+			row_x += 18.0
+	var count := bar.get_node("ShieldCount") as Label
+	count.position = Vector2(row_x-2.0,row_y)
+	count.visible = shown.shield
+	count.text = str(shields)
 
 func wait_time(seconds: float) -> void:
 	var remaining = seconds

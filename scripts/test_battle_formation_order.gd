@@ -290,10 +290,36 @@ func scenario(session: Node, count: int) -> void:
 	map.queue_free()
 	await process_frame
 
+func test_health_bar_clearance() -> void:
+	var layout := LAYOUT.new()
+	var definitions: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/units.json")).units
+	check(layout._sprite_envelopes.keys().size()==definitions.size() and layout._sprite_envelopes.has_all(definitions.keys()),
+		"all combatants have measured animation bounds")
+	for surface: Vector2 in [Vector2(1280,530),Vector2(1280,720)]:
+		var overlaps: Array[String] = []
+		for slug: String in definitions:
+			if slug=="dragon": continue
+			for team: String in ["ally","enemy"]:
+				for slot: int in range(5):
+					var geometry := layout.geometry({"slug":slug,"team":team,"slot":slot},surface)
+					var bar: Rect2 = geometry.bar
+					var body: Rect2 = geometry.silhouette
+					if body.position.y<bar.position.y+LAYOUT.STATUS_BOTTOM:
+						overlaps.append("%s %s %d" % [slug,team,slot])
+		check(overlaps.is_empty(),"%dpx field: animated art clears its health and status area %s" % [int(surface.y),overlaps])
+		var summon := layout.geometry({"slug":"guardian-seed","team":"ally","slot":4},surface)
+		var boss := layout.geometry({"slug":"dragon","team":"enemy","slot":0},surface)
+		var summon_hud: Rect2 = summon.bar.grow_individual(0.0,18.0,0.0,18.0)
+		var attack_top: float = boss.position.y+float(layout._sprite_envelopes.dragon.attack[1])*boss.size.y
+		check(boss.body_fit==1.0 and boss.bar.size.x>summon.bar.size.x*2.0
+			and boss.bar.end.y<boss.silhouette.position.y and (surface.y<720.0 or summon_hud.end.y<attack_top-LAYOUT.WORLD_SHAKE),
+			"%dpx field: full-size dragon and its dedicated gauge clear the auxiliary ally HUD" % int(surface.y))
+
 func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	test_health_bar_clearance()
 	test_targeting_placement()
 	test_summon_cooldown()
 	var session: Node=root.get_node_or_null("RunSession")

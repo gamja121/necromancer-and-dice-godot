@@ -81,7 +81,7 @@ func _process(delta: float) -> void:
 		scene.dice.scale = dice_base_scale*(1.0+sin(t*PI)*(0.12 if dice_result.face in [1,6] else 0.08))
 	if rail_box.visible:
 		rail_box.size = rail_box.get_combined_minimum_size()
-		rail_box.position = Vector2((size.x-rail_box.size.x)/2.0,size.y*0.145)
+		rail_box.position = Vector2((size.x-rail_box.size.x)/2.0,77.0)
 		rail_box.visible = clock<expiry
 	var drawn_content: bool = not marks.is_empty() or not impact.is_empty() or not chain_pulse.is_empty()
 	if drawn_content or _had_drawn_content: queue_redraw()
@@ -365,13 +365,19 @@ func _draw() -> void:
 		var opacity: float = sin(progress*PI)*0.42
 		var radius: float = 22.0+progress*30.0
 		draw_arc(center,radius,-PI*0.82,PI*0.82,28,Color(1.0,0.83,0.40,opacity),2.0,true)
+	# Temporary captions use the center of the header, clear of the HP/status lanes.
 	var font: Font = scene.get_theme_default_font()
 	for mark in marks:
-		var unit: Dictionary = scene.visuals.states[mark.id]
-		var y: float = scene.bars[mark.id].position.y-24.0*mark.captions.size()
+		var widths: Array[float] = []
+		var total := -5.0
 		for caption in mark.captions:
-			var width = font.get_string_size(tr(caption.text),HORIZONTAL_ALIGNMENT_LEFT,-1,11).x+12.0
-			var pos = Vector2(scene.unit_x(unit)-width/2.0,y)
-			draw_style_box(pill(Color("17100fee"),caption.color.darkened(0.3),10,6),Rect2(pos,Vector2(width,21)))
-			draw_string(font,pos+Vector2(6,15),tr(caption.text),HORIZONTAL_ALIGNMENT_LEFT,-1,11,caption.color)
-			y += 24.0
+			var width := font.get_string_size(tr(caption.text),HORIZONTAL_ALIGNMENT_LEFT,-1,11).x+12.0
+			widths.append(width)
+			total += width+5.0
+		var x := (size.x-total)*0.5
+		for index in range(mark.captions.size()):
+			var caption: Dictionary = mark.captions[index]
+			var pos := Vector2(x,54.0)
+			draw_style_box(pill(Color("17100fee"),caption.color.darkened(0.3),10,6),Rect2(pos,Vector2(widths[index],20)))
+			draw_string(font,pos+Vector2(6,14),tr(caption.text),HORIZONTAL_ALIGNMENT_LEFT,-1,11,caption.color)
+			x += widths[index]+5.0
