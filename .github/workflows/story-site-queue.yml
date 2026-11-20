@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/test_altar_queued_discovery.gd'
+      - 'scripts/test_world_tree_assault_entry.gd'
       - 'scripts/test_patrol_budget_preservation.gd'
       - 'scripts/test_patrol_localized_editor.gd'
       - 'systems/location_discoveries.gd'
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/test_altar_queued_discovery.gd'
+      - 'scripts/test_world_tree_assault_entry.gd'
       - 'scripts/test_patrol_budget_preservation.gd'
       - 'scripts/test_patrol_localized_editor.gd'
       - 'systems/location_discoveries.gd'
@@ -50,6 +52,13 @@ jobs:
           timeout 180s godot --headless --path . --script res://scripts/test_altar_queued_discovery.gd 2>&1 | tee story-queue.log
           grep -E '^ALTAR_QUEUE_INTEGRATION: [0-9]+ passed, 0 failed$' story-queue.log
           if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|Invalid call|FAIL altar-queue:|ObjectDB.*leaked' story-queue.log; then exit 1; fi
+      - name: Verify World Tree landings and resumable assault rolls
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s godot --headless --path . --script res://scripts/test_world_tree_assault_entry.gd 2>&1 | tee world-tree-assault.log
+          grep -E '^WORLD_TREE_ASSAULT_ENTRY: [0-9]+ passed, 0 failed$' world-tree-assault.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|Invalid call|^FAIL' world-tree-assault.log; then exit 1; fi
       - name: Verify full six-choice patrol budget auto-fit
         shell: bash
         run: |
@@ -72,6 +81,7 @@ jobs:
           path: |
             import.log
             story-queue.log
+            world-tree-assault.log
             patrol-budget.log
             patrol-localized.log
           if-no-files-found: warn
