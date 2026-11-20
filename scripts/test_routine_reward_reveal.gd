@@ -162,8 +162,13 @@ func overflow_case(keep: bool, resume: bool=false) -> void:
 		await settle()
 	var popup: Control=map.overlay if resume else map.overlay.get_node("RoutineRewardOverflow")
 	check(popup.name=="RoutineRewardOverflow","original overflow UI is available after preview or reload")
-	popup.select_card(str(old_ids[0]) if keep else "__new__")
-	popup.finish()
+	if keep:
+		popup.select_card(str(old_ids[0]))
+		popup.confirm.pressed.emit()
+	else:
+		popup.decline_button.pressed.emit()
+		check(not session.world.pending_reward.is_empty() and not map.routine_deck_delivery, "first refusal keeps the reward pending and does not deliver")
+		popup.decline_button.pressed.emit()
 	if keep:
 		check(incoming in session.world.dice_cards.map(func(item): return item.id) and map.routine_deck_delivery,"only kept overflow reward starts the right-deck delivery")
 		if resume:

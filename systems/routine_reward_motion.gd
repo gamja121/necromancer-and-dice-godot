@@ -92,7 +92,7 @@ func build(_entry: Dictionary, reward_picture: String) -> void:
 	var reverse:=picture(back,Paper,Vector2.ZERO,SIZE)
 	reverse.stretch_mode=TextureRect.STRETCH_SCALE
 	reverse.modulate=Color("766348")
-	caption(back,"✦",Vector2(18,65),Vector2(120,85),58,Color("dfbd75"))
+	caption(back,"★",Vector2(18,65),Vector2(120,85),58,Color("dfbd75"))
 	front=Control.new()
 	front.size=SIZE
 	front.mouse_filter=Control.MOUSE_FILTER_IGNORE
