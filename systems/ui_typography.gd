@@ -12,6 +12,13 @@ func _enter_tree() -> void:
 	if body_font==null or heading_font==null:
 		push_warning("Selected B/D fonts missing; keeping existing Nanum Gothic.")
 		return
+	# Native window chrome and menus draw outside the Control font pass.
+	# Install their fonts globally, including engine-built menus and tooltips.
+	var native_theme := ThemeDB.get_default_theme()
+	native_theme.default_font = body_font
+	native_theme.set_font("title_font", "Window", heading_font)
+	native_theme.set_font("font", "PopupMenu", body_font)
+	native_theme.set_font("font_separator", "PopupMenu", body_font)
 	get_tree().node_added.connect(_on_node_added)
 
 func _on_node_added(node: Node) -> void:

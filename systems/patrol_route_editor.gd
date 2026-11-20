@@ -287,7 +287,7 @@ func _station(parent: Node, kind: String) -> void:
 	counter.alignment=BoxContainer.ALIGNMENT_CENTER
 	counter.add_theme_constant_override("separation",6)
 	column.add_child(counter)
-	var minus:=_button(counter,"PatrolMinus_"+kind,"−",false,true)
+	var minus:=_button(counter,"PatrolMinus_"+kind,"-",false,true)
 	minus.pressed.connect(func(): actions.adjust_route_tile(kind,-1))
 	minus_buttons[kind]=minus
 	var count:=_label(counter,"PatrolCount_"+kind,"",25,"body",true)

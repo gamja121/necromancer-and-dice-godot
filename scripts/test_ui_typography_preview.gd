@@ -20,7 +20,35 @@ func _run() -> void:
 		print("UI_TYPOGRAPHY_PREVIEW: %d passed, %d failed" % [passed,failed+1])
 		quit(1)
 		return
-	check(info.has_char("낙".unicode_at(0)) and head.has_char("낙".unicode_at(0)),"both fonts support Korean")
+	var fonts: Array[Font] = [
+		info,
+		head,
+		preload("res://assets/fonts/nanum_gothic_regular.ttf"),
+		preload("res://assets/fonts/nanum_gothic_bold.ttf"),
+	]
+	for font in fonts:
+		var missing_syllables := 0
+		for codepoint in range(0xAC00, 0xD7A4):
+			if not font.has_char(codepoint): missing_syllables += 1
+		check(missing_syllables == 0, "%s covers all 11,172 modern Korean syllables" % font.resource_path.get_file())
+		var symbols := "▲▼-◆→★●"
+		var missing_symbols := ""
+		for index in range(symbols.length()):
+			if not font.has_char(symbols.unicode_at(index)): missing_symbols += symbols.substr(index,1)
+		check(missing_symbols.is_empty(), "%s covers the shared UI symbols: %s" % [font.resource_path.get_file(), missing_symbols])
+	var native_window := Window.new()
+	native_window.hide()
+	root.add_child(native_window)
+	check(native_window.get_theme_font("title_font", "Window") == head, "native titles inherit bundled heading font")
+	var rename_input := LineEdit.new()
+	root.add_child(rename_input)
+	var context_menu := rename_input.get_menu()
+	check(context_menu.get_theme_font("font", "PopupMenu") == info
+		and context_menu.get_theme_font("font_separator", "PopupMenu") == info,
+		"engine-created context menus inherit bundled item and separator fonts")
+	check(rename_input.get_theme_font("font", "TooltipLabel") == info, "tooltips inherit bundled body font")
+	native_window.queue_free()
+	rename_input.queue_free()
 	var normal=Label.new()
 	normal.name="BattleHudStatus"
 	root.add_child(normal)

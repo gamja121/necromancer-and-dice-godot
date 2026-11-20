@@ -176,7 +176,7 @@ func render_board() -> void:
 		var tile = panel()
 		tile.custom_minimum_size = Vector2(175,80)
 		grid.add_child(tile)
-		var marker = "▶ " if i == model.position else "✓ " if i in model.completed else ""
+		var marker = "▶ " if i == model.position else "● " if i in model.completed else ""
 		var text = label("%02d  %s\n%s" % [i,ExpeditionModel.NODES[i],marker+ ("네크로멘서" if i==model.position else "")],18)
 		if i == model.position: text.add_theme_color_override("font_color",Color("c5dda3"))
 		tile.add_child(text)
@@ -246,7 +246,7 @@ func card(parent: Node, u: Dictionary, image_height: int, callback: Callable, se
 	var visual: TextureRect = LayeredUnitCard.make_preview(box,u,Vector2.ZERO,Vector2(136.0,float(image_height)))
 	visual.custom_minimum_size = Vector2(136.0,float(image_height))
 	visual.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(label(u.name + ("  ✓" if selected_card else ""),18))
+	box.add_child(label(u.name + ("  ●" if selected_card else ""),18))
 	box.add_child(label("체력 %d/%d · 공격 %d · 속도 %d" % [u.get("hp",u.max_hp),u.max_hp,u.attack,u.speed],13))
 	if u.has("frozen"):
 		var status_text = "%s%s%s" % ["전사 " if not u.alive else "","빙결 " if u.frozen else "","중독 %d" % u.poison.size() if not u.poison.is_empty() else ""]

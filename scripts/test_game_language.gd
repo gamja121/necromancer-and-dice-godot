@@ -96,6 +96,13 @@ func check_source_catalog() -> void:
 		scan_catalog_data(parsed,path,catalog,missing)
 	check(missing.is_empty(),"all Korean production UI literals and data have English translations: "+str(missing.slice(0,8)))
 
+func bundled_font_renders(font: Font, text: String) -> bool:
+	if font == null or not font.resource_path.begins_with("res://assets/fonts/"): return false
+	for index in range(text.length()):
+		var codepoint := text.unicode_at(index)
+		if codepoint >= 32 and not font.has_char(codepoint): return false
+	return true
+
 func check_options() -> void:
 	var title=load("res://title.tscn").instantiate()
 	root.add_child(title)
@@ -114,9 +121,29 @@ func check_options() -> void:
 	title.language_picker.item_selected.emit(0)
 	await settle()
 	check(language.locale=="ko" and tr("설정")=="설정" and map_options.language_picker.selected==0,"title selection switches and synchronizes in-game picker")
+	var settings_window: Window = title.options_dialog
+	check(bundled_font_renders(settings_window.get_theme_font("title_font", "Window"), settings_window.title),
+		"native settings title draws Korean with a bundled font")
+	for picker: OptionButton in [title.language_picker, map_options.language_picker]:
+		var popup := picker.get_popup()
+		check(bundled_font_renders(popup.get_theme_font("font", "PopupMenu"), picker.get_item_text(0)),
+			"Korean language item draws with a bundled popup font: " + str(picker.name))
+	title._show_save_error("저장에 실패했습니다.")
+	await settle()
+	var save_dialog := title.get_node("SaveErrorDialog") as AcceptDialog
+	check(bundled_font_renders(save_dialog.get_theme_font("title_font", "Window"), save_dialog.title)
+		and bundled_font_renders(save_dialog.get_label().get_theme_font("font"), save_dialog.dialog_text),
+		"runtime save warning draws its title and body with bundled fonts")
+	save_dialog.hide()
+	var quit_dialog: ConfirmationDialog = root.get_node("QuitConfirmation").dialog
+	check(bundled_font_renders(quit_dialog.get_label().get_theme_font("font"), quit_dialog.dialog_text),
+		"quit confirmation draws its Korean message with a bundled font")
 	map_options.language_picker.item_selected.emit(1)
 	await settle()
 	check(language.locale=="en" and title.language_picker.selected==1,"in-game selection switches and synchronizes title picker")
+	var bilingual_menu: PopupMenu = title.language_picker.get_popup()
+	check(bundled_font_renders(bilingual_menu.get_theme_font("font", "PopupMenu"), bilingual_menu.get_item_text(0)),
+		"the Korean language item has glyphs while English is selected")
 	check(map_options.panel.size.x==map_options.PANEL_WIDTH and map_options.panel.get_global_rect().end.y<720,"language row fits painted settings panel")
 	check(title.options_dialog.size.x==410,"title options retain their width")
 	check((session.world==null and before==null) or (session.world!=null and session.world.snapshot()==before),"language switching leaves game progress and RNG untouched")

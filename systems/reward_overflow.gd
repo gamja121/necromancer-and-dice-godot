@@ -196,7 +196,7 @@ func setup_monster_swap(reward: Dictionary) -> void:
 	choices["__new__"] = new_card
 	choice_cards.append(new_card)
 
-	var arrow := label_at(self,"➜",Vector2(419,327),Vector2(62,70),44)
+	var arrow := label_at(self,"→",Vector2(419,327),Vector2(62,70),44)
 	arrow.name = "OverflowExchangeArrow"
 	arrow.add_theme_color_override("font_color",Color("c9ab7b"))
 	arrow.add_theme_color_override("font_shadow_color",Color("24170e"))

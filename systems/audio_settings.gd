@@ -230,7 +230,7 @@ func setup(parent: Control, opening_allowed: Callable = Callable()) -> void:
 	separator(column)
 	advanced_button = Button.new()
 	advanced_button.name = "MapAudioAdvancedButton"
-	advanced_button.text = "고급 설정 ▾"
+	advanced_button.text = "고급 설정 ▼"
 	advanced_button.custom_minimum_size.y = 38
 	advanced_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	advanced_button.pressed.connect(toggle_advanced)
@@ -375,7 +375,7 @@ func close_panel() -> void:
 
 func toggle_advanced() -> void:
 	advanced_content.visible = not advanced_content.visible
-	advanced_button.text = "고급 설정 ▴" if advanced_content.visible else "고급 설정 ▾"
+	advanced_button.text = "고급 설정 ▲" if advanced_content.visible else "고급 설정 ▼"
 	panel.reset_size()
 	update_focus_order()
 
