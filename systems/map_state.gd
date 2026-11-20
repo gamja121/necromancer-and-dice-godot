@@ -11,6 +11,9 @@ const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
 const KingPortalTile = preload("res://systems/king_portal_tile.gd")
+const WORLD_TREE_ASSAULT = "world_tree_assault"
+const WORLD_TREE_VISITED_FLAG = "event:world_tree_assault_01:tree_visited"
+const WORLD_TREE_ASSAULT_COMPLETE_FLAG = "event:world_tree_assault_01:complete"
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -86,6 +89,9 @@ var event_flags: Dictionary = {}
 var boss_assignments: Dictionary = {}
 # Event stages/choices are separate from canonical web-compatible boolean flags.
 var story_events: Dictionary = {}
+
+static func event_visit_id(current_map: int, current_move: int, index: int) -> String:
+	return "routine-visit:%d:%d:%d" % [current_map,current_move,index]
 
 func next_id(prefix: String) -> String:
 	var value = "%s-%d" % [prefix,next_serial]
@@ -542,6 +548,15 @@ func restore(saved: Dictionary) -> bool:
 				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand","unit"] or not offer.get("item") is Dictionary: return false
 	var reward: Dictionary = saved.get("pending_reward",{})
 	if reward.get("kind","")=="altar_boon" and not AltarBoons.valid_pending(saved,definitions): return false
+	if reward.get("kind","")==WORLD_TREE_ASSAULT:
+		var index := int(saved.position)
+		var receipt := event_visit_id(int(saved.get("map_serial",0)),int(saved.get("move_serial",0)),index)
+		if not terminal.is_empty() or saved.region != "default" or saved.tiles[index] != "event": return false
+		if not saved.get("pending_move",{}).is_empty() or not saved.get("active_encounter",{}).is_empty(): return false
+		if not saved.get("riot",{}).get("pending",{}).is_empty(): return false
+		if reward.get("index",-1) != index or reward.get("id","") != receipt: return false
+		if receipt in saved.get("reward_receipts",[]) or stored_flags.get(WORLD_TREE_ASSAULT_COMPLETE_FLAG,false): return false
+		if reward.get("phase","") != "choice" or reward.get("attack","") not in ["cut","burn"]: return false
 	if reward.get("kind","")=="routine":
 		var index: int = int(reward.get("index",-1))
 		if index<0 or index>=24 or int(saved.position)!=index or saved.tiles[index]!="event": return false
@@ -583,7 +598,7 @@ func restore(saved: Dictionary) -> bool:
 			run_result[k] = int(run_result[k])
 	pending_reward = saved.get("pending_reward",{}).duplicate(true)
 	if pending_reward.get("kind","")=="altar_boon": AltarBoons.normalize(pending_reward)
-	if pending_reward.get("kind","") in ["routine","grave-dig"]:
+	if pending_reward.get("kind","") in ["routine","grave-dig",WORLD_TREE_ASSAULT]:
 		pending_reward["index"] = int(pending_reward.get("index",-1))
 	# The unopened 10% mimic chest is a durable reward like a treasure.
 	# Godot JSON converts the native enemy count and gem index into floats;

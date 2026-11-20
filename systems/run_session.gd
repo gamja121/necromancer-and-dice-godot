@@ -18,6 +18,7 @@ const KingPortalEncounter = preload("res://systems/king_portal_encounter.gd")
 const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
+const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
@@ -39,6 +40,9 @@ var world
 var encounter: Dictionary = {}
 var notice = ""
 var unreadable_save_path := ""
+# Isolated playtests can enable the entry before the three choices ship.
+var world_tree_assault_stage_enabled := false
+var _world_tree_assault_landing := ""
 
 func has_save() -> bool:
 	return FileAccess.file_exists(save_file_path)
@@ -69,13 +73,16 @@ func start_new_world() -> bool:
 	encounter = {}
 	notice = ""
 	unreadable_save_path = ""
-	if save_world(): return true
+	if save_world():
+		clear_world_tree_assault_landing()
+		return true
 	world = previous_world
 	encounter = previous_encounter
 	unreadable_save_path = previous_unreadable_path
 	return false
 
 func reload_world() -> bool:
+	clear_world_tree_assault_landing()
 	world = null
 	encounter = {}
 	notice = ""
@@ -230,7 +237,22 @@ func _apply_discovery_flags(kind: String) -> void:
 		world.patrol_plan["rest_discovered"] = true
 
 func _event_visit_id(index: int) -> String:
-	return "routine-visit:%d:%d:%d" % [world.map_serial,world.move_serial,index]
+	return MapState.event_visit_id(world.map_serial,world.move_serial,index)
+
+func pending_world_tree_assault() -> Dictionary:
+	if world == null or world.pending_reward.get("kind","")!=MapState.WORLD_TREE_ASSAULT: return {}
+	return world.pending_reward.duplicate(true)
+
+func clear_world_tree_assault_landing() -> void:
+	_world_tree_assault_landing = ""
+
+func _can_roll_world_tree_assault(receipt: String) -> bool:
+	return world_tree_assault_stage_enabled and _world_tree_assault_landing == receipt \
+		and world.region == "default" and world.laps >= 2 and world.contamination >= 30 \
+		and Discovery.is_unlocked(world,"unknown") \
+		and world.event_flags.get(MapState.WORLD_TREE_VISITED_FLAG,false) \
+		and world.event_flags.get(CultistRumorEntry.COMPLETE_FLAG,false) \
+		and not world.event_flags.get(MapState.WORLD_TREE_ASSAULT_COMPLETE_FLAG,false)
 
 ## This method MUST only be called after map.gd's complete story priority
 ## dispatch has found nothing playable/resumable. One transaction covers
@@ -249,6 +271,15 @@ func begin_story_free_event(index: int) -> Dictionary:
 	# story-free event visit without the 40% discovery roll. Otherwise the
 	# six repeatable routines retain the existing 60/40 choice.
 	var guaranteed_story: bool = not Discovery.next_main_eligible(world).is_empty()
+	if not guaranteed_story and _can_roll_world_tree_assault(receipt) and world.rng.randf() < 0.30:
+		var attack := "cut" if world.rng.randi_range(0,1) == 0 else "burn"
+		world.pending_reward = {
+			"kind":MapState.WORLD_TREE_ASSAULT, "id":receipt, "index":index,
+			"phase":"choice", "attack":attack,
+		}
+		if not persist_change(before): return {"ok":false,"reason":notice}
+		clear_world_tree_assault_landing()
+		return {"ok":true,"type":MapState.WORLD_TREE_ASSAULT,"attack":attack}
 	var discover: bool = guaranteed_story
 	if not guaranteed_story and not possible.is_empty():
 		discover = world.rng.randf() >= 0.60
@@ -987,9 +1018,21 @@ func prepare_map_roll(instance_id: String = "") -> Dictionary:
 func complete_map_move() -> bool:
 	if world.pending_move.is_empty(): return true
 	var before: Dictionary = world.snapshot().duplicate(true)
+	var path: Array = world.pending_move.get("path",[])
+	var index := int(world.pending_move.get("landed",-1))
+	var actual_landing: bool = not path.is_empty() and int(path.back()) == index and index == world.position
+	actual_landing = actual_landing and index >= 0 and index < world.tiles.size()
+	if actual_landing and world.tiles[index] == "unknown":
+		world.event_flags[MapState.WORLD_TREE_VISITED_FLAG] = true
 	Riot.commit_turn(world)
 	world.pending_move = {}
-	return persist_change(before)
+	if not persist_change(before): return false
+	# A just-completed real move can authorize one live dispatch. The
+	# selected attack itself, rather than a new draw on load, is persisted.
+	clear_world_tree_assault_landing()
+	if actual_landing and world.tiles[index] == "event":
+		_world_tree_assault_landing = _event_visit_id(index)
+	return true
 
 func complete_riot_opening() -> bool:
 	if world == null or not world.pending_move.is_empty(): return false

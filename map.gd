@@ -1148,6 +1148,8 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 	elif WitchHuntEntry.can_enter(session, 1, world.position): show_tile(world.position,true)
 	elif type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
 	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
+	# A narrative or a discovery may already have claimed this arrival.
+	session.clear_world_tree_assault_landing()
 
 func select_tile(index: int) -> void:
 	if moving or battle_returning or is_instance_valid(overlay) or map_audio.is_open() or not world.pending_move.is_empty(): return
@@ -1365,7 +1367,7 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		elif str(outcome.get("type",""))=="discovery_pending":
 			sound("reward_gain")
 			show_pending_discovery_card(str(outcome.location))
-		else:
+		elif str(outcome.get("type",""))=="routine":
 			show_routine_card()
 		return
 	if type=="basic": return
