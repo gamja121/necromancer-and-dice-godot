@@ -9,7 +9,7 @@ const BEATS = [
 	{"id":"gossip","effect":"그들이 사라진 뒤, 숨죽이고 있던 주민이 조심스럽게 입을 연다.","dialogue":"요즘 밤마다 이상한 놈들이 성 밖으로 뭔가를 실어 나른다더군.","speaker":"주민","visual":"procession"},
 	{"id":"mark","effect":"짐을 덮은 천에 새겨진 문양이 눈에 들어온다. 사냥꾼이 말했던 흔적과 같다.","dialogue":"저 문양 말이야. 다른 곳에서도 봤다는 사람이 있어.","speaker":"주민","visual":"procession"},
 	{"id":"king","effect":"뜬소문처럼 흩어져 있던 이야기들이 하나의 방향을 가리키기 시작한다.","dialogue":"마물의 왕을 다시 불러내려는 자들이 있다는 말도 있어.","speaker":"주민","visual":"procession"},
-	{"id":"track","effect":"같은 문양을 쓰는 자들이 향한 곳을 추적할 단서를 얻었다.","dialogue":"[광신도들의 흔적을 추적합니다.]","speaker":"시스템","visual":"procession","trackingActivated":true}
+	{"id":"track","effect":"같은 문양을 쓰는 자들이 향한 곳을 추적할 단서를 얻었다. 주민은 세계수 근처에서도 그 문양을 본 사람이 있다고 덧붙였다.","dialogue":"[광신도들의 흔적을 추적합니다.]","speaker":"시스템","visual":"procession","trackingActivated":true}
 ]
 
 static func count() -> int:

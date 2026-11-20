@@ -2,6 +2,9 @@ extends SceneTree
 
 const Session = preload("res://systems/run_session.gd")
 const State = preload("res://systems/map_state.gd")
+const Portal = preload("res://systems/ritual_portal_entry.gd")
+const Routine = preload("res://systems/routine_event_catalog.gd")
+const Catalog = preload("res://systems/reward_catalog.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const Rumor = preload("res://systems/cultist_rumor_entry.gd")
 const Board = preload("res://map.tscn")
@@ -163,6 +166,43 @@ func test_main_story_priority() -> void:
 	map.queue_free()
 	await process_frame
 
+func test_optional_ritual_window() -> void:
+	var world = fixture()
+	world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
+	world.event_flags[Portal.SEEN_FLAG] = true
+	for attempt in range(5):
+		world.position = HILL
+		land_on_event("")
+		var miss := session.begin_story_free_event(EVENT)
+		check(miss.get("type","")=="routine","eligible miss %d remains optional" % (attempt+1))
+		check(session.complete_routine_choice("skip").get("ok",false),"ordinary outcome allows another event visit")
+	world.position = HILL
+	land_on_event("cut")
+	check(session.begin_story_free_event(EVENT).get("attack","")=="cut",
+		"merely seeing the portal does not close the optional draw")
+	var pending := session.pending_world_tree_assault()
+	world.event_flags[Portal.COMPLETE_FLAG] = true
+	check(session.save_world() and session.reload_world() and session.pending_world_tree_assault()==pending,
+		"a previously saved attack survives loading alongside the cutoff")
+
+	for battle_result: String in ["","won","lost"]:
+		world = fixture()
+		world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
+		world.event_flags[Portal.COMPLETE_FLAG] = true
+		var choice := "allow" if battle_result.is_empty() else "intervene"
+		world.story_events[Portal.EVENT_ID] = {"status":"complete","choice":choice,"battle_result":battle_result}
+		land_on_event("burn")
+		var rng := RandomNumberGenerator.new()
+		rng.seed = world.rng.seed
+		rng.state = world.rng.state
+		var expected := Routine.choose(rng)
+		if Routine.details(expected).effect=="dice":
+			rng.randi_range(0,Catalog.dice_cards().size()-1)
+		var outcome := session.begin_story_free_event(EVENT)
+		check(outcome.get("type","")=="routine" and outcome.get("event_id","")==expected
+			and world.rng.state==rng.state and session.pending_world_tree_assault().is_empty(),
+			"completed ritual %s %s skips the assault draw and keeps ordinary RNG" % [choice,battle_result])
+
 func _run() -> void:
 	session = root.get_node("RunSession") as Session
 	var previous_path := session.save_file_path
@@ -173,6 +213,7 @@ func _run() -> void:
 	test_priority_and_miss()
 	test_save_and_resume("cut")
 	test_save_and_resume("burn")
+	test_optional_ritual_window()
 	await test_main_story_priority()
 	for suffix: String in ["",".tmp"]:
 		var path := ProjectSettings.globalize_path(save_path+suffix)
