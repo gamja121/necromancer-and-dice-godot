@@ -58,7 +58,11 @@ func _run() -> void:
 	check(map.buttons.size() == 24, "24 live map buttons available")
 	check(map.dice != null and not map.dice.disabled, "map dice initially interactive")
 	print("HOME_SHUFFLE_TEST: start successful home exit")
-	map.exit_home()
+	map.show_home(true)
+	var departure: Button = panel_button(map,"다음 바퀴 출발")
+	check(departure != null and not departure.disabled, "home interior has an actionable next lap button")
+	if departure == null: quit(1); return
+	departure.pressed.emit()
 	var first_completed: bool = await wait_for_shuffle(map)
 	check(first_completed, "successful home exit animation completes")
 	if not first_completed:
@@ -86,7 +90,10 @@ func _run() -> void:
 		before_image.append(tile.texture_normal)
 	session.save_file_path = "user://missing_shuffle_home_exit_directory/invalid.json"
 	print("HOME_SHUFFLE_TEST: start failed-save home exit")
-	map.exit_home()
+	map.show_home(true)
+	departure = panel_button(map,"다음 바퀴 출발")
+	if departure == null: quit(1); return
+	departure.pressed.emit()
 	var second_completed: bool = await wait_for_shuffle(map)
 	check(second_completed, "failed-save home exit animation completes")
 	if not second_completed:
@@ -101,7 +108,9 @@ func _run() -> void:
 			unchanged_images = false
 	check(unchanged_images, "failed save does not expose any new tile face")
 	check(not map.moving and map.dice.disabled, "failed save releases motion lock but home retry modal blocks die input")
-	check(is_instance_valid(map.overlay), "failed save restores home window for retry")
+	var retry_art: TextureRect = map.overlay.get_node_or_null("LocationSceneImage") if is_instance_valid(map.overlay) else null
+	check(retry_art != null and retry_art.texture.resource_path == "res://assets/map/events/home-interior.jpg", "failed save restores the same home interior")
+	check(panel_button(map,"다음 바퀴 출발") != null and panel_button(map,"맵으로 나가기") == null, "retry still shows the departure button as the way back to the board")
 	check(map.status.text.contains("저장"), "failed save shows a storage error")
 	var saving_warning: Control=map.overlay.get_node_or_null("HomeDepartureFeedback")
 	check(saving_warning!=null and saving_warning.get_node("HomeDepartureReason").text.contains("저장"),

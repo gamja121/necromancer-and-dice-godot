@@ -46,7 +46,7 @@ func get_button(panel: Control, text_value: String) -> Button:
 func same_rect(node: Control, rect: Rect2) -> bool:
 	return is_instance_valid(node) and node.position.distance_to(rect.position) < 0.2 and node.size.distance_to(rect.size) < 0.2
 
-func check_frame(map: Control, tag: String, primary_label: String, primary_rect: Rect2) -> void:
+func check_frame(map: Control, tag: String, primary_label: String, primary_rect: Rect2, expect_exit: bool = true) -> void:
 	check(is_instance_valid(map.overlay), tag + " foreground overlay exists")
 	if not is_instance_valid(map.overlay): return
 	var panel: Control = map.overlay
@@ -69,8 +69,11 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	var action=get_button(panel,primary_label)
 	var exit=get_button(panel,"맵으로 나가기")
 	var art_bounds:Rect2=map.LOCATION_EVENT_SCENE_RECT
-	check(same_rect(exit,map.TILE_EVENT_EXIT_RECT),tag+" common original exit uses inside-art slot")
-	check(is_instance_valid(exit) and art_bounds.encloses(Rect2(exit.position,exit.size)),tag+" exit fits painting")
+	if expect_exit:
+		check(same_rect(exit,map.TILE_EVENT_EXIT_RECT),tag+" common original exit uses inside-art slot")
+		check(is_instance_valid(exit) and art_bounds.encloses(Rect2(exit.position,exit.size)),tag+" exit fits painting")
+	else:
+		check(exit == null, tag + " has no generic map exit")
 	if fortune:
 		check(panel.get_script()==preload("res://systems/place_actions.gd") and panel.confirm_button==null and action==null,tag+" direct screen has no duplicate entry button")
 		check(panel.dice==map.dice and map.dice.visible and not map.dice.disabled and map.dice.z_index>panel.z_index,tag+" current camp uses one foreground die")
@@ -82,10 +85,12 @@ func check_frame(map: Control, tag: String, primary_label: String, primary_rect:
 	else:
 		check(same_rect(action,primary_rect),tag+" action uses existing sprite at approved slot")
 		check(is_instance_valid(action) and art_bounds.encloses(Rect2(action.position,action.size)),tag+" action fits painting")
-		check(is_instance_valid(action) and is_instance_valid(exit) and action.position.x==exit.position.x and action.position.y+action.size.y<exit.position.y,tag+" original buttons do not overlap")
+		if expect_exit:
+			check(is_instance_valid(action) and is_instance_valid(exit) and action.position.x==exit.position.x and action.position.y+action.size.y<exit.position.y,tag+" original buttons do not overlap")
 		if is_instance_valid(action):
 			check(action.get_theme_stylebox("normal") is StyleBoxTexture and (action.get_theme_stylebox("normal") as StyleBoxTexture).texture.resource_path.begins_with("res://assets/map/ui/parchment_button_variant_"),tag+" original action art remains")
-	check(is_instance_valid(exit) and exit.get_theme_stylebox("normal") is StyleBoxTexture and (exit.get_theme_stylebox("normal") as StyleBoxTexture).texture.resource_path.begins_with("res://assets/map/ui/parchment_button_variant_"),tag+" original exit art remains")
+	if expect_exit:
+		check(is_instance_valid(exit) and exit.get_theme_stylebox("normal") is StyleBoxTexture and (exit.get_theme_stylebox("normal") as StyleBoxTexture).texture.resource_path.begins_with("res://assets/map/ui/parchment_button_variant_"),tag+" original exit art remains")
 	check(map.map_audio.modal_blocked and not map.presentation.gauge.visible, tag + " Stage5Q/R event chrome remains hidden")
 	check(map.buttons.size() == 24 and map.hero.visible, tag + " all board tiles and hero remain behind art")
 
@@ -213,12 +218,12 @@ func _run() -> void:
 	check_action_frame(map,map.overlay,"house inheritance","home-interior")
 	map.close_overlay()
 	map.show_home(false)
-	check_frame(map,"home exterior","들어가기",map.TILE_EVENT_PATROL_RECT)
+	check_frame(map,"home exterior","들어가기",map.TILE_EVENT_PATROL_RECT,false)
 	var exterior_art = get_art(map.overlay)
 	check(exterior_art != null and exterior_art.texture.resource_path == "res://assets/map/events/home.jpg", "home exterior retains original image")
 	map.close_overlay()
 	map.show_home(true)
-	check_frame(map,"home interior","낙인 계승",map.TILE_EVENT_INHERITANCE_RECT)
+	check_frame(map,"home interior","낙인 계승",map.TILE_EVENT_INHERITANCE_RECT,false)
 	var interior_art = get_art(map.overlay)
 	check(interior_art != null and interior_art.texture.resource_path == "res://assets/map/events/home-interior.jpg", "home interior retains approved existing asset")
 	check(same_rect(get_button(map.overlay,"순찰경로"),map.TILE_EVENT_PATROL_RECT), "home patrol retains original parchment and sits in middle stack slot")
@@ -228,8 +233,14 @@ func _run() -> void:
 	check(home_inherit.position.x==home_patrol.position.x and home_patrol.position.x==home_exit.position.x and home_inherit.position.y+home_inherit.size.y<home_patrol.position.y and home_patrol.position.y+home_patrol.size.y<home_exit.position.y, "home has three vertically aligned, nonoverlapping original buttons")
 	check(map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(home_inherit.position,home_inherit.size)) and map.LOCATION_EVENT_SCENE_RECT.encloses(Rect2(home_exit.position,home_exit.size)), "all house buttons stay inside painted scene rather than beneath it")
 	check(same_rect(home_exit,map.TILE_EVENT_ACTION_RECT), "home departure has its own visible primary action")
-	check(same_rect(get_button(map.overlay,"맵으로 나가기"),map.TILE_EVENT_EXIT_RECT), "home return uses the common exit slot")
+	var home_panel: Control = map.overlay
+	check(map.handle_cancel() and map.overlay == home_panel and not map.moving, "Esc keeps the home interior open without departing")
 	map.close_overlay()
+	session.world.position = (map.MapState.HOME + 1) % session.world.tiles.size()
+	map.show_home(false)
+	check(same_rect(get_button(map.overlay,"맵으로 나가기"),map.TILE_EVENT_EXIT_RECT), "remote home exterior still has a preview close action")
+	map.close_overlay()
+	session.world.position = int(before.position)
 	map.modal()
 	var dark = get_backdrop(map.overlay)
 	check(dark != null and dark.color.a > 0.7, "story/default modal still keeps its intended dark backdrop")

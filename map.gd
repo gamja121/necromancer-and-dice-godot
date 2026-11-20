@@ -2217,8 +2217,10 @@ func show_home(interior: bool = false) -> void:
 		if session.event_flag_is_set(Discovery.home_flag(kind)):
 			UnlockNoticeBadge.attach(place_icon,"NEW")
 	unlock_scroll.visible=unlock_rows.get_child_count()>0
-	location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func():dismiss_overlay(render),4)
-	location_button(panel,"다음 바퀴 출발",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,exit_home,1)
+	# Only a remote exterior preview can be dismissed without departing.
+	if not interior and world.position != MapState.HOME:
+		location_button(panel,"맵으로 나가기",TILE_EVENT_EXIT_RECT.position,TILE_EVENT_EXIT_RECT.size,func():dismiss_overlay(render),4)
+	location_button(panel,"다음 바퀴 출발",TILE_EVENT_ACTION_RECT.position,TILE_EVENT_ACTION_RECT.size,exit_home.bind(interior),1)
 	# A blocked departure must explain itself ON this panel. The map status
 	# line is hidden behind the painting, which made a rejected press appear
 	# completely unresponsive. Offer a direct route repair if relevant.
@@ -3767,7 +3769,7 @@ func use_warp(index: int) -> void:
 	moving = false
 	if world.position==world.final_dragon_location(): show_tile(world.position,true)
 
-func exit_home() -> void:
+func exit_home(interior: bool = false) -> void:
 	if moving: return
 	# Never dismiss the home screen before checking whether departure is
 	# legal. A rejected patrol plan used to rebuild an apparently identical
@@ -3778,7 +3780,7 @@ func exit_home() -> void:
 		home_departure_feedback=str(allowed.get("reason","")) if not bool(allowed.get("ok",false)) else str(preview.get("reason","순찰경로를 확인하세요."))
 		status.text=home_departure_feedback
 		close_overlay()
-		show_home()
+		show_home(interior)
 		return
 	home_departure_feedback=""
 	moving = true
@@ -3812,7 +3814,7 @@ func exit_home() -> void:
 	if not ok:
 		home_departure_feedback = session.notice if not session.notice.is_empty() else "맵 교체 저장 실패 · 다시 시도하세요"
 		status.text = home_departure_feedback
-		show_home()
+		show_home(interior)
 	else:
 		home_departure_feedback = ""
 		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
