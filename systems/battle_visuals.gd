@@ -288,12 +288,6 @@ func _draw() -> void:
 			for i in range(4):
 				var phase = fmod(clock*0.55+i*0.25,1.0)
 				draw_circle(foot+Vector2(sin(i*2.3+clock)*22,-phase*50),2.5,Color(0.45,0.85,0.25,(1-phase)*0.7))
-		var badges = ""
-		if unit.frozen: badges += "빙결 "
-		if not unit.poison.is_empty(): badges += "독 "
-		if unit.get("shields",0)>0: badges += "보호 %d" % unit.shields
-		if not badges.is_empty():
-			draw_string(scene.get_theme_default_font(),Vector2(scene.unit_x(unit)-28,scene.bars[id].position.y+31),tr(badges),HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("dfedce"))
 	for particle in particles:
 		var t: float = particle.age/particle.life
 		var p: Vector2 = particle.origin+particle.velocity*particle.age+Vector2(0,45*particle.age*particle.age)
@@ -537,6 +531,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 			sprite.pivot_offset = geometry.pivot
 			sprite.scale = Vector2.ONE
 			sprite.modulate.a = 1.0
+			scene.place_health_bar(previous,geometry.bar)
 	if blooming.is_empty(): return
 	ground.queue_redraw()
 	var profile: Dictionary = scene.presentation_layout.metrics["guardian-seed"]
@@ -559,6 +554,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 		states[current.id] = current.duplicate(true)
 		layouts[current.id] = geometry
 		homes[current.id] = geometry.position
+		scene.place_health_bar(current,geometry.bar)
 		active.erase(current.id)
 		ground.queue_redraw()
 
