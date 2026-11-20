@@ -19,6 +19,7 @@ const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const Discovery = preload("res://systems/location_discoveries.gd")
 const Routine = preload("res://systems/routine_event_catalog.gd")
 const CultistRumorEntry = preload("res://systems/cultist_rumor_entry.gd")
+const RitualPortalEntry = preload("res://systems/ritual_portal_entry.gd")
 const StoryBattleRegistry = preload("res://systems/story_battle_registry.gd")
 const CultistAltarEnemies = preload("res://systems/cultist_altar_enemies.gd")
 const RitualPortalEnemies = preload("res://systems/ritual_portal_enemies.gd")
@@ -252,6 +253,7 @@ func _can_roll_world_tree_assault(receipt: String) -> bool:
 		and Discovery.is_unlocked(world,"unknown") \
 		and world.event_flags.get(MapState.WORLD_TREE_VISITED_FLAG,false) \
 		and world.event_flags.get(CultistRumorEntry.COMPLETE_FLAG,false) \
+		and not world.event_flags.get(RitualPortalEntry.COMPLETE_FLAG,false) \
 		and not world.event_flags.get(MapState.WORLD_TREE_ASSAULT_COMPLETE_FLAG,false)
 
 ## This method MUST only be called after map.gd's complete story priority

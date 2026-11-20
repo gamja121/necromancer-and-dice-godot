@@ -95,7 +95,12 @@ func source_beats() -> void:
 	check(Beats.beat(2).dialogue=="요즘 밤마다 이상한 놈들이 성 밖으로 뭔가를 실어 나른다더군.","original resident gossip")
 	check(Beats.beat(3).dialogue=="저 문양 말이야. 다른 곳에서도 봤다는 사람이 있어.","repeated cultist symbol clue")
 	check(Beats.beat(4).dialogue=="마물의 왕을 다시 불러내려는 자들이 있다는 말도 있어.","original monster king resurrection rumor dialogue")
-	check(Beats.beat(5).effect=="같은 문양을 쓰는 자들이 향한 곳을 추적할 단서를 얻었다.","original final narration")
+	var foreshadow: String = Beats.beat(5).effect
+	check(foreshadow=="같은 문양을 쓰는 자들이 향한 곳을 추적할 단서를 얻었다. 주민은 세계수 근처에서도 그 문양을 본 사람이 있다고 덧붙였다." and Beats.beat(5,"prophet").effect==foreshadow,
+		"both routes end the rumor with the same World Tree clue")
+	var english: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/localization/en.json"))
+	check(english.get(foreshadow,"")=="You have a trail to follow. The villager adds that someone saw the same symbol near the World Tree.",
+		"the World Tree clue has an English translation")
 	check(Beats.beat(5).dialogue=="[광신도들의 흔적을 추적합니다.]","original tracking activation dialogue")
 	check(Beats.beat(5).get("trackingActivated",false)==true,"final beat advertises tracking quest")
 	for i in range(5):
