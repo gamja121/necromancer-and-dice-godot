@@ -41,9 +41,7 @@ var world
 var encounter: Dictionary = {}
 var notice = ""
 var unreadable_save_path := ""
-# Isolated playtests can enable the entry before the three choices ship.
-var world_tree_assault_stage_enabled := false
-var _world_tree_assault_landing := ""
+var world_tree_assault_stage_enabled := true
 
 func has_save() -> bool:
 	return FileAccess.file_exists(save_file_path)
@@ -74,16 +72,13 @@ func start_new_world() -> bool:
 	encounter = {}
 	notice = ""
 	unreadable_save_path = ""
-	if save_world():
-		clear_world_tree_assault_landing()
-		return true
+	if save_world(): return true
 	world = previous_world
 	encounter = previous_encounter
 	unreadable_save_path = previous_unreadable_path
 	return false
 
 func reload_world() -> bool:
-	clear_world_tree_assault_landing()
 	world = null
 	encounter = {}
 	notice = ""
@@ -147,7 +142,8 @@ func ensure_world() -> bool:
 					world.event_flags[MapState.HILL_UNLOCK_FLAG]=true
 					world.event_flags[MapState.HILL_HOME_NOTICE]=true
 					hill_upgraded=true
-			if (boss_migrated or boss_upgraded or warp_upgraded or wormhole_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded or riot_upgraded) and not save_world():
+			var landing_repaired := _discard_displaced_world_tree_landing()
+			if (boss_migrated or boss_upgraded or warp_upgraded or wormhole_upgraded or boss_retired or swamp_upgraded > 0 or hill_upgraded or rare_upgraded or riot_upgraded or landing_repaired) and not save_world():
 				world.restore(before_upgrade)
 				notice = "타일 해금 상태 갱신 저장에 실패했습니다. 다시 시도하세요."
 	encounter = world.active_encounter.duplicate(true)
@@ -244,11 +240,22 @@ func pending_world_tree_assault() -> Dictionary:
 	if world == null or world.pending_reward.get("kind","")!=MapState.WORLD_TREE_ASSAULT: return {}
 	return world.pending_reward.duplicate(true)
 
-func clear_world_tree_assault_landing() -> void:
-	_world_tree_assault_landing = ""
+func has_world_tree_assault_landing() -> bool:
+	return world != null and not world.world_tree_assault_landing.is_empty()
 
-func _can_roll_world_tree_assault(receipt: String) -> bool:
-	return world_tree_assault_stage_enabled and _world_tree_assault_landing == receipt \
+func _discard_displaced_world_tree_landing() -> bool:
+	if not has_world_tree_assault_landing() or world.tiles[world.position] == "event": return false
+	world.world_tree_assault_landing = ""
+	return true
+
+func clear_world_tree_assault_landing() -> bool:
+	if not has_world_tree_assault_landing(): return true
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.world_tree_assault_landing = ""
+	return persist_change(before)
+
+func _world_tree_assault_eligible() -> bool:
+	return world_tree_assault_stage_enabled and not demo_mode \
 		and world.region == "default" and world.laps >= 2 and world.contamination >= 30 \
 		and Discovery.is_unlocked(world,"unknown") \
 		and world.event_flags.get(MapState.WORLD_TREE_VISITED_FLAG,false) \
@@ -273,14 +280,15 @@ func begin_story_free_event(index: int) -> Dictionary:
 	# story-free event visit without the 40% discovery roll. Otherwise the
 	# six repeatable routines retain the existing 60/40 choice.
 	var guaranteed_story: bool = not Discovery.next_main_eligible(world).is_empty()
-	if not guaranteed_story and _can_roll_world_tree_assault(receipt) and world.rng.randf() < 0.30:
+	var assault_visit: bool = world.world_tree_assault_landing == receipt
+	world.world_tree_assault_landing = ""
+	if not guaranteed_story and assault_visit and _world_tree_assault_eligible() and world.rng.randf() < 0.30:
 		var attack := "cut" if world.rng.randi_range(0,1) == 0 else "burn"
 		world.pending_reward = {
 			"kind":MapState.WORLD_TREE_ASSAULT, "id":receipt, "index":index,
 			"phase":"choice", "attack":attack,
 		}
 		if not persist_change(before): return {"ok":false,"reason":notice}
-		clear_world_tree_assault_landing()
 		return {"ok":true,"type":MapState.WORLD_TREE_ASSAULT,"attack":attack}
 	var discover: bool = guaranteed_story
 	if not guaranteed_story and not possible.is_empty():
@@ -315,6 +323,42 @@ func begin_story_free_event(index: int) -> Dictionary:
 	}
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"type":"routine","event_id":event_id}
+
+func resolve_world_tree_assault(receipt_id: String, choice: String, card_instance_id: String = "") -> Dictionary:
+	var reward := pending_world_tree_assault()
+	if reward.get("phase","") != "choice" or reward.get("id","") != receipt_id or choice not in ["safe","risk","ignore"]:
+		return {"ok":false,"reason":"선택 가능한 사건이 없습니다."}
+	var card_index := -1
+	if choice == "safe":
+		card_index = world.dice_cards.find_custom(func(card): return str(card.id) == card_instance_id)
+		if card_index < 0:
+			return {"ok":false,"reason":"사용할 주사위 제어 카드를 선택하세요."}
+	elif not card_instance_id.is_empty():
+		return {"ok":false,"reason":"선택 가능한 사건이 없습니다."}
+
+	var before: Dictionary = world.snapshot().duplicate(true)
+	var cost := 0
+	if choice == "safe":
+		cost = mini(MapState.WORLD_TREE_ASSAULT_SAFE_COST,100-int(world.contamination))
+		world.dice_cards.remove_at(card_index)
+		world.contamination += cost
+	var face: int = world.rng.randi_range(1,6) if choice == "risk" else 0
+	world.region = MapState.world_tree_assault_region(reward.attack,choice,face)
+	world.event_flags[MapState.WORLD_TREE_ASSAULT_COMPLETE_FLAG] = true
+	world.reward_receipts.append(receipt_id)
+	world.pending_reward = reward.merged({
+		"phase":"result", "choice":choice, "face":face, "region":world.region,
+		"corruption_cost":cost, "card_id":card_instance_id,
+	},true)
+	if not persist_change(before): return {"ok":false,"reason":notice}
+	return {"ok":true,"record":pending_world_tree_assault()}
+
+func acknowledge_world_tree_assault(receipt_id: String) -> bool:
+	var reward := pending_world_tree_assault()
+	if reward.get("phase","") != "result" or reward.get("id","") != receipt_id: return false
+	var before: Dictionary = world.snapshot().duplicate(true)
+	world.pending_reward = {}
+	return persist_change(before)
 
 ## One explicit routine choice resolves atomically; a full dice hand uses the
 ## ORIGINAL RewardOverflow and claim_reward replace/decline flow.
@@ -783,6 +827,7 @@ func persist_change(before: Dictionary) -> bool:
 	# Rising corruption upgrades safe unvisited monster stones immediately.
 	# Saved/scouted/in-progress encounters keep their existing identities.
 	world.restore_missing_rare_stone()
+	_discard_displaced_world_tree_landing()
 	if save_world(): return true
 	world.restore(before)
 	encounter = world.active_encounter.duplicate(true)
@@ -991,6 +1036,7 @@ func resolve_owned_card(instance_id: String, context: Dictionary, rng: RandomNum
 
 func prepare_map_roll(instance_id: String = "") -> Dictionary:
 	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	if has_world_tree_assault_landing(): return {"ok":false,"reason":"도착한 사건을 먼저 확인하세요."}
 	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
 	if not encounter.is_empty() or not world.pending_reward.is_empty(): return {"ok":false,"reason":"지금은 이동할 수 없습니다."}
 	if not world.pending_move.is_empty(): return {"ok":false,"reason":"이전 이동을 먼저 완료하세요."}
@@ -1028,13 +1074,10 @@ func complete_map_move() -> bool:
 		world.event_flags[MapState.WORLD_TREE_VISITED_FLAG] = true
 	Riot.commit_turn(world)
 	world.pending_move = {}
-	if not persist_change(before): return false
-	# A just-completed real move can authorize one live dispatch. The
-	# selected attack itself, rather than a new draw on load, is persisted.
-	clear_world_tree_assault_landing()
-	if actual_landing and world.tiles[index] == "event":
-		_world_tree_assault_landing = _event_visit_id(index)
-	return true
+	# Only real landings within the assault window survive a restart here.
+	if actual_landing and world.tiles[index] == "event" and _world_tree_assault_eligible():
+		world.world_tree_assault_landing = _event_visit_id(index)
+	return persist_change(before)
 
 func complete_riot_opening() -> bool:
 	if world == null or not world.pending_move.is_empty(): return false
@@ -1193,6 +1236,7 @@ func place_visit_id(kind: String, index: int) -> String:
 
 func place_allowed(index: int, type: String) -> Dictionary:
 	if world == null or not world.run_result.is_empty(): return {"ok":false,"reason":"마무리된 원정입니다."}
+	if has_world_tree_assault_landing(): return {"ok":false,"reason":"도착한 사건을 먼저 확인하세요."}
 	if type == "home" and home_blocked_by_riot(): return {"ok":false,"reason":RIOT_REMOTE_HOME_REASON}
 	if WitchHunt.home_in_progress(self): return {"ok":false,"reason":"집 앞의 사건을 먼저 확인하세요."}
 	if index<0 or index>=world.tiles.size() or world.tiles[index]!=type:
