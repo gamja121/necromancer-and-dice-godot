@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dolrfks1bgpvh"
-path="res://.godot/imported/necropolis-pyramids-battlefield.jpg-d9ab1b021bf6973006a329127cf4298e.ctex"
+uid="uid://1oy22crdkpbh"
+path="res://.godot/imported/snow-castle-forest.jpg-0b52b51703b05074c4bef66fe3e5a62d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/battle/backgrounds/necropolis-pyramids-battlefield.jpg"
-dest_files=["res://.godot/imported/necropolis-pyramids-battlefield.jpg-d9ab1b021bf6973006a329127cf4298e.ctex"]
+source_file="res://assets/battle/backgrounds/snow-castle-forest.jpg"
+dest_files=["res://.godot/imported/snow-castle-forest.jpg-0b52b51703b05074c4bef66fe3e5a62d.ctex"]
 
 [params]
 

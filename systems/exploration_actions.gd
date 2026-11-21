@@ -3,6 +3,7 @@ const Sound = preload("res://systems/game_audio.gd")
 const HillRoutePicker=preload("res://systems/hill_route_picker.gd")
 const GraveyardMotion=preload("res://systems/graveyard_reward_motion.gd")
 const LocationNoticeStrip=preload("res://systems/location_notice_strip.gd")
+const WorldTreeArt = preload("res://systems/world_tree_art.gd")
 signal closed
 signal leave_to_map
 signal hill_route_chosen(steps: int)
@@ -71,9 +72,12 @@ func setup(map_scene, tile_index: int) -> void:
 	z_index=85
 	backdrop()
 	var background={"unknown":"world-tree","graveyard":"graveyard","forest":"forest","home":"home-interior"}[type]
+	var art_path: String = "res://assets/map/events/%s.jpg" % background
+	if type == "unknown" and session.world.world_tree_destroyed():
+		art_path = WorldTreeArt.ruins(session.world.region).resource_path
 	# The action layer uses the same 980x406 painting and 1024x450 nine-patch
 	# as the location screen; action-specific controls are layered above it.
-	map.location_scene_image(self,"res://assets/map/events/%s.jpg" % background)
+	map.location_scene_image(self,art_path)
 	if type=="home":
 		plan=session.world.patrol_plan.duplicate(true) if RoutePlan.is_new(session.world.patrol_plan) else RoutePlan.default_plan()
 		if not plan.selection.has("forest"): plan.selection["forest"]=0

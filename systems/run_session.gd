@@ -691,8 +691,8 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	if story and get_story_event(event_id).battle_result == "lost":
 		world.story_events[event_id] = {"status":"active","choice":str(story_spec.choice),"battle_result":""}
 	encounter = {"id":world.next_id("encounter"),"index":index,"type":type,"allies":allies,"enemies":enemies,"checkpoint":rules.snapshot(),"phase":"ready","prophecy":prophecy,"previous_roll":0,"previous_card":""}
-	# One normal-background choice per committed encounter, with no combat RNG draw.
-	if world.region=="default": encounter["background_variant"]=BattleBackgrounds.choose_variant(str(encounter.id),int(world.rng.seed))
+	# Pick the backdrop once per encounter without drawing from the combat RNG.
+	encounter["background_variant"]=BattleBackgrounds.choose_variant(str(encounter.id),int(world.rng.seed))
 	if type=="boss": encounter["boss_stage"]=world.current_boss_stage()
 	if final_wormhole: encounter["entry"]=KingPortalEncounter.ENTRY
 	if story: encounter["event_id"] = event_id

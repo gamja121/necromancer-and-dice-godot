@@ -15,6 +15,7 @@ const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const StorySplit = preload("res://systems/story_split_layout.gd")
 const StoryBook = preload("res://systems/main_story_book.gd")
 const WorldTreeAssaultPanel = preload("res://systems/world_tree_assault_panel.gd")
+const WorldTreeArt = preload("res://systems/world_tree_art.gd")
 const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
@@ -2929,7 +2930,9 @@ func show_monster_king_hunt_beat(index: int) -> void:
 		if beat_index==4: beat.effect="폐허로 향하던 흔적이 웜홀 앞에서 끊겼다. 웜홀 안쪽에서 뿌리에 남은 것과 같은 빛이 새어 나온다."
 	var panel=story_modal()
 	if beat.get("locationKnown",false): panel.show_seal("위치")
-	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
+	var art_path: String = WorldTreeArt.ruins(world.region).resource_path if ruined else MonsterKingHuntEntry.BASE_ART
+	var art := image(panel,art_path,TILE_EVENT_SCENE_RECT.position,TILE_EVENT_SCENE_RECT.size)
+	if ruined: art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	if beat_index==0: InkSceneReveal.play(art)
 	# Frozen web reuses the already ported hunter scene and hunter portrait
 	# layer CSS, but only trace and revival play their source animations.
