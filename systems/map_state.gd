@@ -14,6 +14,7 @@ const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const WORLD_TREE_ASSAULT = "world_tree_assault"
 const WORLD_TREE_VISITED_FLAG = "event:world_tree_assault_01:tree_visited"
 const WORLD_TREE_ASSAULT_COMPLETE_FLAG = "event:world_tree_assault_01:complete"
+const WORLD_TREE_ASSAULT_SAFE_COST := 8
 const HILL_UNLOCK_FLAG = "event:discovery:forest:unlocked"
 const HILL_HOME_NOTICE = "ui:unlock:forest:home_pending"
 const Rules = preload("res://systems/battlefield_rules.gd")
@@ -76,6 +77,7 @@ var map_serial = 0
 var previous_map_roll = 0
 var previous_map_card = ""
 var pending_move: Dictionary = {}
+var world_tree_assault_landing := ""
 var riot: Dictionary = {}
 var active_encounter: Dictionary = {}
 var prophecy: Dictionary = {"rolls":[]}
@@ -476,7 +478,41 @@ func leave_home() -> void:
 func snapshot() -> Dictionary:
 	var state: Dictionary = {"version":1,"tiles":tiles,"roster":roster,"position":position,"cleared":cleared,"contamination":contamination,"max_contamination_reached":maxi(max_contamination_reached,contamination),"laps":laps,"lap_ready":lap_ready,"last_face":last_face,"dice_visual_position":dice_visual_position.duplicate(),"dice_visual_rotation":dice_visual_rotation,"dice_visual_face":dice_visual_face,"region":region,"rng_seed":str(rng.seed),"rng_state":str(rng.state),"dice_cards":dice_cards,"graveyard_corpses":graveyard_corpses,"reward_receipts":reward_receipts,"enemies_defeated":enemies_defeated,"run_result":run_result.duplicate(true),"pending_reward":pending_reward,"next_serial":next_serial,"move_serial":move_serial,"map_serial":map_serial,"previous_map_roll":previous_map_roll,"previous_map_card":previous_map_card,"pending_move":pending_move,"active_encounter":active_encounter,"prophecy":prophecy,"last_prophecy":last_prophecy,"shop_trade":shop_trade,"patrol_plan":patrol_plan,"scout":scout,"prayer_result":prayer_result,"event_flags":event_flags.duplicate(true),"boss_assignments":boss_assignments.duplicate(true),"story_events":story_events.duplicate(true)}
 	if not riot.is_empty(): state["riot"] = riot.duplicate(true)
+	if not world_tree_assault_landing.is_empty(): state["world_tree_assault_landing"] = world_tree_assault_landing
 	return state
+
+static func world_tree_assault_region(attack: String, choice: String, face: int) -> String:
+	if choice == "safe" or (choice == "risk" and face >= 4): return "default"
+	return "winter" if attack == "cut" else "hell"
+
+static func _valid_world_tree_assault(saved: Dictionary, reward: Dictionary, flags: Dictionary) -> bool:
+	var index := int(saved.position)
+	var receipt := event_visit_id(int(saved.get("map_serial",0)),int(saved.get("move_serial",0)),index)
+	if not saved.get("run_result",{}).is_empty() or not saved.get("pending_move",{}).is_empty(): return false
+	if not saved.get("active_encounter",{}).is_empty() or not saved.get("riot",{}).get("pending",{}).is_empty(): return false
+	if reward.get("index",-1) != index or reward.get("id","") != receipt: return false
+	if reward.get("attack","") not in ["cut","burn"]: return false
+	var closed: bool = flags.get(WORLD_TREE_ASSAULT_COMPLETE_FLAG,false)
+	var count: int = saved.get("reward_receipts",[]).count(receipt)
+	if reward.get("phase","") == "choice":
+		return saved.region == "default" and saved.tiles[index] == "event" and count == 0 and not closed
+	if reward.get("phase","") != "result" or not closed or count != 1: return false
+	var choice: Variant = reward.get("choice","")
+	var face: Variant = reward.get("face")
+	var cost: Variant = reward.get("corruption_cost")
+	var card_id: Variant = reward.get("card_id")
+	if choice not in ["safe","risk","ignore"] or not card_id is String: return false
+	if not (face is int or face is float) or not (cost is int or cost is float): return false
+	if face != int(face) or cost != int(cost) or cost < 0 or cost > WORLD_TREE_ASSAULT_SAFE_COST: return false
+	if choice == "risk":
+		if face < 1 or face > 6: return false
+	elif face != 0:
+		return false
+	if choice == "safe":
+		if card_id.is_empty(): return false
+	elif not card_id.is_empty() or cost != 0:
+		return false
+	return saved.region == reward.get("region","") and saved.region == world_tree_assault_region(reward.attack,choice,int(face))
 
 func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
@@ -548,15 +584,15 @@ func restore(saved: Dictionary) -> bool:
 				if not offer is Dictionary or not offer.get("kind","") in ["dice","brand","unit"] or not offer.get("item") is Dictionary: return false
 	var reward: Dictionary = saved.get("pending_reward",{})
 	if reward.get("kind","")=="altar_boon" and not AltarBoons.valid_pending(saved,definitions): return false
-	if reward.get("kind","")==WORLD_TREE_ASSAULT:
+	var landing: Variant = saved.get("world_tree_assault_landing","")
+	if not landing is String: return false
+	if not landing.is_empty():
 		var index := int(saved.position)
-		var receipt := event_visit_id(int(saved.get("map_serial",0)),int(saved.get("move_serial",0)),index)
-		if not terminal.is_empty() or saved.region != "default" or saved.tiles[index] != "event": return false
+		if landing != event_visit_id(int(saved.get("map_serial",0)),int(saved.get("move_serial",0)),index): return false
+		if saved.tiles[index] != "event" or not terminal.is_empty() or not reward.is_empty(): return false
 		if not saved.get("pending_move",{}).is_empty() or not saved.get("active_encounter",{}).is_empty(): return false
-		if not saved.get("riot",{}).get("pending",{}).is_empty(): return false
-		if reward.get("index",-1) != index or reward.get("id","") != receipt: return false
-		if receipt in saved.get("reward_receipts",[]) or stored_flags.get(WORLD_TREE_ASSAULT_COMPLETE_FLAG,false): return false
-		if reward.get("phase","") != "choice" or reward.get("attack","") not in ["cut","burn"]: return false
+		if landing in saved.get("reward_receipts",[]) or not saved.get("riot",{}).get("pending",{}).is_empty(): return false
+	if reward.get("kind","")==WORLD_TREE_ASSAULT and not _valid_world_tree_assault(saved,reward,stored_flags): return false
 	if reward.get("kind","")=="routine":
 		var index: int = int(reward.get("index",-1))
 		if index<0 or index>=24 or int(saved.position)!=index or saved.tiles[index]!="event": return false
@@ -600,6 +636,9 @@ func restore(saved: Dictionary) -> bool:
 	if pending_reward.get("kind","")=="altar_boon": AltarBoons.normalize(pending_reward)
 	if pending_reward.get("kind","") in ["routine","grave-dig",WORLD_TREE_ASSAULT]:
 		pending_reward["index"] = int(pending_reward.get("index",-1))
+	if pending_reward.get("kind","") == WORLD_TREE_ASSAULT and pending_reward.get("phase","") == "result":
+		pending_reward["face"] = int(pending_reward.face)
+		pending_reward["corruption_cost"] = int(pending_reward.corruption_cost)
 	# The unopened 10% mimic chest is a durable reward like a treasure.
 	# Godot JSON converts the native enemy count and gem index into floats;
 	# restoring ints avoids a false state change (and keeps restart parity).
@@ -653,6 +692,7 @@ func restore(saved: Dictionary) -> bool:
 	previous_map_roll = int(saved.get("previous_map_roll",saved.get("last_face",0) if move_serial>0 else 0))
 	previous_map_card = str(saved.get("previous_map_card",""))
 	pending_move = saved.get("pending_move",{}).duplicate(true)
+	world_tree_assault_landing = landing
 	riot = Riot.normalized(saved.get("riot", {}))
 	active_encounter = saved.get("active_encounter",{}).duplicate(true)
 	# Godot JSON parses all numbers as floats. Source prophecy faces and

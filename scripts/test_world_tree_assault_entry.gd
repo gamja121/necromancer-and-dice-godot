@@ -31,6 +31,7 @@ func check(condition: bool, description: String) -> void:
 
 func fixture():
 	check(session.start_new_world(), "fresh version-1 fixture")
+	session.demo_mode = false
 	var world = session.world
 	world.tiles[HILL] = "forest"
 	world.tiles[TREE] = "unknown"
@@ -80,11 +81,12 @@ func test_visit() -> void:
 	check(session.prepare_map_roll().get("landed",-1)==TREE and session.complete_map_move()
 		and session.event_flag_is_set(State.WORLD_TREE_VISITED_FLAG),"ordinary die uses the same durable tree visit")
 func test_blockers() -> void:
-	for blocker in ["disabled","preview","reload","one_lap","purified","rumor_seen","locked","winter","hell","completed"]:
+	for blocker in ["disabled","demo","preview","legacy_reload","one_lap","purified","rumor_seen","locked","winter","hell","completed"]:
 		var world = fixture()
 		world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
 		match blocker:
 			"disabled": session.world_tree_assault_stage_enabled = false
+			"demo": session.demo_mode = true
 			"one_lap": world.laps = 1
 			"purified":
 				world.max_contamination_reached = 70
@@ -97,12 +99,12 @@ func test_blockers() -> void:
 				world.event_flags[Discovery.pending_flag("unknown")] = true
 			"winter","hell": world.region = blocker
 			"completed": world.event_flags[State.WORLD_TREE_ASSAULT_COMPLETE_FLAG] = true
-		if blocker == "preview":
+		if blocker in ["preview","legacy_reload"]:
 			world.position = EVENT
 			world.rng.seed = seed_for("cut")
 		else:
 			land_on_event("cut")
-		if blocker == "reload": check(session.reload_world(),"reload with no saved assault")
+		if blocker == "legacy_reload": check(session.save_world() and session.reload_world(),"legacy arrival has no recorded event landing")
 		var outcome := session.begin_story_free_event(EVENT)
 		check(outcome.get("type","")=="routine" and session.pending_world_tree_assault().is_empty(),"%s cannot roll an assault" % blocker)
 
@@ -126,6 +128,8 @@ func test_save_and_resume(attack: String) -> void:
 	var world = fixture()
 	world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
 	land_on_event(attack)
+	check(session.save_world() and session.reload_world() and session.has_world_tree_assault_landing(),"a valid pending arrival survives reloading before the draw")
+	world = session.world
 	var before: Dictionary = world.snapshot().duplicate(true)
 	session.save_file_path = "user://missing_assault_dir_%d/save.json" % OS.get_process_id()
 	check(not session.begin_story_free_event(EVENT).get("ok",false) and world.snapshot()==before,
@@ -162,7 +166,7 @@ func test_main_story_priority() -> void:
 		"actual board dispatch starts the eligible main story")
 	check(world.pending_reward.is_empty() and world.rng.state==rng_before,
 		"main story wins without drawing an otherwise successful assault")
-	check(session._world_tree_assault_landing.is_empty(),"the main story consumes the one-time arrival authorization")
+	check(not session.has_world_tree_assault_landing(),"the main story consumes the one-time arrival authorization")
 	map.queue_free()
 	await process_frame
 
@@ -203,17 +207,76 @@ func test_optional_ritual_window() -> void:
 			and world.rng.state==rng.state and session.pending_world_tree_assault().is_empty(),
 			"completed ritual %s %s skips the assault draw and keeps ordinary RNG" % [choice,battle_result])
 
+func seed_result_face(face: int) -> void:
+	var rng: RandomNumberGenerator = session.world.rng
+	for seed in range(500):
+		rng.seed = seed
+		if rng.randi_range(1,6) == face:
+			rng.seed = seed
+			return
+
+func test_choice_results() -> void:
+	for entry in [["safe","cut",0,"default"],["risk","cut",3,"winter"],["risk","burn",4,"default"],["ignore","burn",0,"hell"]]:
+		var choice: String = entry[0]
+		var attack: String = entry[1]
+		var face: int = entry[2]
+		var region: String = entry[3]
+		var case_name := "%s/%s/%d" % [choice,attack,face]
+		var world = fixture()
+		world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
+		for i in range(2):
+			world.dice_cards.append(session.create_item("dice",Catalog.dice_cards()[0]))
+		land_on_event(attack)
+		check(session.begin_story_free_event(EVENT).get("ok",false),"%s opens a real assault" % case_name)
+		var pending := session.pending_world_tree_assault()
+		var receipt_id: String = pending.id
+		if face > 0: seed_result_face(face)
+		var selected_id: String = world.dice_cards[1].id if choice == "safe" else ""
+		var old_cards: Array = world.dice_cards.duplicate(true)
+		var old_roster: Array = world.roster.duplicate(true)
+		var old_tiles: Array = world.tiles.duplicate()
+		if choice == "safe":
+			check(not session.resolve_world_tree_assault(receipt_id,"safe","stale-card").get("ok",false),
+				"safe choice requires a specific owned instance")
+			old_cards.remove_at(1)
+		var before: Dictionary = world.snapshot().duplicate(true)
+		session.save_file_path = "user://missing_assault_dir_%d/save.json" % OS.get_process_id()
+		check(not session.resolve_world_tree_assault(receipt_id,choice,selected_id).get("ok",false)
+			and world.snapshot() == before,"failed %s save restores RNG, region and costs" % choice)
+		session.save_file_path = save_path
+		var resolved := session.resolve_world_tree_assault(receipt_id,choice,selected_id)
+		check(resolved.get("ok",false),"%s commits successfully" % case_name)
+		var result := session.pending_world_tree_assault()
+		check(result.get("phase","")=="result" and result.get("face",-1)==face and world.region==region,
+			"%s saves the correct face and destination" % case_name)
+		check(world.dice_cards==old_cards and world.roster==old_roster,
+			"%s charges only its stated card cost" % case_name)
+		check(world.contamination==(38 if choice=="safe" else 30) and world.position==EVENT,
+			"%s applies its corruption cost without moving the player" % case_name)
+		if choice != "safe":
+			check(world.tiles==old_tiles,"changing region keeps the original 24 tiles")
+		check(world.reward_receipts.count(receipt_id)==1 and session.reload_world()
+			and session.pending_world_tree_assault()==result,"one result receipt survives reload exactly")
+		check(not session.resolve_world_tree_assault(receipt_id,choice,selected_id).get("ok",false),
+			"resolved choice rejects duplicate input")
+		check(session.acknowledge_world_tree_assault(receipt_id) and session.reload_world()
+			and session.pending_world_tree_assault().is_empty() and session.world.region==region,
+			"continuing retains the region and clears the result")
+		check(session.world.event_flags.get(State.WORLD_TREE_ASSAULT_COMPLETE_FLAG,false),
+			"the one-time completion record remains after acknowledging")
+
 func _run() -> void:
 	session = root.get_node("RunSession") as Session
 	var previous_path := session.save_file_path
 	session.save_file_path = save_path
-	check(not session.world_tree_assault_stage_enabled,"player sessions default to normal event flow")
+	check(session.world_tree_assault_stage_enabled,"standard player sessions enable the optional assault")
 	test_visit()
 	test_blockers()
 	test_priority_and_miss()
 	test_save_and_resume("cut")
 	test_save_and_resume("burn")
 	test_optional_ritual_window()
+	test_choice_results()
 	await test_main_story_priority()
 	for suffix: String in ["",".tmp"]:
 		var path := ProjectSettings.globalize_path(save_path+suffix)

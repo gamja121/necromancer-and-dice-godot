@@ -14,6 +14,7 @@ const ButtonEffects = preload("res://systems/button_effects_module.gd")
 const PanelEffects = preload("res://systems/panel_effects_module.gd")
 const StorySplit = preload("res://systems/story_split_layout.gd")
 const StoryBook = preload("res://systems/main_story_book.gd")
+const WorldTreeAssaultPanel = preload("res://systems/world_tree_assault_panel.gd")
 const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
@@ -436,6 +437,7 @@ func _ready() -> void:
 	elif world.pending_reward.get("kind","")=="capture": open_embedded_battle(false)
 	elif FinalDragonProgress.ending_pending(world): call_deferred("show_final_ending",not session.demo_mode)
 	elif world.pending_reward.get("kind","") in ["treasure","mimic"]: show_treasure()
+	elif world.pending_reward.get("kind","")==MapState.WORLD_TREE_ASSAULT: call_deferred("resume_world_tree_assault")
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
 	elif world.pending_reward.get("kind","")=="altar_boon": call_deferred("resume_altar_boon")
@@ -443,6 +445,7 @@ func _ready() -> void:
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not world.riot.get("pending", {}).is_empty(): call_deferred("_resume_riot_opening")
 	elif not session.pending_story_battle_event_id().is_empty(): call_deferred("show_pending_story_battle_result")
+	elif session.has_world_tree_assault_landing(): call_deferred("resume_world_tree_assault_landing")
 	elif world.position==world.final_dragon_location(): call_deferred("show_tile",world.position,true)
 	elif world.tiles[world.position]=="boss" and not world.position in world.cleared: call_deferred("show_tile",world.position)
 	elif world.tiles[world.position] in ["village","unknown","event","altar","graveyard","forest","fortune-teller-camp","home"] or session.get_story_event(WitchHuntEntry.IDS[1]).status in ["seen", "active"]: call_deferred("resume_village_rumor_if_unfinished")
@@ -1081,6 +1084,9 @@ func animate_hero_step(index: int, is_final_step: bool = false) -> void:
 
 func roll_move(instance_id: String = "") -> void:
 	if moving or battle_returning or is_instance_valid(overlay) or map_audio.is_open(): return
+	if session.has_world_tree_assault_landing():
+		resume_world_tree_assault_landing()
+		return
 	if not world.pending_move.is_empty():
 		await resume_map_move()
 		return
@@ -1144,15 +1150,29 @@ func resume_map_move(play_arrival_sound: bool = false) -> void:
 	moving = false
 	refresh_shared_die_input()
 	var type: String = world.tiles[world.position]
-	if world.position==world.final_dragon_location(): show_tile(world.position,true)
+	if session.has_world_tree_assault_landing(): resume_world_tree_assault_landing()
+	elif world.position==world.final_dragon_location(): show_tile(world.position,true)
 	elif WitchHuntEntry.can_enter(session, 1, world.position): show_tile(world.position,true)
 	elif type in ["monster","rare-monster","boss"] and not world.position in world.cleared: show_tile(world.position)
 	elif type in EVENT_IMAGES or type in ["gem","event"]: show_tile(world.position, true)
-	# A narrative or a discovery may already have claimed this arrival.
-	session.clear_world_tree_assault_landing()
+
+func resume_world_tree_assault_landing() -> void:
+	if not session.has_world_tree_assault_landing() or is_instance_valid(overlay): return
+	show_tile(world.position,true)
+	# Generic events consume the marker in their own save. If an existing
+	# story took the arrival, let it accept input after saving the claim.
+	if session.has_world_tree_assault_landing():
+		if is_instance_valid(overlay):
+			if session.clear_world_tree_assault_landing(): return
+			close_overlay(false)
+		status.text = "사건 저장 실패 · 주사위를 눌러 다시 시도하세요"
+		refresh_shared_die_input()
 
 func select_tile(index: int) -> void:
 	if moving or battle_returning or is_instance_valid(overlay) or map_audio.is_open() or not world.pending_move.is_empty(): return
+	if session.has_world_tree_assault_landing():
+		resume_world_tree_assault_landing()
+		return
 	highlight(index)
 	status.text = "%d번 · %s%s" % [index+1,MapState.NAMES[world.tiles[index]]," · 처치 완료" if index in world.cleared else ""]
 	show_tile(index)
@@ -1244,6 +1264,9 @@ func finish_story_at_tile(index: int, notice: String = "", before_location: Call
 
 func show_tile(index: int, actual_landing: bool = false) -> void:
 	if overlay is VillageMobMarch: return
+	if world.pending_reward.get("kind","") == MapState.WORLD_TREE_ASSAULT:
+		resume_world_tree_assault()
+		return
 	if world.pending_reward.get("kind","")=="altar_boon":
 		show_place_actions(world.position)
 		return
@@ -1369,6 +1392,8 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 			show_pending_discovery_card(str(outcome.location))
 		elif str(outcome.get("type",""))=="routine":
 			show_routine_card()
+		elif str(outcome.get("type","")) == MapState.WORLD_TREE_ASSAULT:
+			resume_world_tree_assault()
 		return
 	if type=="basic": return
 	if type=="home":
@@ -1453,6 +1478,33 @@ func _show_ordinary_info_card(category: String,entry: Dictionary,tile_art: Strin
 	panel.gui_input.connect(dismiss_on_input)
 	for child in panel.get_children():
 		if child is Control and child.get_meta("ui_backdrop",false): child.gui_input.connect(dismiss_on_input)
+
+func resume_world_tree_assault() -> void:
+	var record: Dictionary = session.pending_world_tree_assault()
+	if record.is_empty(): return
+	var continuing: bool = is_instance_valid(overlay) and overlay is WorldTreeAssaultPanel
+	if is_instance_valid(overlay): close_overlay(false)
+	var panel := WorldTreeAssaultPanel.new()
+	panel.instant = continuing
+	panel.z_index = 80
+	stage.add_child(panel)
+	overlay = panel
+	panel.setup(record,world.dice_cards,mini(MapState.WORLD_TREE_ASSAULT_SAFE_COST,100-int(world.contamination)))
+	panel.choice_requested.connect(func(choice: String, card_id: String):
+		if overlay != panel: return
+		var result: Dictionary = session.resolve_world_tree_assault(str(record.id),choice,card_id)
+		if result.get("ok",false):
+			resume_world_tree_assault()
+		else:
+			panel.show_error(str(result.get("reason","저장에 실패했습니다. 다시 시도하세요."))))
+	panel.continue_requested.connect(func():
+		if overlay != panel: return
+		if not session.acknowledge_world_tree_assault(str(record.id)):
+			panel.show_error(session.notice if not session.notice.is_empty() else "저장에 실패했습니다. 다시 시도하세요.")
+			return
+		close_overlay()
+		render())
+	refresh_shared_die_input()
 
 ## Resuming a saved unopened routine card must not reroll the incident,
 ## spend the reward, or re-enter an old story after a process restart.
