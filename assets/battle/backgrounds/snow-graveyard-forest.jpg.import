@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b1688lqnfaenf"
-path="res://.godot/imported/wasteland-chasm-battlefield.jpg-8ae3c6406f137e69fbd503b9cdddb4e2.ctex"
+uid="uid://dm5be4qxxrpaq"
+path="res://.godot/imported/snow-graveyard-forest.jpg-0c9a09d83c25446388edb20c84e8f84f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/battle/backgrounds/wasteland-chasm-battlefield.jpg"
-dest_files=["res://.godot/imported/wasteland-chasm-battlefield.jpg-8ae3c6406f137e69fbd503b9cdddb4e2.ctex"]
+source_file="res://assets/battle/backgrounds/snow-graveyard-forest.jpg"
+dest_files=["res://.godot/imported/snow-graveyard-forest.jpg-0c9a09d83c25446388edb20c84e8f84f.ctex"]
 
 [params]
 

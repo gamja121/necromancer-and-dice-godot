@@ -5,8 +5,9 @@ signal choice_requested(choice: String, card_instance_id: String)
 signal continue_requested
 
 const TREE_ART = preload("res://assets/map/events/world-tree.jpg")
-const WINTER_ART = preload("res://assets/map/maps/winter-map.jpg")
-const HELL_ART = preload("res://assets/map/maps/hell-map.jpg")
+const CUT_ART = preload("res://assets/map/events/world-tree-assault-cut.jpg")
+const BURN_ART = preload("res://assets/map/events/world-tree-assault-burn.jpg")
+const WorldTreeArt = preload("res://systems/world_tree_art.gd")
 
 var _error: Label
 var _cards: OptionButton
@@ -25,7 +26,8 @@ func setup(record: Dictionary, dice_cards: Array, safe_cost: int) -> void:
 		_show_choices(record.attack,dice_cards,safe_cost)
 
 func _show_choices(attack: String, dice_cards: Array, safe_cost: int) -> void:
-	add_source_image(TREE_ART.resource_path,SOURCE_ART,TREE_ART)
+	var attack_art: Texture2D = CUT_ART if attack == "cut" else BURN_ART
+	add_source_image(attack_art.resource_path,SOURCE_ART,attack_art).texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var warning := "도끼를 든 광신도들이 세계수로 향한다.\n세계수가 쓰러지면 겨울이 찾아온다." if attack == "cut" else "광신도들이 세계수에 불을 놓으려 한다.\n불길이 뿌리에 닿으면 이 땅은 지옥이 된다."
 	copy(warning,Rect2(702,213,434,106),21)
 	_safe = _action("확실하게 저지","AssaultSafe",316,func(): _request_choice("safe"))
@@ -81,15 +83,15 @@ func _add_card_picker(dice_cards: Array) -> void:
 
 func _show_result(record: Dictionary) -> void:
 	var region: String = record.region
-	var outcome_art: Texture2D = TREE_ART
+	var ruins: Texture2D = WorldTreeArt.ruins(region)
+	var outcome_art: Texture2D = ruins if ruins != null else TREE_ART
 	var result := "광신도들을 물리쳤다. 세계수는 살아남았고 원정은 계속된다."
 	if region == "winter":
-		outcome_art = WINTER_ART
 		result = "세계수가 쓰러졌다.\n눈보라가 원정지를 뒤덮는다."
 	elif region == "hell":
-		outcome_art = HELL_ART
 		result = "세계수가 불탔다.\n불길이 원정지 전역으로 번진다."
-	add_source_image(outcome_art.resource_path,SOURCE_ART,outcome_art)
+	var painting := add_source_image(outcome_art.resource_path,SOURCE_ART,outcome_art)
+	if ruins != null: painting.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	copy(result,Rect2(702,213,434,95),21)
 	if record.choice == "safe":
 		copy("카드 1장 소모 · 오염도 +%d" % int(record.corruption_cost),Rect2(702,322,432,44),18,RED_INK)

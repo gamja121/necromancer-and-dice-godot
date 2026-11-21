@@ -121,6 +121,8 @@ func _run() -> void:
 		session.world.event_flags[session.MapState.WORLD_TREE_ASSAULT_COMPLETE_FLAG] = true
 		map.show_location(index)
 		panel = map.overlay
+		var ruin_painting := panel.get_node("LocationSceneImage") as TextureRect
+		check(ruin_painting.texture.resource_path=="res://assets/map/events/world-tree-ruins-%s.jpg" % region,region+" ruins have their own location painting")
 		check(panel.status.text=="세계수 폐허" and panel.prayer_detail.text==SessionScript.WORLD_TREE_PRAYER_CLOSED,region+" ruins show a clear notice even on a previously prayed visit")
 		check(not map.dice.visible and map.dice.disabled and not map.keyboard_roll_dice(),region+" ruins hide and lock the shared die")
 		hint._process(3.1)
