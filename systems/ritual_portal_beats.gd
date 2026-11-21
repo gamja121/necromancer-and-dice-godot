@@ -46,9 +46,17 @@ const AFTER_BATTLE = {
 	}
 }
 
-static func aftermath(result: String) -> Dictionary:
+const RUIN_AFTERMATH = {
+	"winter":"석문이 끝까지 열렸다. 거대한 형체가 숲으로 사라졌다. 눈 위의 검은 자국은 세계수의 그루터기까지 이어졌다.",
+	"hell":"석문이 끝까지 열렸다. 거대한 형체가 숲으로 사라졌다. 잿더미를 가른 검은 자국은 세계수가 불탄 자리까지 이어졌다."
+}
+
+static func aftermath(result: String, region: String = "default") -> Dictionary:
 	if not AFTER_BATTLE.has(result): return {}
-	return AFTER_BATTLE[result].duplicate(true)
+	var outcome: Dictionary = AFTER_BATTLE[result].duplicate(true)
+	if result=="allow" and RUIN_AFTERMATH.has(region):
+		outcome.effect=RUIN_AFTERMATH[region]
+	return outcome
 
 static func layer_for(visual: String) -> String:
 	match visual:

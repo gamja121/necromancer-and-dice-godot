@@ -115,6 +115,22 @@ func _run() -> void:
 	check(not hint.visible,"already-spent prayer never asks for another roll")
 	check(panel.status.text.contains("대축복") and panel.prayer_detail.text.contains("25/100"),"reopened prayer shows persisted outcome")
 	check(map.stage.get_child(map.stage.get_child_count()-1)==map.dice,"reopened world-tree art does not cover shared die")
+	for region in ["winter","hell"]:
+		map.close_overlay()
+		session.world.region = region
+		session.world.event_flags[session.MapState.WORLD_TREE_ASSAULT_COMPLETE_FLAG] = true
+		map.show_location(index)
+		panel = map.overlay
+		check(panel.status.text=="세계수 폐허" and panel.prayer_detail.text==SessionScript.WORLD_TREE_PRAYER_CLOSED,region+" ruins show a clear notice even on a previously prayed visit")
+		check(not map.dice.visible and map.dice.disabled and not map.keyboard_roll_dice(),region+" ruins hide and lock the shared die")
+		hint._process(3.1)
+		check(not hint.visible,region+" ruins never display a roll hint")
+		panel.close_button.pressed.emit()
+		var exit_started: int = Time.get_ticks_msec()
+		while is_instance_valid(map.overlay) and Time.get_ticks_msec()-exit_started<3000:
+			await process_frame
+		check(not is_instance_valid(map.overlay) and map.dice.visible and not map.dice.disabled and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,region+" ruins exit restores the map die")
+		hint = map.stage.get_node("DicePressHint")
 	map.queue_free()
 	await process_frame
 	session.save_file_path = old_save

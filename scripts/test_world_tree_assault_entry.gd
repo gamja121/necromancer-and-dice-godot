@@ -264,6 +264,21 @@ func test_choice_results() -> void:
 			"continuing retains the region and clears the result")
 		check(session.world.event_flags.get(State.WORLD_TREE_ASSAULT_COMPLETE_FLAG,false),
 			"the one-time completion record remains after acknowledging")
+		check(session.world.world_tree_destroyed() == (region != "default"),
+			"%s reload distinguishes real destruction from successful defense" % case_name)
+		if region != "default":
+			var resumed = session.world
+			for key in ["tiles","position","laps","patrol_plan","riot","story_events","boss_assignments","dice_cards","roster"]:
+				check(resumed.snapshot().get(key,{}) == before.get(key,{}),"%s retains %s across world transition" % [region,key])
+			resumed.position = TREE
+			var prayer_before: Dictionary = resumed.snapshot().duplicate(true)
+			var prayer: Dictionary = session.pray_world_tree(TREE)
+			check(not prayer.get("ok",true) and prayer.get("reason","")==Session.WORLD_TREE_PRAYER_CLOSED
+				and resumed.snapshot()==prayer_before,"%s prayer closure consumes no RNG or state" % region)
+			resumed.position = EVENT
+			check(session.prepare_map_roll().get("ok",false) and session.complete_map_move()
+				and resumed.position != EVENT and resumed.region==region,
+				"%s continues normal movement after the result is closed" % region)
 
 func _run() -> void:
 	session = root.get_node("RunSession") as Session

@@ -369,11 +369,13 @@ func _sync_map_chrome() -> void:
 	var has_overlay: bool = is_instance_valid(overlay)
 	var central_battle: bool = has_overlay and overlay.name=="CentralBattle"
 	var fortune_prophecy: bool = has_overlay and overlay is PlaceActions and overlay.type=="fortune-teller-camp"
-	var world_tree_prayer: bool = has_overlay and overlay is ExplorationActions and overlay.type=="unknown"
+	var world_tree_location: bool = has_overlay and overlay is ExplorationActions and overlay.type=="unknown"
+	var world_tree_ruins: bool = world_tree_location and world.world_tree_destroyed()
+	var world_tree_prayer: bool = world_tree_location and not world_tree_ruins
 	var foreground_die: bool = not has_overlay or central_battle or fortune_prophecy or world_tree_prayer
 	var show_board_controls: bool = not has_overlay or overlay is InventoryPanel
 	var battle_settings_open: bool = central_battle and is_instance_valid(embedded_battle) and is_instance_valid(embedded_battle.audio_settings) and embedded_battle.audio_settings.is_open()
-	var show_die: bool = not battle_settings_open and not (overlay is BattleDeck or overlay is HomeInheritance or overlay is VillageMobMarch)
+	var show_die: bool = not battle_settings_open and not world_tree_ruins and not (overlay is BattleDeck or overlay is HomeInheritance or overlay is VillageMobMarch)
 	for control in map_chrome:
 		if not is_instance_valid(control): continue
 		var battle_book_or_deck: bool = control == book_button or (not battle_settings_open and (control == deck_button or control == dice_count_label))
@@ -725,7 +727,11 @@ func render() -> void:
 		install_board_depth_test(node,node.texture_normal)
 		apply_board_depth_top_light(node)
 		node.pivot_offset = node.size/2
-		node.tooltip_text = "%d번 · %s%s" % [i+1,("변형 웜홀" if i==KingPortalTile.target(world) else MapState.NAMES[world.tiles[i]])," · 처치 완료" if i in world.cleared else ""]
+		var world_tree_ruins: bool = world.tiles[i]=="unknown" and world.world_tree_destroyed()
+		var tile_name: String = MapState.NAMES[world.tiles[i]]
+		if i==KingPortalTile.target(world): tile_name = "변형 웜홀"
+		elif world_tree_ruins: tile_name = "세계수 폐허"
+		node.tooltip_text = "%d번 · %s%s" % [i+1,tile_name," · 처치 완료" if i in world.cleared else ""]
 		node.pressed.connect(func(): select_tile(i))
 		stage.add_child(node)
 		show_button_focus(node)
@@ -739,7 +745,9 @@ func render() -> void:
 			blockade.name="HomeBlockadeBadge"
 			blockade.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 			blockade.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		if (world.tiles[i]=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING)) or (Discovery.exists(str(world.tiles[i])) and session.event_flag_is_set("ui:unlock:%s:tile_pending" % world.tiles[i])):
+		var new_location: bool = Discovery.exists(str(world.tiles[i])) and session.event_flag_is_set("ui:unlock:%s:tile_pending" % world.tiles[i])
+		var new_rest: bool = world.tiles[i]=="rest" and session.event_flag_is_set(UnlockNoticeBadge.REST_TILE_PENDING)
+		if not world_tree_ruins and (new_rest or new_location):
 			UnlockNoticeBadge.attach(node,"신규")
 			node.tooltip_text += " · 새로 해금된 장소"
 		if world.scout.scouted and not i in world.cleared and world.scout.intel.any(func(entry): return int(entry.index)==i):
@@ -2907,12 +2915,18 @@ func show_monster_king_hunt_intro(index: int) -> void:
 func show_monster_king_hunt_beat(index: int) -> void:
 	if not MonsterKingHuntEntry.can_enter(session,index) and not MonsterKingHuntEntry.can_resume_completion(session,index): return
 	var beat_index: int=MonsterKingHuntEntry.current_beat(session)
-	var beat: Dictionary=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))
+	var ruined: bool=world.world_tree_destroyed()
+	var beat: Dictionary
+	if ruined:
+		beat=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session),world.region)
+	else:
+		beat=MonsterKingHuntBeats.beat(beat_index,MonsterKingHuntEntry.revival_mode(session))
 	if beat.is_empty(): return
-	if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="allow":
-		if beat_index==0: beat.effect="의식터에서 봤던 검은 자국이 세계수의 뿌리까지 이어져 있었다."
-		if beat_index==3: beat.dialogue="왕이 지나간 흔적이야. 이 뿌리는 숲 너머 봉인 폐허까지 뻗어 있어."
-	if beat_index==4: beat.effect="폐허로 향하던 흔적이 웜홀 앞에서 끊겼다. 웜홀 안쪽에서 뿌리에 남은 것과 같은 빛이 새어 나온다."
+	if not ruined:
+		if session.get_story_event(RitualPortalEntry.EVENT_ID).choice=="allow":
+			if beat_index==0: beat.effect="의식터에서 봤던 검은 자국이 세계수의 뿌리까지 이어져 있었다."
+			if beat_index==3: beat.dialogue="왕이 지나간 흔적이야. 이 뿌리는 숲 너머 봉인 폐허까지 뻗어 있어."
+		if beat_index==4: beat.effect="폐허로 향하던 흔적이 웜홀 앞에서 끊겼다. 웜홀 안쪽에서 뿌리에 남은 것과 같은 빛이 새어 나온다."
 	var panel=story_modal()
 	if beat.get("locationKnown",false): panel.show_seal("위치")
 	var art=image(panel,MonsterKingHuntEntry.BASE_ART,Vector2(243.2,136.8),Vector2(793.6,446.4))
@@ -3048,7 +3062,7 @@ func show_ritual_portal_aftermath(index: int) -> void:
 	if not RitualPortalEntry.aftermath_ready(session,index): return
 	var state: Dictionary=session.get_story_event(RitualPortalEntry.EVENT_ID)
 	var result: String="allow" if state.choice=="allow" else str(state.battle_result)
-	var beat: Dictionary=RitualPortalBeats.aftermath(result)
+	var beat: Dictionary=RitualPortalBeats.aftermath(result,world.region) if world.world_tree_destroyed() else RitualPortalBeats.aftermath(result)
 	if beat.is_empty(): return
 	var panel=story_modal()
 	panel.show_seal("추적")
