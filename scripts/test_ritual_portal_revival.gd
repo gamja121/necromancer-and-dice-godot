@@ -92,6 +92,12 @@ func source_contract() -> void:
 	check(won.speaker=="시스템" and lost.speaker=="시스템","source system narrator preserved")
 	check(won.visual=="omen" and lost.visual=="omen","source existing omen art reused")
 	check(Beats.aftermath("pending").is_empty(),"invalid/undecided result has no epilogue")
+	for region in ["winter","hell"]:
+		var ruins: Dictionary=Beats.aftermath("allow",region)
+		var clue: String="그루터기" if region=="winter" else "잿더미"
+		check(ruins.effect.contains(clue) and ruins.visual=="omen",region+" full revival points to the world tree ruins")
+		check(Beats.aftermath("won",region)==won and Beats.aftermath("lost",region)==lost,region+" retains the two real battle outcomes")
+	check(Beats.aftermath("allow").effect.contains("뿌리가 하나씩 검게 물들었다"),"ordinary full revival retains the living root scene")
 	check(Beats.beat(5).is_empty(),"after-battle outcome is not a sixth beat")
 	var changed: Dictionary=Beats.aftermath("won")
 	changed.effect="tampered"

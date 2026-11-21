@@ -27,6 +27,7 @@ const StoryBattleOutcomes = preload("res://systems/story_battle_outcomes.gd")
 const SAVE = "user://map_run_v1.json"
 const DEMO_SAVE = "user://map_run_demo_v1.json"
 const RIOT_REMOTE_HOME_REASON = "폭동 중에는 집에 직접 도착해야 합니다."
+const WORLD_TREE_PRAYER_CLOSED = "세계수의 힘이 사라져 정화 기도를 할 수 없습니다."
 const SAVE_LOAD_FAILED = "저장된 원정을 읽을 수 없습니다. 기존 저장은 보존했습니다."
 const SHOP_OFFER_COUNT = 3
 const SHOP_TRADE_LIMIT = 3
@@ -1426,6 +1427,7 @@ func fortune_prophecy(index: int) -> Dictionary:
 func pray_world_tree(index: int) -> Dictionary:
 	var allowed = place_allowed(index,"unknown")
 	if not allowed.ok: return allowed
+	if world.world_tree_destroyed(): return {"ok":false,"reason":WORLD_TREE_PRAYER_CLOSED}
 	var visit = place_visit_id("purify",index)
 	if visit in world.reward_receipts: return {"ok":false,"reason":"이번 방문의 기도는 완료했습니다."}
 	var before: Dictionary = world.snapshot().duplicate(true)

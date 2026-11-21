@@ -481,6 +481,9 @@ func snapshot() -> Dictionary:
 	if not world_tree_assault_landing.is_empty(): state["world_tree_assault_landing"] = world_tree_assault_landing
 	return state
 
+func world_tree_destroyed() -> bool:
+	return region in ["winter","hell"] and event_flags.get(WORLD_TREE_ASSAULT_COMPLETE_FLAG,false)==true
+
 static func world_tree_assault_region(attack: String, choice: String, face: int) -> String:
 	if choice == "safe" or (choice == "risk" and face >= 4): return "default"
 	return "winter" if attack == "cut" else "hell"

@@ -126,6 +126,8 @@ func setup_prayer() -> void:
 func prayer_availability() -> Dictionary:
 	if type!="unknown" or session==null or session.world==null:
 		return {"ok":false,"reason":"정화 기도를 할 수 없습니다."}
+	if session.world.world_tree_destroyed():
+		return {"ok":false,"reason":session.WORLD_TREE_PRAYER_CLOSED}
 	if not is_instance_valid(map) or not map.is_inside_tree() or map.is_queued_for_deletion() or map.world!=session.world or map.overlay!=self:
 		return {"ok":false,"reason":"현재 세계수 화면에서만 기도할 수 있습니다."}
 	var transition:Node=get_node_or_null("PanelEffectsModule")
@@ -147,7 +149,7 @@ func prayer_can_roll() -> bool:
 func refresh_prayer_input() -> void:
 	if not is_instance_valid(dice): return
 	if is_instance_valid(prayer_notice_strip):
-		var pending:bool=session.event_flag_is_set("ui:unlock:unknown:action_pending") and not session.place_visit_id("purify",index) in session.world.reward_receipts
+		var pending:bool=not session.world.world_tree_destroyed() and session.event_flag_is_set("ui:unlock:unknown:action_pending") and not session.place_visit_id("purify",index) in session.world.reward_receipts
 		var badge:Control=prayer_notice_strip.get_node_or_null("UnlockNewBadge")
 		if pending and badge==null: badge=UnlockNoticeBadge.attach(prayer_notice_strip,"NEW")
 		if badge!=null: badge.visible=pending
@@ -169,7 +171,11 @@ func show_prayer_state(error:String="") -> void:
 	var used:bool=visit in session.world.reward_receipts
 	prayer_detail.show()
 	prayer_detail.tooltip_text="주사위 눈 1~3: 오염도 +1 / 4~5: -3 / 6: -5. 오염도는 0~100 범위입니다.\n이동하거나 주사위 제어 카드를 소모하지 않습니다."
-	if used:
+	if session.world.world_tree_destroyed():
+		status.text="세계수 폐허"
+		prayer_detail.text=session.WORLD_TREE_PRAYER_CLOSED
+		prayer_detail.tooltip_text=session.WORLD_TREE_PRAYER_CLOSED
+	elif used:
 		var saved:Dictionary=session.world.prayer_result
 		var face:int=int(saved.get("face",0))
 		if str(saved.get("visit",""))==visit and face>=1 and face<=6:
