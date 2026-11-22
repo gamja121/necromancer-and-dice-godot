@@ -63,6 +63,13 @@ func _run() -> void:
 	var map = MapScene.instantiate()
 	root.add_child(map)
 	await process_frame
+	const LIVING_TILE = "res://assets/map/tiles/unknown.png"
+	var tile_position: Vector2 = map.buttons[index].position
+	var tile_size: Vector2 = map.buttons[index].size
+	check(map.buttons[index].texture_normal.resource_path==LIVING_TILE,"the board initially shows the living tree tile")
+	session.world.region = "winter"
+	check(map.tile_path(index)==LIVING_TILE,"a legacy winter save without the assault keeps its tree")
+	session.world.region = "default"
 	map.show_exploration_actions(index)
 	var panel = map.overlay
 	check(is_instance_valid(panel) and panel.get_script().resource_path.ends_with("exploration_actions.gd"),"live world tree action panel")
@@ -132,6 +139,9 @@ func _run() -> void:
 		while is_instance_valid(map.overlay) and Time.get_ticks_msec()-exit_started<3000:
 			await process_frame
 		check(not is_instance_valid(map.overlay) and map.dice.visible and not map.dice.disabled and map.dice.mouse_filter==Control.MOUSE_FILTER_STOP,region+" ruins exit restores the map die")
+		var tile: TextureButton = map.buttons[index]
+		check(tile.texture_normal.resource_path=="res://assets/map/tiles/world_tree_ruins_%s.png" % region,region+" board paints the matching ruined tree tile")
+		check(tile.position==tile_position and tile.size==tile_size,region+" ruined art keeps the same tile slot and size")
 		hint = map.stage.get_node("DicePressHint")
 	map.queue_free()
 	await process_frame

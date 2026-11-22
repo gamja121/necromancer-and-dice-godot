@@ -453,7 +453,8 @@ func render_hill_choices() -> void:
 	close_button.name="HillExitToMap"
 	hill_picker=HillRoutePicker.new()
 	content.add_child(hill_picker)
-	hill_picker.setup(session.world.tiles,index,hill_max_steps(),bool(allowed.ok),"현재" if session.world.position==index else "언덕")
+	var ruined_tree_path: String = WorldTreeArt.tile_path(session.world) if session.world.world_tree_destroyed() else ""
+	hill_picker.setup(session.world.tiles,index,hill_max_steps(),bool(allowed.ok),"현재" if session.world.position==index else "언덕",ruined_tree_path)
 	hill_picker.step_selected.connect(select_hill_step)
 	hill_choice_buttons=hill_picker.choice_buttons
 	if bool(allowed.ok): _set_hill_notice("어디로 향하시겠습니까?","주사위 · 카드 소모 없음")
