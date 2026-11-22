@@ -31,7 +31,6 @@ func check(condition: bool, description: String) -> void:
 
 func fixture():
 	check(session.start_new_world(), "fresh version-1 fixture")
-	session.demo_mode = false
 	var world = session.world
 	world.tiles[HILL] = "forest"
 	world.tiles[TREE] = "unknown"
@@ -81,12 +80,11 @@ func test_visit() -> void:
 	check(session.prepare_map_roll().get("landed",-1)==TREE and session.complete_map_move()
 		and session.event_flag_is_set(State.WORLD_TREE_VISITED_FLAG),"ordinary die uses the same durable tree visit")
 func test_blockers() -> void:
-	for blocker in ["disabled","demo","preview","legacy_reload","one_lap","purified","rumor_seen","locked","winter","hell","completed"]:
+	for blocker in ["disabled","preview","legacy_reload","one_lap","purified","rumor_seen","locked","winter","hell","completed"]:
 		var world = fixture()
 		world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
 		match blocker:
 			"disabled": session.world_tree_assault_stage_enabled = false
-			"demo": session.demo_mode = true
 			"one_lap": world.laps = 1
 			"purified":
 				world.max_contamination_reached = 70
@@ -287,6 +285,7 @@ func displayed_board(map: Control) -> String:
 
 func test_region_presentation(attack: String, region: String) -> void:
 	var world = fixture()
+	world.contamination = 45
 	world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
 	world.event_flags[Child.COMPLETE_FLAG] = true
 	land_on_event(attack)
@@ -362,18 +361,25 @@ func _run() -> void:
 	session = root.get_node("RunSession") as Session
 	var previous_path := session.save_file_path
 	session.save_file_path = save_path
-	check(session.world_tree_assault_stage_enabled,"standard player sessions enable the optional assault")
+	var launched_in_demo := session.demo_mode
+	check(previous_path==(Session.DEMO_SAVE if launched_in_demo else Session.SAVE),
+		"startup uses the correct original save path for the selected runtime mode")
+	check(session.world_tree_assault_stage_enabled,"player sessions enable the optional assault")
 	test_visit()
 	test_blockers()
 	test_priority_and_miss()
 	test_save_and_resume("cut")
 	test_save_and_resume("burn")
-	test_optional_ritual_window()
 	test_choice_results()
 	await test_main_story_priority()
-	await test_region_presentation("cut","winter")
-	await test_region_presentation("burn","hell")
-	await test_region_presentation("cut","default")
+	for demo: bool in [false,true]:
+		session.demo_mode = demo
+		print("World Tree presentation and optional odds in ", "demo" if demo else "full game")
+		test_optional_ritual_window()
+		await test_region_presentation("cut","winter")
+		await test_region_presentation("burn","hell")
+		await test_region_presentation("cut","default")
+	session.demo_mode = launched_in_demo
 	for suffix: String in ["",".tmp"]:
 		var path := ProjectSettings.globalize_path(save_path+suffix)
 		if FileAccess.file_exists(path): DirAccess.remove_absolute(path)

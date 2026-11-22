@@ -256,7 +256,7 @@ func clear_world_tree_assault_landing() -> bool:
 	return persist_change(before)
 
 func _world_tree_assault_eligible() -> bool:
-	return world_tree_assault_stage_enabled and not demo_mode \
+	return world_tree_assault_stage_enabled \
 		and world.region == "default" and world.laps >= 2 and world.contamination >= 30 \
 		and Discovery.is_unlocked(world,"unknown") \
 		and world.event_flags.get(MapState.WORLD_TREE_VISITED_FLAG,false) \
