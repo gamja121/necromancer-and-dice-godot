@@ -60,7 +60,7 @@ func caption(value:String,pos:Vector2,dimensions:Vector2,font_size:int=16) -> La
 	text.add_theme_color_override("font_outline_color",Color("261b12"))
 	return text
 
-func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="현재") -> void:
+func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="현재",ruined_tree_path:String="") -> void:
 	name="HillRoutePicker"
 	size=Vector2(1280,720)
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -83,7 +83,8 @@ func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="현�
 		var step:int=i+1
 		var destination:int=(index+step)%tiles.size()
 		var kind:String=str(tiles[destination])
-		var tile_name:String=str(State.NAMES.get(kind,"알 수 없는 장소"))
+		var ruined_tree:bool=kind=="unknown" and not ruined_tree_path.is_empty()
+		var tile_name:String="세계수 폐허" if ruined_tree else str(State.NAMES.get(kind,"알 수 없는 장소"))
 		var hit:=Button.new()
 		hit.name="HillStep%d"%step
 		hit.position=point-Vector2(52,70)
@@ -102,7 +103,7 @@ func setup(tiles:Array,index:int,limit:int,enabled:bool,origin_text:String="현�
 			if not hit.disabled and not locked: step_selected.emit(step))
 		add_child(hit)
 		choice_buttons.append(hit)
-		var picture_path:String="res://assets/map/tiles/%s.png"%kind
+		var picture_path:String=ruined_tree_path if ruined_tree else "res://assets/map/tiles/%s.png"%kind
 		if not ResourceLoader.exists(picture_path): picture_path="res://assets/map/tiles/basic.png"
 		var picture:TextureRect=art(hit,picture_path,Vector2(7,36),Vector2(90,68))
 		picture.name="HillDestinationPreview"

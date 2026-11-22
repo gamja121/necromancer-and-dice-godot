@@ -618,6 +618,7 @@ func tile_path(index: int) -> String:
 	if index==KingPortalTile.target(world): return KingPortalTile.PATHS.back()
 	var id: String = world.tiles[index]
 	if id=="home" and WitchHuntEntry.home_burned(session): return "res://assets/map/tiles/home_burned.png"
+	if id=="unknown": return WorldTreeArt.tile_path(world)
 	# The frozen web map retains a separate rare-monster-cleared tile silhouette.
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
 	return "res://assets/map/tiles/"+id+".png"
