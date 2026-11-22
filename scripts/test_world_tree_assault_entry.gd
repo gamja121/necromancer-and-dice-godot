@@ -280,6 +280,84 @@ func test_choice_results() -> void:
 				and resumed.position != EVENT and resumed.region==region,
 				"%s continues normal movement after the result is closed" % region)
 
+func displayed_board(map: Control) -> String:
+	var background := map.stage.get_child(0) as TextureRect
+	return background.texture.resource_path.get_file() if is_instance_valid(background) else ""
+
+
+func test_region_presentation(attack: String, region: String) -> void:
+	var world = fixture()
+	world.event_flags[State.WORLD_TREE_VISITED_FLAG] = true
+	world.event_flags[Child.COMPLETE_FLAG] = true
+	land_on_event(attack)
+	check(session.begin_story_free_event(EVENT).get("ok",false),"%s presentation starts from a real assault" % region)
+	var choice := "ignore"
+	if region == "default":
+		choice = "risk"
+		seed_result_face(4)
+	var id: String = session.pending_world_tree_assault().id
+	check(session.resolve_world_tree_assault(id,choice).get("ok",false) and session.reload_world(),
+		"%s result is committed and reloaded before acknowledgement" % region)
+
+	var map := Board.instantiate() as Control
+	root.add_child(map)
+	await process_frame
+	var panel: Control = map.overlay
+	var advance := panel.get_node_or_null("AssaultContinue") as Button if is_instance_valid(panel) else null
+	check(is_instance_valid(advance),"%s reload restores the actual result book" % region)
+	if not is_instance_valid(advance):
+		map.queue_free()
+		await process_frame
+		return
+	panel.skip_opening()
+	panel.typewriter.reveal_all()
+	check(displayed_board(map)=="default-map.jpg" and map.tile_path(TREE).ends_with("/unknown.png"),
+		"%s pending book keeps the old map and living tree visible" % region)
+
+	if region == "winter":
+		session.save_file_path = "user://missing_assault_dir_%d/save.json" % OS.get_process_id()
+		advance.pressed.emit()
+		session.save_file_path = save_path
+		check(map.overlay==panel and not advance.disabled and session.pending_world_tree_assault().id==id
+			and not is_instance_valid(map.world_tree_transition) and displayed_board(map)=="default-map.jpg",
+			"failed acknowledgement preserves the book and permits retry without playing the effect")
+
+	advance.pressed.emit()
+	check(session.pending_world_tree_assault().is_empty() and not is_instance_valid(map.overlay),
+		"%s continue consumes the saved receipt and closes the book" % region)
+	if region == "default":
+		check(not is_instance_valid(map.world_tree_transition) and not map.moving and not map.dice.disabled,
+			"successful defense returns immediately to the playable board")
+	else:
+		var effect: Control = map.world_tree_transition
+		check(is_instance_valid(effect) and map.moving and map.dice.disabled
+			and displayed_board(map)=="default-map.jpg", "%s transition opens on the old board with the die disabled" % region)
+		check(map.handle_cancel() and not map.map_audio.is_open() and not map.keyboard_roll_dice()
+			and map.keyboard_focus_controls().is_empty(), "%s transition consumes Escape and blocks keyboard actions" % region)
+		var deadline := Time.get_ticks_msec()+8000
+		while is_instance_valid(effect) and not effect.board_revealed and Time.get_ticks_msec()<deadline:
+			await process_frame
+		check(is_instance_valid(effect) and effect.board_revealed and displayed_board(map)=="%s-map.jpg" % region
+			and map.tile_path(TREE).ends_with("/world_tree_ruins_%s.png" % region) and map.moving and map.dice.disabled,
+			"%s swaps the actual map and tile during the input lock" % region)
+		while map.moving and Time.get_ticks_msec()<deadline:
+			await process_frame
+		check(not map.moving and not map.dice.disabled and not is_instance_valid(map.world_tree_transition),
+			"%s animation completes and returns control" % region)
+
+	map.queue_free()
+	await process_frame
+	check(session.reload_world(),"%s acknowledged result reloads" % region)
+	map = Board.instantiate() as Control
+	root.add_child(map)
+	await process_frame
+	check(displayed_board(map)=="%s-map.jpg" % region and session.world.position==EVENT
+		and not is_instance_valid(map.overlay) and not is_instance_valid(map.world_tree_transition),
+		"%s reload keeps the board and player position without replaying the result" % region)
+	map.queue_free()
+	await process_frame
+
+
 func _run() -> void:
 	session = root.get_node("RunSession") as Session
 	var previous_path := session.save_file_path
@@ -293,6 +371,9 @@ func _run() -> void:
 	test_optional_ritual_window()
 	test_choice_results()
 	await test_main_story_priority()
+	await test_region_presentation("cut","winter")
+	await test_region_presentation("burn","hell")
+	await test_region_presentation("cut","default")
 	for suffix: String in ["",".tmp"]:
 		var path := ProjectSettings.globalize_path(save_path+suffix)
 		if FileAccess.file_exists(path): DirAccess.remove_absolute(path)

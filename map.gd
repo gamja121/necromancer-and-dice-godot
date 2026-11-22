@@ -16,6 +16,7 @@ const StorySplit = preload("res://systems/story_split_layout.gd")
 const StoryBook = preload("res://systems/main_story_book.gd")
 const WorldTreeAssaultPanel = preload("res://systems/world_tree_assault_panel.gd")
 const WorldTreeArt = preload("res://systems/world_tree_art.gd")
+const WorldTreeRegionTransition = preload("res://systems/world_tree_region_transition.gd")
 const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
 const GraveyardGhoulMotion = preload("res://systems/graveyard_ghoul_motion.gd")
@@ -251,6 +252,7 @@ func dice_hint_context() -> Node:
 
 
 func keyboard_focus_scope() -> Control:
+	if is_instance_valid(world_tree_transition): return world_tree_transition
 	if is_instance_valid(game_over_screen): return game_over_screen
 	if is_instance_valid(final_chapter_screen): return final_chapter_screen
 	if is_instance_valid(embedded_battle): return embedded_battle.keyboard_focus_scope()
@@ -344,6 +346,7 @@ var overlay: Control:
 		call_deferred("_reset_location_art_if_absent")
 var selected = -1
 var moving = false
+var world_tree_transition: Control
 var riot_pawn: Control
 var textures: Dictionary = {}
 var _last_location_art_path: String = ""
@@ -614,11 +617,20 @@ func add_button_effect(node: BaseButton, contact_shadow_enabled: bool = true) ->
 func center(index: int) -> Vector2:
 	return MapState.centers()[index]*Vector2(12.8,7.2)
 
+func board_region() -> String:
+	# The result receipt persists the new world before the player closes the book.
+	# Keep the old board behind a pending result even when it is opened after reload.
+	var pending: Dictionary = world.pending_reward
+	if pending.get("kind","")==MapState.WORLD_TREE_ASSAULT and pending.get("phase","")=="result":
+		return "default"
+	return str(world.region)
+
 func tile_path(index: int) -> String:
 	if index==KingPortalTile.target(world): return KingPortalTile.PATHS.back()
 	var id: String = world.tiles[index]
 	if id=="home" and WitchHuntEntry.home_burned(session): return "res://assets/map/tiles/home_burned.png"
-	if id=="unknown": return WorldTreeArt.tile_path(world)
+	if id=="unknown":
+		return WorldTreeArt.LIVING_TILE if board_region()=="default" else WorldTreeArt.tile_path(world)
 	# The frozen web map retains a separate rare-monster-cleared tile silhouette.
 	if index in world.cleared and id in ["monster","rare-monster","boss"]: id += "-cleared"
 	return "res://assets/map/tiles/"+id+".png"
@@ -716,7 +728,8 @@ func render() -> void:
 	stage = Control.new()
 	stage.size = Vector2(1280,720)
 	add_child(stage)
-	var background = image(stage,"res://assets/map/maps/%s-map.jpg" % world.region,Vector2.ZERO,stage.size)
+	var region := board_region()
+	var background = image(stage,"res://assets/map/maps/%s-map.jpg" % region,Vector2.ZERO,stage.size)
 	background.stretch_mode = TextureRect.STRETCH_SCALE
 	presentation.install(stage)
 	for i in range(24):
@@ -729,7 +742,7 @@ func render() -> void:
 		install_board_depth_test(node,node.texture_normal)
 		apply_board_depth_top_light(node)
 		node.pivot_offset = node.size/2
-		var world_tree_ruins: bool = world.tiles[i]=="unknown" and world.world_tree_destroyed()
+		var world_tree_ruins: bool = world.tiles[i]=="unknown" and region!="default" and world.world_tree_destroyed()
 		var tile_name: String = MapState.NAMES[world.tiles[i]]
 		if i==KingPortalTile.target(world): tile_name = "변형 웜홀"
 		elif world_tree_ruins: tile_name = "세계수 폐허"
@@ -788,7 +801,7 @@ func render() -> void:
 	status = label_at(stage,"주사위를 굴려 길을 따라 이동하세요",Vector2(285,385),Vector2(710,38),16)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status.z_index = 25
-	hud = label_at(stage,"%s · %d바퀴" % [{"default":"기본 지역","winter":"겨울 지역","hell":"지옥 지역"}[world.region],world.laps],Vector2(420,16),Vector2(440,30),14)
+	hud = label_at(stage,"%s · %d바퀴" % [{"default":"기본 지역","winter":"겨울 지역","hell":"지옥 지역"}[region],world.laps],Vector2(420,16),Vector2(440,30),14)
 	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.z_index = 25
 	var book = TextureButton.new()
@@ -1512,8 +1525,28 @@ func resume_world_tree_assault() -> void:
 		if not session.acknowledge_world_tree_assault(str(record.id)):
 			panel.show_error(session.notice if not session.notice.is_empty() else "저장에 실패했습니다. 다시 시도하세요.")
 			return
+		show_world_tree_result_board(str(record.region)))
+	refresh_shared_die_input()
+
+func show_world_tree_result_board(region: String) -> void:
+	if region not in ["winter","hell"]:
 		close_overlay()
-		render())
+		render()
+		return
+	moving = true
+	var effect := WorldTreeRegionTransition.new()
+	world_tree_transition = effect
+	add_child(effect)
+	close_overlay()
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	if is_instance_valid(focus_owner): focus_owner.release_focus()
+	await effect.play(region,func():
+		render()
+		# GUI hit testing follows sibling order, so keep the curtain above the new stage.
+		move_child(effect,get_child_count()-1))
+	world_tree_transition = null
+	effect.queue_free()
+	moving = false
 	refresh_shared_die_input()
 
 ## Resuming a saved unopened routine card must not reroll the incident,
