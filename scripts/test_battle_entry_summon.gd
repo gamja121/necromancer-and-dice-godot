@@ -1,6 +1,6 @@
 extends SceneTree
 ## The real selected deck (not a stub) must summon each allied source sprite
-## from a ritual circle, BLACK -> source art, before dice/card clicks unlock.
+## with the original summon sprites, BLACK -> source art, before dice/card clicks unlock.
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 var passed := 0
@@ -93,15 +93,18 @@ func run_party(session: Node, count: int) -> void:
 		var sprite: TextureRect=battle.sprites[id]
 		hidden=hidden and sprite.modulate.a<0.02 and absf(float(sprite.material.get_shader_parameter("entry_reveal")))<0.02
 	check(hidden,"%d allies: existing source sprites initially hidden behind black-silhouette shader" % count)
-	var first_effect: bool=await wait_for(func(): return battle.visuals.entry_circles.has(ids[0]))
-	check(first_effect,"%d allies: first selected monster receives a glowing floor magic circle" % count)
-	check(battle.visuals.entry_circles.size()==1 and battle.sprites[ids[0]].modulate.a>0.9,"%d allies: first silhouette appears before later slots" % count)
+	var summon_frames: Array=battle.visuals.original.summon_frames()
+	var first_effect: bool=await wait_for(func():
+		return battle.visuals.art_items.any(func(item): return item.frames==summon_frames and item.node.visible))
+	check(first_effect and battle.visuals.art_items.size()==1,"%d allies: one original summon effect is visible" % count)
+	var later_hidden: bool=ids.slice(1).all(func(id): return battle.sprites[id].modulate.a<0.02)
+	check(battle.sprites[ids[0]].modulate.a>0.9 and later_hidden,"%d allies: first silhouette appears before later slots" % count)
 	var first_shader: float=float(battle.sprites[ids[0]].material.get_shader_parameter("entry_reveal"))
 	check(first_shader<0.5,"%d allies: first unit stays dark when portal opens" % count)
 	var complete: bool=await wait_for(func(): return not battle.entry_summon_active,16000)
 	check(complete,"%d allies: all sequential summon reveals finish" % count)
 	if complete:
-		var uncovered: bool=battle.visuals.entry_circles.is_empty()
+		var uncovered: bool=battle.visuals.art_items.is_empty()
 		for id in ids:
 			var sprite: TextureRect=battle.sprites[id]
 			uncovered=uncovered and absf(float(sprite.material.get_shader_parameter("entry_reveal"))-1.0)<0.01

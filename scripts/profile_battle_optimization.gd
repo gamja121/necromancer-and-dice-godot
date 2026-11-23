@@ -57,20 +57,15 @@ func _run() -> void:
 	check(idle_draws==0,"stationary ground reuses cached draw commands")
 
 	var id: String = scene.rules.units[0].id
-	scene.visuals.entry_circles[id] = 1.0
+	scene.sprites[id].material.set_shader_parameter("entry_reveal",0.0)
 	before = draws
 	scene.paused = false
-	await settle(12)
-	check(draws-before>=8,"active summon circle continues redrawing")
+	capture("02_summon")
+	await scene.visuals.play_entry_summon_unit(id)
+	check(draws==before,"original summon sprites leave the cached ground untouched")
+	check(scene.visuals.art_items.is_empty(),"original summon sprites are released after the reveal")
 	scene.paused = true
-	scene.visuals.clock = 0.5
-	await capture("02_circle")
-	scene.visuals.entry_circles.clear()
-	await settle()
-	before = draws
-	await settle(12)
-	check(draws==before,"circle cleanup leaves no continuing ground redraw")
-	await capture("03_circle_cleared")
+	await capture("03_summon_cleared")
 
 	before = draws
 	scene.visuals.removed[id] = true

@@ -14,7 +14,6 @@ var scene
 var world_layer: Control
 var ground: Control
 var _ground_removed: Dictionary = {}
-var _ground_had_circles: bool = false
 var _had_overlay_content: bool = false
 var states: Dictionary = {}
 var homes: Dictionary = {}
@@ -35,8 +34,6 @@ var shake_left = 0.0
 var shake_strength = 0.0
 var duck_until = 0.0
 var shader: Shader
-# Presentation-only opening summon: no combat RNG, unit swaps, or saved state.
-var entry_circles: Dictionary = {}
 
 func setup(battle_scene, parent: Control) -> void:
 	scene = battle_scene
@@ -87,7 +84,6 @@ func sync(values: Array) -> void:
 
 # Store only visual states: the already-confirmed roster's own slot order.
 func prepare_entry_summon() -> Array:
-	entry_circles.clear()
 	var ids: Array = []
 	for unit in scene.rules.units:
 		if unit.team!="ally" or not unit.alive or int(unit.slot)>=4: continue
@@ -104,8 +100,6 @@ func play_entry_summon_unit(id: String) -> void:
 	var sprite: TextureRect = scene.sprites[id]
 	var material: ShaderMaterial = sprite.material as ShaderMaterial
 	if material == null: return
-	# The circle is painted on the battlefield ground UNDER the monster art.
-	entry_circles[id] = 1.0
 	var frames: Array = original.summon_frames()
 	var effect = original.sprite(self,frames[0],"summon",Vector2(190,92))
 	effect.z_index = -2
@@ -120,21 +114,11 @@ func play_entry_summon_unit(id: String) -> void:
 	reveal.tween_method(func(t: float):
 		if is_instance_valid(material):
 			material.set_shader_parameter("entry_reveal",t)
-		entry_circles[id] = 1.0-t
 	,0.0,1.0,0.38).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await reveal.finished
 	if not is_instance_valid(sprite) or not is_inside_tree(): return
 	material.set_shader_parameter("entry_reveal",1.0)
 	scene.bars[id].modulate.a = 1.0
-	entry_circles.erase(id)
-
-func clear_entry_summon() -> void:
-	for id in entry_circles:
-		if scene.sprites.has(id) and is_instance_valid(scene.sprites[id]):
-			scene.sprites[id].material.set_shader_parameter("entry_reveal",1.0)
-			scene.sprites[id].modulate.a = 1.0
-			scene.bars[id].modulate.a = 1.0
-	entry_circles.clear()
 
 func _process(delta: float) -> void:
 	if scene == null: return
@@ -231,14 +215,10 @@ func _process(delta: float) -> void:
 		shake_left = maxf(0,shake_left-dt)
 		world_layer.position = Vector2(sin(clock*113),cos(clock*97))*shake_strength*minf(1,shake_left/0.12)
 	else: world_layer.position = Vector2.ZERO
-	# Static shadows reuse cached commands. Keep the existing circle/shadow
-	# draw order, and clear the last circle frame when the intro ends.
-	var circles_active: bool = not entry_circles.is_empty()
-	var removed_changed: bool = removed != _ground_removed
-	if circles_active or _ground_had_circles or removed_changed:
+	# Static shadows reuse cached commands until a unit is removed or restored.
+	if removed != _ground_removed:
 		ground.queue_redraw()
-	_ground_had_circles = circles_active
-	if removed_changed: _ground_removed = removed.duplicate()
+		_ground_removed = removed.duplicate()
 	var overlay_content: bool = status_content or not particles.is_empty() or not numbers.is_empty() or not missiles.is_empty()
 	if overlay_content or _had_overlay_content: queue_redraw()
 	_had_overlay_content = overlay_content
@@ -248,23 +228,6 @@ func center_of(id: String) -> Vector2:
 	return layouts[id].effect+(sprite.position-homes[id])
 
 func draw_ground(canvas: Control) -> void:
-	for id in entry_circles:
-		if not homes.has(id) or not scene.sprites.has(id): continue
-		var strength: float=clampf(float(entry_circles[id]),0.0,1.0)
-		if strength<=0.0: continue
-		var sprite: TextureRect=scene.sprites[id]
-		var foot: Vector2=homes[id]+sprite.pivot_offset
-		var radius: float=clampf(sprite.size.x*0.28,35.0,65.0)
-		var spin: float=clock*1.65
-		canvas.draw_set_transform(foot,spin,Vector2(1.0,0.28))
-		canvas.draw_circle(Vector2.ZERO,radius*0.97,Color(0.08,0.46,0.70,0.18*strength))
-		for r in [0.58,0.77,1.0]:
-			canvas.draw_arc(Vector2.ZERO,radius*r,0.0,TAU,64,Color(0.37,0.84,1.0,0.87*strength),2.0,true)
-		for k in range(8):
-			var angle: float=TAU*float(k)/8.0
-			var p: Vector2=Vector2.RIGHT.rotated(angle)
-			canvas.draw_line(p*radius*0.61,p*radius*0.93,Color(0.65,0.94,1.0,0.82*strength),2.0,true)
-		canvas.draw_set_transform(Vector2.ZERO)
 	for id in states:
 		if removed.has(id): continue
 		var unit: Dictionary = states[id]
