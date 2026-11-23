@@ -310,6 +310,9 @@ func test_region_presentation(attack: String, region: String) -> void:
 		return
 	panel.skip_opening()
 	panel.typewriter.reveal_all()
+	check(panel._record.text=="별도 기록" and panel._caption.text=="세계수"
+		and not is_instance_valid(panel._chapter) and not is_instance_valid(panel._page_left) and not is_instance_valid(panel._page_right),
+		"%s assault book uses a separate record without main story numbering" % region)
 	check(displayed_board(map)=="default-map.jpg" and map.tile_path(TREE).ends_with("/unknown.png"),
 		"%s pending book keeps the old map and living tree visible" % region)
 

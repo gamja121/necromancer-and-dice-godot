@@ -253,14 +253,17 @@ func set_heading(value: String) -> void:
 		"문 앞의 횃불": information = ["불씨의 기록",heading,"우리집",17]
 		"마물의 왕 부활 의식": information = ["일곱 번째 기록",heading,"의식의 폐허",13]
 		"왕의 흔적": information = ["여덟 번째 기록","마물의 왕 추적","세계수",15]
+		"세계수 습격": information = ["별도 기록",heading,"세계수",-1]
 		"봉인 폐허의 균열", "왕의 응시", "최후의 대면": information = ["아홉 번째 기록",heading,"봉인 폐허",17]
 	if _record == null:
 		_record = copy(str(information[0]),Rect2(118,126,450,30),18,Color("775b3d"))
-		_chapter = copy("제1장 · "+str(information[2]),Rect2(702,124,444,25),14,Color("81684b"))
 		_caption = copy(str(information[2]),Rect2(178,440,360,30),16,Color("81684b"))
 		_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_page_left = copy(str(information[3]),Rect2(118,564,30,24),13,Color("9a805d"))
-		_page_right = copy(str(int(information[3])+1),Rect2(1149,564,30,24),13,Color("9a805d"))
+		var first_page := int(information[3])
+		if first_page >= 0:
+			_chapter = copy("제1장 · "+str(information[2]),Rect2(702,124,444,25),14,Color("81684b"))
+			_page_left = copy(str(first_page),Rect2(118,564,30,24),13,Color("9a805d"))
+			_page_right = copy(str(first_page+1),Rect2(1149,564,30,24),13,Color("9a805d"))
 	return
 
 func add_source_label(value: String, original: Rect2, points: int) -> Label:
