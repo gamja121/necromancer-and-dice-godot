@@ -16,6 +16,7 @@ const StorySplit = preload("res://systems/story_split_layout.gd")
 const StoryBook = preload("res://systems/main_story_book.gd")
 const WorldTreeAssaultPanel = preload("res://systems/world_tree_assault_panel.gd")
 const WorldTreeArt = preload("res://systems/world_tree_art.gd")
+const BoardTileInfo = preload("res://systems/board_tile_info.gd")
 const WorldTreeRegionTransition = preload("res://systems/world_tree_region_transition.gd")
 const StoryTypewriter = preload("res://systems/story_typewriter.gd")
 const InkSceneReveal = preload("res://systems/ink_scene_reveal.gd")
@@ -225,6 +226,7 @@ func shared_dice_face() -> int:
 	return face
 
 func refresh_shared_die_input() -> void:
+	_refresh_current_location_button()
 	if not is_instance_valid(dice): return
 	if shared_die_busy or moving or battle_returning or (is_instance_valid(map_audio) and map_audio.is_open()):
 		dice.disabled = true
@@ -266,6 +268,7 @@ func keyboard_focus_controls() -> Array[Control]:
 	if active == stage:
 		for tile in buttons: result.append(tile)
 		result.append_array([dice,book_button,deck_button])
+		if is_instance_valid(current_location_button): result.append(current_location_button)
 		if is_instance_valid(map_audio): result.append(map_audio.options_button)
 	else:
 		for control in active.find_children("*","Control",true,false):
@@ -293,6 +296,9 @@ func handle_cancel() -> bool:
 		return true
 	if is_instance_valid(map_audio) and map_audio.is_open():
 		map_audio.close_panel()
+		return true
+	if is_instance_valid(tile_info_panel) and tile_info_panel.visible:
+		close_tile_info()
 		return true
 	if not is_instance_valid(overlay):
 		if is_instance_valid(map_audio): map_audio.toggle_panel()
@@ -340,11 +346,14 @@ var hud: Label
 # avoiding a one-frame popup overlapping the original location art.
 var overlay: Control:
 	set(value):
+		if is_instance_valid(value): close_tile_info()
 		overlay = value
 		if is_instance_valid(map_audio): map_audio.set_modal_blocked(is_instance_valid(value))
 		_sync_map_chrome()
 		call_deferred("_reset_location_art_if_absent")
 var selected = -1
+var tile_info_panel: BoardTileInfo
+var current_location_button: Button
 var moving = false
 var world_tree_transition: Control
 var riot_pawn: Control
@@ -731,6 +740,8 @@ func render() -> void:
 	var region := board_region()
 	var background = image(stage,"res://assets/map/maps/%s-map.jpg" % region,Vector2.ZERO,stage.size)
 	background.stretch_mode = TextureRect.STRETCH_SCALE
+	tile_info_panel = BoardTileInfo.new()
+	stage.add_child(tile_info_panel)
 	presentation.install(stage)
 	for i in range(24):
 		var node = TextureButton.new()
@@ -804,6 +815,11 @@ func render() -> void:
 	hud = label_at(stage,"%s · %d바퀴" % [{"default":"기본 지역","winter":"겨울 지역","hell":"지옥 지역"}[region],world.laps],Vector2(420,16),Vector2(440,30),14)
 	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.z_index = 25
+	current_location_button = location_button(stage,"현재 위치 열기",Vector2(564,412),Vector2(152,28),open_current_location,4,false)
+	current_location_button.name = "CurrentLocationButton"
+	current_location_button.z_index = 27
+	current_location_button.add_theme_font_size_override("font_size",13)
+	current_location_button.set_meta("keyboard_focus_key","current-location")
 	var book = TextureButton.new()
 	book.ignore_texture_size = true
 	book.texture_normal = texture("res://assets/map/ui/map-book-closed.png")
@@ -849,7 +865,9 @@ func render() -> void:
 	map_audio = AudioSettings.new()
 	map_audio.setup(stage, func() -> bool: return not moving and not shared_die_busy and not battle_returning)
 	map_audio.open_changed.connect(func(opened: bool):
-		if opened: refresh_shared_die_input()
+		if opened:
+			close_tile_info()
+			refresh_shared_die_input()
 		else: _sync_map_chrome())
 	map_audio.set_modal_blocked(is_instance_valid(overlay))
 	var options: Button = map_audio.get_child(0)
@@ -1107,6 +1125,7 @@ func animate_hero_step(index: int, is_final_step: bool = false) -> void:
 
 func roll_move(instance_id: String = "") -> void:
 	if moving or battle_returning or is_instance_valid(overlay) or map_audio.is_open(): return
+	close_tile_info()
 	if session.has_world_tree_assault_landing():
 		resume_world_tree_assault_landing()
 		return
@@ -1117,12 +1136,12 @@ func roll_move(instance_id: String = "") -> void:
 		await _resume_riot_opening()
 		return
 	moving = true
-	dice.disabled = true
+	refresh_shared_die_input()
 	var result: Dictionary = session.prepare_map_roll(instance_id)
 	if not result.get("ok",false):
 		status.text = str(result.get("reason","이동 저장 실패"))
 		moving = false
-		dice.disabled = false
+		refresh_shared_die_input()
 		return
 	dice_count_label.text = "주사위 카드 %d/%d" % [world.dice_cards.size(),RewardCatalog.DICE_CAPACITY]
 	status.text = "주사위를 굴리는 중…"+(" · "+str(result.label) if not str(result.label).is_empty() else "")
@@ -1139,7 +1158,7 @@ func roll_move(instance_id: String = "") -> void:
 func resume_map_move(play_arrival_sound: bool = false) -> void:
 	if world.pending_move.is_empty(): return
 	moving = true
-	dice.disabled = true
+	refresh_shared_die_input()
 	var result: Dictionary = world.pending_move.duplicate(true)
 	var landed = int(result.get("landed",world.position))
 	hero.position = hero_position(landed)
@@ -1192,13 +1211,54 @@ func resume_world_tree_assault_landing() -> void:
 		refresh_shared_die_input()
 
 func select_tile(index: int) -> void:
-	if moving or battle_returning or is_instance_valid(overlay) or map_audio.is_open() or not world.pending_move.is_empty(): return
-	if session.has_world_tree_assault_landing():
-		resume_world_tree_assault_landing()
+	if moving or battle_returning or shared_die_busy or is_instance_valid(overlay) or map_audio.is_open() or not world.pending_move.is_empty(): return
+	if not world.run_result.is_empty() or index<0 or index>=buttons.size(): return
+	if tile_info_panel.visible and tile_info_panel.tile_index==index:
+		close_tile_info()
 		return
+	close_tile_info()
+	var tile: Control = buttons[index]
+	tile.set_meta("keyboard_description",tile.tooltip_text)
+	tile_info_panel.previous_tooltip = tile.tooltip_text
+	tile.tooltip_text = ""
 	highlight(index)
-	status.text = "%d번 · %s%s" % [index+1,MapState.NAMES[world.tiles[index]]," · 처치 완료" if index in world.cleared else ""]
-	show_tile(index)
+	tile_info_panel.present(index,BoardTileInfo.describe(session,index,board_region()),Rect2(tile.position,tile.size),stage.size,options_dice_wall_rect())
+
+func close_tile_info() -> void:
+	if not is_instance_valid(tile_info_panel) or not tile_info_panel.visible: return
+	var tile_index := tile_info_panel.tile_index
+	if tile_index>=0 and tile_index<buttons.size() and is_instance_valid(buttons[tile_index]):
+		buttons[tile_index].tooltip_text = tile_info_panel.previous_tooltip
+	tile_info_panel.hide()
+	highlight(world.position)
+
+func _input(event: InputEvent) -> void:
+	if not is_instance_valid(tile_info_panel) or not tile_info_panel.visible: return
+	var left_click: bool = event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT
+	var touch: bool = event is InputEventScreenTouch and event.pressed
+	if not left_click and not touch: return
+	var tile: Control = buttons[tile_info_panel.tile_index]
+	if not tile.get_global_rect().has_point(event.position) and not tile_info_panel.get_global_rect().has_point(event.position):
+		close_tile_info()
+
+func _refresh_current_location_button() -> void:
+	if not is_instance_valid(current_location_button): return
+	if moving or shared_die_busy or battle_returning or is_instance_valid(overlay) or (is_instance_valid(map_audio) and map_audio.is_open()) or not world.run_result.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty() or session.has_world_tree_assault_landing():
+		current_location_button.hide()
+		return
+	var index: int = world.position
+	var type: String = world.tiles[index]
+	var available: bool = type in EVENT_IMAGES or index==world.final_dragon_location()
+	if type in ["monster","rare-monster","boss"]: available = index not in world.cleared
+	if type=="gem": available = session.treasure_visit_id(index) not in world.reward_receipts
+	current_location_button.visible = available
+
+func open_current_location() -> void:
+	_refresh_current_location_button()
+	if not current_location_button.is_visible_in_tree(): return
+	close_tile_info()
+	highlight(world.position)
+	show_tile(world.position)
 
 func story_modal() -> Control:
 	# A beat replacement keeps the book open; a later visit opens it afresh.
