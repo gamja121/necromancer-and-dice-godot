@@ -496,6 +496,7 @@ func _run() -> void:
 	original_save=session.save_file_path
 	save_path="user://keyboard_game_controls_%d.json"%OS.get_process_id()
 	root.size=Vector2i(1280,720)
+	await board_tile_information()
 	await board_and_inventory()
 	await dice_card_and_space()
 	await story_and_location()
@@ -503,11 +504,14 @@ func _run() -> void:
 	await patrol_navigation()
 	await treasure_navigation()
 	await battle_and_capture()
-	await board_tile_information()
 	if is_instance_valid(map): map.queue_free()
 	await process_frame
 	session.save_file_path=original_save
 	for suffix in ["",".tmp"]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path+suffix))
+	# Release short UI cue playback before the isolated test process exits.
+	var audio := root.get_node_or_null("GameAudio")
+	if is_instance_valid(audio): audio.queue_free()
+	await create_timer(0.3).timeout
 	print("KEYBOARD_GAME_CONTROLS: %d passed, %d failed"%[passed,failed])
 	quit(0 if failed==0 else 1)

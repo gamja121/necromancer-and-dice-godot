@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 150s godot --headless --path . --editor --quit 2>&1 | tee import.log
+          timeout 240s godot --headless --path . --editor --quit 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource' import.log; then exit 1; fi
       - name: Defeat each stage, never respawn, maintain save and quest final
         shell: bash
