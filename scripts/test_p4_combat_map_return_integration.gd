@@ -83,6 +83,8 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 	await process_frame
 	check(map.world == session.world and map.buttons.size()==24,label+": live map bound to saved encounter tile")
 	map.select_tile(target)
+	check(map.tile_info_panel.visible and not is_instance_valid(map.overlay),label+": clicking the monster tile only inspects it")
+	map.current_location_button.pressed.emit()
 	var deck: Control = map.overlay
 	check(is_instance_valid(deck) and deck.get_script()!=null and deck.get_script().resource_path.ends_with("battle_deck.gd"),label+": actual monster tile opens deck selector")
 	if not is_instance_valid(deck): map.queue_free(); return

@@ -171,6 +171,48 @@ func board_and_inventory() -> void:
 	check(await until(func():return not is_instance_valid(map.overlay)),"Esc returns from the book to the board")
 	check(session.world.snapshot()==before,"mixed inspection preserves the entire save and RNG")
 
+func board_tile_information() -> void:
+	await fresh_map()
+	var road: int = session.world.tiles.find("basic")
+	var chest: int = session.world.tiles.find("gem")
+	var warp: int = session.world.tiles.find("warp")
+	var monster: int = session.world.tiles.find("monster")
+	if not check([road,chest,warp,monster].all(func(index): return index>=0),"generated board offers the inspection fixture tiles"): return
+	session.world.position = road
+	session.world.cleared.append(monster)
+	check(session.save_world(),"isolated board inspection fixture saved")
+	map.render()
+	await process_frame
+	var before: Dictionary = session.world.snapshot().duplicate(true)
+	var file_before: String = FileAccess.get_file_as_string(save_path)
+	await point(map.buttons[road],true)
+	check(map.tile_info_panel.visible and map.tile_info_panel.detail.text=="효과 없음","mouse opens concise road information")
+	check(map.tile_info_panel.state.text=="현재 위치" and not map.current_location_button.visible,"plain road displays location without an open action")
+	await photograph("01b-tile-info-road")
+	await go(map.buttons[chest])
+	await key(KEY_ENTER)
+	check(map.tile_info_panel.visible and map.tile_info_panel.tile_index==chest and not is_instance_valid(map.overlay),"Enter replaces the popup with chest information")
+	await point(map.buttons[warp],true)
+	check(map.tile_info_panel.visible and map.tile_info_panel.detail.text=="%d번 타일 연결" % (session.world.warp_destination(warp)+1),"warp popup reads the existing connection")
+	await point(map.buttons[monster],true)
+	check(map.tile_info_panel.state.text=="처치 완료","cleared monster is marked in its popup")
+	await point(map.buttons[MapState.HOME],true)
+	check(map.tile_info_panel.visible and not is_instance_valid(map.overlay),"remote house click opens only its information")
+	check(session.world.snapshot()==before and FileAccess.get_file_as_string(save_path)==file_before,"tile information does not move, draw RNG or write the save")
+	await escape()
+	check(not map.tile_info_panel.visible and not map.map_audio.is_open(),"first Escape closes tile information")
+	await point(map.buttons[road],true)
+	var off_tile := Vector2(360,320)
+	await point_canvas(off_tile)
+	for down in [true,false]:
+		var click := InputEventMouseButton.new()
+		click.position = root.get_final_transform()*off_tile
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = down
+		root.push_input(click)
+		await process_frame
+	check(not map.tile_info_panel.visible,"clicking the board background dismisses tile information")
+
 func dice_card_and_space() -> void:
 	var fixed: Dictionary=Catalog.dice_cards().filter(func(c):return c.card_id=="fixed-1")[0]
 	var item: Dictionary=session.create_item("dice",fixed)
@@ -219,7 +261,10 @@ func story_and_location() -> void:
 	await process_frame
 	await go(map.buttons[index])
 	await key(KEY_ENTER)
-	check(map.overlay is MainBook,"keyboard opens the actual eligible main event")
+	check(map.tile_info_panel.visible and not is_instance_valid(map.overlay),"graveyard Enter inspects the tile without discovering the story")
+	await go(map.current_location_button)
+	await key(KEY_ENTER)
+	check(map.overlay is MainBook and not map.tile_info_panel.visible,"current-location action opens the eligible main event")
 	if not map.overlay is MainBook: return
 	var panel: Control=map.overlay
 	var before: Dictionary=session.world.snapshot().duplicate(true)
@@ -385,7 +430,10 @@ func battle_and_capture() -> void:
 	await process_frame
 	await go(map.buttons[index])
 	await key(KEY_ENTER)
-	if not check(is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/battle_deck.gd"),"Enter opens the normal battle lineup"): return
+	check(map.tile_info_panel.visible and not is_instance_valid(map.overlay),"monster tile Enter inspects the tile")
+	await go(map.current_location_button)
+	await key(KEY_ENTER)
+	if not check(is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/battle_deck.gd"),"current-location Enter opens the normal battle lineup"): return
 	var deck: Control=map.overlay
 	await create_timer(0.5).timeout
 	all_reachable("battle lineup")
@@ -455,6 +503,7 @@ func _run() -> void:
 	await patrol_navigation()
 	await treasure_navigation()
 	await battle_and_capture()
+	await board_tile_information()
 	if is_instance_valid(map): map.queue_free()
 	await process_frame
 	session.save_file_path=original_save

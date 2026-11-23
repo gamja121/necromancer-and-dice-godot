@@ -887,13 +887,16 @@ func create_item(kind: String, source: Dictionary) -> Dictionary:
 	# be created; in particular, never silently fabricate an unused brand.
 	return {}
 
+func treasure_visit_id(index: int) -> String:
+	return "treasure-visit:%d:%d:%d" % [world.laps,world.move_serial,index]
+
 func open_treasure(index: int = -1) -> bool:
 	if world == null or not world.run_result.is_empty(): return false
 	if not encounter.is_empty() or not world.pending_move.is_empty(): return false
 	if not world.pending_reward.is_empty(): return world.pending_reward.get("kind","") in ["treasure","mimic"]
 	if index<0: index = world.position
 	if index<0 or index>=world.tiles.size() or world.tiles[index]!="gem": return false
-	var visit_id = "treasure-visit:%d:%d:%d" % [world.laps,world.move_serial,index]
+	var visit_id := treasure_visit_id(index)
 	if visit_id in world.reward_receipts:
 		notice = "이번 방문의 보물상자 보상은 이미 받았습니다."
 		return false
