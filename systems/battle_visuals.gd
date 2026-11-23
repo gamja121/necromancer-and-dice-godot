@@ -195,6 +195,11 @@ func _process(delta: float) -> void:
 		sprite.material.set_shader_parameter("flash",0.35 if flashes.get(id,0.0)>clock and sin((flashes[id]-clock)*48.0)>0.0 else 0.0)
 	for i in range(art_items.size()-1,-1,-1):
 		var item: Dictionary = art_items[i]
+		if item.has("hit_frame"):
+			if not advance_hit_art(item,dt):
+				original.release_art(item.node)
+				art_items.remove_at(i)
+			continue
 		item.age += (0.0 if scene.paused or presentation_hold else delta) if item.get("pop",false) else dt
 		var age: float = item.age-item.delay
 		item.node.visible = age>=0
@@ -465,7 +470,26 @@ func add_art(node: Control, origin: Vector2, life: float, velocity: Vector2 = Ve
 func play_hit(id: String, kind: String, delay: float = 0.0) -> void:
 	var frames = original.hit_frames(kind)
 	var node = original.sprite(self,frames[0],kind,Vector2.ONE*minf(180.0,layouts[id].wrap.x*0.85))
-	add_art(node,center_of(id)-node.size/2,frames.size()*0.065,Vector2.ZERO,frames,0.065,delay)
+	var interval := 0.065
+	add_art(node,center_of(id)-node.size/2,frames.size()*interval,Vector2.ZERO,frames,interval,delay)
+	art_items[-1]["hit_frame"] = -1
+
+func advance_hit_art(item: Dictionary, dt: float) -> bool:
+	item.age += dt
+	if item.hit_frame < 0:
+		if item.age >= item.delay:
+			item.hit_frame = 0
+			item.age = 0.0
+			item.node.show()
+		return true
+	if item.age < item.interval: return true
+	item.hit_frame += 1
+	if item.hit_frame >= item.frames.size(): return false
+	# Keep the fractional time without skipping a frame on a fast or slow draw.
+	item.age = fmod(item.age,item.interval)
+	item.node.texture = item.frames[item.hit_frame]
+	item.node.modulate.a = minf(1.0,(item.life-item.hit_frame*item.interval)/0.2)
+	return true
 
 func show_label(id: String, kind: String, delay: float = 0.0) -> void:
 	var node = original.label(self,kind)

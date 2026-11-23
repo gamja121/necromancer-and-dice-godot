@@ -34,7 +34,8 @@
       "width": 160,
       "height": 256,
       "top": 0,
-      "size": 256
+      "size": 256,
+      "background": [18, 217, 10]
     },
     "slash": {
       "name": "베기",

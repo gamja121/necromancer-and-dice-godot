@@ -69,6 +69,7 @@ func _run() -> void:
 	await scene.wait_time(1.4)
 	check(scene.visuals.art_items.is_empty(),"delayed hit, number and healing sprites finish through the production updater")
 	check(original.idle_sprites.size()<=original.MAX_IDLE_SPRITES,"normal effect expiration preserves the pool bound")
+	check_strike_effects(scene,id)
 	check(JSON.stringify(scene.rules.snapshot())==snapshot,"effect reuse never changes combat data or RNG")
 	var references: Array = []
 	for item in original.idle_sprites: references.append(weakref(item))
@@ -82,3 +83,38 @@ func _run() -> void:
 	await create_timer(0.25,true,false,true).timeout
 	print("BATTLE_EFFECT_POOL: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
+
+func check_strike_effects(scene, id: String) -> void:
+	var visuals = scene.visuals
+	var original = visuals.original
+	var unlinked: Array[String] = []
+	for slug in scene.definitions:
+		if slug=="guardian-seed": continue
+		var kind: String = original.hit_kind(slug)
+		if not original.metadata.effects.has(kind) or (not original.metadata.attacks.has(slug) and slug not in ["dragon","dracula"]):
+			unlinked.append(slug)
+	check(unlinked.is_empty(),"every attacker resolves to an authored impact: %s" % str(unlinked))
+	visuals.set_process(false)
+	scene.speed_index = scene.speed_values.size()-1
+	var step := 1.0/30.0
+	for kind in original.metadata.effects:
+		var frames: Array = original.hit_frames(kind)
+		visuals.play_hit(id,kind,0.25)
+		var sprite: TextureRect = visuals.art_items[0].node
+		visuals._process(step)
+		var sequence_ok := not sprite.visible
+		visuals._process(step)
+		for index in range(frames.size()):
+			sequence_ok = sequence_ok and sprite.visible and sprite.texture==frames[index] and sprite.modulate.a>0.0
+			if index==0:
+				scene.paused = true
+				visuals._process(step)
+				scene.paused = false
+				visuals.presentation_hold = true
+				visuals._process(step)
+				visuals.presentation_hold = false
+				sequence_ok = sequence_ok and sprite.texture==frames[0]
+			visuals._process(step)
+		check(sequence_ok and visuals.art_items.is_empty() and not sprite.visible,"%s draws every frame at 30 FPS and max speed, then cleans up" % kind)
+	scene.speed_index = 0
+	visuals.set_process(true)
