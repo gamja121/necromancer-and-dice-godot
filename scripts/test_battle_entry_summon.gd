@@ -1,6 +1,6 @@
 extends SceneTree
 ## The real selected deck (not a stub) must summon each allied source sprite
-## with the original summon sprites, BLACK -> source art, before dice/card clicks unlock.
+## through one floor seal, with the source art rising into view before inputs unlock.
 const MAP = preload("res://map.tscn")
 const SESSION = preload("res://systems/run_session.gd")
 var passed := 0
@@ -20,6 +20,10 @@ func wait_for(condition: Callable, limit: int = 16000) -> bool:
 		if condition.call(): return true
 		await process_frame
 	return bool(condition.call())
+
+func floor_seals(battle: Control) -> Array:
+	return battle.world_layer.get_children().filter(func(node):
+		return str(node.name).begins_with("SummonFloorSeal_") and not node.is_queued_for_deletion())
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -92,22 +96,26 @@ func run_party(session: Node, count: int) -> void:
 	for id in ids:
 		var sprite: TextureRect=battle.sprites[id]
 		hidden=hidden and sprite.modulate.a<0.02 and absf(float(sprite.material.get_shader_parameter("entry_reveal")))<0.02
-	check(hidden,"%d allies: existing source sprites initially hidden behind black-silhouette shader" % count)
-	var summon_frames: Array=battle.visuals.original.summon_frames()
-	var first_effect: bool=await wait_for(func():
-		return battle.visuals.art_items.any(func(item): return item.frames==summon_frames and item.node.visible))
-	check(first_effect and battle.visuals.art_items.size()==1,"%d allies: one original summon effect is visible" % count)
+	check(hidden,"%d allies: source sprites initially hidden" % count)
+	var material: ShaderMaterial=battle.sprites[ids[0]].material
+	var first_effect: bool=await wait_for(func(): return floor_seals(battle).size()==1)
+	check(first_effect and battle.visuals.art_items.is_empty(),"%d allies: one floor seal starts without a second circle" % count)
+	check(is_zero_approx(float(material.get_shader_parameter("entry_reveal"))) and is_zero_approx(float(material.get_shader_parameter("entry_color_line"))),
+		"%d allies: the seal starts before the silhouette and its color" % count)
+	var emerging: bool=await wait_for(func(): return float(material.get_shader_parameter("entry_reveal"))>0.025)
 	var later_hidden: bool=ids.slice(1).all(func(id): return battle.sprites[id].modulate.a<0.02)
-	check(battle.sprites[ids[0]].modulate.a>0.9 and later_hidden,"%d allies: first silhouette appears before later slots" % count)
-	var first_shader: float=float(battle.sprites[ids[0]].material.get_shader_parameter("entry_reveal"))
-	check(first_shader<0.5,"%d allies: first unit stays dark when portal opens" % count)
+	check(emerging and battle.sprites[ids[0]].modulate.a>0.9 and later_hidden,"%d allies: first silhouette appears before later slots" % count)
+	var rise := float(material.get_shader_parameter("entry_reveal"))
+	var color_line := float(material.get_shader_parameter("entry_color_line"))
+	check(color_line<rise,"%d allies: silhouette rises before the color sweep" % count)
 	var complete: bool=await wait_for(func(): return not battle.entry_summon_active,16000)
 	check(complete,"%d allies: all sequential summon reveals finish" % count)
 	if complete:
-		var uncovered: bool=battle.visuals.art_items.is_empty()
+		var uncovered: bool=battle.visuals.art_items.is_empty() and floor_seals(battle).is_empty()
 		for id in ids:
 			var sprite: TextureRect=battle.sprites[id]
 			uncovered=uncovered and absf(float(sprite.material.get_shader_parameter("entry_reveal"))-1.0)<0.01
+			uncovered=uncovered and absf(float(sprite.material.get_shader_parameter("entry_color_line"))-1.0)<0.01
 			uncovered=uncovered and sprite.modulate.a>0.99 and battle.bars[id].modulate.a>0.99
 		check(uncovered,"%d allies: all original monster artwork and HP bars fully restored" % count)
 		check(is_instance_valid(battle.brand_reference) and battle.entry_brand_auto_open,
@@ -152,6 +160,7 @@ func run_party(session: Node, count: int) -> void:
 	if restored:
 		check(not reloaded.embedded_battle.play_entry_summon and not reloaded.embedded_battle.entry_summon_active
 			and not reloaded.embedded_battle.entry_brand_auto_open and not is_instance_valid(reloaded.embedded_battle.brand_reference)
+			and floor_seals(reloaded.embedded_battle).is_empty()
 			and not reloaded.dice.disabled,"%d allies: restored encounter repeats neither entrance nor automatic brand chart" % count)
 	reloaded.queue_free()
 	await process_frame

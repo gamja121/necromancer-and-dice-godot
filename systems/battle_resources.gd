@@ -97,7 +97,7 @@ func setup(world) -> void:
 	var metadata = JSON.parse_string(FileAccess.get_file_as_string("res://assets/battle/effects/original_effects.json"))
 	for config in metadata.effects.values():
 		enqueue("res://assets/battle/effects/"+String(config.sheet).get_file())
-	for name in ["damage-digits-sheet.jpg","healing-digits-sheet.jpg","combat-labels-sheet.jpg","status-labels-sheet.jpg","summon-effect-sheet.jpg","heal-cross.png"]:
+	for name in ["damage-digits-sheet.jpg","healing-digits-sheet.jpg","combat-labels-sheet.jpg","status-labels-sheet.jpg","heal-cross.png"]:
 		enqueue("res://assets/battle/effects/"+name)
 	for path in ["res://assets/battle/music/battle.mp3","res://assets/battle/sfx/ui.ogg","res://assets/battle/ui/battle-deck-selection-board.png","res://assets/map/ui/battle_frame.png","res://assets/battle/ui/legion-slot-frame.png"]:
 		enqueue(path)

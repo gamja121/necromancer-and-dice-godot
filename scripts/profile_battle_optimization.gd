@@ -58,12 +58,15 @@ func _run() -> void:
 
 	var id: String = scene.rules.units[0].id
 	scene.sprites[id].material.set_shader_parameter("entry_reveal",0.0)
+	scene.sprites[id].material.set_shader_parameter("entry_color_line",0.0)
 	before = draws
 	scene.paused = false
 	capture("02_summon")
 	await scene.visuals.play_entry_summon_unit(id)
-	check(draws==before,"original summon sprites leave the cached ground untouched")
-	check(scene.visuals.art_items.is_empty(),"original summon sprites are released after the reveal")
+	await settle(1)
+	check(draws==before,"the floor seal leaves the cached ground untouched")
+	var seals_clear: bool = scene.world_layer.get_children().all(func(node): return not str(node.name).begins_with("SummonFloorSeal_"))
+	check(seals_clear and scene.visuals.art_items.is_empty(),"the floor seal is released after the reveal")
 	scene.paused = true
 	await capture("03_summon_cleared")
 

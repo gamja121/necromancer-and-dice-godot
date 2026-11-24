@@ -190,11 +190,3 @@ func label(parent: Control, kind: String) -> Control:
 	var node = sprite(parent,crop("combat-labels-sheet.jpg" if metadata.labels.has(kind) else "status-labels-sheet.jpg",cell),"label",Vector2(width,width*float(cell[3])/cell[2]))
 	node.z_index = 13
 	return node
-
-func summon_frames() -> Array:
-	if cache.has("summon"): return cache.summon
-	var frames: Array = []
-	for i in range(8):
-		frames.append(crop("summon-effect-sheet.jpg",[i%4*320,0 if i<4 else 288,320,288 if i<4 else 287]))
-	cache.summon = frames
-	return frames

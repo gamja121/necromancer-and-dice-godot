@@ -4,6 +4,7 @@ const PermanentDeath = preload("res://systems/permanent_death.gd")
 const Accent = preload("res://systems/presentation_accent.gd")
 const StatusEffects = preload("res://systems/battle_status_effects.gd")
 const SpeedTrail = preload("res://systems/battle_speed_trail.gd")
+const SummonSeal = preload("res://systems/battle_summon_seal.gd")
 const HITSTOP_SECONDS := 0.060
 const STRONG_HITSTOP_SECONDS := 0.080
 
@@ -57,6 +58,10 @@ uniform float dim = 0.0;
 uniform float flash : hint_range(0.0, 1.0) = 0.0;
 uniform float frost : hint_range(0.0, 1.0) = 0.0;
 uniform float entry_reveal : hint_range(0.0, 1.0) = 1.0;
+uniform float entry_color_line : hint_range(0.0, 1.0) = 1.0;
+uniform float entry_ink_top = 0.0;
+uniform float entry_ink_bottom = 1.0;
+uniform float entry_seal_light = 0.0;
 void fragment() {
 	vec4 source = COLOR;
 	float gray = dot(source.rgb,vec3(0.2126,0.7152,0.0722));
@@ -64,7 +69,20 @@ void fragment() {
 	float luminance = dot(shaded,vec3(0.2126,0.7152,0.0722));
 	shaded = mix(shaded,luminance*vec3(0.70,0.94,1.18),frost*0.76);
 	vec3 original_look = mix(shaded, vec3(1.0, 0.18, 0.1), flash);
-	COLOR = vec4(mix(vec3(0.012,0.011,0.020), original_look, entry_reveal), source.a);
+	if (entry_reveal < 1.0 || entry_color_line < 1.0 || entry_seal_light > 0.0) {
+		float height = clamp((entry_ink_bottom - UV.y) / max(entry_ink_bottom - entry_ink_top, 0.01), 0.0, 1.0);
+		float reveal = mix(-0.13, 1.12, entry_reveal);
+		float color_line = mix(-0.20, 1.16, entry_color_line);
+		float materialized = 1.0 - smoothstep(reveal - 0.027, reveal + 0.023, height);
+		float colored = 1.0 - smoothstep(color_line - 0.035, color_line + 0.115, height);
+		float fringe = 1.0 - smoothstep(0.006, 0.06, abs(height - reveal));
+		float rim = max(fringe * 0.75, entry_seal_light * (1.0 - height) * 0.48);
+		vec3 body = mix(vec3(0.024, 0.014, 0.031), original_look, colored);
+		body += vec3(0.50, 0.32, 0.60) * rim;
+		COLOR = vec4(body, source.a * materialized);
+	} else {
+		COLOR = vec4(original_look, source.a);
+	}
 }
 """
 	ground = Ground.new()
@@ -107,37 +125,71 @@ func prepare_entry_summon() -> Array:
 	for unit in scene.rules.units:
 		if unit.team!="ally" or not unit.alive or int(unit.slot)>=4: continue
 		var sprite: TextureRect = scene.sprites[unit.id]
-		if not (sprite.material is ShaderMaterial): continue
-		sprite.material.set_shader_parameter("entry_reveal",0.0)
+		var material := sprite.material as ShaderMaterial
+		if material==null: continue
+		set_summon_phase(material,0.0)
 		sprite.modulate.a = 0.0
 		scene.bars[unit.id].modulate.a = 0.0
 		ids.append(str(unit.id))
 	return ids
 
 func play_entry_summon_unit(id: String) -> void:
-	if not scene.sprites.has(id) or not homes.has(id): return
-	var sprite: TextureRect = scene.sprites[id]
-	var material: ShaderMaterial = sprite.material as ShaderMaterial
-	if material == null: return
-	var frames: Array = original.summon_frames()
-	var effect = original.sprite(self,frames[0],"summon",Vector2(190,92))
-	effect.z_index = -2
-	add_art(effect,homes[id]+sprite.pivot_offset-Vector2(95,62),0.75,Vector2.ZERO,frames,0.09)
+	await play_summon_reveals([id],true)
+
+func set_summon_phase(material: ShaderMaterial, phase: float) -> void:
+	material.set_shader_parameter("entry_reveal",smoothstep(0.29,0.67,phase))
+	material.set_shader_parameter("entry_color_line",smoothstep(0.40,0.83,phase))
+	material.set_shader_parameter("entry_seal_light",smoothstep(0.24,0.40,phase)*(1.0-smoothstep(0.46,0.71,phase)))
+
+func play_summon_reveals(ids: Array, entry: bool) -> void:
+	var arrivals: Array[Dictionary] = []
+	for id: String in ids:
+		if not scene.sprites.has(id) or not layouts.has(id): continue
+		var sprite: TextureRect = scene.sprites[id]
+		var paint := sprite.material as ShaderMaterial
+		if paint==null:
+			set_round_arrival_alpha(id,1.0)
+			continue
+		var metric: Dictionary = scene.presentation_layout.metrics.get(states[id].slug,{})
+		var image_height := float(metric.get("height",320))
+		paint.set_shader_parameter("entry_ink_top",float(metric.get("top",0))/image_height)
+		paint.set_shader_parameter("entry_ink_bottom",(float(metric.get("bottom",319))+1.0)/image_height)
+		set_summon_phase(paint,0.0)
+		sprite.modulate.a = 1.0
+		scene.bars[id].modulate.a = 0.0
+		if not entry: scene.cards[id].modulate.a = 0.0
+		active[id] = true
+
+		var seal := SummonSeal.new()
+		seal.name = "SummonFloorSeal_"+id
+		seal.position = homes[id]+sprite.pivot_offset-Vector2(0,1)
+		seal.z_index = sprite.z_index-1
+		var height := status_body_height(id)
+		seal.radius = clampf(height*0.62,76.0,109.0)*maxf(0.88,body_width_fit(id,height))
+		world_layer.add_child(seal)
+		arrivals.append({"id":id,"paint":paint,"seal":seal})
+	if arrivals.is_empty(): return
 	scene.sound("summon")
-	sprite.modulate.a = 1.0
-	await get_tree().create_timer(0.20).timeout
-	if not is_instance_valid(sprite) or not is_inside_tree(): return
-	# The sprite's original texture is always present under a shader mask:
-	# fully BLACK silhouette -> full source artwork without a duplicated unit.
-	var reveal = create_tween()
-	reveal.tween_method(func(t: float):
-		if is_instance_valid(material):
-			material.set_shader_parameter("entry_reveal",t)
-	,0.0,1.0,0.38).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	await reveal.finished
-	if not is_instance_valid(sprite) or not is_inside_tree(): return
-	material.set_shader_parameter("entry_reveal",1.0)
-	scene.bars[id].modulate.a = 1.0
+	var duration: float = (SummonSeal.ENTRY_SECONDS if entry else SummonSeal.ROUND_SECONDS)*scene.battle_tempo
+	var start := float(idle_clock)
+	var previous := -1.0
+	while idle_clock-start<duration:
+		var phase := (float(idle_clock)-start)/duration
+		if phase!=previous:
+			for item in arrivals:
+				set_summon_phase(item.paint,phase)
+				item.seal.phase = phase
+				item.seal.queue_redraw()
+			previous = phase
+		await get_tree().process_frame
+		if not is_inside_tree(): return
+	for item in arrivals:
+		set_summon_phase(item.paint,1.0)
+		item.seal.hide()
+		item.seal.queue_free()
+		scene.bars[item.id].modulate.a = 1.0
+		if not entry: scene.cards[item.id].modulate.a = 1.0
+		active.erase(item.id)
 
 func _process(delta: float) -> void:
 	if scene == null: return
@@ -280,12 +332,16 @@ func torso_center(id: String, height: float) -> Vector2:
 
 func ice_pose(id: String, height: float) -> Transform2D:
 	var sprite: TextureRect = scene.sprites[id]
-	var span: Vector2 = layouts[id].idle_x_span
 	var size := clampf(height/165.0,0.42,1.35)
-	# The approved orc silhouette is about 88% as wide as it is tall.
-	var width := clampf(sprite.size.x*(span.y-span.x)/maxf(height*0.88,1.0),0.45,1.0)
+	var width := body_width_fit(id,height)
 	var facing := 1.0 if sprite.flip_h else -1.0
 	return Transform2D(0.0,Vector2(size*width*facing,size),0.0,torso_center(id,height))
+
+func body_width_fit(id: String, height: float) -> float:
+	var sprite: TextureRect = scene.sprites[id]
+	var span: Vector2 = layouts[id].idle_x_span
+	# The reference orc silhouette is about 88% as wide as it is tall.
+	return clampf(sprite.size.x*(span.y-span.x)/maxf(height*0.88,1.0),0.45,1.0)
 
 func draw_ground(canvas: Control) -> void:
 	for id in states:
@@ -768,20 +824,7 @@ func play_round(before: Array, after: Array, reports: Array) -> void:
 			if old.id==unit.id: previous = old
 		if not previous.is_empty() and previous.slug==unit.slug and previous.hp!=unit.hp and not reports.any(func(report): return report.target==unit.id):
 			show_reports([{"type":"damage" if unit.hp<previous.hp else "heal","target":unit.id,"amount":absi(unit.hp-previous.hp),"kind":"cost","blocked":false,"critical":false,"hp":unit.hp}])
-	if not arriving.is_empty():
-		var frames: Array = original.summon_frames()
-		for id in arriving:
-			set_round_arrival_alpha(id,0.0)
-			var node = original.sprite(self,frames[0],"summon",Vector2(190,92))
-			node.z_index = -2
-			var sprite: TextureRect = scene.sprites[id]
-			add_art(node,homes[id]+sprite.pivot_offset-Vector2(0,12)-node.size/2,0.8,Vector2.ZERO,frames,0.09)
-		scene.sound("summon")
-		await scene.wait_time(0.27)
-		for id in arriving:
-			set_round_arrival_alpha(id,1.0)
-		# Finish the original arrival before beginning a summon brand cue.
-		await scene.wait_time(0.56)
+	await play_summon_reveals(arriving,false)
 	await play_round_reports(reports)
 	await play_deaths(before,after)
 
