@@ -3,6 +3,7 @@ const OriginalEffects = preload("res://systems/original_effects.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
 const Accent = preload("res://systems/presentation_accent.gd")
 const StatusEffects = preload("res://systems/battle_status_effects.gd")
+const SpeedTrail = preload("res://systems/battle_speed_trail.gd")
 const HITSTOP_SECONDS := 0.060
 const STRONG_HITSTOP_SECONDS := 0.080
 
@@ -33,6 +34,7 @@ var idle_clock = 0.0
 var focus_actor = ""
 var focus_target = ""
 var hit_motions: Dictionary = {}
+var lightspeed_trail: SpeedTrail
 var guard_flares: Dictionary = {}
 var ice_started: Dictionary = {}
 var ice_shatters: Dictionary = {}
@@ -376,6 +378,8 @@ func play_action(action: Dictionary) -> void:
 	var cancelled = action.target.is_empty() or not action.attack_allowed
 	if not cancelled:
 		set_focus(action.actor,action.target)
+		if states[action.actor].bless.get("lightspeed",0)>0:
+			play_lightspeed_departure(action.actor)
 		# Forecast confirmed damage only; shields/blocks are already resolved.
 		var forecasts: Dictionary = {}
 		for hit in action.visual_hits:
@@ -416,6 +420,7 @@ func play_action(action: Dictionary) -> void:
 			scene.sound("battle_miss")
 			show_label(action.target,"miss")
 		await scene.wait_presentation(0.2)
+	clear_lightspeed_trail()
 	set_focus()
 	for bar in scene.bars.values(): bar.clear_preview()
 	hit_motions.clear()
@@ -451,6 +456,7 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary, drains
 		var tex = scene.texture(scene.frame_path(actor,"attack",int(frames[i])))
 		if tex!=null: sprite.texture = tex
 		if i==impact_frame:
+			clear_lightspeed_trail()
 			if not report.is_empty():
 				if scene.bars.has(target_id) and not report.get("blocked",false):
 					scene.bars[target_id].consume_hit(int(report.amount),int(report.hp))
@@ -512,6 +518,16 @@ func play_critical_shockwave(attacker: TextureRect) -> void:
 	var cue := spawn_strike_accent("critical_shockwave",points,Color("edc58a"),0.48*scene.battle_tempo,true)
 	cue.z_as_relative = false
 	cue.z_index = 20
+
+func play_lightspeed_departure(id: String) -> void:
+	lightspeed_trail = SpeedTrail.new()
+	lightspeed_trail.name = "LightspeedDeparture"
+	world_layer.add_child(lightspeed_trail)
+	lightspeed_trail.begin(scene.sprites[id],func(): return float(idle_clock),scene.battle_tempo)
+
+func clear_lightspeed_trail() -> void:
+	if is_instance_valid(lightspeed_trail): lightspeed_trail.retire()
+	lightspeed_trail = null
 
 func play_lifesteal(victim_id: String, attacker_id: String) -> float:
 	var speed_ratio: float = scene.speed_values[scene.speed_index]/scene.speed_values[0]
