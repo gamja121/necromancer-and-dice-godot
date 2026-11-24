@@ -264,7 +264,7 @@ func status_center(id: String, height: float) -> Vector2:
 	var sprite: TextureRect = scene.sprites[id]
 	return sprite.position+sprite.pivot_offset-Vector2(0,height*0.57)
 
-func ice_pose(id: String, height: float) -> Transform2D:
+func torso_center(id: String, height: float) -> Vector2:
 	var sprite: TextureRect = scene.sprites[id]
 	var span: Vector2 = layouts[id].idle_x_span
 	var center := status_center(id,height)
@@ -274,11 +274,16 @@ func ice_pose(id: String, height: float) -> Transform2D:
 		x = 0.57
 		center.y = sprite.position.y+sprite.size.y*0.51
 	center.x = sprite.position.x+sprite.size.x*(1.0-x if sprite.flip_h else x)
+	return center
+
+func ice_pose(id: String, height: float) -> Transform2D:
+	var sprite: TextureRect = scene.sprites[id]
+	var span: Vector2 = layouts[id].idle_x_span
 	var size := clampf(height/165.0,0.42,1.35)
 	# The approved orc silhouette is about 88% as wide as it is tall.
 	var width := clampf(sprite.size.x*(span.y-span.x)/maxf(height*0.88,1.0),0.45,1.0)
 	var facing := 1.0 if sprite.flip_h else -1.0
-	return Transform2D(0.0,Vector2(size*width*facing,size),0.0,center)
+	return Transform2D(0.0,Vector2(size*width*facing,size),0.0,torso_center(id,height))
 
 func draw_ground(canvas: Control) -> void:
 	for id in states:
@@ -382,14 +387,19 @@ func play_action(action: Dictionary) -> void:
 			scene.bars[target_id].preview(int(forecasts[target_id]))
 		await scene.cues.play_intent(action.actor,action.target)
 		var played = false
-		for report in action.visual_hits:
+		var drain_arrival := 0.0
+		var reports: Array = action.visual_hits
+		for i in range(reports.size()):
+			var report: Dictionary = reports[i]
 			if report.type=="damage" and report.get("kind","") in ["attack","counter"]:
 				var source_id: String = report.get("source",action.actor)
 				if not states.has(source_id) or not states.has(report.target): continue
 				set_focus(source_id,report.target)
-				await play_strike(source_id,report.target,report)
+				drain_arrival = await play_strike(source_id,report.target,report,has_lifesteal_after(reports,i))
 				played = true
 			else:
+				if report.has("drained_from"):
+					while idle_clock<drain_arrival: await get_tree().process_frame
 				show_reports([report])
 		if not played: await play_strike(action.actor,action.target,{})
 		for prior in action.prepared:
@@ -413,9 +423,21 @@ func play_action(action: Dictionary) -> void:
 	scene.render_units(action.after)
 	await play_deaths(action.before,action.after)
 
-func play_strike(actor_id: String, target_id: String, report: Dictionary) -> void:
+func has_lifesteal_after(reports: Array, strike_index: int) -> bool:
+	var strike: Dictionary = reports[strike_index]
+	if strike.get("kind","")!="attack": return false
+	# A regular Feast heal can occur between a lethal hit and its lifesteal heal.
+	for i in range(strike_index+1,reports.size()):
+		var report: Dictionary = reports[i]
+		if report.type=="damage": break
+		if report.get("drained_from","")==strike.target and report.target==strike.get("source",""):
+			return true
+	return false
+
+func play_strike(actor_id: String, target_id: String, report: Dictionary, drains_life: bool = false) -> float:
 	var actor: Dictionary = states[actor_id]
-	if actor.slug=="guardian-seed": return
+	if actor.slug=="guardian-seed": return 0.0
+	var drain_arrival := 0.0
 	var sprite: TextureRect = scene.sprites[actor_id]
 	active[actor_id] = true
 	sprite.scale = Vector2.ONE
@@ -438,6 +460,7 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 					var critical: bool = report.get("critical",false)
 					var critical_brand_hit: bool = critical and report.get("kind","")=="attack"
 					play_hit(target_id,original.hit_kind(actor.slug))
+					if drains_life: drain_arrival = play_lifesteal(target_id,actor_id)
 					play_species_accent(actor_id,target_id,critical_brand_hit)
 					if critical_brand_hit: play_critical_shockwave(sprite)
 					scene.sound(impact_cue(str(actor.slug),str(states[target_id].slug),critical,attack_kind(actor)=="heavy"))
@@ -460,6 +483,7 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 	while hit_motions.has(target_id): await scene.wait_presentation(0.01)
 	active.erase(actor_id)
 	sprite.texture = scene.texture(scene.frame_path(actor,"attack",1))
+	return drain_arrival
 
 func start_hit_recoil(actor_id: String, target_id: String, speed: float, strong: bool) -> void:
 	var target: Dictionary = states[target_id]
@@ -488,6 +512,17 @@ func play_critical_shockwave(attacker: TextureRect) -> void:
 	var cue := spawn_strike_accent("critical_shockwave",points,Color("edc58a"),0.48*scene.battle_tempo,true)
 	cue.z_as_relative = false
 	cue.z_index = 20
+
+func play_lifesteal(victim_id: String, attacker_id: String) -> float:
+	var speed_ratio: float = scene.speed_values[scene.speed_index]/scene.speed_values[0]
+	var duration: float = Accent.LIFESTEAL_SECONDS*scene.battle_tempo/sqrt(maxf(1.0,speed_ratio))
+	var cue := spawn_strike_accent("lifesteal",[],Color("bb263b"),duration,true)
+	cue.anchor_source = func() -> Array[Vector2]:
+		return [torso_center(victim_id,status_body_height(victim_id))-Vector2(0,7),
+			torso_center(attacker_id,status_body_height(attacker_id))-Vector2(0,7)]
+	cue.z_as_relative = false
+	cue.z_index = 52
+	return cue.started+cue.duration
 
 func play_species_accent(actor_id: String, target_id: String, critical_brand_hit: bool = false) -> void:
 	var actor: Dictionary = states[actor_id]
@@ -573,14 +608,16 @@ func show_reports(reports: Array, guard_already_settled: bool = false) -> void:
 		add_art(node,center_of(id)+Vector2(-node.size.x/2,-25-offset*12),0.72,Vector2.ZERO,[],0.065,delay)
 		node.pivot_offset = node.size/2.0
 		art_items[-1]["pop"] = true
-		if healing or scene.bars[id].preview_damage <= 0:
-			scene.bars[id].value = report.hp
 		if healing:
+			var bar = scene.bars[id]
+			bar.receive_heal(int(report.hp),int(report.get("max_hp",bar.max_value)))
 			if not healing_sound_played:
 				scene.sound("battle_heal")
 				healing_sound_played = true
 			heal_crosses(id,report.amount)
-		elif report.get("critical",false): show_label(id,"critical",delay)
+		else:
+			if scene.bars[id].preview_damage <= 0: scene.bars[id].value = report.hp
+			if report.get("critical",false): show_label(id,"critical",delay)
 
 func heal_crosses(id: String, amount: int) -> void:
 	var pattern = [[-34,24,34,0,760,-10],[-18,2,28,70,720,-5],[0,18,38,35,820,2],[20,-8,30,120,760,8],[36,22,34,160,840,12],[-5,-24,26,210,700,-3],[27,-32,29,250,780,7]]

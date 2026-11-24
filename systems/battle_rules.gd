@@ -113,7 +113,7 @@ func find_id(id: String) -> Dictionary:
 			return u
 	return {}
 
-func heal(u: Dictionary, n: int) -> int:
+func heal(u: Dictionary, n: int, _drained_from: String = "") -> int:
 	if not u.alive:
 		return 0
 	var amount = maxi(0,mini(n,u.max_hp-u.hp))
@@ -316,7 +316,7 @@ func attack(a: Dictionary, t: Dictionary) -> void:
 		var hit = damage(t,raw,a)
 		events.append("%s → %s · 피해 %d" % [a.name,t.name,hit])
 		if hit > 0:
-			heal(a,hit*a.bless.get("vampire",0))
+			heal(a,hit*a.bless.get("vampire",0),t.id)
 			if t.alive:
 				poison(t,a.bless.get("poison",0),a)
 				if a.bless.get("freeze",0)>0 and not t.frozen:

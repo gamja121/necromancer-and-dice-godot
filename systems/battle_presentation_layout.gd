@@ -178,8 +178,14 @@ class HealthBar extends Range:
 	func preview(amount: int) -> void:
 		if is_instance_valid(damage_tween): damage_tween.kill()
 		forecast_hp = int(value)
-		preview_damage = clampi(amount, 0, maxi(0, forecast_hp))
+		# A hit later in the action can consume HP gained by an earlier heal.
+		preview_damage = maxi(0, amount)
 		white_cells = float(preview_damage)
+		queue_redraw()
+	func receive_heal(remaining_hp: int, health_limit: int) -> void:
+		max_value = health_limit
+		forecast_hp = remaining_hp
+		value = remaining_hp
 		queue_redraw()
 	func consume_hit(amount: int, remaining_hp: int) -> void:
 		var lost: int = mini(preview_damage, maxi(0, amount))

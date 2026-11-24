@@ -1,6 +1,9 @@
 class_name PresentationAccent
 extends Control
 ## Short, deterministic accents over existing art. No input, RNG or saved state.
+const LIFESTEAL_DELAY := 0.02
+const LIFESTEAL_SECONDS := LIFESTEAL_DELAY+0.56
+
 var kind: String = ""
 var anchors: Array[Vector2] = []
 var tint := Color("d9bb7d")
@@ -9,6 +12,7 @@ var caption_rect := Rect2()
 var age: float = 0.0
 var duration: float = 0.7
 var clock_source: Callable
+var anchor_source: Callable
 var started: float = 0.0
 
 static func legion_groups(units: Array, needs: Dictionary) -> Dictionary:
@@ -57,6 +61,7 @@ func _draw() -> void:
 		"silk": _draw_silk(t)
 		"dust", "bone": _draw_debris(t)
 		"critical_shockwave": _draw_critical_shockwave(t)
+		"lifesteal": _draw_lifesteal(t)
 		"swamp", "discovery", "boss": _draw_tile(t)
 
 func _draw_link(t: float) -> void:
@@ -152,6 +157,86 @@ func soft_spot(point: Vector2, radius: float, color: Color) -> void:
 	for ring in range(5,0,-1):
 		var scale_value := float(ring)/5.0
 		draw_circle(point,radius*scale_value,Color(color,color.a*(1.0-scale_value)*0.7))
+
+func _draw_lifesteal(t: float) -> void:
+	var delay := LIFESTEAL_DELAY/LIFESTEAL_SECONDS
+	if t<delay: return
+	var points: Array[Vector2] = anchor_source.call() if anchor_source.is_valid() else anchors
+	if points.size()<2: return
+	var progress := (t-delay)/(1.0-delay)
+	var donor := points[0]
+	var receiver := points[1]
+	var route := receiver-donor
+	var distance := route.length()
+	var fit := clampf(distance/235.0,0.35,1.0)
+	var lift := 51.0*fit
+	for i in range(3):
+		_draw_lifesteal_wisp(donor,route,lift,fit,progress,i)
+
+	var pull := progress/0.27
+	if pull<1.0:
+		var forward := _lifesteal_heading(route,lift,0.0)
+		for i in range(9):
+			var radial := Vector2.RIGHT.rotated(float(i)*2.399)
+			var spark := donor+radial*(6.0+float(i%4)*5.0)*(1.0-pull)+forward*pull*35.0*fit
+			draw_circle(spark,1.35+float(i%3)*0.60,Color(1.0,0.22,0.34,(1.0-pull)*0.86),true)
+	var arrive := smoothstep(0.70,0.86,progress)*(1.0-smoothstep(0.86,1.0,progress))
+	if arrive<=0.0: return
+	draw_circle(receiver,24.0,Color(tint,arrive*0.22),true)
+	draw_circle(receiver,9.0,Color(1.0,0.27,0.37,arrive*0.32),true)
+	for i in range(6):
+		var angle := float(i)*TAU/6.0
+		draw_arc(receiver,17.0*lerpf(1.2,0.56,progress),angle,angle+0.52,8,Color(0.94,0.12,0.25,arrive*0.80),1.7,true)
+
+func _lifesteal_heading(route: Vector2, lift: float, t: float) -> Vector2:
+	return (route-Vector2(0,cos(t*PI)*PI*lift)).normalized()
+
+func _lifesteal_wisp_point(donor: Vector2, route: Vector2, lift: float, fit: float,
+		t: float, along: float, progress: float, strand: int) -> Vector2:
+	var arc := sin(PI*t)
+	var side := _lifesteal_heading(route,lift,t).orthogonal()
+	var wave := sin(float(strand)*1.59+along*11.0-progress*6.0)
+	return donor+route*t-Vector2(0,arc*lift)+side*(wave*(5.5+float(strand)*3.2)+float(strand-1)*10.0)*arc*fit
+
+func _draw_lifesteal_wisp(donor: Vector2, route: Vector2, lift: float, fit: float, progress: float, strand: int) -> void:
+	var leading := clampf((progress-float(strand)*0.055)/0.63,0.0,1.0)
+	var trailing := lerpf(maxf(0.0,leading-0.68),1.0,smoothstep(0.64,1.0,progress))
+	if (leading-trailing)*route.length()<5.0: return
+	var opacity := smoothstep(0.0,0.15,progress)*(1.0-smoothstep(0.74,1.0,progress))
+	for i in range(13):
+		var along := float(i)/12.0
+		var t := lerpf(trailing,leading,along)
+		var point := _lifesteal_wisp_point(donor,route,lift,fit,t,along,progress,strand)
+		point += _lifesteal_heading(route,lift,t).orthogonal()*sin(float(i)*1.8+progress*8.0)*5.5*fit
+		var radius := (8.0+float(i%4)*2.4)*(0.50+0.50*sin(PI*along))*fit
+		radius *= 1.0-0.65*smoothstep(0.65,1.0,t)
+		draw_circle(point,radius,Color(0.33,0.011,0.048,opacity*0.12),true)
+		draw_circle(point,radius*0.72,Color(0.55,0.018,0.082,opacity*0.13),true)
+
+	var upper := PackedVector2Array()
+	var lower := PackedVector2Array()
+	var ember := PackedVector2Array()
+	for i in range(29):
+		var along := float(i)/28.0
+		var t := lerpf(trailing,leading,along)
+		var point := _lifesteal_wisp_point(donor,route,lift,fit,t,along,progress,strand)
+		var side := _lifesteal_heading(route,lift,t).orthogonal()
+		var width := (2.0+pow(maxf(0.0,sin(PI*along)),0.73)*(8.5-float(strand)*1.65))*fit
+		width *= 1.0-smoothstep(0.61,1.0,t)*0.75
+		upper.append(point+side*width*(1.0+0.21*sin(float(i)*1.9+float(strand))))
+		lower.append(point-side*width*(1.0+0.14*cos(float(i)*2.2)))
+		ember.append(point+side*(0.7+1.6*sin(float(i)*0.77))*fit)
+	var silhouette := upper.duplicate()
+	lower.reverse()
+	silhouette.append_array(lower)
+	draw_colored_polygon(silhouette,Color(0.39+0.12*float(strand),0.012,0.076+0.024*float(strand),opacity*0.48))
+	draw_polyline(upper,Color(0.30,0.005,0.045,opacity*0.39),2.4,true)
+	draw_polyline(ember,Color(0.83,0.055+0.028*float(strand),0.18,opacity*0.37),3.1,true)
+	draw_polyline(ember.slice(4,20),Color(0.99,0.26,0.32,opacity*0.33),1.15,true)
+	for i in range(4):
+		var t := lerpf(trailing,leading,(float(i)+1.0)/5.0)
+		var spark := _lifesteal_wisp_point(donor,route,lift,fit,t,float(i)/4.0,progress,strand)
+		draw_circle(spark+Vector2(0,-9.0-float(i%2)*4.0)*fit,1.25+float(i%3)*0.45,Color(0.99,0.12,0.26,opacity*0.65),true)
 
 func _draw_tile(t: float) -> void:
 	for at in anchors:

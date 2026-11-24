@@ -73,10 +73,12 @@ func next_action() -> Dictionary:
 	return {}
 
 
-func heal(unit: Dictionary, amount: int) -> int:
-	var healed = super.heal(unit,amount)
+func heal(unit: Dictionary, amount: int, drained_from: String = "") -> int:
+	var healed = super.heal(unit,amount,drained_from)
 	if healed>0:
-		presentation_events.append({"type":"heal","target":unit.id,"amount":healed,"hp":unit.hp})
+		var report := {"type":"heal","target":unit.id,"amount":healed,"hp":unit.hp,"max_hp":unit.max_hp}
+		if not drained_from.is_empty(): report.drained_from = drained_from
+		presentation_events.append(report)
 	return healed
 
 func damage(target: Dictionary, amount: int, source: Dictionary = {}, kind: String = "attack") -> int:
