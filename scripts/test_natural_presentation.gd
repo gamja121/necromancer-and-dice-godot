@@ -158,6 +158,58 @@ func run() -> void:
 	check(confirmed_silk_strikes==connected_count,"a blocked zero-damage strike produces no false silk impact")
 	battle.queue_free()
 	await process_frame
+	await check_critical_brand_shockwave()
 	session.save_file_path = old_save
 	print("NATURAL_PRESENTATION: %d passed, %d failed" % [passed,failed])
 	quit(0 if failed==0 else 1)
+
+func check_critical_brand_shockwave() -> void:
+	var battle = BATTLE.instantiate()
+	root.add_child(battle)
+	var cases := [
+		{"name":"ordinary","face":1,"defender_brand":"","waves":0},
+		{"name":"critical","face":4,"defender_brand":"","waves":1},
+		{"name":"shield","face":4,"defender_brand":"guard","waves":0},
+		{"name":"counter","face":4,"defender_brand":"counter","waves":1},
+		{"name":"combo","face":4,"defender_brand":"","waves":2},
+		{"name":"curse","face":2,"defender_brand":"","waves":0}
+	]
+	var rules = battle.rules
+	for scenario in cases:
+		rules.rng.seed = 912
+		var knight: Dictionary = rules.individual("death-knight","critical-actor")
+		var orc: Dictionary = rules.individual("orc-warrior","critical-target")
+		knight.passive = ""
+		orc.passive = ""
+		orc.max_hp = 24
+		knight.brands = [{"type":"critical","bless":[4],"curse":[2]}]
+		if scenario.name=="combo":
+			knight.brands.append({"type":"combo","bless":[4],"curse":[]})
+		orc.brands = [] if scenario.defender_brand.is_empty() else [
+			{"type":scenario.defender_brand,"bless":[4],"curse":[]}
+		]
+		rules.start([knight],[orc])
+		rules.begin_round(scenario.face)
+		battle.render_units(rules.units)
+		var seen: Array[bool] = []
+		var observe = func(node: Node):
+			if not node is Accent or node.kind!="critical_shockwave": return
+			var attacker: TextureRect = battle.sprites[knight.id]
+			seen.append(node.anchors[0].is_equal_approx(attacker.position+attacker.pivot_offset))
+		battle.visuals.child_entered_tree.connect(observe)
+		if scenario.name=="critical":
+			await battle.cues.play_brands(rules.units)
+			check(seen.is_empty(),"announcing the critical brand does not create a shockwave")
+		rules.queue = [rules.find_id(knight.id)]
+		var action: Dictionary = rules.next_action()
+		var resolved := JSON.stringify(rules.snapshot())
+		if scenario.name=="counter":
+			check(action.visual_hits.any(func(report): return report.get("kind","")=="counter"),"critical fixture produces a real counterattack")
+		await battle.visuals.play_action(action)
+		check(seen.size()==scenario.waves and seen.all(func(at_feet): return at_feet),
+			"%s: expected shockwaves are anchored to the attacking monster's feet" % scenario.name)
+		check(JSON.stringify(rules.snapshot())==resolved,"%s presentation leaves the resolved combat result intact" % scenario.name)
+		battle.visuals.child_entered_tree.disconnect(observe)
+	battle.stop_audio()
+	battle.queue_free()
+	await process_frame

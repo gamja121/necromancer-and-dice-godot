@@ -383,11 +383,14 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 				show_reports([report])
 				scene.cues.show_damage(report.amount)
 				if report.amount>0:
+					var critical: bool = report.get("critical",false)
+					var critical_brand_hit: bool = critical and report.get("kind","")=="attack"
 					play_hit(target_id,original.hit_kind(actor.slug))
-					play_species_accent(actor_id,target_id)
-					scene.sound(impact_cue(str(actor.slug),str(states[target_id].slug),bool(report.get("critical",false)),attack_kind(actor)=="heavy"))
+					play_species_accent(actor_id,target_id,critical_brand_hit)
+					if critical_brand_hit: play_critical_shockwave(sprite)
+					scene.sound(impact_cue(str(actor.slug),str(states[target_id].slug),critical,attack_kind(actor)=="heavy"))
 					flashes[target_id] = clock+0.26*speed
-					var strong: bool = report.get("critical",false) or report.amount>=actor.attack*1.5
+					var strong: bool = critical or report.amount>=actor.attack*1.5
 					start_hit_recoil(actor_id,target_id,speed,strong)
 					if strong:
 						shake_left = 0.15*speed
@@ -428,7 +431,13 @@ func hold_impact(seconds: float) -> void:
 		if not scene.paused: seconds -= get_process_delta_time()
 	presentation_hold = false
 
-func play_species_accent(actor_id: String, target_id: String) -> void:
+func play_critical_shockwave(attacker: TextureRect) -> void:
+	var points: Array[Vector2] = [attacker.position+attacker.pivot_offset]
+	var cue := spawn_strike_accent("critical_shockwave",points,Color("edc58a"),0.48*scene.battle_tempo,true)
+	cue.z_as_relative = false
+	cue.z_index = 20
+
+func play_species_accent(actor_id: String, target_id: String, critical_brand_hit: bool = false) -> void:
 	var actor: Dictionary = states[actor_id]
 	var effect_kind := ""
 	var points: Array[Vector2] = []
@@ -441,14 +450,18 @@ func play_species_accent(actor_id: String, target_id: String) -> void:
 		effect_kind = "bone"
 		color = Color("c7bca3")
 		points = [center_of(target_id)]
-	elif attack_kind(actor)=="heavy":
+	elif attack_kind(actor)=="heavy" and not critical_brand_hit:
 		effect_kind = "dust"
 		points = [Vector2(center_of(target_id).x,scene.unit_floor_y())]
 	if effect_kind.is_empty(): return
+	spawn_strike_accent(effect_kind,points,color,0.65)
+
+func spawn_strike_accent(effect_kind: String, points: Array[Vector2], color: Color,
+		lifetime: float, steady_duration: bool = false) -> PresentationAccent:
 	var reference = weakref(self)
-	Accent.create(self,effect_kind,points,color,0.65,func():
+	return Accent.create(self,effect_kind,points,color,lifetime,func():
 		var live = reference.get_ref()
-		return float(live.clock) if is_instance_valid(live) else 999999.0)
+		return float(live.idle_clock if steady_duration else live.clock) if is_instance_valid(live) else 999999.0)
 
 func add_art(node: Control, origin: Vector2, life: float, velocity: Vector2 = Vector2.ZERO, frames: Array = [], interval: float = 0.065, delay: float = 0.0) -> void:
 	node.position = origin

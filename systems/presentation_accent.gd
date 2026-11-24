@@ -56,6 +56,7 @@ func _draw() -> void:
 		"legion": _draw_link(t)
 		"silk": _draw_silk(t)
 		"dust", "bone": _draw_debris(t)
+		"critical_shockwave": _draw_critical_shockwave(t)
 		"swamp", "discovery", "boss": _draw_tile(t)
 
 func _draw_link(t: float) -> void:
@@ -114,6 +115,38 @@ func _draw_debris(t: float) -> void:
 			draw_line(point,point+Vector2(cos(phase+t*4),sin(phase+t*4))*3.5,Color(tint,alpha*0.55),1.5,true)
 		else:
 			soft_spot(point,2.0+float(i%3)+t*5.0,Color(tint,alpha*0.12))
+
+func _draw_critical_shockwave(t: float) -> void:
+	if anchors.is_empty(): return
+	var foot := anchors[0]
+	for ring in range(2):
+		var delay := float(ring)*0.13
+		if t<delay: continue
+		var phase := clampf((t-delay)*1.13,0.0,1.0)
+		var radius := 15.0+108.0*(1.0-pow(1.0-phase,2.0))
+		var contour := PackedVector2Array()
+		for i in range(41):
+			var angle := float(i)*TAU/40.0
+			var uneven := radius*(1.0+sin(angle*7.0)*0.045+sin(angle*13.0)*0.028)
+			contour.append(foot+Vector2(cos(angle)*uneven,sin(angle)*uneven*0.18))
+		draw_polyline(contour,Color(tint,(1.0-phase)*0.79),2.4 if ring==0 else 1.3,true)
+	var spread := 1.0-pow(1.0-t,2.0)
+	var fade := (1.0-t)*0.74
+	for i in range(14):
+		var direction := -1.0 if i%2==0 else 1.0
+		var x := direction*(6.0+(25.0+float(i%7)*8.0)*spread)
+		var y := -sin(t*PI)*(10.0+float(i%5)*8.0)
+		var point := foot+Vector2(x,y)
+		if i%3==0:
+			soft_spot(point,6.0+12.0*t,Color(0.69,0.52,0.33,fade*0.35))
+		else:
+			var chip_size := (3.0+float(i%4))*maxf(0.2,1.0-t)
+			var chip := PackedVector2Array([
+				point+Vector2(-chip_size,0),point+Vector2(chip_size*0.3,-chip_size),
+				point+Vector2(chip_size,0),point+Vector2(0,chip_size*0.7)
+			])
+			draw_colored_polygon(chip,Color(0.77,0.59,0.37,fade))
+			draw_line(chip[0],chip[1],Color(tint,fade),1.1,true)
 
 func soft_spot(point: Vector2, radius: float, color: Color) -> void:
 	for ring in range(5,0,-1):
