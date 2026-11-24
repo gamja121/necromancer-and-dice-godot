@@ -1,5 +1,5 @@
 extends SceneTree
-## Fate presentation contract: chest first, unmistakable curse, no RNG.
+## Fate presentation contract: rising blessing light, localized curse, no RNG.
 ## Uses a real battlefield scene, layout, sprites, bars and CombatCues.
 const Battle=preload("res://battlefield.tscn")
 const Cues=preload("res://systems/combat_cues.gd")
@@ -45,11 +45,13 @@ func _run() -> void:
 		check(aligned,"%dpx battlefield: large marks are centered above their HP bars" % height)
 	battle.surface_size = original_surface
 	battle.render_units(battle.rules.units)
-	check(is_equal_approx(float(Cues.BLESS_TORSO_FRACTION),0.40),"chest is inside upper part of opaque artwork")
+	check(is_equal_approx(float(Cues.CURSE_TORSO_FRACTION),0.40),"curse chest anchor is inside opaque artwork")
 	check(float(Cues.NORMAL_FATE_BODY_TIME)>=0.40,"ordinary brand body cue remains readable long enough")
 	var all_chests: bool=true
 	var located_on_torso: bool=true
 	var follows_movement: bool=true
+	var rises_from_feet: bool=true
+	var column_follows: bool=true
 	var sample_count: int=0
 	for u in battle.rules.units:
 		if not battle.sprites.has(u.id): continue
@@ -63,6 +65,12 @@ func _run() -> void:
 		var top_pos: Vector2=canvas_inv*(sprite.get_global_transform_with_canvas()*local_top)
 		var bottom_pos: Vector2=canvas_inv*(sprite.get_global_transform_with_canvas()*local_bottom)
 		var chest: Vector2=cues.chest_anchor(u)
+		var foot: Vector2=canvas_inv*(sprite.get_global_transform_with_canvas()*sprite.pivot_offset)
+		var initial: Rect2=cues.blessing_column_bounds(u,0.0)
+		var rising: Rect2=cues.blessing_column_bounds(u,0.3)
+		var full: Rect2=cues.blessing_column_bounds(u,0.6)
+		rises_from_feet=rises_from_feet and is_equal_approx(initial.end.y,foot.y) and is_equal_approx(initial.get_center().x,foot.x)
+		rises_from_feet=rises_from_feet and initial.position.y>rising.position.y and rising.position.y>full.position.y and full.position.y<top_pos.y
 		all_chests=all_chests and chest.is_finite() and top_pos.is_finite() and bottom_pos.is_finite()
 		located_on_torso=located_on_torso and chest.y>=top_pos.y and chest.y<top_pos.y+(bottom_pos.y-top_pos.y)*0.50
 		# The frame can be breathing or attacking when the impact starts.
@@ -71,11 +79,15 @@ func _run() -> void:
 		sprite.position+=Vector2(11,-8)
 		var shifted: Vector2=cues.chest_anchor(u)
 		follows_movement=follows_movement and shifted.distance_to(chest+Vector2(11,-8))<0.15
+		var shifted_column: Rect2=cues.blessing_column_bounds(u,0.6)
+		column_follows=column_follows and shifted_column.position.distance_to(full.position+Vector2(11,-8))<0.15
 		sprite.position=original_position
 		sample_count+=1
 	check(sample_count>=2 and all_chests,"torso anchors are finite across actual combatants")
-	check(located_on_torso,"every fate cue starts in top half of visible sprite, not at feet")
-	check(follows_movement,"torso effects track current monster position and body motion")
+	check(located_on_torso,"curse starts in the top half of the visible sprite")
+	check(follows_movement,"curse tracks current monster position and body motion")
+	check(rises_from_feet,"blessing rises from each monster's feet to its head")
+	check(column_follows,"the blessing column tracks each monster's sprite transform")
 
 	# Only presentation fixtures are changed. They are deep copies of one
 	# real combatant and must leave real battle stats / dice unchanged.
@@ -92,7 +104,7 @@ func _run() -> void:
 			return not cues.impact.is_empty() and str(cues.impact.get("mode",""))==mode)
 		check(reached,"%s cue appears on an actual monster" % mode)
 		if reached:
-			check(float(cues.impact.duration)>=0.30,"%s impact stays visible for a readable chest pulse" % mode)
+			check(float(cues.impact.duration)>=0.30,"%s body effect stays visible long enough to read" % mode)
 			var fate=battle.bars[unit.id].get_node_or_null("FateIcon")
 			check(fate!=null and str(fate.mode)==("curse" if mode in ["curse","mixed"] else "bless"),"%s cue agrees with HP-bar fate icon" % mode)
 			check(fate!=null and fate.visible and mark_above_hp(battle.bars[unit.id]),"%s trigger displays the large mark above HP" % mode)

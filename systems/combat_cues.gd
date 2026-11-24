@@ -18,10 +18,10 @@ var _had_drawn_content: bool = false
 const MAX_BRAND_INDICATORS := 3
 const MAX_BRAND_PRESENTATION_SECONDS := 2.8
 const FAST_BRAND_UNIT_THRESHOLD := 5
-# Longer, deliberate torso impacts; still under the original dense-round cue budget.
+# Keep body effects readable within the dense-round cue budget.
 const NORMAL_FATE_BODY_TIME := 0.42
 const DENSE_FATE_BODY_TIME := 0.27
-const BLESS_TORSO_FRACTION := 0.40
+const CURSE_TORSO_FRACTION := 0.40
 var brand_cue_interval: float = 0.105
 var brand_body_interval: float = 0.26
 
@@ -184,7 +184,7 @@ func play_brands(units: Array) -> void:
 		# Highlight each actually matched brand on the dock card before the body cue.
 		await _pulse_matching_brands(unit)
 		if not is_inside_tree(): return
-		if blessing_count>0:
+		if blessing_count>0 and chain_count>1:
 			chain_pulse = {"id":unit.id,"started":clock,"duration":0.26,"count":chain_count}
 		_pulse_unit_card(unit.id, is_blessed)
 		var base_modulate: Color = sprite.modulate
@@ -193,7 +193,7 @@ func play_brands(units: Array) -> void:
 		var impact_mode: String = "mixed" if is_blessed and is_cursed else ("bless" if is_blessed else "curse")
 		var effect_color: Color = Color("f1a0ff") if impact_mode=="mixed" else (Color("ffe5a3") if is_blessed else Color("dda0ff"))
 		# Wait time is adjusted by the game's presentation speed. Draw the
-		# chest mark over the *same real-time interval* so it completes cleanly
+		# body effects over the same interval so they complete cleanly
 		# rather than being cut off while still at peak visibility.
 		var minimum_body_time: float = 0.12 if dense else 0.23
 		var actual_body_duration: float = maxf(minimum_body_time,brand_body_interval/minf(scene.speed_values[scene.speed_index],1.2))
@@ -206,15 +206,17 @@ func play_brands(units: Array) -> void:
 				fate_icon.set_mode("curse" if is_cursed else "bless")
 		var caption: String = "축복·저주 " if impact_mode=="mixed" else ("축복 " if is_blessed else "저주 ")
 		step(caption+str(unit.name),effect_color)
-		# Brief, readable full-body feedback. The distinct chest effects below
-		# carry the actual blessing/curse shape rather than a faint dark veil.
-		var tween = create_tween().set_speed_scale(scene.battle_tempo)
-		tween.tween_property(sprite,"modulate",effect_color,0.055)
-		tween.tween_property(sprite,"modulate",base_modulate,0.14)
+		# The blessing's light starts at the feet; the curse retains its body pulse.
+		var tween: Tween
+		if is_cursed:
+			tween = create_tween().set_speed_scale(scene.battle_tempo)
+			tween.tween_property(sprite,"modulate",effect_color,0.055)
+			tween.tween_property(sprite,"modulate",base_modulate,0.14)
 		await scene.wait_presentation(brand_body_interval,minimum_body_time)
 		if not is_inside_tree(): return
-		if is_instance_valid(tween): tween.kill()
-		if is_instance_valid(sprite): sprite.modulate = base_modulate
+		if is_instance_valid(tween):
+			tween.kill()
+			if is_instance_valid(sprite): sprite.modulate = base_modulate
 		marks.clear()
 		impact.clear()
 		chain_pulse.clear()
@@ -293,30 +295,50 @@ func chest_anchor(unit: Dictionary) -> Vector2:
 	var image_height: float=maxf(1.0,float(metric.get("height",320)))
 	var visible_top: float=float(metric.get("top",0))
 	var visible_bottom: float=float(metric.get("bottom",image_height-1.0))
-	var upper_torso: float=clampf((visible_top+(visible_bottom-visible_top)*BLESS_TORSO_FRACTION)/image_height,0.12,0.80)
+	var upper_torso: float=clampf((visible_top+(visible_bottom-visible_top)*CURSE_TORSO_FRACTION)/image_height,0.12,0.80)
 	var canvas_point: Vector2=sprite.get_global_transform_with_canvas()*Vector2(sprite.size.x*0.5,sprite.size.y*upper_torso)
 	return get_global_transform_with_canvas().affine_inverse()*canvas_point
 
-func _draw_chest_bless(center: Vector2, t: float, span: float) -> void:
-	# A golden core IGNITES AT THE CHEST before emitting anything else.
-	# Only upper-hemisphere rays: never a foot-to-head pillar or ground halo.
-	var fade: float=pow(maxf(0.0,1.0-t),0.58)
-	var core: float=(5.5+5.0*t)*span
-	var ring_radius: float=(9.0+30.0*t)*span
-	draw_circle(center,(16.0+19.0*t)*span,Color(1.0,0.56,0.09,0.40*fade))
-	draw_circle(center,core*1.45,Color(1.0,0.80,0.22,0.70*fade))
-	draw_circle(center,core*0.62,Color(1.0,1.0,0.89,0.98*fade))
-	draw_arc(center,ring_radius,0.0,TAU,40,Color(1.0,0.87,0.39,0.90*fade),3.2*span,true)
-	# Radial strokes cannot angle down into the feet: -PI..0 points up.
-	for i in range(7):
-		var direction: Vector2=Vector2.RIGHT.rotated(-PI+float(i)*PI/6.0)
-		var from: Vector2=center+direction*(8.0+4.0*t)*span
-		var to: Vector2=center+direction*(21.0+29.0*t)*span
-		draw_line(from,to,Color(1.0,0.96,0.63,0.91*fade),2.9*span,true)
+func blessing_column_bounds(unit: Dictionary, t: float) -> Rect2:
+	var sprite: TextureRect = scene.sprites[unit.id]
+	var profile: Dictionary = scene.presentation_layout.metrics.get(str(unit.slug),{})
+	var head_fraction := float(profile.get("top",0))/maxf(1.0,float(profile.get("height",320)))
+	var into_cues := get_global_transform_with_canvas().affine_inverse()*sprite.get_global_transform_with_canvas()
+	var foot := into_cues*sprite.pivot_offset
+	var head := into_cues*Vector2(sprite.pivot_offset.x,sprite.size.y*head_fraction)
+	var height := maxf(24.0,foot.y-head.y+8.0)
+	var width := clampf(height*0.44,24.0,88.0)*lerpf(0.55,1.0,smoothstep(0.0,0.24,t))
+	var tip := lerpf(foot.y-8.0,foot.y-height,smoothstep(0.0,0.60,t))
+	var base := foot.y-height*0.22*smoothstep(0.71,1.0,t)
+	return Rect2(foot.x-width*0.5,tip,width,base-tip)
+
+func _draw_blessing_column(bounds: Rect2, t: float) -> void:
+	var strength := (0.55+0.45*smoothstep(0.0,0.18,t))*(1.0-smoothstep(0.58,1.0,t))
+	var center_x := bounds.get_center().x
+	var half_width := bounds.size.x*0.5
+	var tip := bounds.position.y
+	var base := bounds.end.y
+	var offsets := [-1.0,-0.42,0.0,0.42,1.0]
+	var alphas := [0.0,0.20,0.58,0.20,0.0]
 	for i in range(4):
-		var dx: float=(float(i)-1.5)*(11.0+6.0*t)*span
-		var dy: float=-(11.0+35.0*t+float(i%2)*7.0)*span
-		draw_circle(center+Vector2(dx,dy),2.6*span,Color(1.0,0.96,0.72,0.85*fade))
+		var left: float = offsets[i]*half_width
+		var right: float = offsets[i+1]*half_width
+		var a: float = alphas[i]*strength
+		var b: float = alphas[i+1]*strength
+		draw_polygon(PackedVector2Array([
+			Vector2(center_x+left,base),Vector2(center_x+right,base),
+			Vector2(center_x+right*0.58,tip),Vector2(center_x+left*0.58,tip)
+		]),PackedColorArray([
+			Color(1.0,0.65,0.22,a),Color(1.0,0.65,0.22,b),
+			Color(1.0,0.95,0.72,b*0.74),Color(1.0,0.95,0.72,a*0.74)
+		]))
+	for i in range(5):
+		var progress := fposmod(t*(1.15+0.08*i)+0.16*i,1.0)
+		var x := center_x+(float(i)-2.0)*half_width*0.33
+		var y := lerpf(base,tip,progress)
+		var trail := minf(20.0,bounds.size.y*0.16)
+		var sparkle := Color(1.0,0.94,0.68,sin(progress*PI)*strength*0.90)
+		draw_line(Vector2(x,minf(base,y+trail)),Vector2(x,y),sparkle,1.5,true)
 
 func _draw_chest_curse(center: Vector2, t: float, span: float) -> void:
 	# The curse is a visible MAGENTA FRACTURE over a dark chest scar, not
@@ -351,13 +373,11 @@ func _draw() -> void:
 	if not impact.is_empty() and scene.visuals.states.has(impact.id):
 		var unit: Dictionary=scene.visuals.states[impact.id]
 		var t: float=clampf((clock-float(impact.started))/maxf(0.01,float(impact.duration)),0.0,1.0)
-		var center: Vector2=chest_anchor(unit)
-		var sprite: TextureRect=scene.sprites[unit.id]
-		var span: float=clampf(sprite.size.y/150.0,0.72,1.30)
 		if impact.mode in ["bless","mixed"]:
-			_draw_chest_bless(center,t,span)
+			_draw_blessing_column(blessing_column_bounds(unit,t),t)
 		if impact.mode in ["curse","mixed"]:
-			_draw_chest_curse(center,t,span)
+			var sprite: TextureRect=scene.sprites[unit.id]
+			_draw_chest_curse(chest_anchor(unit),t,clampf(sprite.size.y/150.0,0.72,1.30))
 	if not chain_pulse.is_empty() and scene.visuals.states.has(chain_pulse.id):
 		var pulse_unit: Dictionary = scene.visuals.states[chain_pulse.id]
 		var progress: float = clampf((clock-float(chain_pulse.started))/float(chain_pulse.duration),0.0,1.0)
