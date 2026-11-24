@@ -30,6 +30,7 @@ const BrandReference = preload("res://systems/brand_reference.gd")
 const DiceHand = preload("res://systems/dice_control_hand.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const DicePressHint = preload("res://systems/dice_press_hint.gd")
+const BattleForecast = preload("res://systems/battle_forecast.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const CorpseCapture = preload("res://systems/corpse_capture.gd")
 const CombatCues = preload("res://systems/combat_cues.gd")
@@ -109,6 +110,7 @@ var external_main_dice: TextureButton
 var map_owner: Control
 var brand_reference: Control
 var brand_reference_button: Button
+var battle_forecast: BattleForecast
 
 func _exit_tree() -> void:
 	# The map-tile dock belongs to the map stage, not this battle viewport.
@@ -409,6 +411,11 @@ void fragment() {
 	cues = CombatCues.new()
 	layer.add_child(cues)
 	cues.setup(self)
+	battle_forecast = BattleForecast.new()
+	battle_forecast.name = "BattleForecast"
+	layer.add_child(battle_forecast)
+	battle_forecast.setup(self)
+	battle_forecast.set_available(can_preview_battle())
 	pause_button.disabled = true
 	if not map_mode:
 		button(layer,"새 전투",Vector2(582,664),Vector2(116,32),func():
@@ -709,6 +716,7 @@ func roll_round(instance_id: String = "") -> void:
 	close_detail()
 	close_dice_hand()
 	busy = true
+	if is_instance_valid(battle_forecast): battle_forecast.set_available(false)
 	set_card_phase(true)
 	dice.disabled = true
 	set_deck_disabled(true)
@@ -1040,6 +1048,8 @@ func keyboard_focus_controls() -> Array[Control]:
 		for card in cards.values(): result.append(card)
 		result.append_array([dice,map_return,pause_button,speed_button,brand_reference_button,audio_settings.options_button])
 		result.append(external_dice_deck_button if is_instance_valid(external_dice_deck_button) else dice_cards_button)
+		if is_instance_valid(battle_forecast) and can_preview_battle():
+			result.append_array(battle_forecast.face_buttons)
 	else:
 		for control in active.find_children("*","Control",true,false):
 			if control.focus_mode!=Control.FOCUS_NONE: result.append(control)
@@ -1065,6 +1075,8 @@ func handle_cancel() -> bool:
 		close_dice_hand()
 	elif is_instance_valid(brand_reference):
 		close_brand_reference()
+	elif is_instance_valid(battle_forecast) and battle_forecast.selected_face > 0:
+		battle_forecast.clear_selection()
 	elif not busy and not entry_summon_active and is_instance_valid(audio_settings):
 		audio_settings.toggle_panel()
 	return true
@@ -1097,7 +1109,16 @@ func can_open_brand_reference() -> bool:
 	if not rules.winner().is_empty(): return false
 	return not map_mode or session.encounter.get("phase","ready")=="ready"
 
+func can_preview_battle() -> bool:
+	if not can_open_brand_reference() or paused or entry_card_transfer_pending: return false
+	if not is_instance_valid(dice) or dice.disabled or not dice.is_visible_in_tree(): return false
+	if is_instance_valid(message) and message.visible and not message.text.is_empty(): return false
+	return keyboard_focus_scope() == (detail_parent if uses_map_tile_dock() else layer)
+
+
 func _process(_delta: float) -> void:
+	if is_instance_valid(battle_forecast):
+		battle_forecast.set_available(can_preview_battle())
 	if is_instance_valid(brand_reference_button):
 		brand_reference_button.disabled = not can_open_brand_reference()
 	if map_mode and session!=null and session.world!=null:

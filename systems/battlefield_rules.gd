@@ -52,6 +52,10 @@ func begin_round(forced_face: int = 0) -> void:
 	for u in queue:
 		if u.slug != "guardian-seed": last_id = u.id
 
+static func can_attack(unit: Dictionary) -> bool:
+	return unit.alive and not unit.frozen and unit.slug!="guardian-seed" and unit.curse.get("combo",0)==0 and unit.curse.get("critical",0)==0
+
+
 func next_action() -> Dictionary:
 	while not queue.is_empty() and winner().is_empty():
 		var actor: Dictionary = queue.pop_front()
@@ -63,7 +67,7 @@ func next_action() -> Dictionary:
 		var prepared = units.duplicate(true)
 		var before_effects = presentation_events.slice(presentation_start).duplicate(true)
 		presentation_start = presentation_events.size()
-		var allowed: bool = actor.alive and not actor.frozen and actor.slug!="guardian-seed" and actor.curse.get("combo",0)==0 and actor.curse.get("critical",0)==0
+		var allowed: bool = can_attack(actor)
 		var missed: bool = actor.alive and not actor.frozen and actor.slug!="guardian-seed" and (actor.curse.get("combo",0)>0 or actor.curse.get("critical",0)>0)
 		var target: Dictionary = {}
 		if actor.alive:
