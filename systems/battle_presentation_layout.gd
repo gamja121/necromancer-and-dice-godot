@@ -46,6 +46,8 @@ func geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
 # Attack lunge is horizontal/downward; impacts can shake the world, not the HUD.
 func _resolve_geometry(unit: Dictionary, surface: Vector2) -> Dictionary:
 	var result := _base_geometry(unit,surface)
+	var idle: Array = _sprite_envelopes.get(unit.slug,{}).get("idle",[0.0,0.0,1.0,1.0])
+	result.idle_x_span = Vector2(float(idle[0]),float(idle[2]))
 	var authored := _motion_bounds(unit,result)
 	var foot: Vector2 = result.foot
 	var fit := 1.0

@@ -86,8 +86,7 @@ func sync(values: Array) -> void:
 				ice_started[unit.id] = idle_clock-StatusEffects.ICE_FORM_SECONDS if prior.is_empty() else idle_clock
 				ice_shatters.erase(unit.id)
 		elif ice_started.erase(unit.id) and unit.alive and prior.get("slug","")==unit.slug:
-			var height := status_body_height(unit.id)
-			ice_shatters[unit.id] = {"started":idle_clock,"center":status_center(unit.id,height),"size":ice_size(height)}
+			ice_shatters[unit.id] = {"started":idle_clock,"pose":ice_pose(unit.id,status_body_height(unit.id))}
 		states[unit.id] = unit.duplicate(true)
 		layouts[unit.id] = scene.presentation_layout.geometry(unit,scene.surface_size)
 		var sprite: TextureRect = scene.sprites[unit.id]
@@ -265,8 +264,21 @@ func status_center(id: String, height: float) -> Vector2:
 	var sprite: TextureRect = scene.sprites[id]
 	return sprite.position+sprite.pivot_offset-Vector2(0,height*0.57)
 
-func ice_size(height: float) -> float:
-	return clampf(height/165.0,0.46,1.35)
+func ice_pose(id: String, height: float) -> Transform2D:
+	var sprite: TextureRect = scene.sprites[id]
+	var span: Vector2 = layouts[id].idle_x_span
+	var center := status_center(id,height)
+	var x := (span.x+span.y)*0.5
+	if states[id].slug=="dragon":
+		# The dragon's idle bounds include its long tail and wings.
+		x = 0.57
+		center.y = sprite.position.y+sprite.size.y*0.51
+	center.x = sprite.position.x+sprite.size.x*(1.0-x if sprite.flip_h else x)
+	var size := clampf(height/165.0,0.42,1.35)
+	# The approved orc silhouette is about 88% as wide as it is tall.
+	var width := clampf(sprite.size.x*(span.y-span.x)/maxf(height*0.88,1.0),0.45,1.0)
+	var facing := 1.0 if sprite.flip_h else -1.0
+	return Transform2D(0.0,Vector2(size*width*facing,size),0.0,center)
 
 func draw_ground(canvas: Control) -> void:
 	for id in states:
@@ -294,7 +306,7 @@ func _draw() -> void:
 				StatusEffects.draw_guard(self,center,extent,idle_clock,block_age)
 			if unit.frozen:
 				var freeze_age: float = idle_clock-float(ice_started.get(id,idle_clock-1.0))
-				StatusEffects.draw_ice(self,center,ice_size(height),freeze_age)
+				StatusEffects.draw_ice(self,ice_pose(id,height),freeze_age)
 		if not unit.poison.is_empty():
 			var sprite: TextureRect = scene.sprites[id]
 			var foot: Vector2 = homes[id]+sprite.pivot_offset-Vector2(0,10)
@@ -302,7 +314,7 @@ func _draw() -> void:
 				var phase = fmod(clock*0.55+i*0.25,1.0)
 				draw_circle(foot+Vector2(sin(i*2.3+clock)*22,-phase*50),2.5,Color(0.45,0.85,0.25,(1-phase)*0.7))
 	for shatter in ice_shatters.values():
-		StatusEffects.draw_ice_shatter(self,shatter.center,shatter.size,idle_clock-shatter.started)
+		StatusEffects.draw_ice_shatter(self,shatter.pose,idle_clock-shatter.started)
 	for particle in particles:
 		var t: float = particle.age/particle.life
 		var p: Vector2 = particle.origin+particle.velocity*particle.age+Vector2(0,45*particle.age*particle.age)
