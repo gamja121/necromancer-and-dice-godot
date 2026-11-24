@@ -1,5 +1,5 @@
 extends SceneTree
-## Fate presentation contract: rising blessing light, localized curse, no RNG.
+## Fate presentation contract: rising blessing light, falling curse, no RNG.
 ## Uses a real battlefield scene, layout, sprites, bars and CombatCues.
 const Battle=preload("res://battlefield.tscn")
 const Cues=preload("res://systems/combat_cues.gd")
@@ -45,12 +45,13 @@ func _run() -> void:
 		check(aligned,"%dpx battlefield: large marks are centered above their HP bars" % height)
 	battle.surface_size = original_surface
 	battle.render_units(battle.rules.units)
-	check(is_equal_approx(float(Cues.CURSE_TORSO_FRACTION),0.40),"curse chest anchor is inside opaque artwork")
+	check(is_equal_approx(float(Cues.CHAIN_TORSO_FRACTION),0.40),"blessing chain anchor is inside opaque artwork")
 	check(float(Cues.NORMAL_FATE_BODY_TIME)>=0.40,"ordinary brand body cue remains readable long enough")
 	var all_chests: bool=true
 	var located_on_torso: bool=true
 	var follows_movement: bool=true
 	var rises_from_feet: bool=true
+	var falls_to_feet: bool=true
 	var column_follows: bool=true
 	var sample_count: int=0
 	for u in battle.rules.units:
@@ -66,11 +67,18 @@ func _run() -> void:
 		var bottom_pos: Vector2=canvas_inv*(sprite.get_global_transform_with_canvas()*local_bottom)
 		var chest: Vector2=cues.chest_anchor(u)
 		var foot: Vector2=canvas_inv*(sprite.get_global_transform_with_canvas()*sprite.pivot_offset)
-		var initial: Rect2=cues.blessing_column_bounds(u,0.0)
-		var rising: Rect2=cues.blessing_column_bounds(u,0.3)
-		var full: Rect2=cues.blessing_column_bounds(u,0.6)
+		var head: Vector2=canvas_inv*(sprite.get_global_transform_with_canvas()*Vector2(sprite.pivot_offset.x,local_top.y))
+		var initial: Rect2=cues.body_column_bounds(u,0.0,false)
+		var rising: Rect2=cues.body_column_bounds(u,0.3,false)
+		var full: Rect2=cues.body_column_bounds(u,0.6,false)
+		var overhead: Rect2=cues.body_column_bounds(u,0.0,true)
+		var falling: Rect2=cues.body_column_bounds(u,0.3,true)
+		var grounded: Rect2=cues.body_column_bounds(u,0.6,true)
 		rises_from_feet=rises_from_feet and is_equal_approx(initial.end.y,foot.y) and is_equal_approx(initial.get_center().x,foot.x)
 		rises_from_feet=rises_from_feet and initial.position.y>rising.position.y and rising.position.y>full.position.y and full.position.y<top_pos.y
+		falls_to_feet=falls_to_feet and overhead.position.y<head.y and overhead.end.y<=head.y+0.15
+		falls_to_feet=falls_to_feet and overhead.end.y<falling.end.y and falling.end.y<grounded.end.y
+		falls_to_feet=falls_to_feet and is_equal_approx(grounded.end.y,foot.y) and is_equal_approx(overhead.get_center().x,foot.x)
 		all_chests=all_chests and chest.is_finite() and top_pos.is_finite() and bottom_pos.is_finite()
 		located_on_torso=located_on_torso and chest.y>=top_pos.y and chest.y<top_pos.y+(bottom_pos.y-top_pos.y)*0.50
 		# The frame can be breathing or attacking when the impact starts.
@@ -79,15 +87,18 @@ func _run() -> void:
 		sprite.position+=Vector2(11,-8)
 		var shifted: Vector2=cues.chest_anchor(u)
 		follows_movement=follows_movement and shifted.distance_to(chest+Vector2(11,-8))<0.15
-		var shifted_column: Rect2=cues.blessing_column_bounds(u,0.6)
+		var shifted_column: Rect2=cues.body_column_bounds(u,0.6,false)
+		var shifted_curse: Rect2=cues.body_column_bounds(u,0.6,true)
 		column_follows=column_follows and shifted_column.position.distance_to(full.position+Vector2(11,-8))<0.15
+		column_follows=column_follows and shifted_curse.position.distance_to(grounded.position+Vector2(11,-8))<0.15
 		sprite.position=original_position
 		sample_count+=1
 	check(sample_count>=2 and all_chests,"torso anchors are finite across actual combatants")
-	check(located_on_torso,"curse starts in the top half of the visible sprite")
-	check(follows_movement,"curse tracks current monster position and body motion")
+	check(located_on_torso,"blessing chain starts in the top half of the visible sprite")
+	check(follows_movement,"blessing chain tracks current monster position and body motion")
 	check(rises_from_feet,"blessing rises from each monster's feet to its head")
-	check(column_follows,"the blessing column tracks each monster's sprite transform")
+	check(falls_to_feet,"curse descends from above each monster's head to its feet")
+	check(column_follows,"both columns track each monster's sprite transform")
 
 	# Only presentation fixtures are changed. They are deep copies of one
 	# real combatant and must leave real battle stats / dice unchanged.
