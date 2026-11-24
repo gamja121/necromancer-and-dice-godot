@@ -644,6 +644,70 @@ func heal_crosses(id: String, amount: int) -> void:
 		var node = original.sprite(self,original.sheet_texture("heal-cross.png"),"cross",Vector2(size,size))
 		add_art(node,center_of(id)+Vector2(entry[0],entry[1])-node.size/2,float(entry[4])/1000,Vector2(entry[5],-48),[],0.065,float(entry[3])/1000)
 
+func play_round_reports(reports: Array) -> void:
+	var support_count := 0
+	for report in reports:
+		if report.has("support_brand"): support_count += 1
+	var duration: float = clampf(2.6/maxi(1,support_count),0.16,0.52)*scene.battle_tempo
+	var ordinary: Array = []
+	for report in reports:
+		if not report.has("support_brand"):
+			ordinary.append(report)
+			continue
+		show_reports(ordinary,true)
+		ordinary.clear()
+		await play_support_brand(report,duration)
+	show_reports(ordinary,true)
+
+func play_support_brand(report: Dictionary, duration: float) -> void:
+	var caster: String = report.caster
+	var target: String = report.target
+	if states.has(caster) and states.has(target):
+		var points: Array[Vector2] = [torso_center(caster,status_body_height(caster)),
+			torso_center(target,status_body_height(target))]
+		var healing: bool = report.support_brand=="healing"
+		var cue := spawn_strike_accent("support_heal" if healing else "support_summon",
+			points,Color("97e1a9") if healing else Color("b493ef"),duration,true)
+		cue.z_as_relative = false
+		cue.z_index = 51
+		var arrival := cue.started+cue.duration*Accent.SUPPORT_ARRIVAL
+		while idle_clock<arrival: await get_tree().process_frame
+	show_reports([report],true)
+	var power: int = report.get("power",0)
+	if power>0 and states.has(target):
+		var label: Label = scene.text(self,"%s +%d" % [tr("공격력"),power],Vector2.ZERO,Vector2(112,23),18)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_color_override("font_color",Color("e1c8ff"))
+		add_art(label,center_of(target)-Vector2(label.size.x*0.5,61),0.82,Vector2(0,-22))
+
+
+func round_arrivals(before: Array, after: Array) -> Array[String]:
+	var old: Dictionary = {}
+	for unit in before: old[unit.id] = unit
+	var arrivals: Array[String] = []
+	for unit in after:
+		if not unit.alive or not scene.sprites.has(unit.id): continue
+		var previous: Dictionary = old.get(unit.id,{})
+		if previous.is_empty() or (previous.slug!=unit.slug and not is_seed_bloom(previous,unit)):
+			arrivals.append(unit.id)
+	return arrivals
+
+func set_round_arrival_alpha(id: String, alpha: float) -> void:
+	for piece in [scene.sprites[id],scene.bars[id],scene.cards[id]]:
+		piece.modulate.a = alpha
+
+func prepare_round_presentation(before: Array, after: Array, reports: Array) -> void:
+	for id in round_arrivals(before,after):
+		set_round_arrival_alpha(id,0.0)
+	# Keep recipients at their exact pre-report HP until the recorded effects arrive.
+	var pending: Dictionary = {}
+	for report in reports:
+		if report.has("support_brand"): pending[report.target] = true
+	for report in reports:
+		if report.has("hp_before") and pending.erase(report.target) and scene.bars.has(report.target):
+			scene.bars[report.target].value = int(report.hp_before)
+
 
 # Seed evolution is already decided by BattleRules. Only render its growth here.
 func is_seed_bloom(previous: Dictionary, current: Dictionary) -> bool:
@@ -696,8 +760,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 
 func play_round(before: Array, after: Array, reports: Array) -> void:
 	await play_seed_blooms(before,after)
-	show_reports(reports,true)
-	var arriving: Array = []
+	var arriving := round_arrivals(before,after)
 	for unit in after:
 		if not unit.alive: continue
 		var previous: Dictionary = {}
@@ -705,24 +768,21 @@ func play_round(before: Array, after: Array, reports: Array) -> void:
 			if old.id==unit.id: previous = old
 		if not previous.is_empty() and previous.slug==unit.slug and previous.hp!=unit.hp and not reports.any(func(report): return report.target==unit.id):
 			show_reports([{"type":"damage" if unit.hp<previous.hp else "heal","target":unit.id,"amount":absi(unit.hp-previous.hp),"kind":"cost","blocked":false,"critical":false,"hp":unit.hp}])
-		if previous.is_empty() or (previous.slug!=unit.slug and not is_seed_bloom(previous,unit)):
-			arriving.append(unit.id)
-			scene.sprites[unit.id].modulate.a = 0
-			scene.bars[unit.id].modulate.a = 0
-			scene.cards[unit.id].modulate.a = 0
-			var frames = original.summon_frames()
+	if not arriving.is_empty():
+		var frames: Array = original.summon_frames()
+		for id in arriving:
+			set_round_arrival_alpha(id,0.0)
 			var node = original.sprite(self,frames[0],"summon",Vector2(190,92))
 			node.z_index = -2
-			var sprite: TextureRect = scene.sprites[unit.id]
-			add_art(node,homes[unit.id]+sprite.pivot_offset-Vector2(0,12)-node.size/2,0.8,Vector2.ZERO,frames,0.09)
-	if not arriving.is_empty():
+			var sprite: TextureRect = scene.sprites[id]
+			add_art(node,homes[id]+sprite.pivot_offset-Vector2(0,12)-node.size/2,0.8,Vector2.ZERO,frames,0.09)
 		scene.sound("summon")
 		await scene.wait_time(0.27)
 		for id in arriving:
-			scene.sprites[id].modulate.a = 1
-			scene.bars[id].modulate.a = 1
-			scene.cards[id].modulate.a = 1
-		await scene.wait_time(0.45)
+			set_round_arrival_alpha(id,1.0)
+		# Finish the original arrival before beginning a summon brand cue.
+		await scene.wait_time(0.56)
+	await play_round_reports(reports)
 	await play_deaths(before,after)
 
 func play_deaths(before: Array, after: Array) -> void:

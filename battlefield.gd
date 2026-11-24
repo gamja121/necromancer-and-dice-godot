@@ -734,6 +734,7 @@ func roll_round(instance_id: String = "") -> void:
 		dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % rules.face)
 		round_label.text = "%d턴 · 주사위 %d" % [rules.round_number,rules.face]
 		render_units(rules.units)
+		visuals.prepare_round_presentation(round_before,rules.units,rules.presentation_events)
 		await cues.play_dice_result(rules.face)
 		await cues.play_brands(rules.units)
 		await visuals.play_round(round_before,rules.units,rules.presentation_events)

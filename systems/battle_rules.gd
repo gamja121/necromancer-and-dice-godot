@@ -113,7 +113,7 @@ func find_id(id: String) -> Dictionary:
 			return u
 	return {}
 
-func heal(u: Dictionary, n: int, _drained_from: String = "") -> int:
+func heal(u: Dictionary, n: int, _presentation: Dictionary = {}) -> int:
 	if not u.alive:
 		return 0
 	var amount = maxi(0,mini(n,u.max_hp-u.hp))
@@ -273,7 +273,7 @@ func support(u: Dictionary) -> void:
 		var allies = living(u.team)
 		allies.sort_custom(func(a,b): return float(a.hp)/a.max_hp < float(b.hp)/b.max_hp if a.hp*b.max_hp != b.hp*a.max_hp else a.slot < b.slot)
 		if not allies.is_empty():
-			heal(allies[0],2)
+			heal(allies[0],2,{"support_brand":"healing","caster":u.id})
 	for i in range(u.curse.get("healing",0)):
 		var allies = living(u.team)
 		allies.sort_custom(func(a,b): return a.hp > b.hp if a.hp != b.hp else a.slot < b.slot)
@@ -285,10 +285,11 @@ func support(u: Dictionary) -> void:
 	if u.curse.get("summon",0)>0:
 		damage(u,u.curse.summon,u,"curse")
 	else:
+		var n: int = u.bless.get("summon",0)
+		if n<=0: return
 		for pet in living(u.team):
 			if pet.slot == 4:
-				var n = u.bless.get("summon",0)
-				heal(pet,n)
+				heal(pet,n,{"support_brand":"summon","caster":u.id,"power":n})
 				pet.summon_power += n
 
 func attack(a: Dictionary, t: Dictionary) -> void:
@@ -316,7 +317,7 @@ func attack(a: Dictionary, t: Dictionary) -> void:
 		var hit = damage(t,raw,a)
 		events.append("%s → %s · 피해 %d" % [a.name,t.name,hit])
 		if hit > 0:
-			heal(a,hit*a.bless.get("vampire",0),t.id)
+			heal(a,hit*a.bless.get("vampire",0),{"drained_from":t.id})
 			if t.alive:
 				poison(t,a.bless.get("poison",0),a)
 				if a.bless.get("freeze",0)>0 and not t.frozen:

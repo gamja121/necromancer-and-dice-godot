@@ -3,6 +3,7 @@ extends Control
 ## Short, deterministic accents over existing art. No input, RNG or saved state.
 const LIFESTEAL_DELAY := 0.02
 const LIFESTEAL_SECONDS := LIFESTEAL_DELAY+0.56
+const SUPPORT_ARRIVAL := 0.76
 
 var kind: String = ""
 var anchors: Array[Vector2] = []
@@ -62,6 +63,7 @@ func _draw() -> void:
 		"dust", "bone": _draw_debris(t)
 		"critical_shockwave": _draw_critical_shockwave(t)
 		"lifesteal": _draw_lifesteal(t)
+		"support_heal", "support_summon": _draw_support_cast(t)
 		"swamp", "discovery", "boss": _draw_tile(t)
 
 func _draw_link(t: float) -> void:
@@ -157,6 +159,54 @@ func soft_spot(point: Vector2, radius: float, color: Color) -> void:
 	for ring in range(5,0,-1):
 		var scale_value := float(ring)/5.0
 		draw_circle(point,radius*scale_value,Color(color,color.a*(1.0-scale_value)*0.7))
+
+func _draw_support_cast(t: float) -> void:
+	if anchors.size()<2: return
+	var caster := anchors[0]
+	var recipient := anchors[1]
+	var healing := kind=="support_heal"
+	var core := Color("ecf5ca") if healing else Color("e4d4ff")
+	var charge := smoothstep(0.0,0.20,t)*(1.0-smoothstep(0.38,0.69,t))
+	if charge>0.0:
+		soft_spot(caster,44.0,Color(tint,charge*0.55))
+		for i in range(8):
+			var radial := Vector2.RIGHT.rotated(float(i)*TAU/8.0+t*0.51)
+			var point := caster+radial*lerpf(38.0,16.0,smoothstep(0.0,0.55,t))
+			draw_line(point,point+radial*(4.0+float(i%3)*2.0),Color(tint,charge*0.83),1.75,true)
+			draw_circle(point,1.2+float(i%3)*0.38,Color(core,charge*0.84),true)
+		if healing:
+			var cross := PackedVector2Array()
+			for p: Vector2 in [Vector2(0,-22),Vector2(4,-13),Vector2(4,-5),Vector2(13,-5),
+					Vector2(20,0),Vector2(13,5),Vector2(4,5),Vector2(4,14),Vector2(0,22),
+					Vector2(-4,14),Vector2(-4,5),Vector2(-13,5),Vector2(-20,0),
+					Vector2(-13,-5),Vector2(-4,-5),Vector2(-4,-13)]:
+				cross.append(caster+p*lerpf(0.72,1.0,charge))
+			draw_colored_polygon(cross,Color(core,charge*0.92))
+		else:
+			var seal := PackedVector2Array([caster+Vector2(0,-21),caster+Vector2(13,0),
+				caster+Vector2(0,21),caster+Vector2(-13,0),caster+Vector2(0,-21)])
+			draw_polyline(seal,Color(tint,charge*0.87),4.0,true)
+			draw_polyline(seal,Color(core,charge),1.5,true)
+			draw_line(caster+Vector2(0,-12),caster+Vector2(0,12),Color(core,charge*0.80),1.7,true)
+
+	if caster.distance_squared_to(recipient)>64.0:
+		for i in range(7):
+			var phase := (t-0.31-float(i)*0.024)/(SUPPORT_ARRIVAL-0.31)
+			if phase<=0.0 or phase>=1.0: continue
+			var along := smoothstep(0.0,1.0,phase)
+			var radius := 3.3-float(i%4)*0.54
+			var point := caster.lerp(recipient,along)-Vector2(0,sin(PI*along)*(29.0+float(i%3)*6.0))
+			var alpha := smoothstep(0.0,0.14,phase)*(1.0-smoothstep(0.82,1.0,phase))
+			draw_circle(point,radius*2.05,Color(tint,alpha*0.29),true)
+			draw_circle(point,radius,Color(core,alpha*0.89),true)
+
+	var bloom := smoothstep(SUPPORT_ARRIVAL-0.035,SUPPORT_ARRIVAL+0.055,t)*(1.0-smoothstep(0.88,1.0,t))
+	if bloom<=0.0: return
+	soft_spot(recipient,42.0,Color(tint,bloom*0.57))
+	for i in range(9):
+		var radial := Vector2.RIGHT.rotated(float(i)*TAU/9.0)
+		var spark := recipient+radial*(16.0+(t-SUPPORT_ARRIVAL)*96.0)
+		draw_line(spark,spark+radial*7.0,Color(core,bloom*0.84),1.8,true)
 
 func _draw_lifesteal(t: float) -> void:
 	var delay := LIFESTEAL_DELAY/LIFESTEAL_SECONDS

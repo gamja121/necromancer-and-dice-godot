@@ -73,11 +73,14 @@ func next_action() -> Dictionary:
 	return {}
 
 
-func heal(unit: Dictionary, amount: int, drained_from: String = "") -> int:
-	var healed = super.heal(unit,amount,drained_from)
-	if healed>0:
-		var report := {"type":"heal","target":unit.id,"amount":healed,"hp":unit.hp,"max_hp":unit.max_hp}
-		if not drained_from.is_empty(): report.drained_from = drained_from
+func heal(unit: Dictionary, amount: int, presentation: Dictionary = {}) -> int:
+	var hp_before: int = unit.hp
+	var healed = super.heal(unit,amount,presentation)
+	# A healthy summon still receives the attack increase.
+	if healed>0 or int(presentation.get("power",0))>0:
+		var report := {"type":"heal","target":unit.id,"amount":healed,"hp":unit.hp,
+			"hp_before":hp_before,"max_hp":unit.max_hp}
+		report.merge(presentation)
 		presentation_events.append(report)
 	return healed
 
@@ -85,9 +88,10 @@ func damage(target: Dictionary, amount: int, source: Dictionary = {}, kind: Stri
 	if not target.alive or amount<=0: return super.damage(target,amount,source,kind)
 	var index = presentation_events.size()
 	var shields_before: int = target.shields
+	var hp_before: int = target.hp
 	presentation_events.append({})
 	var dealt = super.damage(target,amount,source,kind)
-	presentation_events[index] = {"type":"damage","target":target.id,"source":source.get("id",""),"amount":dealt,"kind":kind,"blocked":target.shields<shields_before,"critical":kind=="attack" and not source.is_empty() and source.bless.get("critical",0)>0,"hp":target.hp}
+	presentation_events[index] = {"type":"damage","target":target.id,"source":source.get("id",""),"amount":dealt,"kind":kind,"blocked":target.shields<shields_before,"critical":kind=="attack" and not source.is_empty() and source.bless.get("critical",0)>0,"hp":target.hp,"hp_before":hp_before}
 	return dealt
 
 # Queue IDs must resolve to the restored unit dictionaries, not detached copies.
