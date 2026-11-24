@@ -2,6 +2,8 @@ extends Control
 const OriginalEffects = preload("res://systems/original_effects.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
 const Accent = preload("res://systems/presentation_accent.gd")
+const HITSTOP_SECONDS := 0.060
+const STRONG_HITSTOP_SECONDS := 0.080
 
 class Ground extends Control:
 	var effects
@@ -136,6 +138,13 @@ func _process(delta: float) -> void:
 		if id==focus_actor:
 			var wrap: Vector2 = layouts[id].wrap
 			desired += Vector2(wrap.x*0.36*(1.0 if unit.team=="ally" else -1.0),wrap.y*0.05)
+		var motion: Dictionary = hit_motions.get(id,{})
+		var hit_phase := 0.0
+		if not motion.is_empty():
+			hit_phase = (idle_clock-motion.started)/motion.interval
+			var push := smoothstep(0.0,0.8,hit_phase)
+			var release := smoothstep(0.8,minf(3.4,float(motion.frames.size())),hit_phase)
+			desired.x += motion.recoil_x*push*(1.0-release)
 		sprite.position = sprite.position.lerp(desired,minf(1.0,dt*18.0))
 		# All 47 monsters breathe/sway while waiting, including the 43 rigid
 		# hand-drawn portraits. Rigid art ROTATES around the original foot
@@ -165,9 +174,8 @@ func _process(delta: float) -> void:
 		else:
 			sprite.rotation = 0.0
 			sprite.scale = Vector2.ONE
-		if hit_motions.has(id):
-			var motion: Dictionary = hit_motions[id]
-			var index = int((idle_clock-motion.started)/motion.interval)
+		if not motion.is_empty():
+			var index := int(hit_phase)
 			if index>=motion.frames.size():
 				hit_motions.erase(id)
 				active.erase(id)
@@ -175,7 +183,6 @@ func _process(delta: float) -> void:
 			else:
 				var tex = scene.texture(scene.frame_path(unit,"hit",int(motion.frames[index])))
 				if tex!=null: sprite.texture = tex
-				sprite.position.x += sin((idle_clock-motion.started)/motion.interval*PI)*6.0*(1.0 if unit.team=="enemy" else -1.0)
 		sprite.material.set_shader_parameter("flash",0.35 if flashes.get(id,0.0)>clock and sin((flashes[id]-clock)*48.0)>0.0 else 0.0)
 	for i in range(art_items.size()-1,-1,-1):
 		var item: Dictionary = art_items[i]
@@ -328,8 +335,6 @@ func play_action(action: Dictionary) -> void:
 				var source_id: String = report.get("source",action.actor)
 				if not states.has(source_id) or not states.has(report.target): continue
 				set_focus(source_id,report.target)
-				if scene.bars.has(report.target) and not report.get("blocked", false):
-					scene.bars[report.target].consume_hit(int(report.get("amount", 0)), int(report.get("hp", 0)))
 				await play_strike(source_id,report.target,report)
 				played = true
 			else:
@@ -373,6 +378,8 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 		if tex!=null: sprite.texture = tex
 		if i==impact_frame:
 			if not report.is_empty():
+				if scene.bars.has(target_id) and not report.get("blocked",false):
+					scene.bars[target_id].consume_hit(int(report.amount),int(report.hp))
 				show_reports([report])
 				scene.cues.show_damage(report.amount)
 				if report.amount>0:
@@ -380,17 +387,13 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 					play_species_accent(actor_id,target_id)
 					scene.sound(impact_cue(str(actor.slug),str(states[target_id].slug),bool(report.get("critical",false)),attack_kind(actor)=="heavy"))
 					flashes[target_id] = clock+0.26*speed
-					var target_profile: Dictionary = scene.presentation_layout.metrics.get(states[target_id].slug,{})
-					hit_motions[target_id] = {"started":idle_clock,"frames":scene.motion_frames(states[target_id],"hit"),"interval":maxf(0.045,float(target_profile.get("hit_interval",0.135))/speed)}
-					active[target_id] = true
 					var strong: bool = report.get("critical",false) or report.amount>=actor.attack*1.5
+					start_hit_recoil(actor_id,target_id,speed,strong)
 					if strong:
 						shake_left = 0.15*speed
 						shake_strength = 2.0
 						duck_until = clock+0.25
-					presentation_hold = true
-					await scene.wait_presentation(0.054 if strong else 0.022)
-					presentation_hold = false
+					await hold_impact(STRONG_HITSTOP_SECONDS if strong else HITSTOP_SECONDS)
 			else:
 				scene.sound("battle_miss")
 				show_label(target_id,"miss")
@@ -402,6 +405,28 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary) -> voi
 	while hit_motions.has(target_id): await scene.wait_presentation(0.01)
 	active.erase(actor_id)
 	sprite.texture = scene.texture(scene.frame_path(actor,"attack",1))
+
+func start_hit_recoil(actor_id: String, target_id: String, speed: float, strong: bool) -> void:
+	var target: Dictionary = states[target_id]
+	var profile: Dictionary = scene.presentation_layout.metrics.get(target.slug,{})
+	var geometry: Dictionary = layouts[target_id]
+	var direction := 1.0 if geometry.foot.x>=layouts[actor_id].foot.x else -1.0
+	var edge_space: float = scene.surface_size.x-geometry.silhouette.end.x if direction>0.0 else geometry.silhouette.position.x
+	var distance := minf(23.0 if strong else 17.0,maxf(7.0,edge_space))
+	hit_motions[target_id] = {
+		"started":idle_clock,"frames":scene.motion_frames(target,"hit"),
+		"interval":maxf(0.045,float(profile.get("hit_interval",0.135))/speed),
+		"recoil_x":direction*distance
+	}
+	active[target_id] = true
+
+func hold_impact(seconds: float) -> void:
+	# This brief presentation pause stays readable at every battle speed.
+	presentation_hold = true
+	while seconds>0.0:
+		await get_tree().process_frame
+		if not scene.paused: seconds -= get_process_delta_time()
+	presentation_hold = false
 
 func play_species_accent(actor_id: String, target_id: String) -> void:
 	var actor: Dictionary = states[actor_id]

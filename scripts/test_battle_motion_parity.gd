@@ -112,6 +112,19 @@ func _run() -> void:
 		var enemy_id: String = scene.rules.units[4].id
 		await scene.visuals.play_strike(id,enemy_id,{})
 		check(not scene.visuals.active.has(id),"actual BattleVisuals.play_strike completes all attack frames")
+		var target: TextureRect = scene.sprites[enemy_id]
+		var home_x: float = scene.visuals.homes[enemy_id].x
+		var observed := {"start":0,"hold":0,"recoil":0.0}
+		var watch = func():
+			if scene.visuals.presentation_hold:
+				if observed.start==0: observed.start = Time.get_ticks_usec()
+				observed.hold = Time.get_ticks_usec()-int(observed.start)
+			observed.recoil = maxf(float(observed.recoil),target.position.x-home_x)
+		process_frame.connect(watch)
+		await scene.visuals.play_strike(id,enemy_id,{"type":"damage","target":enemy_id,"amount":1,"hp":scene.rules.units[4].hp-1})
+		process_frame.disconnect(watch)
+		check(observed.hold>=30_000 and not scene.visuals.presentation_hold,"ordinary contact visibly pauses and resumes")
+		check(observed.recoil>=4.0 and not scene.visuals.hit_motions.has(enemy_id),"confirmed hit moves its target away and completes the recoil")
 
 	if actor_ids.has("goblin-commoner"):
 		var id: String = actor_ids["goblin-commoner"]
