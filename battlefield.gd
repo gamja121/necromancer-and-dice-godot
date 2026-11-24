@@ -52,6 +52,7 @@ var layer: Control
 var audio_settings: AudioSettings
 var sprites: Dictionary = {}
 var bars: Dictionary = {}
+var legion_badge_bounds: Dictionary = {}
 var cards: Dictionary = {}
 var cache: Dictionary = {}
 var scales: Dictionary = {}
@@ -357,6 +358,7 @@ void fragment() {
 			dice_cards_button.add_child(count)
 	brand_reference_button = button(layer,"낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
 	var dragon_has_gauge: bool = rules.units.any(presentation_layout.is_boss_bar)
+	legion_badge_bounds.clear()
 	for team in ["ally","enemy"]:
 		if team=="enemy" and dragon_has_gauge: continue
 		var title = text(layer,"아군 활성 군단" if team == "ally" else "적군 활성 군단",Vector2(25.6 if team == "ally" else 1054.4,53),Vector2(200,26),16)
@@ -366,7 +368,9 @@ void fragment() {
 		for i in range(enabled.size()):
 			var key = enabled[i]
 			var x = 25.6+i*56 if team == "ally" else 1200.4-i*56
-			image(layer,"res://assets/battle/ui/legion-slot-frame.png",Vector2(x,82),Vector2(54,54))
+			var badge := image(layer,"res://assets/battle/ui/legion-slot-frame.png",Vector2(x,82),Vector2(54,54))
+			var badge_bounds := Rect2(badge.position,badge.size)
+			legion_badge_bounds[team] = badge_bounds if i==0 else legion_badge_bounds[team].merge(badge_bounds)
 			var emblem := image(layer,"res://assets/battle/ui/legion-crossed-swords.svg",Vector2(x+17,84),Vector2(20,20))
 			emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var name_text = text(layer,LEGIONS[key],Vector2(x+1,105),Vector2(52,14),10)
@@ -540,7 +544,6 @@ func render_units(values: Array) -> void:
 			fate_icon.name = "FateIcon"
 			bar.add_child(fate_icon)
 			fate_icon.pivot_offset = Vector2.ZERO
-			fate_icon.scale = Vector2.ONE*0.8
 			var shield_count := Label.new()
 			shield_count.name = "ShieldCount"
 			shield_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -644,7 +647,18 @@ func place_health_bar(unit: Dictionary, bounds: Rect2) -> void:
 	var row_y := -18.0 if boss else bounds.size.y+1.0
 	var row_x := bounds.size.x-100.0 if boss else 0.0
 	var fate := bar.get_node("FateIcon") as Control
-	fate.position = Vector2(bounds.size.x-19.0,row_y)
+	fate.scale = Vector2.ONE*(0.8 if boss else 2.0)
+	if boss:
+		fate.position = Vector2(bounds.size.x-19.0,row_y)
+	else:
+		var mark_size := fate.size*fate.scale
+		fate.position = Vector2((bounds.size.x-mark_size.x)*0.5,label.position.y-mark_size.y-3.0)
+		var badges: Rect2 = legion_badge_bounds.get(unit.team,Rect2())
+		if Rect2(bounds.position+fate.position,mark_size).intersects(badges):
+			var clear_x := badges.end.x+4.0 if unit.team=="ally" else badges.position.x-mark_size.x-4.0
+			var center_x := clear_x+mark_size.x*0.5
+			if center_x>=bounds.position.x and center_x<=bounds.end.x:
+				fate.position.x = clear_x-bounds.position.x
 	var shields := int(unit.get("shields",0))
 	var shown := {
 		"freeze": unit.alive and unit.frozen,

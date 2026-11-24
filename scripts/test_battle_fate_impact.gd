@@ -24,6 +24,13 @@ func wait_for(predicate: Callable, limit_msec: int=1600) -> bool:
 		await process_frame
 	return bool(predicate.call())
 
+func mark_above_hp(bar: Control) -> bool:
+	var fate := bar.get_node("FateIcon") as Control
+	var passive := bar.get_node("PassiveLabel") as Control
+	var drawn: Rect2=fate.get_transform()*Rect2(Vector2.ZERO,fate.size)
+	var center_x: float=drawn.get_center().x
+	return drawn.size.is_equal_approx(Vector2(46,42)) and center_x>=0.0 and center_x<=bar.size.x and drawn.end.y<passive.position.y
+
 func _run() -> void:
 	var battle: Control=Battle.instantiate()
 	root.add_child(battle)
@@ -31,6 +38,15 @@ func _run() -> void:
 	var cues: Control=battle.cues
 	check(cues!=null and cues.get_script()==Cues,"real combat cue renderer is installed")
 	check(battle.rules.units.size()>=2,"real enemies and allies are present")
+	var original_surface: Vector2=battle.surface_size
+	for height in [530,720]:
+		battle.surface_size = Vector2(original_surface.x,height)
+		battle.render_units(battle.rules.units)
+		var aligned: bool=battle.rules.units.all(func(u):
+			return battle.presentation_layout.is_boss_bar(u) or mark_above_hp(battle.bars[u.id]))
+		check(aligned,"%dpx battlefield: large marks stay over their HP bars and clear the passive labels" % height)
+	battle.surface_size = original_surface
+	battle.render_units(battle.rules.units)
 	check(is_equal_approx(float(Cues.BLESS_TORSO_FRACTION),0.40),"chest is inside upper part of opaque artwork")
 	check(float(Cues.NORMAL_FATE_BODY_TIME)>=0.40,"ordinary brand body cue remains readable long enough")
 	var all_chests: bool=true
@@ -81,6 +97,7 @@ func _run() -> void:
 			check(float(cues.impact.duration)>=0.30,"%s impact stays visible for a readable chest pulse" % mode)
 			var fate=battle.bars[unit.id].get_node_or_null("FateIcon")
 			check(fate!=null and str(fate.mode)==("curse" if mode in ["curse","mixed"] else "bless"),"%s cue agrees with HP-bar fate icon" % mode)
+			check(fate!=null and fate.visible and mark_above_hp(battle.bars[unit.id]),"%s trigger displays the large mark above HP" % mode)
 		check(await wait_for(func(): return cues.impact.is_empty(),1800),"%s impact ends and cleans up" % mode)
 	check(JSON.stringify(battle.rules.snapshot())==before and battle.rules.rng.state==rng_before,
 		"every fate cue is purely visual and preserves combat RNG, brands and stats")
