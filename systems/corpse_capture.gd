@@ -70,7 +70,7 @@ func setup(battle_scene) -> void:
 	z_index = 60
 	scene.round_label.hide()
 	scene.message.hide()
-	scene.map_return.disabled = true
+	scene.set_return_action_available(false)
 	scene.pause_button.disabled = true
 	scene.speed_button.disabled = true
 	scene.dice.show()

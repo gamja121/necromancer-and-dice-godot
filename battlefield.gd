@@ -217,6 +217,11 @@ func button(parent: Control, value: String, pos: Vector2, dimensions: Vector2, c
 	node.position = pos
 	node.size = dimensions
 	node.pressed.connect(callback)
+	style_battle_button(node)
+	parent.add_child(node)
+	return node
+
+func style_battle_button(node: Button) -> void:
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color("17100fee")
 	style.border_color = Color("846337")
@@ -225,8 +230,6 @@ func button(parent: Control, value: String, pos: Vector2, dimensions: Vector2, c
 	node.add_theme_stylebox_override("normal",style)
 	node.add_theme_stylebox_override("hover",style)
 	node.add_theme_font_size_override("font_size",13)
-	parent.add_child(node)
-	return node
 
 func reset_battle() -> void:
 	preload("res://systems/game_audio.gd").stop(self)
@@ -299,23 +302,22 @@ void fragment() {
 	visuals = BattleVisuals.new()
 	world_layer.add_child(visuals)
 	visuals.setup(self,world_layer)
-	var header = Panel.new()
-	header.position = Vector2(312,14)
-	header.size = Vector2(461,36)
-	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var header_style = StyleBoxFlat.new()
-	header_style.bg_color = Color("17100ff0")
-	header_style.border_color = Color("846337")
-	header_style.set_border_width_all(1)
-	header.add_theme_stylebox_override("panel",header_style)
-	layer.add_child(header)
 	map_return = button(layer,"전투 닫기" if embedded else "맵으로",Vector2(24,18),Vector2(110,32),return_to_map)
-	map_return.disabled = map_mode
-	round_label = text(layer,"%d VS %d" % [allies.size(),enemies.size()],Vector2(316,14),Vector2(122,36),18)
+	set_return_action_available(not map_mode)
+	var turn_size := Vector2(154,36)
+	round_label = text(layer,"%d VS %d" % [allies.size(),enemies.size()],
+		Vector2((surface_size.x-turn_size.x)/2.0,16),turn_size,18)
 	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	if rules.round_number>0: round_label.text = "%d턴 · 주사위 %d" % [rules.round_number,rules.face]
-	message = text(layer,"주사위를 굴리면 %d턴이 시작됩니다" % (rules.round_number+1),Vector2(330,53),Vector2(445,56),18)
+	var header_style = StyleBoxFlat.new()
+	header_style.bg_color = Color("211711ea")
+	header_style.border_color = Color("846337")
+	header_style.set_border_width_all(1)
+	header_style.set_corner_radius_all(4)
+	round_label.add_theme_stylebox_override("normal",header_style)
+	if rules.round_number>0: update_round_label()
+	message = text(layer,"",Vector2((surface_size.x-445.0)/2.0,55),Vector2(445,56),18)
+	message.z_index = 53
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -326,13 +328,18 @@ void fragment() {
 	message_backing.content_margin_right = 12
 	message.add_theme_stylebox_override("normal",message_backing)
 	message.visible = false # Routine combat narration is shown by animations, not HUD text.
-	pause_button = button(layer,"일시정지",Vector2(986,18),Vector2(90,32),toggle_pause)
+	var toolbar_end: float = surface_size.x-24.0-(0.0 if map_mode else 124.0)
+	var speed_x := toolbar_end-64.0
+	var pause_x := speed_x-100.0
+	var settings_x := pause_x-88.0
+	var brand_x := settings_x-98.0
+	pause_button = button(layer,"일시정지",Vector2(pause_x,18),Vector2(92,32),toggle_pause)
 	var pause_effects = ButtonEffects.new()
 	pause_effects.name = "ButtonEffectsModule"
 	pause_button.add_child(pause_effects)
-	speed_button = button(layer,"×1",Vector2(1080,18),Vector2(54,32),cycle_speed)
-	var formation_button = button(layer,"편성 변경",Vector2(1138,18),Vector2(116,32),show_selection)
-	formation_button.visible = not map_mode
+	speed_button = button(layer,"×%d" % (speed_index+1),Vector2(speed_x,18),Vector2(64,32),cycle_speed)
+	if not map_mode:
+		button(layer,"편성 변경",Vector2(toolbar_end+8,18),Vector2(116,32),show_selection)
 	dice_cards_button = null
 	if not embedded:
 		# Standalone battles preserve their own controls. Embedded battles
@@ -355,23 +362,20 @@ void fragment() {
 			count.text="%d/%d" % [session.world.dice_cards.size(),RewardCatalog.DICE_CAPACITY]
 			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			dice_cards_button.add_child(count)
-	brand_reference_button = button(layer,"낙인표",Vector2(778,18),Vector2(114,32),show_brand_reference)
+	brand_reference_button = button(layer,"낙인표",Vector2(brand_x,18),Vector2(90,32),show_brand_reference)
 	var dragon_has_gauge: bool = rules.units.any(presentation_layout.is_boss_bar)
 	for team in ["ally","enemy"]:
 		if team=="enemy" and dragon_has_gauge: continue
-		var title = text(layer,"아군 활성 군단" if team == "ally" else "적군 활성 군단",Vector2(25.6 if team == "ally" else 1054.4,53),Vector2(200,26),16)
-		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if team=="ally" else HORIZONTAL_ALIGNMENT_RIGHT
 		var enabled: Array = rules.legions[team].active.filter(func(key): return rules.active(team,key))
 		for i in range(enabled.size()):
 			var key = enabled[i]
 			var x = 25.6+i*56 if team == "ally" else 1200.4-i*56
-			image(layer,"res://assets/battle/ui/legion-slot-frame.png",Vector2(x,82),Vector2(54,54))
-			var emblem := image(layer,"res://assets/battle/ui/legion-crossed-swords.svg",Vector2(x+17,84),Vector2(20,20))
+			image(layer,"res://assets/battle/ui/legion-slot-frame.png",Vector2(x,58),Vector2(54,54))
+			var emblem := image(layer,"res://assets/battle/ui/legion-crossed-swords.svg",Vector2(x+17,60),Vector2(20,20))
 			emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var name_text = text(layer,LEGIONS[key],Vector2(x+1,105),Vector2(52,14),10)
+			var name_text = text(layer,LEGIONS[key],Vector2(x+1,81),Vector2(52,14),10)
 			name_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			var count = text(layer,"%d/%d" % [rules.legions[team].counts[key],rules.NEED[key]],Vector2(x+1,119),Vector2(52,12),9)
+			var count = text(layer,"%d/%d" % [rules.legions[team].counts[key],rules.NEED[key]],Vector2(x+1,95),Vector2(52,12),9)
 			count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if embedded and is_instance_valid(external_main_dice):
 		# The embedded arena NEVER creates or repositions a second die.
@@ -396,6 +400,10 @@ void fragment() {
 	frame_resources.warm_combatants(rules.units,presentation_layout.metrics)
 	audio_settings = AudioSettings.new()
 	audio_settings.setup(layer)
+	audio_settings.options_button.text = "설정"
+	audio_settings.options_button.position = Vector2(settings_x,18)
+	audio_settings.options_button.size = Vector2(80,32)
+	style_battle_button(audio_settings.options_button)
 	if embedded and is_instance_valid(map_owner):
 		audio_settings.open_changed.connect(func(_opened: bool): map_owner._sync_map_chrome())
 	cues = CombatCues.new()
@@ -732,7 +740,7 @@ func roll_round(instance_id: String = "") -> void:
 			return
 		if not shared_landing_played: sound("dice-land")
 		dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % rules.face)
-		round_label.text = "%d턴 · 주사위 %d" % [rules.round_number,rules.face]
+		update_round_label()
 		render_units(rules.units)
 		visuals.prepare_round_presentation(round_before,rules.units,rules.presentation_events)
 		await cues.play_dice_result(rules.face)
@@ -741,7 +749,7 @@ func roll_round(instance_id: String = "") -> void:
 		await wait_time(0.5)
 	else:
 		dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % rules.face)
-		round_label.text = "%d턴 · 주사위 %d · 재개" % [rules.round_number,rules.face]
+		update_round_label(true)
 	while true:
 		var action: Dictionary = rules.next_action()
 		if map_mode and not session.checkpoint_battle(rules,"actions"):
@@ -769,14 +777,14 @@ func roll_round(instance_id: String = "") -> void:
 	set_deck_disabled(not winner.is_empty())
 	if map_mode and not winner.is_empty():
 		if not session.finish_encounter(rules):
-			map_return.disabled = false
+			set_return_action_available(true)
 			message.text = "전투 결과 저장 실패 · 전투 닫기로 다시 시도하세요"
 			message.visible = true
 			return
 		if winner=="enemy":
 			# The final loss has already been atomically saved. Do not reveal a
 			# return-to-map action or permit another roll on the dead expedition.
-			map_return.disabled=true
+			set_return_action_available(false)
 			message.text="원정 종료 · 망자의 계약이 끊어졌다."
 			message.visible = true
 			if embedded and is_instance_valid(map_owner):
@@ -785,7 +793,7 @@ func roll_round(instance_id: String = "") -> void:
 		if session.world.pending_reward.get("kind","")=="capture":
 			begin_capture()
 			return
-		map_return.disabled = false
+		set_return_action_available(true)
 		message.text = "승리! · 전투를 닫고 원정을 계속하세요"
 		message.visible = true
 
@@ -843,6 +851,13 @@ func close_dice_hand() -> void:
 		dice_hand.queue_free()
 	dice_hand = null
 	if map_mode: set_deck_button_style(false)
+
+func update_round_label(resuming: bool = false) -> void:
+	round_label.text = ("%d턴 · 재개" if resuming else "%d턴") % rules.round_number
+
+func set_return_action_available(available: bool) -> void:
+	map_return.disabled = not available
+	map_return.visible = available or not map_mode
 
 func return_to_map() -> void:
 	if busy: return
@@ -1023,7 +1038,7 @@ func keyboard_focus_controls() -> Array[Control]:
 		result.append(dice)
 	elif active==layer or (uses_map_tile_dock() and active==detail_parent):
 		for card in cards.values(): result.append(card)
-		result.append_array([dice,map_return,pause_button,speed_button,brand_reference_button])
+		result.append_array([dice,map_return,pause_button,speed_button,brand_reference_button,audio_settings.options_button])
 		result.append(external_dice_deck_button if is_instance_valid(external_dice_deck_button) else dice_cards_button)
 	else:
 		for control in active.find_children("*","Control",true,false):

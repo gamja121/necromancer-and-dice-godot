@@ -120,7 +120,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 		label+": movable shared die remains visible and clickable above battlefield frame")
 	check(session.encounter.type=="monster" and session.encounter.allies.size()==2,label+": generated normal encounter has selected owned unit")
 	check(session.encounter.enemies.size()>=1 and session.encounter.enemies.size()<=4,label+": original encounter generator produced enemies")
-	check(battle.map_return.disabled and battle.rules.winner().is_empty(),label+": cannot leave unfinished combat")
+	check(battle.map_return.disabled and not battle.map_return.visible and battle.rules.winner().is_empty(),label+": unfinished combat hides its unavailable return action")
 	# Real map book and deck must remain in their ORIGINAL positions throughout
 	# embedded battle; do not make a duplicate in the clipped BattleViewport.
 	check(map.book_button.visible and map.book_button.is_visible_in_tree() and map.book_lock.locked,
@@ -207,7 +207,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 		check(world.roster.size()==original_units,label+": no owned monster permanently lost on victory")
 		check(not world.pending_reward.is_empty() and world.pending_reward.kind=="capture",label+": fallen enemies enter soul capture before map return")
 		check(is_instance_valid(battle.capture_panel),label+": real soul-capture screen is shown")
-		check(battle.map_return.disabled,label+": pending capture blocks premature map return")
+		check(battle.map_return.disabled and not battle.map_return.visible,label+": pending capture keeps the return action hidden")
 		if is_instance_valid(battle.capture_panel):
 			var candidates: Array = battle.capture_panel.choices
 			check(candidates.size()==world.pending_reward.corpses.size() and not candidates.is_empty(),
@@ -334,7 +334,7 @@ func _scenario(session: Node, victor: String, force_capture_failure: bool = fals
 	else:
 		check(not target in world.cleared and world.contamination==3,label+": defeat neither clears tile nor changes contamination")
 		check(world.pending_reward.is_empty() and world.reward_receipts.size()==receipt_before,label+": defeat produces no capture/reward")
-		check(battle.map_return.disabled,label+": defeat forbids returning to active expedition")
+		check(battle.map_return.disabled and not battle.map_return.visible,label+": defeat keeps return to the active expedition hidden")
 		check(not world.run_result.is_empty() and world.run_result.reason=="battle_defeat",label+": defeat atomically persists terminal expedition result")
 		check(is_instance_valid(map.game_over_screen),label+": actual map displays game-over dice cinematic")
 		if is_instance_valid(map.game_over_screen):

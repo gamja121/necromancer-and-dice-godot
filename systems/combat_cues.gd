@@ -81,7 +81,7 @@ func _process(delta: float) -> void:
 		scene.dice.scale = dice_base_scale*(1.0+sin(t*PI)*(0.12 if dice_result.face in [1,6] else 0.08))
 	if rail_box.visible:
 		rail_box.size = rail_box.get_combined_minimum_size()
-		rail_box.position = Vector2((size.x-rail_box.size.x)/2.0,77.0)
+		rail_box.position = Vector2((size.x-rail_box.size.x)/2.0,58.0)
 		rail_box.visible = clock<expiry
 	var drawn_content: bool = not marks.is_empty() or not impact.is_empty() or not chain_pulse.is_empty()
 	if drawn_content or _had_drawn_content: queue_redraw()
@@ -128,13 +128,6 @@ func play_legion_entry() -> void:
 	cue.caption = " · ".join(captions)+" 군단"
 	cue.caption_rect = Rect2(size.x*0.15,size.y*0.10,size.x*0.7,32)
 	await scene.wait_presentation(0.90)
-
-func show_attack(name_text: String) -> void:
-	step("공격 "+name_text,Color("ffd39b"))
-
-func show_damage(amount: int) -> void:
-	step("피해 "+str(amount),Color("ff8f82"))
-	expiry = clock+1.45
 
 func play_brands(units: Array) -> void:
 	# Presentation only: the round's blessing/curse values are already resolved.

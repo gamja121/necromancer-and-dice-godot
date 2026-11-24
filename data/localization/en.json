@@ -87,6 +87,8 @@
   "%d번 워프로 이동 완료": "Arrived at Warp %d",
   "%d번 칸 변경": "Change Tile %d",
   "%d칸 앞 · %d번 %s 선택 · 이동 확정을 누르면 실제로 이동합니다.": "%d spaces ahead · No. %d %s selected · Press Confirm Move to travel there.",
+  "%d턴": "Turn %d",
+  "%d턴 · 재개": "Turn %d · Resume",
   "%d턴 · 주사위 %d": "Turn %d · Die %d",
   "%d턴 · 주사위 %d · 재개": "Turn %d · Dice %d · Resume",
   "%s\n군단: %s\n패시브: %s\n": "%s\nLegions: %s\nPassive: %s\n",

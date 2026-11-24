@@ -507,7 +507,6 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary, drains
 	var impact_frame = clampi(int(motion_profile.get("impact_frame",ceil(frames.size()/2.0)))-1,0,frames.size()-1)
 	var speed: float = scene.speed_values[scene.speed_index]
 	scene.sound("dragon_attack" if actor.slug=="dragon" else attack_kind(actor))
-	scene.cues.show_attack(actor.name)
 	for i in range(frames.size()):
 		var tex = scene.texture(scene.frame_path(actor,"attack",int(frames[i])))
 		if tex!=null: sprite.texture = tex
@@ -517,7 +516,6 @@ func play_strike(actor_id: String, target_id: String, report: Dictionary, drains
 				if scene.bars.has(target_id) and not report.get("blocked",false):
 					scene.bars[target_id].consume_hit(int(report.amount),int(report.hp))
 				show_reports([report])
-				scene.cues.show_damage(report.amount)
 				if report.amount>0:
 					var critical: bool = report.get("critical",false)
 					var critical_brand_hit: bool = critical and report.get("kind","")=="attack"
