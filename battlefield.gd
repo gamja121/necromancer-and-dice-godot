@@ -614,8 +614,7 @@ func render_units(values: Array) -> void:
 			card_appearance.set_shader_parameter("death_factor",0.0 if u.alive else 1.0)
 		cards[u.id].set_meta("dead",not u.alive)
 		cards[u.id].tooltip_text = "%s · %d/%d" % [u.name,u.hp,u.max_hp]
-		if u.alive and u.frozen: sprite.modulate = Color(0.5,0.85,1.0)
-		elif u.alive and not u.poison.is_empty(): sprite.modulate = Color(0.6,1.0,0.5)
+		if u.alive and not u.frozen and not u.poison.is_empty(): sprite.modulate = Color(0.6,1.0,0.5)
 
 		for node in [sprite,bars[u.id],cards[u.id]]:
 			node.visible = not visuals.removed.has(u.id)

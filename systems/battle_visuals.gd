@@ -2,6 +2,7 @@ extends Control
 const OriginalEffects = preload("res://systems/original_effects.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
 const Accent = preload("res://systems/presentation_accent.gd")
+const StatusEffects = preload("res://systems/battle_status_effects.gd")
 const HITSTOP_SECONDS := 0.060
 const STRONG_HITSTOP_SECONDS := 0.080
 
@@ -32,6 +33,9 @@ var idle_clock = 0.0
 var focus_actor = ""
 var focus_target = ""
 var hit_motions: Dictionary = {}
+var guard_flares: Dictionary = {}
+var ice_started: Dictionary = {}
+var ice_shatters: Dictionary = {}
 var shake_left = 0.0
 var shake_strength = 0.0
 var duck_until = 0.0
@@ -49,11 +53,14 @@ func setup(battle_scene, parent: Control) -> void:
 shader_type canvas_item;
 uniform float dim = 0.0;
 uniform float flash : hint_range(0.0, 1.0) = 0.0;
+uniform float frost : hint_range(0.0, 1.0) = 0.0;
 uniform float entry_reveal : hint_range(0.0, 1.0) = 1.0;
 void fragment() {
 	vec4 source = COLOR;
 	float gray = dot(source.rgb,vec3(0.2126,0.7152,0.0722));
 	vec3 shaded = mix(source.rgb,mix(vec3(gray),source.rgb,0.72)*0.48,dim);
+	float luminance = dot(shaded,vec3(0.2126,0.7152,0.0722));
+	shaded = mix(shaded,luminance*vec3(0.70,0.94,1.18),frost*0.76);
 	vec3 original_look = mix(shaded, vec3(1.0, 0.18, 0.1), flash);
 	COLOR = vec4(mix(vec3(0.012,0.011,0.020), original_look, entry_reveal), source.a);
 }
@@ -73,6 +80,14 @@ func displayed_unit(unit: Dictionary) -> Dictionary:
 func sync(values: Array) -> void:
 	for value in values:
 		var unit: Dictionary = displayed_unit(value)
+		var prior: Dictionary = states.get(unit.id,{})
+		if unit.alive and unit.frozen:
+			if not ice_started.has(unit.id):
+				ice_started[unit.id] = idle_clock-StatusEffects.ICE_FORM_SECONDS if prior.is_empty() else idle_clock
+				ice_shatters.erase(unit.id)
+		elif ice_started.erase(unit.id) and unit.alive and prior.get("slug","")==unit.slug:
+			var height := status_body_height(unit.id)
+			ice_shatters[unit.id] = {"started":idle_clock,"center":status_center(unit.id,height),"size":ice_size(height)}
 		states[unit.id] = unit.duplicate(true)
 		layouts[unit.id] = scene.presentation_layout.geometry(unit,scene.surface_size)
 		var sprite: TextureRect = scene.sprites[unit.id]
@@ -82,6 +97,7 @@ func sync(values: Array) -> void:
 			var material = ShaderMaterial.new()
 			material.shader = shader
 			sprite.material = material
+		sprite.material.set_shader_parameter("frost",1.0 if unit.alive and unit.frozen else 0.0)
 	ground.queue_redraw()
 
 # Store only visual states: the already-confirmed roster's own slot order.
@@ -226,13 +242,31 @@ func _process(delta: float) -> void:
 	if removed != _ground_removed:
 		ground.queue_redraw()
 		_ground_removed = removed.duplicate()
+	for id in guard_flares.keys():
+		if idle_clock-guard_flares[id]>=StatusEffects.GUARD_FLASH_SECONDS: guard_flares.erase(id)
+	for id in ice_shatters.keys():
+		if idle_clock-ice_shatters[id].started>=StatusEffects.ICE_BREAK_SECONDS: ice_shatters.erase(id)
 	var overlay_content: bool = status_content or not particles.is_empty() or not numbers.is_empty() or not missiles.is_empty()
+	overlay_content = overlay_content or not guard_flares.is_empty() or not ice_shatters.is_empty()
 	if overlay_content or _had_overlay_content: queue_redraw()
 	_had_overlay_content = overlay_content
 
 func center_of(id: String) -> Vector2:
 	var sprite: TextureRect = scene.sprites[id]
 	return layouts[id].effect+(sprite.position-homes[id])
+
+func status_body_height(id: String) -> float:
+	var sprite: TextureRect = scene.sprites[id]
+	var metric: Dictionary = scene.presentation_layout.metrics.get(states[id].slug,{})
+	var image_height := float(metric.get("height",320))
+	return sprite.size.y*(float(metric.get("bottom",319))-float(metric.get("top",0))+1.0)/image_height
+
+func status_center(id: String, height: float) -> Vector2:
+	var sprite: TextureRect = scene.sprites[id]
+	return sprite.position+sprite.pivot_offset-Vector2(0,height*0.57)
+
+func ice_size(height: float) -> float:
+	return clampf(height/165.0,0.46,1.35)
 
 func draw_ground(canvas: Control) -> void:
 	for id in states:
@@ -250,19 +284,25 @@ func _draw() -> void:
 	for id in states:
 		var unit: Dictionary = states[id]
 		if not unit.alive: continue
-		var center = center_of(id)
-		var sprite: TextureRect = scene.sprites[id]
-		var foot: Vector2 = homes[id]+sprite.pivot_offset-Vector2(0,10)
-		if unit.get("shields",0)>0:
-			draw_arc(center,clampf(sprite.size.y*0.43,40,83),0,TAU,64,Color(0.65,0.78,1.0,0.27+sin(clock*3)*0.08),2,true)
-		if unit.frozen:
-			for i in range(5):
-				var p = foot+Vector2((i-2)*12,-absf(sin(float(i)+1))*17)
-				draw_colored_polygon(PackedVector2Array([p+Vector2(-5,0),p+Vector2(0,-21),p+Vector2(5,0)]),Color(0.5,0.85,1,0.65))
+		var has_guard: bool = unit.get("shields",0)>0 or guard_flares.has(id)
+		if has_guard or unit.frozen:
+			var height := status_body_height(id)
+			var center := status_center(id,height)
+			if has_guard:
+				var extent := Vector2(clampf(height*0.62,34,132),clampf(height*0.59,32,108))
+				var block_age: float = idle_clock-guard_flares[id] if guard_flares.has(id) else -1.0
+				StatusEffects.draw_guard(self,center,extent,idle_clock,block_age)
+			if unit.frozen:
+				var freeze_age: float = idle_clock-float(ice_started.get(id,idle_clock-1.0))
+				StatusEffects.draw_ice(self,center,ice_size(height),freeze_age)
 		if not unit.poison.is_empty():
+			var sprite: TextureRect = scene.sprites[id]
+			var foot: Vector2 = homes[id]+sprite.pivot_offset-Vector2(0,10)
 			for i in range(4):
 				var phase = fmod(clock*0.55+i*0.25,1.0)
 				draw_circle(foot+Vector2(sin(i*2.3+clock)*22,-phase*50),2.5,Color(0.45,0.85,0.25,(1-phase)*0.7))
+	for shatter in ice_shatters.values():
+		StatusEffects.draw_ice_shatter(self,shatter.center,shatter.size,idle_clock-shatter.started)
 	for particle in particles:
 		var t: float = particle.age/particle.life
 		var p: Vector2 = particle.origin+particle.velocity*particle.age+Vector2(0,45*particle.age*particle.age)
@@ -497,7 +537,7 @@ func show_label(id: String, kind: String, delay: float = 0.0) -> void:
 	if node!=null:
 		add_art(node,center_of(id)-Vector2(node.size.x/2,68 if kind=="critical" else 42),1.0,Vector2(0,-24),[],0.065,delay)
 
-func show_reports(reports: Array) -> void:
+func show_reports(reports: Array, guard_already_settled: bool = false) -> void:
 	var count: Dictionary = {}
 	var healing_sound_played := false
 	for report in reports:
@@ -507,6 +547,12 @@ func show_reports(reports: Array) -> void:
 		count[id] = offset+1
 		var delay = offset*0.09
 		if report.type=="damage" and report.get("blocked",false):
+			guard_flares[id] = idle_clock
+			# Round reports arrive after the units were rendered with final shield counts.
+			if not guard_already_settled and states.has(id):
+				var unit: Dictionary = states[id]
+				unit.shields = maxi(0,int(unit.get("shields",0))-1)
+				scene.place_health_bar(unit,layouts[id].bar)
 			scene.sound("battle_block")
 			show_label(id,"immune",delay)
 		if report.amount<=0: continue
@@ -585,7 +631,7 @@ func play_seed_blooms(before: Array, after: Array) -> void:
 
 func play_round(before: Array, after: Array, reports: Array) -> void:
 	await play_seed_blooms(before,after)
-	show_reports(reports)
+	show_reports(reports,true)
 	var arriving: Array = []
 	for unit in after:
 		if not unit.alive: continue
