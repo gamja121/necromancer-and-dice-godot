@@ -131,7 +131,7 @@ static func describe(session, index: int, displayed_region: String) -> Dictionar
 		else:
 			rule = "%d번 타일 연결" % (destination+1)
 
-	if index in world.cleared and kind in ["monster","rare-monster","boss"]:
+	if kind == MapState.CLEARED_BOSS_TILE or (index in world.cleared and kind in ["monster","rare-monster","boss"]):
 		badges.append("처치 완료")
 	elif current and _used(session,index,kind):
 		badges.append("사용 완료")

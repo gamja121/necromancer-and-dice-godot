@@ -1478,7 +1478,7 @@ func show_tile(index: int, actual_landing: bool = false) -> void:
 		elif str(outcome.get("type","")) == MapState.WORLD_TREE_ASSAULT:
 			resume_world_tree_assault()
 		return
-	if type=="basic": return
+	if type in ["basic", MapState.CLEARED_BOSS_TILE]: return
 	if type=="home":
 		show_home()
 		return

@@ -73,9 +73,9 @@ func check_legacy_boss_board(s: Node) -> void:
 	check(w.event_flags.get(MapState.BossStages.stage_flag(60),false),"legacy clear retains the stage-60 victory")
 	check(not w.event_flags.get(MapState.BossStages.stage_flag(80),false) and not Progress.cleared(w),"legacy cleared cell does not imply a final victory")
 	var entrance: int=w.final_dragon_location()
-	check(entrance>=0 and w.tiles[entrance]=="warp" and w.tiles[index]=="monster","final entrance moves to an existing warp and retires the fixed stone")
+	check(entrance>=0 and w.tiles[entrance]=="warp" and w.tiles[index]==MapState.CLEARED_BOSS_TILE,"final entrance moves to an existing warp while the old stage-60 clear keeps its own stone")
 	var expected: Array=before.tiles.duplicate()
-	expected[index]="monster"
+	expected[index]=MapState.CLEARED_BOSS_TILE
 	check(w.tiles==expected and w.rng.state==int(before.rng_state) and w.map_serial==int(before.map_serial) and w.position==int(before.position),"migration preserves every other tile, both warps, RNG and position")
 	var migrated: String = FileAccess.get_file_as_string(scratch)
 	s.reload_world()

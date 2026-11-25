@@ -27,6 +27,7 @@ const FIRST_SWAMP_CONTAMINATION = 15
 const SECOND_SWAMP_CONTAMINATION = 30
 # Preserve the existing boss art and encounter path at the 24th slot.
 const BOSS_TILE_INDEX = 23
+const CLEARED_BOSS_TILE = "boss-cleared"
 # The first expedition has no rare stones. After the first completed lap,
 # the proportion of advanced-monster encounter stones increases at each
 # contamination milestone, while the overall combat-stone budget is unchanged.
@@ -45,7 +46,7 @@ static func rare_stone_target(level: int, completed_laps: int) -> int:
 ## Two ordinary roads are reserved for contamination swamps (one at 15,
 ## another at 30); optional patrol picks and monster conversions cannot take them.
 const COUNTS = {"basic":11,"graveyard":0,"altar":0,"unknown":0,"forest":0,"rest":0,"monster":5,"rare-monster":0,"gem":1,"event":2,"swamp":0,"warp":2}
-const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스"}
+const NAMES = {"basic":"길","graveyard":"공동묘지","altar":"제단","unknown":"세계수","forest":"언덕","rest":"숙영","monster":"일반 마물","rare-monster":"희귀 마물","gem":"보물상자","event":"사건","swamp":"오염된 늪지대","warp":"워프","home":"우리집","village":"마을","fortune-teller-camp":"점술가의 막사","boss":"보스","boss-cleared":"보스"}
 var definitions: Dictionary
 var rng = RandomNumberGenerator.new()
 var tiles: Array = []
@@ -404,10 +405,18 @@ func conceal_boss_below_threshold() -> bool:
 	if boss_available():
 		# Keep the old fixed stone until its replacement is durably usable.
 		if final_dragon_location()<0 or not pending_move.is_empty() or not pending_reward.is_empty(): return false
-	tiles[BOSS_TILE_INDEX]="monster"
-	if scout.get("intel",[]) is Array:
-		scout["intel"]=scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
+	_replace_retired_boss_tile("monster")
 	return true
+
+
+func mark_boss_tile_cleared() -> void:
+	_replace_retired_boss_tile(CLEARED_BOSS_TILE)
+
+
+func _replace_retired_boss_tile(tile: String) -> void:
+	tiles[BOSS_TILE_INDEX] = tile
+	if scout.get("intel",[]) is Array:
+		scout["intel"] = scout.get("intel",[]).filter(func(entry): return int(entry.get("index",-1)) != BOSS_TILE_INDEX)
 
 ## Reveal newly corrupted roads immediately when pollution rises mid-lap
 ## (e.g. a failed world-tree prayer), without rerolling or changing RNG.
@@ -521,8 +530,10 @@ func restore(saved: Dictionary) -> bool:
 	if saved.get("version",0)!=1 or not saved.get("tiles") is Array or saved.tiles.size()!=24: return false
 	if not saved.get("roster") is Array or not saved.get("cleared") is Array: return false
 	if saved.get("position",-1)<0 or saved.position>=24 or not saved.get("region","") in ["default","winter","hell"]: return false
-	for tile in saved.tiles:
+	for index in range(saved.tiles.size()):
+		var tile: Variant = saved.tiles[index]
 		if not NAMES.has(tile): return false
+		if tile == CLEARED_BOSS_TILE and (index != BOSS_TILE_INDEX or not saved.cleared.any(func(value): return int(value) == BOSS_TILE_INDEX)): return false
 	if saved.tiles[0]!="fortune-teller-camp" or saved.tiles[8]!="village" or saved.tiles[15]!="home": return false
 	if not Riot.valid(saved.get("riot", {}), saved.tiles.find("village"), HOME): return false
 	for u in saved.roster:

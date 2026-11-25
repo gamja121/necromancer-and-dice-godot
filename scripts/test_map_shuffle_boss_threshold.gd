@@ -129,8 +129,31 @@ func _run() -> void:
 	var original_serial: int = session.world.map_serial
 	check(session.save_world(), "older pre-threshold snapshot stored")
 	session.reload_world()
-	check(session.world.tiles[23] == "monster" and session.world.tiles.slice(0,23) == last_map, "old cleared stage-20 boss remains gone after restore")
+	check(session.world.tiles[23] == MapState.CLEARED_BOSS_TILE and session.world.tiles.slice(0,23) == last_map, "marked legacy boss gets its defeat tile")
 	check(session.world.map_serial == original_serial, "migration does not generate a new board")
+	map = MapScene.instantiate()
+	root.add_child(map)
+	await process_frame
+	check(map.buttons[23].texture_normal == map.texture("res://assets/map/tiles/boss-cleared.png"), "live map uses the original red defeated boss art")
+	map.select_tile(23)
+	check(map.tile_info_panel.visible and map.tile_info_panel.title.text == "보스" and map.tile_info_panel.state.text.contains("처치 완료"), "board click identifies the defeated boss")
+	map.close_tile_info()
+	map.show_tile(23, true)
+	check(not is_instance_valid(map.overlay), "landing on a cleared boss opens no encounter or modal")
+	var capture_dir := OS.get_environment("BOSS_DEFEAT_CAPTURE_DIR")
+	if not capture_dir.is_empty() and DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		check(root.get_texture().get_image().save_png(capture_dir.path_join("boss-defeated-live.png")) == OK, "native screenshot of corrected boss tile")
+	map.queue_free()
+	await process_frame
+	var before_higher: Dictionary = session.world.snapshot().duplicate(true)
+	session.world.contamination = 40
+	check(session.persist_change(before_higher) and session.world.tiles[23] == "boss" and 23 not in session.world.cleared, "higher stage replaces the defeat stone with a live boss")
+	session.world.tiles[23] = "monster"
+	session.world.cleared.append(23)
+	session.world.contamination = 24
+	session.world.mark_boss_defeated(40)
+	check(session.save_world() and session.reload_world() and session.world.tiles[23] == "monster", "ordinary clear without encounter evidence is preserved in a legacy save")
 
 	# A failed write must undo contamination AND boss appearance atomically.
 	session.start_new_world()

@@ -23,6 +23,7 @@ func check(ok: bool, what: String) -> void:
 
 func _fight_and_win(session: Node, stage: int) -> void:
 	var w=session.world
+	w.position = 23
 	var selected: Array=[str(w.roster[0].id),str(w.roster[1].id)]
 	check(w.tiles[23]=="boss" and w.boss_available(),"%d: eligible boss tile appears" % stage)
 	check(session.start_encounter(23,selected),"%d: existing battle entry accepts staged boss" % stage)
@@ -38,17 +39,30 @@ func _fight_and_win(session: Node, stage: int) -> void:
 	check(battle.winner()=="ally","%d: battle is won by allies" % stage)
 	check(session.finish_encounter(battle),"%d: victory is durably committed" % stage)
 	check(BossStages.defeated(w.event_flags,stage),"%d: stage defeat receipt committed" % stage)
-	check(w.tiles[23]!="boss" and not w.boss_available(),"%d: boss tile immediately disappears after victory" % stage)
-	# Discard pending corpse rewards in this isolated test fixture; actual
-	# corpse capture semantics are independently tested elsewhere.
-	w.pending_reward={}
-	check(session.save_world(),"%d: test save stores completed victory" % stage)
+	check(w.tiles[23]=="boss-cleared" and 23 in w.cleared and not w.boss_available(),"%d: victory stores the dedicated defeated boss tile" % stage)
+	if stage == 20:
+		# Simulate the previous release's generic cleared stone while the
+		# same victory's boss harvest is still recoverable.
+		w.tiles[23] = "monster"
+		check(session.save_world() and session.reload_world(), "legacy harvest save loads")
+		w = session.world
+		check(w.tiles[23] == "boss-cleared", "pending boss harvest proves which old stone to repair")
+	check(session.select_capture(0), "%d: normal boss harvest accepts the defeated monster" % stage)
+	var roller := RandomNumberGenerator.new()
+	for seed in range(1,100):
+		roller.seed = seed
+		if roller.randi_range(1,6) == 6:
+			w.rng.seed = seed
+			break
+	var rolled: Dictionary = session.roll_capture()
+	check(rolled.get("success",false) and session.claim_reward().get("ok",false), "%d: boss harvest and reward claim complete" % stage)
+	check(not session.start_encounter(23,selected), "%d: settled boss tile rejects a second battle" % stage)
 	session.reload_world()
 	w=session.world
-	check(BossStages.defeated(w.event_flags,stage) and w.tiles[23]!="boss","%d: stage cannot respawn on save reload" % stage)
+	check(BossStages.defeated(w.event_flags,stage) and w.tiles[23]=="boss-cleared","%d: same board keeps the defeated boss tile after reload" % stage)
 	check(BossStages.valid(w.definitions,w.boss_assignments),"saved draw remains valid after reload")
 	w.generate()
-	check(w.tiles[23]!="boss","%d: stage does not return on next-lap shuffle" % stage)
+	check(w.tiles[23] not in ["boss","boss-cleared"] and 23 not in w.cleared,"%d: next-lap shuffle replaces the retired stone without respawning its boss" % stage)
 
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")

@@ -580,12 +580,16 @@ func _migrate_saved_boss_clear(has_boss_assignments: bool) -> bool:
 		return true
 
 	var boss_index: int = MapState.BOSS_TILE_INDEX
-	if world.tiles[boss_index]!="boss" or not boss_index in world.cleared: return false
+	if not boss_index in world.cleared: return false
+	if world.tiles[boss_index] == "monster":
+		return _restore_cleared_boss_tile_from_harvest(boss_index)
+	if world.tiles[boss_index] != "boss": return false
 	# Early staged builds could store a real final defeat without an ending.
 	if BossStages.defeated(world.event_flags,BossStages.FINAL): return false
 	var old_stage: int = BossStages.highest_revealed(world.event_flags)
-	if old_stage in BossStages.STAGES and not BossStages.defeated(world.event_flags,old_stage):
+	if old_stage in BossStages.STAGES:
 		world.mark_boss_defeated(old_stage)
+		world.mark_boss_tile_cleared()
 		return true
 	if has_boss_assignments or old_stage!=BossStages.FINAL: return false
 	if BossStages.STAGES.any(func(stage): return BossStages.defeated(world.event_flags,stage)): return false
@@ -593,6 +597,21 @@ func _migrate_saved_boss_clear(has_boss_assignments: bool) -> bool:
 	# There is no ending record to restore after the old harvest is gone.
 	world.mark_boss_defeated(BossStages.FINAL)
 	return true
+
+func _restore_cleared_boss_tile_from_harvest(boss_index: int) -> bool:
+	var reward: Dictionary = world.pending_reward
+	if world.position != boss_index or reward.get("kind","") != "capture": return false
+	# An expedition-wide defeat flag cannot identify a tile on a later board.
+	# A pending harvest here still identifies the boss from this encounter.
+	var corpses: Variant = reward.get("corpses", [])
+	if not corpses is Array or corpses.size() != 1 or not corpses[0] is Dictionary: return false
+	var slug: String = corpses[0].get("slug","")
+	for stage in BossStages.STAGES:
+		if BossStages.defeated(world.event_flags,stage) and slug == BossStages.boss_slug(stage,world.boss_assignments):
+			world.mark_boss_tile_cleared()
+			return true
+	return false
+
 
 func start_encounter(index: int, selected_ids: Array) -> bool:
 	return _start_encounter(index,selected_ids)
@@ -767,6 +786,8 @@ func finish_encounter(battle) -> bool:
 			# Old checkpoints can identify the final dragon without a stage field.
 			var stage: int = BossStages.FINAL if final_victory else int(encounter.get("boss_stage",world.current_boss_stage()))
 			world.mark_boss_defeated(stage)
+			if stage in BossStages.STAGES and int(encounter.index) == MapState.BOSS_TILE_INDEX and world.tiles[MapState.BOSS_TILE_INDEX] == "boss":
+				world.mark_boss_tile_cleared()
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
 		for unit in battle.units:
