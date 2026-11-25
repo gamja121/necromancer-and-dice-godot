@@ -107,6 +107,7 @@ const BattleDeck = preload("res://systems/battle_deck.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
 const DiceAnimation = preload("res://systems/dice_animation.gd")
 const DicePressHint = preload("res://systems/dice_press_hint.gd")
+const MapDieGlow = preload("res://systems/map_die_glow.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const TILE_SIZE = Vector2(120.0,90.0)
 # Presentation only: a quicker map token step without changing dice or tile rules.
@@ -794,7 +795,7 @@ func render() -> void:
 	dice.ignore_texture_size = true
 	dice.texture_normal = texture("res://assets/battle/dice/result-%02d.png" % shared_dice_face())
 	dice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	dice.size = Vector2(76,76)
+	dice.size = Vector2(88,88)
 	# roll_map() rotates the same die around its centre. Restoring a saved
 	# rotation with Godot's default (0,0) pivot makes the painted die jump
 	# relative to its saved stage-space position after location exit,
@@ -807,6 +808,7 @@ func render() -> void:
 	dice.pressed.connect(on_shared_die_pressed)
 	stage.add_child(dice)
 	show_button_focus(dice)
+	MapDieGlow.new().setup(dice,self)
 	DicePressHint.new().setup(dice,dice_hint_context)
 	status = label_at(stage,"주사위를 굴려 길을 따라 이동하세요",Vector2(285,385),Vector2(710,38),16)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
