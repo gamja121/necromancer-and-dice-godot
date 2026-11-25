@@ -482,6 +482,8 @@ func battle_and_capture() -> void:
 	check(not map.buttons[index] in navigation.controls and not map.book_button in navigation.controls,"reward keys cannot activate the underlying board")
 	all_reachable("soul harvest")
 	if not check(capture.choices.size()==2,"two actual defeated monsters available"): return
+	check(capture.choices.all(func(choice): return bool(choice.card.get_meta("keyboard_focus_hide_arrow",false))),"soul-harvest cards suppress only the shared yellow focus arrow")
+	check(is_equal_approx(capture.choices[int(session.world.pending_reward.selected)].card.scale.x,1.28),"soul-harvest selected card is enlarged to 128 percent")
 	await go(capture.choices[1].card)
 	await key(KEY_ENTER)
 	check(session.world.pending_reward.selected==1,"Enter selects the focused reward monster")

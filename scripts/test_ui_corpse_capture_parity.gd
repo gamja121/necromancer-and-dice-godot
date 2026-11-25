@@ -69,7 +69,8 @@ func _run() -> void:
 		panel.session=session
 		session.world.pending_reward={"kind":"capture","selected":0,"corpses":[{"name":"구울","target":3},{"name":"늑대","target":5}],"attempts":2,"locked":false,"phase":"choose"}
 		panel.refresh()
-		check(near(card_a.scale.x,1.15) and near(card_b.scale.x,1.0) and card_a.z_index>card_b.z_index,"chosen corpse enlarges and rises above other cards")
+		check(CaptureUI.SELECTED_CAPTURE_SCALE>1.15 and CaptureUI.SELECTED_CAPTURE_SCALE<=1.30,"soul harvest chosen card is noticeably larger without crowding nearby choices")
+		check(near(card_a.scale.x,CaptureUI.SELECTED_CAPTURE_SCALE) and near(card_b.scale.x,1.0) and card_a.z_index>card_b.z_index,"chosen corpse enlarges and rises above other cards")
 		check(card_a.pivot_offset.is_equal_approx(card_a.size*0.5),"chosen corpse scales around its center")
 		check(arrow_a.visible and not arrow_b.visible,"selected corpse alone has source arrow")
 		var top_a := card_a.get_transform()*Vector2(card_a.size.x*0.5,0.0)
@@ -102,7 +103,7 @@ func _run() -> void:
 		session.world.pending_reward.selected=1
 		session.world.pending_reward.locked=true
 		panel.refresh()
-		check(near(card_b.scale.x,1.15) and near(card_a.scale.x,1.0) and arrow_b.visible and not arrow_a.visible,"enlargement and arrow follow saved selected index")
+		check(near(card_b.scale.x,CaptureUI.SELECTED_CAPTURE_SCALE) and near(card_a.scale.x,1.0) and arrow_b.visible and not arrow_a.visible,"enlargement and arrow follow saved selected index")
 		var top_b := card_b.get_transform()*Vector2(card_b.size.x*0.5,0.0)
 		check(near(arrow_b.position.x+arrow_b.size.x*0.5,top_b.x)
 			and near(top_b.y-arrow_b.position.y-arrow_b.size.y,CaptureUI.CAPTURE_ARROW_GAP),

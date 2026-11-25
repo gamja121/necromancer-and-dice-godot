@@ -107,6 +107,7 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	if not visible or not is_instance_valid(target): return
+	if bool(target.get_meta("keyboard_focus_hide_arrow",false)): return
 	var center := marker_bounds.get_center()
 	var y := maxf(18.0,marker_bounds.position.y-13.0-(1.0-cos(clock*TAU/1.36))*1.75)
 	var arrow := PackedVector2Array([

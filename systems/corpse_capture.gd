@@ -5,7 +5,7 @@ const AltarUpgradeBadge = preload("res://systems/altar_upgrade_badge.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
 const PermanentDeath = preload("res://systems/permanent_death.gd")
 # Selection uses a larger card and the original arrow, never a green frame.
-const SELECTED_CAPTURE_SCALE: float = 1.15
+const SELECTED_CAPTURE_SCALE: float = 1.28
 # Embedded capture candidates live directly on the MAP stage (not the
 # battlefield layer). Keep every candidate above map tiles (z 4/5),
 # the normal battle cards (z 44), and the bottom book/deck (z 50).
@@ -96,6 +96,8 @@ func setup(battle_scene) -> void:
 		option.tooltip_text = "%s · 필요 주사위 %d 이상" % [corpse.name,int(corpse.target)]
 		option.pressed.connect(func(): select_corpse(index))
 		option.set_meta("keyboard_focus_owner",self)
+		# Keep the common keyboard halo, but not its second pointer above the red capture arrow.
+		option.set_meta("keyboard_focus_hide_arrow",true)
 		option.add_to_group("keyboard_external_control")
 		option.set_meta("keyboard_focus_default",index==int(pending.selected))
 		choice_parent.add_child(option)
