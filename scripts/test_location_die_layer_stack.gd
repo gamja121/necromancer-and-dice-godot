@@ -79,7 +79,7 @@ func _run() -> void:
 	var glow: Node2D=die.get_node("MapDieGlow")
 	check(die.size==Vector2(88,88) and glow.show_behind_parent,"map die is approximately 15% larger and its highlight stays behind the artwork")
 	await process_frame
-	check(glow.visible and not glow is Control,"ready board die displays a non-interactive golden highlight")
+	check(glow.visible and not (glow is Control),"ready board die displays a non-interactive golden highlight")
 	var initial_position: Vector2=die.position
 	var initial_face: int=session.world.dice_visual_face
 	check(die.z_index==map.DIE_FOREGROUND_Z and die.mouse_filter==Control.MOUSE_FILTER_STOP,"normal map retains top clickable die")
