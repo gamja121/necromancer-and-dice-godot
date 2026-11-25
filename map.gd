@@ -227,7 +227,6 @@ func shared_dice_face() -> int:
 	return face
 
 func refresh_shared_die_input() -> void:
-	_refresh_current_location_button()
 	if not is_instance_valid(dice): return
 	if shared_die_busy or moving or battle_returning or (is_instance_valid(map_audio) and map_audio.is_open()):
 		dice.disabled = true
@@ -269,7 +268,6 @@ func keyboard_focus_controls() -> Array[Control]:
 	if active == stage:
 		for tile in buttons: result.append(tile)
 		result.append_array([dice,book_button,deck_button])
-		if is_instance_valid(current_location_button): result.append(current_location_button)
 		if is_instance_valid(map_audio): result.append(map_audio.options_button)
 	else:
 		for control in active.find_children("*","Control",true,false):
@@ -354,7 +352,6 @@ var overlay: Control:
 		call_deferred("_reset_location_art_if_absent")
 var selected = -1
 var tile_info_panel: BoardTileInfo
-var current_location_button: Button
 var moving = false
 var world_tree_transition: Control
 var riot_pawn: Control
@@ -817,11 +814,6 @@ func render() -> void:
 	hud = label_at(stage,"%s · %d바퀴" % [{"default":"기본 지역","winter":"겨울 지역","hell":"지옥 지역"}[region],world.laps],Vector2(420,16),Vector2(440,30),14)
 	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.z_index = 25
-	current_location_button = location_button(stage,"현재 위치 열기",Vector2(564,412),Vector2(152,28),open_current_location,4,false)
-	current_location_button.name = "CurrentLocationButton"
-	current_location_button.z_index = 27
-	current_location_button.add_theme_font_size_override("font_size",13)
-	current_location_button.set_meta("keyboard_focus_key","current-location")
 	var book = TextureButton.new()
 	book.ignore_texture_size = true
 	book.texture_normal = texture("res://assets/map/ui/map-book-closed.png")
@@ -1242,25 +1234,6 @@ func _input(event: InputEvent) -> void:
 	var tile: Control = buttons[tile_info_panel.tile_index]
 	if not tile.get_global_rect().has_point(event.position) and not tile_info_panel.get_global_rect().has_point(event.position):
 		close_tile_info()
-
-func _refresh_current_location_button() -> void:
-	if not is_instance_valid(current_location_button): return
-	if moving or shared_die_busy or battle_returning or is_instance_valid(overlay) or (is_instance_valid(map_audio) and map_audio.is_open()) or not world.run_result.is_empty() or not world.pending_move.is_empty() or not world.pending_reward.is_empty() or session.has_world_tree_assault_landing():
-		current_location_button.hide()
-		return
-	var index: int = world.position
-	var type: String = world.tiles[index]
-	var available: bool = type in EVENT_IMAGES or index==world.final_dragon_location()
-	if type in ["monster","rare-monster","boss"]: available = index not in world.cleared
-	if type=="gem": available = session.treasure_visit_id(index) not in world.reward_receipts
-	current_location_button.visible = available
-
-func open_current_location() -> void:
-	_refresh_current_location_button()
-	if not current_location_button.is_visible_in_tree(): return
-	close_tile_info()
-	highlight(world.position)
-	show_tile(world.position)
 
 func story_modal() -> Control:
 	# A beat replacement keeps the book open; a later visit opens it afresh.

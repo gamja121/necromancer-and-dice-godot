@@ -122,9 +122,9 @@ func full_book_reward() -> void:
 	await go(map.buttons[index])
 	await key(KEY_ENTER)
 	check(map.tile_info_panel.visible and session.world.pending_reward.is_empty(),"chest tile Enter does not open or draw the chest")
-	await go(map.current_location_button)
-	await key(KEY_ENTER)
-	if not check(await until(func():return is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/treasure_reward.gd") and not map.overlay.busy),"current-location Enter opens a real ordinary treasure chest"): return
+	map.close_tile_info()
+	map.show_tile(index,true)
+	if not check(await until(func():return is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/treasure_reward.gd") and not map.overlay.busy),"treasure tile arrival opens a real ordinary treasure chest"): return
 	var chest: Control=map.overlay
 	all_reachable("treasure cards")
 	var offer_index:int=-1

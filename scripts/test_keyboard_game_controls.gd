@@ -187,7 +187,7 @@ func board_tile_information() -> void:
 	var file_before: String = FileAccess.get_file_as_string(save_path)
 	await point(map.buttons[road],true)
 	check(map.tile_info_panel.visible and map.tile_info_panel.detail.text=="효과 없음","mouse opens concise road information")
-	check(map.tile_info_panel.state.text=="현재 위치" and not map.current_location_button.visible,"plain road displays location without an open action")
+	check(map.tile_info_panel.state.text=="현재 위치","plain road displays current tile information")
 	await photograph("01b-tile-info-road")
 	await go(map.buttons[chest])
 	await key(KEY_ENTER)
@@ -262,9 +262,9 @@ func story_and_location() -> void:
 	await go(map.buttons[index])
 	await key(KEY_ENTER)
 	check(map.tile_info_panel.visible and not is_instance_valid(map.overlay),"graveyard Enter inspects the tile without discovering the story")
-	await go(map.current_location_button)
-	await key(KEY_ENTER)
-	check(map.overlay is MainBook and not map.tile_info_panel.visible,"current-location action opens the eligible main event")
+	map.close_tile_info()
+	map.show_tile(index,true)
+	check(map.overlay is MainBook and not map.tile_info_panel.visible,"graveyard arrival opens the eligible main event")
 	if not map.overlay is MainBook: return
 	var panel: Control=map.overlay
 	var before: Dictionary=session.world.snapshot().duplicate(true)
@@ -431,9 +431,9 @@ func battle_and_capture() -> void:
 	await go(map.buttons[index])
 	await key(KEY_ENTER)
 	check(map.tile_info_panel.visible and not is_instance_valid(map.overlay),"monster tile Enter inspects the tile")
-	await go(map.current_location_button)
-	await key(KEY_ENTER)
-	if not check(is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/battle_deck.gd"),"current-location Enter opens the normal battle lineup"): return
+	map.close_tile_info()
+	map.show_tile(index)
+	if not check(is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/battle_deck.gd"),"current monster encounter opens the normal battle lineup"): return
 	var deck: Control=map.overlay
 	await create_timer(0.5).timeout
 	all_reachable("battle lineup")
