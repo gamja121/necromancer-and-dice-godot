@@ -45,7 +45,7 @@ func _run() -> void:
 	check(session.rename_owned_unit(first,"잔불").get("ok",false),"setting the same name is idempotent")
 	session.reload_world()
 	check(str(session.owned_unit(first).name)=="잔불","custom name persists across disk save/reload")
-	# Repeated fresh-world UI: direct button click never toggles selected_ids.
+	# Inspect the real card without toggling the lineup.
 	var deck=Deck.new()
 	root.add_child(deck)
 	deck.setup(session.world.roster)
@@ -53,9 +53,9 @@ func _run() -> void:
 	check(deck.selected_ids.is_empty(),"card selection initially empty")
 	check(deck.hand.get_child_count()==2,"two individual original cards on hand")
 	var hand_card: Control=deck.hand.get_child(0)
-	var seal := hand_card.get_node_or_null("MonsterInspectSeal") as Button
-	check(seal!=null and not hand_card.has_node("OwnedCardInfo"),"owned card has a separate decorative pointer action")
-	if seal!=null: seal.pressed.emit()
+	var inspect: Callable = hand_card.get_meta("keyboard_secondary_action",Callable())
+	check(inspect.is_valid() and not hand_card.has_node("MonsterInspectSeal"),"owned card has a secondary information action without a visible icon")
+	if inspect.is_valid(): inspect.call()
 	check(deck.selected_ids.is_empty(),"information opening does not toggle deck selection")
 	check(is_instance_valid(deck.info_window) and deck.info_window.allow_rename,"owned unit information exposes rename action")
 	if is_instance_valid(deck.info_window):

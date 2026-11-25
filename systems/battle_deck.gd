@@ -28,7 +28,7 @@ var lineup: Control
 var hand: Control
 var status: Label
 var confirm_button: Button
-var back_button: Button
+var close_button: Button
 var info_window: Control
 var active_legion_keys: Array = []
 var hand_order_pending := false
@@ -81,15 +81,12 @@ void fragment() {
 	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	status.add_theme_color_override("font_color",Color("4d2d1a"))
 	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
-	back_button = deck_action("DeckBackButton","맵으로 나가기",Vector2(203,637),4)
-	back_button.pressed.connect(request_close)
+	close_button = create_frame_close()
 	confirm_button = deck_action("DeckStartButton","전투 시작",Vector2(873,637),2)
-	back_button.focus_neighbor_right = back_button.get_path_to(confirm_button)
-	confirm_button.focus_neighbor_left = confirm_button.get_path_to(back_button)
 	confirm_button.pressed.connect(func():
 		if selected_ids.is_empty(): return
 		confirm_button.disabled = true
-		back_button.disabled = true
+		close_button.disabled = true
 		status.text = "전장으로 이동 중…"
 		# The actual chosen card Controls are handed straight to the
 		# map stage by the confirmed handler. No downward departure, full-screen
@@ -101,7 +98,6 @@ void fragment() {
 	board.modulate.a = 0
 	hand.position.y += 306
 	hand.modulate.a = 0
-	back_button.modulate.a = 0
 	confirm_button.modulate.a = 0
 	# Original user-provided wooden-door opening clip; shared with the chest.
 	# Play once for the descending board, never when selected cards redraw.
@@ -117,8 +113,38 @@ void fragment() {
 	drop.tween_property(board,"modulate:a",1.0,0.3)
 	drop.tween_property(hand,"position:y",HAND_POSITION.y,0.6).set_delay(0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	drop.tween_property(hand,"modulate:a",1.0,0.3).set_delay(0.18)
-	for action in [back_button,confirm_button]:
-		drop.tween_property(action,"modulate:a",1.0,0.42).set_delay(0.38)
+	drop.tween_property(confirm_button,"modulate:a",1.0,0.42).set_delay(0.38)
+
+func create_frame_close() -> Button:
+	var action := Button.new()
+	action.name = "DeckCloseButton"
+	action.text = "×"
+	action.tooltip_text = "닫기"
+	action.set_meta("keyboard_description","닫기")
+	action.set_meta("keyboard_focus_key","DeckCloseButton")
+	action.position = Vector2(951,67)
+	action.custom_minimum_size = Vector2(44,38)
+	action.size = action.custom_minimum_size
+	action.z_index = 2
+	action.add_theme_font_size_override("font_size",26)
+	action.add_theme_color_override("font_color",Color("f0d1a0"))
+	action.add_theme_color_override("font_hover_color",Color("ffe6ba"))
+	action.add_theme_color_override("font_pressed_color",Color("ffe6ba"))
+	var edge := StyleBoxFlat.new()
+	edge.bg_color = Color("34271dee")
+	edge.border_color = Color("a87e56")
+	edge.set_border_width_all(1)
+	edge.set_corner_radius_all(4)
+	action.add_theme_stylebox_override("normal",edge)
+	action.add_theme_stylebox_override("pressed",edge)
+	var hover := edge.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("503a29")
+	hover.border_color = Color("e3b980")
+	action.add_theme_stylebox_override("hover",hover)
+	board.add_child(action)
+	action.pressed.connect(request_close)
+	return action
+
 
 func deck_action(node_name: String, caption: String, at: Vector2, paper: int) -> Button:
 	var action := Button.new()
@@ -140,7 +166,7 @@ func request_close() -> void:
 		info_window.request_close()
 		return
 	departing = true
-	back_button.disabled = true
+	close_button.disabled = true
 	confirm_button.disabled = true
 	closed.emit()
 
@@ -238,6 +264,7 @@ func render_selection() -> void:
 	var stride := minf(122.0,(hand.size.x-HAND_CARD_SIZE.x)/maxi(1,owned.size()-1))
 	var start_x := (hand.size.x-HAND_CARD_SIZE.x-stride*maxi(0,owned.size()-1))*0.5
 	var previous_button: TextureButton
+	var touch_seal := OS.has_feature("mobile") or (OS.has_feature("web") and DisplayServer.is_touchscreen_available())
 	for i in range(owned.size()):
 		var unit: Dictionary = owned[i]
 		var is_selected = selected_ids.has(unit.id)
@@ -271,15 +298,15 @@ func render_selection() -> void:
 			number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		MonsterInspectSeal.attach(button,open_info.bind(str(unit.id)))
-		var near_start := start_x+i*stride+HAND_CARD_SIZE.x*0.5 >= hand.size.x*0.5
-		button.focus_neighbor_bottom = button.get_path_to(confirm_button if near_start and not selected_ids.is_empty() else back_button)
+		MonsterInspectSeal.attach(button,open_info.bind(str(unit.id)),touch_seal)
+		button.focus_neighbor_top = button.get_path_to(close_button)
+		if not selected_ids.is_empty():
+			button.focus_neighbor_bottom = button.get_path_to(confirm_button)
 		if previous_button != null:
 			previous_button.focus_neighbor_right = previous_button.get_path_to(button)
 			button.focus_neighbor_left = button.get_path_to(previous_button)
-		if i == 0:
-			back_button.focus_neighbor_top = back_button.get_path_to(button)
 		if i == owned.size()-1:
+			close_button.focus_neighbor_bottom = close_button.get_path_to(button)
 			confirm_button.focus_neighbor_top = confirm_button.get_path_to(button)
 		previous_button = button
 		button.mouse_entered.connect(func():

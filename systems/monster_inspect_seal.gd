@@ -1,7 +1,12 @@
 extends Button
 ## One optional pointer action. The focused card owns the keyboard action.
 
-static func attach(card: TextureButton, inspect: Callable) -> void:
+static func attach(card: TextureButton, inspect: Callable, show_seal: bool = true) -> void:
+	card.gui_input.connect(_right_click.bind(card,card,inspect))
+	card.set_meta("keyboard_secondary_action",inspect)
+	card.set_meta("keyboard_action_hint","Enter · 선택 / Space · 정보")
+	if not show_seal: return
+
 	var seal := new()
 	seal.name = "MonsterInspectSeal"
 	seal.focus_mode = Control.FOCUS_NONE
@@ -17,9 +22,6 @@ static func attach(card: TextureButton, inspect: Callable) -> void:
 	seal.mouse_exited.connect(seal.queue_redraw)
 	seal.pressed.connect(_open_from_pointer.bind(card,inspect))
 	seal.gui_input.connect(_right_click.bind(seal,card,inspect))
-	card.gui_input.connect(_right_click.bind(card,card,inspect))
-	card.set_meta("keyboard_secondary_action",inspect)
-	card.set_meta("keyboard_action_hint","Enter · 선택 / Space · 정보")
 
 static func _right_click(event: InputEvent, receiver: Control, card: TextureButton, inspect: Callable) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and not card.disabled:

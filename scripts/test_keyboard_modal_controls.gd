@@ -35,7 +35,9 @@ func lineup_information() -> void:
 	var card: BaseButton=owned_hand_card(deck,1)
 	await go(card)
 	var before: Dictionary=session.world.snapshot().duplicate(true)
-	check(card.has_node("MonsterInspectSeal") and not card.has_node("OwnedCardInfo"),"magnifying seal replaces the bottom information button")
+	check(not card.has_node("MonsterInspectSeal") and not card.has_node("OwnedCardInfo"),"PC battle cards keep the artwork clear of inspection buttons")
+	check(deck.find_child("DeckBackButton",true,false)==null and deck.close_button.get_parent()==deck.board,"the only close action sits inside the descending frame")
+	all_reachable("battle deck with frame close")
 	await photograph("11-battle-card-actions")
 	await key(KEY_SPACE)
 	await key(KEY_SPACE,true)
@@ -61,6 +63,12 @@ func lineup_information() -> void:
 	check(deck.selected_ids==[deck.owned[1].id] and not is_instance_valid(deck.info_window),"left-click selects the monster without opening details")
 	await escape()
 	check(await until(func():return not is_instance_valid(map.overlay)),"Esc leaves ordinary lineup")
+	map.show_battle_deck(session.world.tiles.find("monster"))
+	await create_timer(0.85).timeout
+	var reopened: Control = map.overlay
+	await point(reopened.close_button,true)
+	check(await until(func():return not is_instance_valid(map.overlay)),"mouse closes the deck with the in-frame ×")
+	check(session.world.snapshot()==before,"both close paths return without changing the expedition")
 
 func pointer_stacking() -> void:
 	await fresh_map()
