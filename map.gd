@@ -1874,7 +1874,10 @@ func show_battle_deck(index: int, story_event_id: String = "") -> void:
 	deck.z_index = 80
 	stage.add_child(deck)
 	overlay = deck
-	deck.setup(world.roster)
+	# Natural monster, rare-monster and boss landings cannot dismiss the lineup.
+	# Story-choice encounters retain their existing cancellation behavior.
+	var mandatory_battle: bool = story_event_id.is_empty() and index == world.position and world.tiles[index] in ["monster","rare-monster","boss"] and index not in world.cleared
+	deck.setup(world.roster, not mandatory_battle)
 	deck.closed.connect(func():
 		dismiss_overlay(func():
 			if not story_event_id.is_empty(): show_tile(index)

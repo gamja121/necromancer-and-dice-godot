@@ -29,11 +29,13 @@ var hand: Control
 var status: Label
 var confirm_button: Button
 var close_button: Button
+var allow_close: bool = true
 var info_window: Control
 var active_legion_keys: Array = []
 var hand_order_pending := false
 
-func setup(roster: Array) -> void:
+func setup(roster: Array, can_close: bool = true) -> void:
+	allow_close = can_close
 	owned = roster.duplicate(true)
 	click_audio = AudioStreamPlayer.new()
 	click_audio.bus = "SFX"
@@ -82,6 +84,8 @@ void fragment() {
 	status.add_theme_color_override("font_color",Color("4d2d1a"))
 	status.add_theme_color_override("font_shadow_color",Color.TRANSPARENT)
 	close_button = create_frame_close()
+	close_button.visible = allow_close
+	if not allow_close: close_button.focus_mode = Control.FOCUS_NONE
 	confirm_button = deck_action("DeckStartButton","전투 시작",Vector2(873,637),2)
 	confirm_button.pressed.connect(func():
 		if selected_ids.is_empty(): return
@@ -161,7 +165,7 @@ func keyboard_focus_scope() -> Control:
 	return info_window if is_instance_valid(info_window) else self
 
 func request_close() -> void:
-	if departing: return
+	if not allow_close or departing: return
 	if is_instance_valid(info_window):
 		info_window.request_close()
 		return
@@ -299,14 +303,14 @@ func render_selection() -> void:
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		MonsterInspectSeal.attach(button,open_info.bind(str(unit.id)),touch_seal)
-		button.focus_neighbor_top = button.get_path_to(close_button)
+		if allow_close: button.focus_neighbor_top = button.get_path_to(close_button)
 		if not selected_ids.is_empty():
 			button.focus_neighbor_bottom = button.get_path_to(confirm_button)
 		if previous_button != null:
 			previous_button.focus_neighbor_right = previous_button.get_path_to(button)
 			button.focus_neighbor_left = button.get_path_to(previous_button)
 		if i == owned.size()-1:
-			close_button.focus_neighbor_bottom = close_button.get_path_to(button)
+			if allow_close: close_button.focus_neighbor_bottom = close_button.get_path_to(button)
 			confirm_button.focus_neighbor_top = confirm_button.get_path_to(button)
 		previous_button = button
 		button.mouse_entered.connect(func():

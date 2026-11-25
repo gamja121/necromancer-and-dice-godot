@@ -436,6 +436,12 @@ func battle_and_capture() -> void:
 	if not check(is_instance_valid(map.overlay) and map.overlay.get_script()==preload("res://systems/battle_deck.gd"),"current monster encounter opens the normal battle lineup"): return
 	var deck: Control=map.overlay
 	await create_timer(0.5).timeout
+	check(not deck.allow_close and not deck.close_button.visible and deck.close_button.focus_mode==Control.FOCUS_NONE,"mandatory monster encounter hides and unfocuses lineup dismissal")
+	var before_forced_cancel: Dictionary = session.world.snapshot().duplicate(true)
+	deck.request_close()
+	check(map.overlay == deck and session.world.snapshot()==before_forced_cancel,"mandatory lineup ignores direct close request")
+	await escape()
+	check(map.overlay == deck and session.world.snapshot()==before_forced_cancel,"Escape cannot bypass the mandatory monster battle")
 	all_reachable("battle lineup")
 	var owned_buttons: Array=deck.hand.find_children("*","TextureButton",true,false)
 	if not check(owned_buttons.size()>=2,"two genuine owned battle cards"): return
