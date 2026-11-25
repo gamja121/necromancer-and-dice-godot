@@ -165,10 +165,11 @@ func keyboard_focus_scope() -> Control:
 	return info_window if is_instance_valid(info_window) else self
 
 func request_close() -> void:
-	if not allow_close or departing: return
+	if departing: return
 	if is_instance_valid(info_window):
 		info_window.request_close()
 		return
+	if not allow_close: return
 	departing = true
 	close_button.disabled = true
 	confirm_button.disabled = true
