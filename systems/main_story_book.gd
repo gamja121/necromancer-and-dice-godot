@@ -254,6 +254,7 @@ func set_heading(value: String) -> void:
 		"마물의 왕 부활 의식": information = ["일곱 번째 기록",heading,"의식의 폐허",13]
 		"왕의 흔적": information = ["여덟 번째 기록","마물의 왕 추적","세계수",15]
 		"세계수 습격": information = ["별도 기록",heading,"세계수",-1]
+		"길목의 소문": information = ["별도 기록",heading,"마을 길목",-1]
 		"봉인 폐허의 균열", "왕의 응시", "최후의 대면": information = ["아홉 번째 기록",heading,"봉인 폐허",17]
 	if _record == null:
 		_record = copy(str(information[0]),Rect2(118,126,450,30),18,Color("775b3d"))

@@ -10,6 +10,7 @@ const Discovery = preload("res://systems/location_discoveries.gd")
 const FinalDragonProgress = preload("res://systems/final_dragon_progress.gd")
 const FinalBossStoryGate = preload("res://systems/final_boss_story_gate.gd")
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
+const BossHomeRumor = preload("res://systems/boss_home_rumor.gd")
 const KingPortalTile = preload("res://systems/king_portal_tile.gd")
 const WORLD_TREE_ASSAULT = "world_tree_assault"
 const WORLD_TREE_VISITED_FLAG = "event:world_tree_assault_01:tree_visited"
@@ -286,7 +287,8 @@ func patrol_preview(plan: Dictionary) -> Dictionary:
 	return {"capacity":capacity,"selected":selected,"remaining":RoutePlan.OPTIONAL_CAPACITY-selected if RoutePlan.is_new(source) else capacity-selected,
 		"applied":applied,"applied_by_kind":manifest.applied_by_kind,"trimmed":trimmed,"reserved_roads":int(manifest.reserved_roads),
 		"basic_roads":int(manifest.counts.basic),"contamination":level,
-		"counts":manifest.counts,"valid":valid,"reason":reason}
+		"counts":manifest.counts,"valid":valid,"reason":reason,
+		"boss_stage":_boss_stage_at(level) if lap_ready and manifest.boss else 0}
 
 func generate() -> void:
 	map_serial += 1
@@ -606,6 +608,16 @@ func restore(saved: Dictionary) -> bool:
 		if saved.tiles[index] != "event" or not terminal.is_empty() or not reward.is_empty(): return false
 		if not saved.get("pending_move",{}).is_empty() or not saved.get("active_encounter",{}).is_empty(): return false
 		if landing in saved.get("reward_receipts",[]) or not saved.get("riot",{}).get("pending",{}).is_empty(): return false
+	if reward.get("kind","")==BossHomeRumor.KIND:
+		var raw_stage: Variant = reward.get("stage",0)
+		var raw_page: Variant = reward.get("page",-1)
+		if not (raw_stage is int or raw_stage is float) or not (raw_page is int or raw_page is float): return false
+		var stage := int(raw_stage)
+		if not stage in BossStages.STAGES or float(raw_stage)!=float(stage) or float(raw_page) not in [0.0,1.0]: return false
+		if int(saved.position)!=HOME or saved.get("lap_ready",false)!=true or not terminal.is_empty(): return false
+		if not saved.get("active_encounter",{}).is_empty() or not saved.get("pending_move",{}).is_empty(): return false
+		if reward.get("id","")!=BossHomeRumor.receipt(stage) or reward.id in saved.get("reward_receipts",[]): return false
+		if BossStages.defeated(stored_flags,stage): return false
 	if reward.get("kind","")==WORLD_TREE_ASSAULT and not _valid_world_tree_assault(saved,reward,stored_flags): return false
 	if reward.get("kind","")=="routine":
 		var index: int = int(reward.get("index",-1))

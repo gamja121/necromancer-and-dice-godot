@@ -52,6 +52,7 @@ const CultistRumorBeats = preload("res://systems/cultist_rumor_beats.gd")
 const MonsterHunterBeats = preload("res://systems/monster_hunter_beats.gd")
 const KnightCommanderBeats = preload("res://systems/knight_commander_beats.gd")
 const VillageRumorBeats = preload("res://systems/village_rumor_beats.gd")
+const BossHomeRumor = preload("res://systems/boss_home_rumor.gd")
 const GraveyardStoryBeats = preload("res://systems/graveyard_story_beats.gd")
 const RoutineRewardMotion = preload("res://systems/routine_reward_motion.gd")
 const UsedParchmentFall = preload("res://systems/used_parchment_fall.gd")
@@ -456,6 +457,7 @@ func _ready() -> void:
 	elif world.pending_reward.get("kind","")=="routine": call_deferred("resume_routine_event")
 	elif world.pending_reward.get("kind","")=="grave-dig": call_deferred("resume_graveyard_dig")
 	elif world.pending_reward.get("kind","")=="altar_boon": call_deferred("resume_altar_boon")
+	elif world.pending_reward.get("kind","")==BossHomeRumor.KIND: call_deferred("show_boss_home_rumor")
 	elif not session.encounter.is_empty(): open_embedded_battle(false)
 	elif not world.pending_move.is_empty(): call_deferred("resume_map_move")
 	elif not world.riot.get("pending", {}).is_empty(): call_deferred("_resume_riot_opening")
@@ -3934,54 +3936,90 @@ func use_warp(index: int) -> void:
 	moving = false
 	if world.position==world.final_dragon_location(): show_tile(world.position,true)
 
-func exit_home(interior: bool = false) -> void:
-	if moving: return
-	# Never dismiss the home screen before checking whether departure is
-	# legal. A rejected patrol plan used to rebuild an apparently identical
-	# home scene with its error hidden behind the artwork.
-	var allowed: Dictionary=session.place_allowed(MapState.HOME,"home")
-	var preview: Dictionary=world.patrol_preview(world.patrol_plan)
-	if not bool(allowed.get("ok",false)) or not bool(preview.get("valid",false)):
-		home_departure_feedback=str(allowed.get("reason","")) if not bool(allowed.get("ok",false)) else str(preview.get("reason","순찰경로를 확인하세요."))
-		status.text=home_departure_feedback
-		close_overlay()
-		show_home(interior)
+func show_boss_home_rumor() -> void:
+	var pending: Dictionary = world.pending_reward
+	if pending.get("kind","") != BossHomeRumor.KIND: return
+	var stage: int = int(pending.stage)
+	var page: int = int(pending.page)
+	var slug := MapState.BossStages.boss_slug(stage,world.boss_assignments)
+	var lines: Array = BossHomeRumor.DIALOGUE[slug]
+	var panel := story_modal() as StoryBook
+	panel.set_meta("boss_home_rumor",true)
+	var illustration := Vector2(243.2,136.8)
+	var dimensions := Vector2(793.6,446.4)
+	image(panel,VillageRumorBeats.BASE,illustration,dimensions)
+	image(panel,VillageRumorBeats.WHISPER,illustration,dimensions)
+	label_at(panel,"사건 · "+BossHomeRumor.TITLE,Vector2(352,84),Vector2(575,42),24)
+	label_at(panel,BossHomeRumor.NARRATION[page],Vector2(275,533),Vector2(730,66),17)
+	label_at(panel,BossHomeRumor.SPEAKERS[page],Vector2(294,601),Vector2(140,50),16)
+	label_at(panel,lines[page],Vector2(294,601),Vector2(692,50),16)
+	var feedback := label_at(panel,"",Vector2(702,470),Vector2(432,46),17)
+	var action := location_button(panel,"계속" if page==0 else "출발",Vector2(463,653),Vector2(171,48),
+		finish_boss_rumor_page.bind(panel,feedback,stage,page),1)
+	action.name = "BossRumorAction"
+	_sync_map_chrome()
+	refresh_shared_die_input()
+
+
+func finish_boss_rumor_page(panel: Control, feedback: Label, stage: int, page: int) -> void:
+	if moving or panel != overlay or panel.closing: return
+	var previous_tiles: Array = world.tiles.duplicate()
+	if not session.advance_boss_home_rumor(stage,page):
+		feedback.text = session.notice if not session.notice.is_empty() else "저장에 실패했습니다. 다시 시도하세요."
 		return
-	home_departure_feedback=""
+	world = session.world
+	if page == 0:
+		show_boss_home_rumor()
+		return
 	moving = true
+	panel.close_book()
+	await panel.closed
+	if panel != overlay: return
+	close_overlay(false)
+	await play_home_departure(previous_tiles)
+
+
+func exit_home(interior: bool = false) -> void:
+	if moving or overlay is StoryBook: return
+	var result: Dictionary = session.prepare_boss_home_rumor()
+	if not result.ok:
+		home_departure_feedback = str(result.reason)
+	elif result.rumor:
+		home_departure_feedback = ""
+		show_boss_home_rumor()
+		return
+	else:
+		var previous_tiles: Array = world.tiles.duplicate()
+		if session.leave_home():
+			world = session.world
+			close_overlay()
+			await play_home_departure(previous_tiles)
+			return
+		world = session.world
+		home_departure_feedback = session.notice if not session.notice.is_empty() else "맵 교체 저장 실패 · 다시 시도하세요"
+	status.text = home_departure_feedback
 	close_overlay()
-	# Lock input, save exactly one generated lap, then gather two rings,
-	# turn ONE gear tooth and visibly exchange two actual tile pairs.
-	# A failed save never animates or reveals another map.
+	show_home(interior)
+
+
+func play_home_departure(previous_tiles: Array) -> void:
+	moving = true
 	var input_lock: Control = presentation.effect(true)
 	dice.disabled = true
-	# Keep the pre-save identities for the visible gather/one-notch/swaps.
-	var previous_tiles: Array = world.tiles.duplicate()
-	var ok: bool = session.leave_home()
-	world = session.world
-	if ok:
-		var next_tile_textures: Array = []
-		for i in range(MapState.centers().size()):
-			next_tile_textures.append(texture(tile_path(i)))
-		var gear = MapGearShift.new()
-		stage.add_child(gear)
-		if gear.prepare(buttons,next_tile_textures,previous_tiles,world.tiles,world.map_serial):
-			await gear.play_once(next_tile_textures)
-			gear.clean_up()
+	var next_tile_textures: Array = []
+	for i in range(MapState.centers().size()):
+		next_tile_textures.append(texture(tile_path(i)))
+	var gear = MapGearShift.new()
+	stage.add_child(gear)
+	if gear.prepare(buttons,next_tile_textures,previous_tiles,world.tiles,world.map_serial):
+		await gear.play_once(next_tile_textures)
+		gear.clean_up()
 		gear.queue_free()
-		# Ring travel and swaps use the saved source->target manifest.
-		# No post-landing flip, reroll or unrelated texture replacement.
-		render()
-	# On save failure, persist_change() already restored the prior map.
-	input_lock.queue_free()
+	render()
+	if is_instance_valid(input_lock): input_lock.queue_free()
 	moving = false
-	dice.disabled = false
-	if not ok:
-		home_departure_feedback = session.notice if not session.notice.is_empty() else "맵 교체 저장 실패 · 다시 시도하세요"
-		status.text = home_departure_feedback
-		show_home(interior)
-	else:
-		home_departure_feedback = ""
-		status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
-		if previous_tiles[MapState.BOSS_TILE_INDEX]!="boss" and world.tiles[MapState.BOSS_TILE_INDEX]=="boss":
-			status.text += " · 보스 타일 출현"
+	refresh_shared_die_input()
+	home_departure_feedback = ""
+	status.text = "새 경로 · %d바퀴 · 오염도 %d/100" % [world.laps,world.contamination]
+	if previous_tiles[MapState.BOSS_TILE_INDEX]!="boss" and world.tiles[MapState.BOSS_TILE_INDEX]=="boss":
+		status.text += " · 보스 타일 출현"

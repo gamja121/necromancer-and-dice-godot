@@ -9,6 +9,7 @@ const MapGearShift = preload("res://systems/map_gear_shift.gd")
 const RoutePlan = preload("res://systems/route_plan.gd")
 const EncounterGenerator = preload("res://systems/encounter_generator.gd")
 const BossStages = preload("res://systems/boss_stage_catalog.gd")
+const BossHomeRumor = preload("res://systems/boss_home_rumor.gd")
 const BrandInheritance = preload("res://systems/brand_inheritance.gd")
 const DiceControl = preload("res://systems/dice_control.gd")
 const Catalog = preload("res://systems/reward_catalog.gd")
@@ -1644,22 +1645,60 @@ func warp_from(index: int) -> Dictionary:
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"origin":index,"destination":destination,"riot_stopped":caught}
 
-func leave_home() -> bool:
+func _home_departure_status() -> Dictionary:
 	var allowed := place_allowed(MapState.HOME,"home")
-	if not allowed.ok:
-		notice = allowed.reason
-		return false
+	if not allowed.ok: return allowed
 	if not world.riot.get("pending", {}).is_empty():
-		notice = "주민 이동을 먼저 마쳐야 합니다."
+		return {"ok":false, "reason":"주민 이동을 먼저 마쳐야 합니다."}
+	var preview: Dictionary = world.patrol_preview(world.patrol_plan)
+	if not preview.valid: return {"ok":false, "reason":preview.reason}
+	return {"ok":true, "boss_stage":preview.boss_stage}
+
+
+func prepare_boss_home_rumor() -> Dictionary:
+	var allowed := _home_departure_status()
+	if not allowed.ok: return allowed
+	var stage: int = allowed.boss_stage
+	var receipt := BossHomeRumor.receipt(stage)
+	if stage == 0 or world.position != MapState.HOME or receipt in world.reward_receipts:
+		return {"ok":true, "rumor":false}
+	world.pending_reward = {"kind":BossHomeRumor.KIND, "id":receipt, "stage":stage, "page":0}
+	if save_world(): return {"ok":true, "rumor":true}
+	world.pending_reward = {}
+	return {"ok":false, "reason":"저장에 실패했습니다. 다시 시도하세요."}
+
+
+func advance_boss_home_rumor(stage: int, page: int) -> bool:
+	if world == null or world.position != MapState.HOME: return false
+	var pending: Dictionary = world.pending_reward
+	if pending.get("kind","") != BossHomeRumor.KIND or int(pending.stage) != stage or int(pending.page) != page: return false
+	if page == 0:
+		pending.page = 1
+		if save_world(): return true
+		pending.page = 0
+		notice = "저장에 실패했습니다. 다시 시도하세요."
 		return false
-	if WitchHunt.home_in_progress(self):
-		notice="집 앞의 사건을 먼저 확인하세요."
-		return false
-	var preview: Dictionary=world.patrol_preview(world.patrol_plan)
-	if not bool(preview.valid):
-		notice=str(preview.reason)
-		return false
+
 	var before: Dictionary = world.snapshot().duplicate(true)
+	world.pending_reward = {}
+	var allowed := _home_departure_status()
+	if not allowed.ok or int(allowed.boss_stage) != stage:
+		world.pending_reward = pending
+		notice = str(allowed.get("reason","순찰경로를 확인하세요."))
+		return false
+	world.reward_receipts.append(BossHomeRumor.receipt(stage))
+	return _commit_home_departure(before)
+
+
+func leave_home() -> bool:
+	var allowed := _home_departure_status()
+	if not allowed.ok:
+		notice = str(allowed.reason)
+		return false
+	return _commit_home_departure(world.snapshot().duplicate(true))
+
+
+func _commit_home_departure(before: Dictionary) -> bool:
 	world.position = MapState.HOME
 	world.leave_home()
 	# Generate the EXACT manifest of two real rings, one cog-notch, and
