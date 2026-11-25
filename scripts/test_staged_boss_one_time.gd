@@ -28,7 +28,9 @@ func _fight_and_win(session: Node, stage: int) -> void:
 	check(w.tiles[23]=="boss" and w.boss_available(),"%d: eligible boss tile appears" % stage)
 	check(session.start_encounter(23,selected),"%d: existing battle entry accepts staged boss" % stage)
 	if session.encounter.is_empty(): return
-	check(session.encounter.enemies.size()==1 and str(session.encounter.enemies[0].slug)==w.current_boss_slug(),"%d: only selected boss species appears" % stage)
+	var expected := BossStages.formation(stage,w.boss_assignments)
+	var boss: String = w.current_boss_slug()
+	check(session.encounter.enemies.map(func(enemy): return str(enemy.slug))==expected,"%d: actual enemies match the assigned boss and escorts" % stage)
 	check(int(session.encounter.get("boss_stage",0))==stage,"%d: encounter persists stage id" % stage)
 	var battle=Battle.new(w.definitions,91)
 	check(battle.restore(session.encounter.checkpoint),"%d: live battle can be restored" % stage)
@@ -47,7 +49,10 @@ func _fight_and_win(session: Node, stage: int) -> void:
 		check(session.save_world() and session.reload_world(), "legacy harvest save loads")
 		w = session.world
 		check(w.tiles[23] == "boss-cleared", "pending boss harvest proves which old stone to repair")
-	check(session.select_capture(0), "%d: normal boss harvest accepts the defeated monster" % stage)
+	var selected_corpse: int = int(w.pending_reward.selected)
+	check(w.pending_reward.corpses.size()==expected.size() and w.pending_reward.corpses[selected_corpse].slug==boss,
+		"%d: harvest offers the whole enemy party and starts on the boss" % stage)
+	check(session.select_capture(selected_corpse), "%d: normal boss harvest accepts the defeated monster" % stage)
 	var roller := RandomNumberGenerator.new()
 	for seed in range(1,100):
 		roller.seed = seed
@@ -55,7 +60,8 @@ func _fight_and_win(session: Node, stage: int) -> void:
 			w.rng.seed = seed
 			break
 	var rolled: Dictionary = session.roll_capture()
-	check(rolled.get("success",false) and session.claim_reward().get("ok",false), "%d: boss harvest and reward claim complete" % stage)
+	check(rolled.get("success",false) and session.claim_reward().get("ok",false) and w.roster.any(func(card): return card.slug==boss),
+		"%d: boss harvest awards the chosen boss" % stage)
 	check(not session.start_encounter(23,selected), "%d: settled boss tile rejects a second battle" % stage)
 	session.reload_world()
 	w=session.world
@@ -63,6 +69,71 @@ func _fight_and_win(session: Node, stage: int) -> void:
 	check(BossStages.valid(w.definitions,w.boss_assignments),"saved draw remains valid after reload")
 	w.generate()
 	check(w.tiles[23] not in ["boss","boss-cleared"] and 23 not in w.cleared,"%d: next-lap shuffle replaces the retired stone without respawning its boss" % stage)
+
+func _verify_formations(session: Node) -> void:
+	for stage in BossStages.STAGES:
+		for slug in BossStages.CANDIDATES:
+			session.start_new_world()
+			var w = session.world
+			var other_bosses: Array = BossStages.CANDIDATES.duplicate()
+			other_bosses.erase(slug)
+			for tier in BossStages.STAGES:
+				w.boss_assignments[str(tier)] = slug if tier == stage else other_bosses.pop_front()
+			w.contamination = stage
+			w.generate()
+			var hill: int = w.tiles.find("basic")
+			w.tiles[hill] = "forest"
+			w.position = hill
+			var scout: Dictionary = session.scout_hill(hill)
+			var size: int = 3 if stage == 20 else 4
+			check(scout.get("ok",false) and scout.intel.any(func(entry): return entry.type=="boss" and int(entry.count)==size and entry.grade=="hero"),
+				"%d / %s: scout saves the actual boss count" % [stage,slug])
+			var raw_intel: Array = w.scout.intel
+			var old_row: Dictionary = raw_intel.filter(func(entry): return entry.type=="boss").front()
+			old_row.count = 1
+			check(session.active_scout_intel().any(func(entry): return entry.type=="boss" and int(entry.count)==size),
+				"%d / %s: old scout entries show the current formation" % [stage,slug])
+			w.position = 23
+			var roster: Array = [str(w.roster[0].id)]
+			if not session.start_encounter(23,roster):
+				check(false,"%d / %s: actual boss encounter opens" % [stage,slug])
+				continue
+			var enemies: Array = session.encounter.enemies
+			var party: Array = enemies.map(func(unit): return str(unit.slug))
+			var grades: Array = enemies.map(func(unit): return str(unit.grade))
+			check(party.size()==size and party[1]==slug and party.count(slug)==1,
+				"%d / %s: assigned boss is in its formation slot with %d enemies" % [stage,slug,size])
+			check(grades.count("hero")==1 and grades.count("advanced")==BossStages.STAGES.find(stage),
+				"%d / %s: escorts respect the tier's grade mix" % [stage,slug])
+			var reserved := BossStages.reserved_slugs(w.boss_assignments)
+			check(party.filter(func(member): return member in reserved)==[slug],
+				"%d / %s: the assigned boss is the only reserved species" % [stage,slug])
+			if stage == 60:
+				var battle := Battle.new(w.definitions,0)
+				check(battle.restore(session.encounter.checkpoint) and not battle.legions.enemy.active.is_empty(),
+					"60 / %s: initial enemy party activates a legion" % slug)
+
+
+func _verify_legacy_solo(session: Node) -> void:
+	session.start_new_world()
+	var w = session.world
+	w.contamination = 40
+	w.generate()
+	w.position = 23
+	var started: bool = session.start_encounter(23,[str(w.roster[0].id)])
+	check(started,"legacy solo fixture enters stage 40")
+	if not started: return
+	var original: Dictionary = session.encounter.enemies[1].duplicate(true)
+	original.id = "enemy-0"
+	var battle := Battle.new(w.definitions,0)
+	battle.start(session.encounter.allies,[original])
+	session.encounter.enemies = [original]
+	session.encounter.checkpoint = battle.snapshot()
+	w.active_encounter = session.encounter.duplicate(true)
+	check(session.save_world() and session.reload_world(),"legacy single-enemy checkpoint can be loaded")
+	check(session.encounter.enemies.size()==1 and session.encounter.enemies[0].slug==original.slug and session.encounter.checkpoint.units.size()==2,
+		"already-started solo encounter keeps its original enemy and checkpoint")
+
 
 func _run() -> void:
 	var session=root.get_node_or_null("RunSession")
@@ -181,6 +252,8 @@ func _run() -> void:
 	check(world.final_dragon_location()==-1,"final encounter retires after victory")
 	world.generate()
 	check(world.tiles[23]!="boss","defeated dragon cannot reappear on later maps")
+	_verify_formations(session)
+	_verify_legacy_solo(session)
 	session.save_file_path=old_path
 	if created: session.queue_free()
 	for suffix in ["",".tmp"]:

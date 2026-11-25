@@ -605,10 +605,11 @@ func _restore_cleared_boss_tile_from_harvest(boss_index: int) -> bool:
 	# An expedition-wide defeat flag cannot identify a tile on a later board.
 	# A pending harvest here still identifies the boss from this encounter.
 	var corpses: Variant = reward.get("corpses", [])
-	if not corpses is Array or corpses.size() != 1 or not corpses[0] is Dictionary: return false
-	var slug: String = corpses[0].get("slug","")
+	if not corpses is Array: return false
 	for stage in BossStages.STAGES:
-		if BossStages.defeated(world.event_flags,stage) and slug == BossStages.boss_slug(stage,world.boss_assignments):
+		if not BossStages.defeated(world.event_flags,stage): continue
+		var slug := BossStages.boss_slug(stage,world.boss_assignments)
+		if corpses.any(func(corpse): return corpse is Dictionary and corpse.get("slug","") == slug):
 			world.mark_boss_tile_cleared()
 			return true
 	return false
@@ -670,9 +671,7 @@ func _start_encounter(index: int, selected_ids: Array, event_id: String = "") ->
 	elif mimic:
 		for i in range(int(world.pending_reward.count)): slugs.append("mimic")
 	elif type=="boss" and world.boss_available():
-		# One fixed monster per stage. The final dragon is still unlocked
-		# ONLY after the last story's explicit completion.
-		slugs = [world.current_boss_slug()]
+		slugs = BossStages.formation(world.current_boss_stage(),world.boss_assignments)
 	else:
 		var intel: Dictionary = {}
 		for entry in active_scout_intel():
@@ -783,14 +782,17 @@ func finish_encounter(battle) -> bool:
 		if encounter.type in ["monster","rare-monster","boss"] and encounter.get("entry","")!=KingPortalEncounter.ENTRY and not encounter.index in world.cleared:
 			world.cleared.append(encounter.index)
 		var final_victory: bool = FinalDragonProgress.is_final_encounter(encounter)
+		var boss_slug := ""
 		if encounter.type=="boss":
 			# Old checkpoints can identify the final dragon without a stage field.
 			var stage: int = BossStages.FINAL if final_victory else int(encounter.get("boss_stage",world.current_boss_stage()))
+			boss_slug = BossStages.boss_slug(stage,world.boss_assignments)
 			world.mark_boss_defeated(stage)
 			if stage in BossStages.STAGES and int(encounter.index) == MapState.BOSS_TILE_INDEX and world.tiles[MapState.BOSS_TILE_INDEX] == "boss":
 				world.mark_boss_tile_cleared()
 		world.contamination = maxi(0,world.contamination-1)
 		var corpses: Array = []
+		var selected_corpse := 0
 		for unit in battle.units:
 			if unit.team=="enemy" and not unit.alive and not unit.is_summon:
 				# Capture must preserve the exact enemy that entered this battle.
@@ -801,9 +803,10 @@ func finish_encounter(battle) -> bool:
 					if str(generated.get("id",""))==str(unit.id):
 						original=generated
 						break
+				if str(unit.slug) == boss_slug: selected_corpse = corpses.size()
 				corpses.append({"id":unit.id,"slug":unit.slug,"name":unit.name,"target":world.rng.randi_range(2,6),"unit":original.duplicate(true)})
 		if not corpses.is_empty():
-			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":0,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face,"background_variant":int(encounter.get("background_variant",0))}
+			world.pending_reward = {"id":"capture-"+encounter.id,"kind":"capture","corpses":corpses,"selected":selected_corpse,"locked":false,"max_attempts":2 if battle.active("ally","corpse") else 1,"attempts":2 if battle.active("ally","corpse") else 1,"phase":"choose","battle":battle.snapshot(),"face":battle.face,"background_variant":int(encounter.get("background_variant",0))}
 		notice = "미믹 격퇴 · 오염도 -1" if encounter.type=="mimic" else "전투 승리 · 오염도 -1 · 마물 타일을 정리했습니다."
 		if final_victory:
 			FinalDragonProgress.record_victory(world,encounter)
@@ -1530,15 +1533,38 @@ func scout_hill(index: int) -> Dictionary:
 	var before: Dictionary = world.snapshot().duplicate(true)
 	var intel: Array = []
 	for i in range(world.tiles.size()):
-		if world.tiles[i] in ["monster","rare-monster","boss"] and not i in world.cleared:
-			intel.append(EncounterGenerator.scout_intel(world.definitions,world.contamination,world.laps+1,world.rng,i,world.tiles[i],world.boss_assignments))
+		if i in world.cleared: continue
+		var kind: String = world.tiles[i]
+		if kind == "boss" and world.current_boss_stage() in BossStages.STAGES:
+			intel.append(_boss_scout_intel(i))
+		elif kind in ["monster","rare-monster","boss"]:
+			intel.append(EncounterGenerator.scout_intel(world.definitions,world.contamination,world.laps+1,world.rng,i,kind,world.boss_assignments))
 	world.scout = {"scouted":true,"intel":intel}
 	world.reward_receipts.append(place_visit_id("scout",index))
 	if not persist_change(before): return {"ok":false,"reason":notice}
 	return {"ok":true,"intel":active_scout_intel()}
 
+func _boss_scout_intel(index: int) -> Dictionary:
+	var stage: int = world.current_boss_stage()
+	var pending: Dictionary = world.active_encounter
+	var party: Array = BossStages.formation(stage,world.boss_assignments)
+	var count: int = party.size()
+	if pending.get("type","") == "boss" and int(pending.get("index",-1)) == index:
+		count = pending.enemies.size()
+	var boss: Dictionary = world.definitions[world.current_boss_slug()]
+	return {"index":index,"type":"boss","count":count,"grade":boss.grade,"legion":boss.legions[0]}
+
+
 func active_scout_intel() -> Array:
-	return world.scout.intel.filter(func(entry): return not int(entry.index) in world.cleared)
+	var intel: Array = []
+	for entry in world.scout.intel:
+		var index: int = int(entry.index)
+		if index in world.cleared: continue
+		if entry.type == "boss" and world.current_boss_stage() in BossStages.STAGES:
+			intel.append(_boss_scout_intel(index))
+		else:
+			intel.append(entry)
+	return intel
 
 ## First new tile: available after returning home from the first FULL
 ## patrol. Unlock remains the player's explicit action (not a free auto

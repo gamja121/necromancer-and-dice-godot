@@ -65,7 +65,9 @@ func persistence(stage:int) -> void:
 	var selected:Array=[str(w.roster[0].id),str(w.roster[1].id)]
 	check(session.start_encounter(stone,selected),"%d: actual boss battle can start after purification"%stage)
 	if session.encounter.is_empty(): return
-	check(int(session.encounter.get("boss_stage",0))==stage and session.encounter.enemies.size()==1 and str(session.encounter.enemies[0].slug)==slug,"%d: actual enemy and stored stage remain unchanged"%stage)
+	var expected: Array = Stages.formation(stage,w.boss_assignments)
+	check(int(session.encounter.get("boss_stage",0))==stage and session.encounter.enemies.map(func(enemy): return str(enemy.slug))==expected and slug in expected,
+		"%d: opponent lineup and stored stage survive purification"%stage)
 	var fight_before:Dictionary=JSON.parse_string(JSON.stringify(session.encounter))
 	session.reload_world()
 	w=session.world
