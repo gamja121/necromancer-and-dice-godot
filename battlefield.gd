@@ -34,6 +34,7 @@ const BattleForecast = preload("res://systems/battle_forecast.gd")
 const Rules = preload("res://systems/battlefield_rules.gd")
 const CorpseCapture = preload("res://systems/corpse_capture.gd")
 const CombatCues = preload("res://systems/combat_cues.gd")
+const LegionIndicator = preload("res://systems/legion_indicator.gd")
 const BattleVisuals = preload("res://systems/battle_visuals.gd")
 const UnitInfo = preload("res://systems/unit_info.gd")
 const LayeredUnitCard = preload("res://systems/layered_unit_card.gd")
@@ -111,12 +112,15 @@ var map_owner: Control
 var brand_reference: Control
 var brand_reference_button: Button
 var battle_forecast: BattleForecast
+var legion_icons: Dictionary = {}
+var legion_info_panel: PanelContainer
 
 func _exit_tree() -> void:
 	# The map-tile dock belongs to the map stage, not this battle viewport.
 	# Release its cards explicitly when the battle is removed/restarted.
 	clear_map_tile_cards()
 	close_brand_reference()
+	close_legion_effect_info()
 	close_dice_hand()
 	stop_audio()
 
@@ -236,6 +240,8 @@ func style_battle_button(node: Button) -> void:
 func reset_battle() -> void:
 	preload("res://systems/game_audio.gd").stop(self)
 	close_brand_reference()
+	close_legion_effect_info()
+	legion_icons.clear()
 	busy = false
 	paused = false
 	rules = Rules.new(definitions,Time.get_ticks_usec())
@@ -379,6 +385,12 @@ void fragment() {
 			name_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			var count = text(layer,"%d/%d" % [rules.legions[team].counts[key],rules.NEED[key]],Vector2(x+1,95),Vector2(52,12),9)
 			count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			var indicator := LegionIndicator.new()
+			layer.add_child(indicator)
+			indicator.position = Vector2(x,58)
+			indicator.z_index = 6
+			indicator.configure(self,team,str(key),rules.active(team,str(key)))
+			legion_icons["%s:%s" % [team,key]] = indicator
 	if embedded and is_instance_valid(external_main_dice):
 		# The embedded arena NEVER creates or repositions a second die.
 		# Its battle rounds use the map's full-stage die and existing click route.
@@ -423,6 +435,60 @@ void fragment() {
 
 # This is a one-shot presentation gate, not a new turn or encounter phase.
 # Keep the real shared die and deck disabled until all chosen allies emerge.
+
+func show_legion_pulses(pulses: Array) -> void:
+	for entry in pulses:
+		var key := "%s:%s" % [entry.get("team",""),entry.get("kind","")]
+		var indicator = legion_icons.get(key)
+		if is_instance_valid(indicator): indicator.trigger()
+
+func show_legion_effect_info(team: String, key: String) -> void:
+	close_legion_effect_info()
+	if not is_instance_valid(layer): return
+	legion_info_panel = PanelContainer.new()
+	legion_info_panel.name = "LegionEffectDescription"
+	legion_info_panel.position = Vector2((surface_size.x-450.0)/2.0,137)
+	legion_info_panel.custom_minimum_size = Vector2(450,0)
+	legion_info_panel.z_index = 90
+	var backing := StyleBoxFlat.new()
+	backing.bg_color = Color("211b18f5")
+	backing.border_color = Color("91ca9e") if team=="ally" else Color("cd8d86")
+	backing.set_border_width_all(2)
+	backing.set_corner_radius_all(8)
+	backing.set_content_margin_all(17)
+	legion_info_panel.add_theme_stylebox_override("panel",backing)
+	layer.add_child(legion_info_panel)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation",10)
+	legion_info_panel.add_child(body)
+	var header := Label.new()
+	header.text = ("%s · " % ("아군" if team=="ally" else "적군"))+str(LegionIndicator.NAMES.get(key,key))+" 군단"
+	header.add_theme_font_size_override("font_size",20)
+	header.add_theme_color_override("font_color",Color("c5efc9") if team=="ally" else Color("ffc2b9"))
+	body.add_child(header)
+	var description := Label.new()
+	description.custom_minimum_size = Vector2(405,0)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.text = str(LegionIndicator.EFFECTS.get(key,"효과 설명 없음"))
+	description.add_theme_font_size_override("font_size",15)
+	description.add_theme_color_override("font_color",Color("f4e6cc"))
+	body.add_child(description)
+	var hint := Label.new()
+	hint.text = "초록/붉은 빛은 군단의 실제 효과 발동 상태를 나타냅니다."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size",12)
+	hint.add_theme_color_override("font_color",Color("b4a890"))
+	body.add_child(hint)
+	var close := Button.new()
+	close.text = "닫기"
+	close.pressed.connect(close_legion_effect_info)
+	body.add_child(close)
+
+func close_legion_effect_info() -> void:
+	if is_instance_valid(legion_info_panel):
+		legion_info_panel.queue_free()
+	legion_info_panel = null
+
 func begin_entry_summon() -> void:
 	if entry_summon_active or not is_instance_valid(visuals): return
 	var ids: Array=visuals.prepare_entry_summon()
@@ -752,6 +818,7 @@ func roll_round(instance_id: String = "") -> void:
 		render_units(rules.units)
 		visuals.prepare_round_presentation(round_before,rules.units,rules.presentation_events)
 		await cues.play_dice_result(rules.face)
+		show_legion_pulses(rules.legion_pulses)
 		await cues.play_brands(rules.units)
 		await visuals.play_round(round_before,rules.units,rules.presentation_events)
 		await wait_time(0.5)
@@ -765,6 +832,7 @@ func roll_round(instance_id: String = "") -> void:
 			return
 		if action.is_empty(): break
 		render_units(action.before)
+		show_legion_pulses(action.get("legion_pulses",[]))
 		message.text = ""
 		await visuals.play_action(action)
 		message.text = ""

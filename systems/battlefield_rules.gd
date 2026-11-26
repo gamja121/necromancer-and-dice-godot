@@ -3,19 +3,27 @@ extends "res://systems/battle_rules.gd"
 var queue: Array = []
 var face = 1
 var presentation_events: Array = []
+var legion_pulses: Array = []
 
 # Keep round preparation separate from actions so the scene can present each one.
 func begin_round(forced_face: int = 0) -> void:
 	if not winner().is_empty(): return
 	events = []
 	presentation_events.clear()
+	legion_pulses.clear()
 	round_number += 1
 	for u in units:
 		u.bless = {}
 		u.curse = {}
 		u.shields = 0
-		if u.alive and has(u,"skeleton"): heal(u,1)
+		if u.alive and has(u,"skeleton") and heal(u,1)>0:
+			_record_legion_pulse(u.team,"skeleton")
+	var summoned_before := units.size()
 	summon_round()
+	for i in range(summoned_before,units.size()):
+		var pet: Dictionary = units[i]
+		if pet.is_summon and active(pet.team,"summon"):
+			_record_legion_pulse(pet.team,"summon")
 	face = forced_face if forced_face > 0 else rng.randi_range(1,6)
 	for u in units:
 		if not u.alive: continue
@@ -56,6 +64,10 @@ static func can_attack(unit: Dictionary) -> bool:
 	return unit.alive and not unit.frozen and unit.slug!="guardian-seed" and unit.curse.get("combo",0)==0 and unit.curse.get("critical",0)==0
 
 
+func _record_legion_pulse(team: String, kind: String) -> void:
+	var entry := {"team":team,"kind":kind}
+	if not legion_pulses.has(entry): legion_pulses.append(entry)
+
 func next_action() -> Dictionary:
 	while not queue.is_empty() and winner().is_empty():
 		var actor: Dictionary = queue.pop_front()
@@ -72,8 +84,15 @@ func next_action() -> Dictionary:
 		var target: Dictionary = {}
 		if actor.alive:
 			target = pick_target("enemy" if actor.team == "ally" else "ally")
+			var target_was_frozen: bool = bool(target.get("frozen",false))
 			attack(actor,target)
-		return {"actor":actor.id,"target":target.get("id",""),"before":old,"after":units.duplicate(true),"events":events.slice(event_index),"prepared":prepared,"before_effects":before_effects,"visual_hits":presentation_events.slice(presentation_start).duplicate(true),"attack_allowed":allowed,"miss":missed}
+			var action_legions: Array = []
+			if target_was_frozen and has(actor,"ice"):
+				var hits := presentation_events.slice(presentation_start)
+				if hits.any(func(hit): return hit.get("type","")=="damage" and hit.get("source","")==actor.id and hit.get("target","")==target.get("id","") and int(hit.get("amount",0))>0):
+					action_legions.append({"team":actor.team,"kind":"ice"})
+			return {"actor":actor.id,"target":target.get("id",""),"before":old,"after":units.duplicate(true),"events":events.slice(event_index),"prepared":prepared,"before_effects":before_effects,"visual_hits":presentation_events.slice(presentation_start).duplicate(true),"attack_allowed":allowed,"miss":missed,"legion_pulses":action_legions}
+		return {"actor":actor.id,"target":target.get("id",""),"before":old,"after":units.duplicate(true),"events":events.slice(event_index),"prepared":prepared,"before_effects":before_effects,"visual_hits":presentation_events.slice(presentation_start).duplicate(true),"attack_allowed":allowed,"miss":missed,"legion_pulses":[]}
 	return {}
 
 
