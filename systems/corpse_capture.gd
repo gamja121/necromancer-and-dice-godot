@@ -58,6 +58,7 @@ func place_choice_node(node: Control, parent: Control) -> void:
 
 var capture_info_panel: Panel
 var capture_info_status: Label
+var capture_info_guide: Label
 var capture_info_title: Label
 # Original V2 capture banner lives 7% down the battlefield.
 const CAPTURE_BANNER_SIZE = Vector2(430,142)
@@ -140,44 +141,80 @@ func setup(battle_scene) -> void:
 	refresh()
 	if pending.phase in ["success","failed"]: call_deferred("resume_result")
 
-# Source v2-auto-battle-practice.css .battlefield-capture:
-# top 7%; centered, maximum 430px wide; 142px tall; never captures input.
+# The capture notice uses a restrained ink-and-brass manuscript skin.
+# The original central 430 x 142 footprint and mouse pass-through remain.
+func capture_ornament(parent: Control, position_value: Vector2, dimensions: Vector2, color: Color) -> void:
+	var decoration := ColorRect.new()
+	decoration.position = position_value
+	decoration.size = dimensions
+	decoration.color = color
+	decoration.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(decoration)
+
 func build_capture_header() -> void:
 	capture_info_panel=Panel.new()
 	capture_info_panel.name="CaptureInfoPanel"
 	capture_info_panel.position=Vector2((size.x-CAPTURE_BANNER_SIZE.x)*0.5,size.y*0.07)
 	capture_info_panel.size=CAPTURE_BANNER_SIZE
 	capture_info_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var frame=StyleBoxFlat.new()
-	frame.bg_color=Color("c9aa94")
-	frame.border_color=Color("76573b")
-	frame.set_border_width_all(10)
-	frame.set_corner_radius_all(3)
-	frame.shadow_color=Color(0,0,0,0.45)
-	frame.shadow_size=5
+	var frame:=StyleBoxFlat.new()
+	frame.bg_color=Color("231b17f6")
+	frame.border_color=Color("aa865b")
+	frame.set_border_width_all(2)
+	frame.set_corner_radius_all(7)
+	frame.shadow_color=Color(0,0,0,0.56)
+	frame.shadow_size=9
 	capture_info_panel.add_theme_stylebox_override("panel",frame)
 	add_child(capture_info_panel)
+	# Muted leather title strip; no opaque parchment rectangle blocking the arena.
+	capture_ornament(capture_info_panel,Vector2(7,7),Vector2(416,37),Color("443126"))
+	capture_ornament(capture_info_panel,Vector2(15,45),Vector2(400,1),Color("a17c52"))
+	capture_ornament(capture_info_panel,Vector2(15,47),Vector2(400,1),Color("3a2a20"))
+	capture_ornament(capture_info_panel,Vector2(20,135),Vector2(390,1),Color("73583c"))
+	# Small angular corner stamps evoke the game's engraved map frame.
+	for x in [19.0,410.0]:
+		var mark:=ColorRect.new()
+		mark.color=Color("c2a16e")
+		mark.position=Vector2(x-3.0,21)
+		mark.size=Vector2(6,6)
+		mark.pivot_offset=Vector2(3,3)
+		mark.rotation=PI*0.25
+		mark.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		capture_info_panel.add_child(mark)
 	capture_info_title=Label.new()
 	capture_info_title.name="CaptureInfoTitle"
-	capture_info_title.position=Vector2(15,13)
-	capture_info_title.size=Vector2(400,31)
+	capture_info_title.position=Vector2(34,10)
+	capture_info_title.size=Vector2(362,32)
 	capture_info_title.text="영혼 수확"
 	capture_info_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	capture_info_title.add_theme_font_size_override("font_size",19)
-	capture_info_title.add_theme_color_override("font_color",Color("412c21"))
+	capture_info_title.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	capture_info_title.add_theme_font_size_override("font_size",21)
+	capture_info_title.add_theme_color_override("font_color",Color("f2d8a4"))
+	capture_info_title.add_theme_color_override("font_shadow_color",Color("120c08"))
+	capture_info_title.add_theme_constant_override("shadow_offset_y",2)
 	capture_info_title.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	capture_info_panel.add_child(capture_info_title)
 	capture_info_status=Label.new()
 	capture_info_status.name="CaptureInfoStatus"
-	capture_info_status.position=Vector2(16,48)
-	capture_info_status.size=Vector2(398,78)
+	capture_info_status.position=Vector2(19,51)
+	capture_info_status.size=Vector2(392,49)
 	capture_info_status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	capture_info_status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	capture_info_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	capture_info_status.add_theme_font_size_override("font_size",17)
-	capture_info_status.add_theme_color_override("font_color",Color("49382e"))
+	capture_info_status.add_theme_font_size_override("font_size",15)
+	capture_info_status.add_theme_color_override("font_color",Color("ebdbc0"))
 	capture_info_status.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	capture_info_panel.add_child(capture_info_status)
+	capture_info_guide=Label.new()
+	capture_info_guide.name="CaptureInfoGuide"
+	capture_info_guide.position=Vector2(21,104)
+	capture_info_guide.size=Vector2(388,25)
+	capture_info_guide.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	capture_info_guide.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	capture_info_guide.add_theme_font_size_override("font_size",13)
+	capture_info_guide.add_theme_color_override("font_color",Color("cda977"))
+	capture_info_guide.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	capture_info_panel.add_child(capture_info_guide)
 
 # During capture, restore defeated bodies to their readable full-opacity state.
 func improve_corpse_visibility(unit: Dictionary) -> void:
@@ -221,7 +258,9 @@ func refresh() -> void:
 	scene.dice.disabled = busy
 
 func set_capture_notice(value: String) -> void:
-	if is_instance_valid(capture_info_status): capture_info_status.text = value
+	var lines := value.split("\n",false,1)
+	if is_instance_valid(capture_info_status): capture_info_status.text = lines[0] if not lines.is_empty() else ""
+	if is_instance_valid(capture_info_guide): capture_info_guide.text = lines[1] if lines.size()>1 else ""
 
 
 func float_selection_arrow(card: TextureButton, arrow: TextureRect) -> void:

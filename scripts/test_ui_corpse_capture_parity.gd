@@ -48,6 +48,8 @@ func _run() -> void:
 		check(near(panel.capture_info_panel.position.x,425.0) and near(panel.capture_info_panel.position.y,surface*0.07),"capture banner centered at original 7 percent top for %d" % surface)
 		check(panel.capture_info_panel.size==Vector2(430,142) and panel.capture_info_panel.mouse_filter==Control.MOUSE_FILTER_IGNORE,"capture banner preserves source size and does not eat inputs")
 		check(panel.capture_info_title.text=="영혼 수확","victory-capture title visible")
+		check(panel.capture_info_guide!=null and panel.capture_info_guide.name=="CaptureInfoGuide","capture guide is styled separately for manuscript readability")
+		check((panel.capture_info_panel.get_theme_stylebox("panel") as StyleBoxFlat).border_width_left==2,"thin brass frame replaces the old heavy beige border")
 		var card_a:=TextureButton.new()
 		card_a.size=Vector2(79,115)
 		card_a.position=Vector2(820,surface-130)
